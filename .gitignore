@@ -37,6 +37,10 @@ ui_*.h
 qrc_*.cpp
 *_autogen/
 
+# Local tooling caches
+.cache/
+.clangd/
+
 # IDE / OS
 .vs/
 .vscode/*
