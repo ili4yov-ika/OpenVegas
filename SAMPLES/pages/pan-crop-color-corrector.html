@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Pan/Crop + Color Corrector - OpenVegas</title>
+  <link rel="stylesheet" href="../css/tokens.css" />
+  <link rel="stylesheet" href="../css/layout.css" />
+  <link rel="stylesheet" href="../css/components.css" />
+</head>
+<body>
+  <div class="app">
+    <header class="title-bar">
+      <div class="title-bar__left">
+        <span class="title-bar__logo">O</span>
+        <span>Untitled - OpenVegas</span>
+      </div>
+      <div class="title-bar__controls">
+        <button class="win-btn" type="button" aria-label="Minimize">─</button>
+        <button class="win-btn" type="button" aria-label="Maximize">☐</button>
+        <button class="win-btn win-btn--close" type="button" aria-label="Close">✕</button>
+      </div>
+    </header>
+
+    <nav class="menu-bar" aria-label="Main menu">
+      <button type="button" class="menu-item" data-menu="File">File</button>
+      <button type="button" class="menu-item" data-menu="Edit">Edit</button>
+      <button type="button" class="menu-item" data-menu="View">View</button>
+      <button type="button" class="menu-item" data-menu="Insert">Insert</button>
+      <button type="button" class="menu-item" data-menu="Tools">Tools</button>
+      <button type="button" class="menu-item" data-menu="Options">Options</button>
+      <button type="button" class="menu-item" data-menu="Help">Help</button>
+    </nav>
+
+    <div class="main-toolbar" data-chrome="main-toolbar" data-context="timeline-empty"></div>
+
+    <div class="workspace">
+      <div class="upper-workspace">
+        <section class="panel" data-tabs>
+          <div class="panel__toolbar" data-chrome="media-toolbar"></div>
+          <div class="panel__body">
+            <div class="tab-panel is-active" data-panel="project-media">
+              <div class="media-layout">
+                <div class="media-tree">
+                  <div class="tree-item is-selected"><span class="arrow">▾</span> All Media</div>
+                  <div class="tree-item"><span class="arrow">▸</span> Media By Type</div>
+                  <div class="tree-item tree-item--nested">Video</div>
+                  <div class="tree-item tree-item--nested">Audio</div>
+                  <div class="tree-item tree-item--nested">Still Image</div>
+                  <div class="tree-item"><span class="arrow">▸</span> Tagged Media</div>
+                  <div class="tree-item"><span class="arrow">▸</span> Custom Bins</div>
+                  <div class="tree-item"><span class="arrow">▸</span> Smart Bins</div>
+                  <div class="tree-item">Storyboard Bin</div>
+                  <div class="tree-item">Main Timeline</div>
+                </div>
+                <div class="media-grid"></div>
+              </div>
+            </div>
+            <div class="tab-panel" data-panel="explorer"><div class="placeholder-pane">Explorer</div></div>
+            <div class="tab-panel" data-panel="video-fx"><div class="placeholder-pane">Video FX</div></div>
+            <div class="tab-panel" data-panel="media-generators"><div class="placeholder-pane">Media Generators</div></div>
+            <div class="tab-panel" data-panel="transitions"><div class="placeholder-pane">Transitions</div></div>
+            <div class="tab-panel" data-panel="project-notes"><div class="placeholder-pane">Project Notes</div></div>
+          </div>
+          <div class="panel-tabs">
+            <button type="button" class="panel-tab" data-tab="explorer">Explorer</button>
+            <button type="button" class="panel-tab is-active" data-tab="project-media">Project Media</button>
+            <button type="button" class="panel-tab" data-tab="video-fx">Video FX</button>
+            <button type="button" class="panel-tab" data-tab="media-generators">Media Generators</button>
+            <button type="button" class="panel-tab" data-tab="transitions">Transitions</button>
+            <button type="button" class="panel-tab" data-tab="project-notes">Project Notes</button>
+            <span class="panel-tabs__spacer"></span>
+            <button type="button" class="panel-tab-ico" title="Maximize">▣</button>
+            <button type="button" class="panel-tab-ico" title="Close">×</button>
+          </div>
+        </section>
+
+        <section class="panel preview-panel">
+          <div class="panel__toolbar" data-chrome="preview-toolbar"></div>
+          <div class="preview-viewport" data-context="preview"></div>
+          <div class="preview-footer" data-chrome="preview-footer"
+               data-project="1920x1080x32, 29.970p"
+               data-preview="960x540x32, 29.970p"
+               data-frame="0"
+               data-display="1128x630x32"></div>
+        </section>
+
+        <aside class="panel master-bus" data-chrome="master-bus" data-level-l="0" data-level-r="0"></aside>
+      </div>
+
+      <section class="timeline-panel">
+        <div class="timeline-ruler">
+          <div class="ruler-corner" data-context="time-display">
+            <span class="ruler-corner__grip" aria-hidden="true"></span>
+            <span>00:00:00,000</span>
+          </div>
+          <div class="ruler-ticks" data-context="timeline-ruler">
+            <span class="ruler-playhead-mark" style="left:0px"></span>
+            <span class="ruler-tick ruler-tick--major" style="left:0">1.1.000</span>
+            <span class="ruler-tick" style="left:80px">2.1</span>
+            <span class="ruler-tick" style="left:160px">3.1</span>
+            <span class="ruler-tick" style="left:240px">4.1</span>
+            <span class="ruler-tick ruler-tick--major" style="left:320px">5.1</span>
+          </div>
+        </div>
+
+        <div class="timeline-main timeline-main--empty">
+          <div class="track-headers" aria-hidden="true"></div>
+          <div class="tracks-area" data-context="timeline-empty">
+            <div class="tracks-inner" style="min-height:100%;min-width:900px; position: relative;">
+              <div class="playhead" style="left:0px"></div>
+
+              <!-- Dummy event with extra FX chain for chain UI + Color Corrector view -->
+              <div class="event event--video is-selected" data-context="video-event"
+                   data-fx-chain="Color Corrector" style="left:80px; width:520px; position:absolute;">
+                <span class="event__label">sample_for_project_video</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="timeline-tools" data-chrome="timeline-tools" data-context="timeline-empty" data-timecode="00:00:00,000"></div>
+      </section>
+    </div>
+  </div>
+
+  <script src="../js/chrome.js"></script>
+  <script src="../js/pan-crop.js"></script>
+
+  <script>
+    document.addEventListener("DOMContentLoaded", () => {
+      const ev = document.querySelector(".event.event--video");
+      if (window.VegasPanCrop && ev) {
+        // Открываем именно Color Corrector view, чтобы было видно верстку effect.
+        window.VegasPanCrop.open(ev, "Color Corrector");
+      }
+    });
+  </script>
+</body>
+</html>
+

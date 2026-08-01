@@ -1,0 +1,356 @@
+﻿<?xml version="1.0"?>
+<xmeml version="5">
+	<project>
+		<name>Untitled Project 1</name>
+		<children>
+			<bin>
+				<updatebehavior>add</updatebehavior>
+				<name>Custom Bins</name>
+				<children />
+			</bin>
+			<clip id="sample_for_project_picture_1.png">
+				<updatebehavior>add</updatebehavior>
+				<name>sample_for_project_picture_1.png</name>
+				<duration>0</duration>
+				<rate>
+					<ntsc>FALSE</ntsc>
+					<timebase>0</timebase>
+				</rate>
+				<in>-1</in>
+				<out>-1</out>
+				<masterclipid>sample_for_project_picture_1.png</masterclipid>
+				<ismasterclip>TRUE</ismasterclip>
+				<logginginfo>
+					<scene />
+					<shottake />
+					<lognote />
+					<good>FALSE</good>
+				</logginginfo>
+				<labels>
+					<label2 />
+				</labels>
+				<comments>
+					<mastercomment1 />
+					<mastercomment2 />
+					<mastercomment3 />
+					<mastercomment4 />
+				</comments>
+				<media>
+					<video>
+						<track>
+							<clipitem id="sample_for_project_picture_1.png1">
+								<name>sample_for_project_picture_1.png</name>
+								<duration>0</duration>
+								<rate>
+									<ntsc>FALSE</ntsc>
+									<timebase>0</timebase>
+								</rate>
+								<in>0</in>
+								<out>0</out>
+								<start>0</start>
+								<end>0</end>
+								<pixelaspectratio>Square</pixelaspectratio>
+								<anamorphic>FALSE</anamorphic>
+								<alphatype>none</alphatype>
+								<masterclipid>sample_for_project_picture_1.png</masterclipid>
+								<logginginfo>
+									<scene />
+									<shottake />
+									<lognote />
+									<good>FALSE</good>
+								</logginginfo>
+								<labels>
+									<label2 />
+								</labels>
+								<comments>
+									<mastercomment1 />
+									<mastercomment2 />
+									<mastercomment3 />
+									<mastercomment4 />
+								</comments>
+								<file id="sample_for_project_picture_1">
+									<name>sample_for_project_picture_1.png</name>
+									<pathurl>file://localhost/D:/Devs/C++/OpenVegas/SAMPLES/veg_project/final-cut-pro-7_davinci-resolve/sample_for_project_picture_1.png</pathurl>
+									<rate>
+										<timebase>0</timebase>
+										<ntsc>FALSE</ntsc>
+									</rate>
+									<duration>0</duration>
+									<timecode>
+										<rate>
+											<timebase>0</timebase>
+											<ntsc>FALSE</ntsc>
+										</rate>
+										<frame>0</frame>
+										<displayformat>NDF</displayformat>
+										<source>source</source>
+									</timecode>
+									<media>
+										<video>
+											<duration>0</duration>
+											<samplecharacteristics>
+												<width>3840</width>
+												<height>2160</height>
+											</samplecharacteristics>
+										</video>
+									</media>
+								</file>
+								<sourcetrack>
+									<mediatype>video</mediatype>
+								</sourcetrack>
+								<fielddominance>none</fielddominance>
+							</clipitem>
+							<enabled>TRUE</enabled>
+							<locked>FALSE</locked>
+						</track>
+					</video>
+					<audio />
+				</media>
+			</clip>
+			<clip id="sample_for_project_picture_2.png">
+				<updatebehavior>add</updatebehavior>
+				<name>sample_for_project_picture_2.png</name>
+				<duration>0</duration>
+				<rate>
+					<ntsc>FALSE</ntsc>
+					<timebase>0</timebase>
+				</rate>
+				<in>-1</in>
+				<out>-1</out>
+				<masterclipid>sample_for_project_picture_2.png</masterclipid>
+				<ismasterclip>TRUE</ismasterclip>
+				<logginginfo>
+					<scene />
+					<shottake />
+					<lognote />
+					<good>FALSE</good>
+				</logginginfo>
+				<labels>
+					<label2 />
+				</labels>
+				<comments>
+					<mastercomment1 />
+					<mastercomment2 />
+					<mastercomment3 />
+					<mastercomment4 />
+				</comments>
+				<media>
+					<video>
+						<track>
+							<clipitem id="sample_for_project_picture_2.png1">
+								<name>sample_for_project_picture_2.png</name>
+								<duration>0</duration>
+								<rate>
+									<ntsc>FALSE</ntsc>
+									<timebase>0</timebase>
+								</rate>
+								<in>0</in>
+								<out>0</out>
+								<start>0</start>
+								<end>0</end>
+								<pixelaspectratio>Square</pixelaspectratio>
+								<anamorphic>FALSE</anamorphic>
+								<alphatype>none</alphatype>
+								<masterclipid>sample_for_project_picture_2.png</masterclipid>
+								<logginginfo>
+									<scene />
+									<shottake />
+									<lognote />
+									<good>FALSE</good>
+								</logginginfo>
+								<labels>
+									<label2 />
+								</labels>
+								<comments>
+									<mastercomment1 />
+									<mastercomment2 />
+									<mastercomment3 />
+									<mastercomment4 />
+								</comments>
+								<file id="sample_for_project_picture_2">
+									<name>sample_for_project_picture_2.png</name>
+									<pathurl>file://localhost/D:/Devs/C++/OpenVegas/SAMPLES/veg_project/final-cut-pro-7_davinci-resolve/sample_for_project_picture_2.png</pathurl>
+									<rate>
+										<timebase>0</timebase>
+										<ntsc>FALSE</ntsc>
+									</rate>
+									<duration>0</duration>
+									<timecode>
+										<rate>
+											<timebase>0</timebase>
+											<ntsc>FALSE</ntsc>
+										</rate>
+										<frame>0</frame>
+										<displayformat>NDF</displayformat>
+										<source>source</source>
+									</timecode>
+									<media>
+										<video>
+											<duration>0</duration>
+											<samplecharacteristics>
+												<width>3840</width>
+												<height>2160</height>
+											</samplecharacteristics>
+										</video>
+									</media>
+								</file>
+								<sourcetrack>
+									<mediatype>video</mediatype>
+								</sourcetrack>
+								<fielddominance>none</fielddominance>
+							</clipitem>
+							<enabled>TRUE</enabled>
+							<locked>FALSE</locked>
+						</track>
+					</video>
+					<audio />
+				</media>
+			</clip>
+			<sequence id="Sequence 1">
+				<updatebehavior>add</updatebehavior>
+				<name>Sequence 1</name>
+				<duration>600</duration>
+				<rate>
+					<ntsc>FALSE</ntsc>
+					<timebase>60</timebase>
+				</rate>
+				<timecode>
+					<rate>
+						<ntsc>FALSE</ntsc>
+						<timebase>60</timebase>
+					</rate>
+					<frame>216000</frame>
+					<source>source</source>
+					<displayformat>NDF</displayformat>
+				</timecode>
+				<in>-1</in>
+				<out>-1</out>
+				<media>
+					<video>
+						<format>
+							<samplecharacteristics>
+								<width>3840</width>
+								<height>2160</height>
+								<pixelaspectratio>Square</pixelaspectratio>
+								<anamorphic>FALSE</anamorphic>
+								<fielddominance>none</fielddominance>
+								<rate>
+									<ntsc>FALSE</ntsc>
+									<timebase>60</timebase>
+								</rate>
+								<colordepth>24</colordepth>
+							</samplecharacteristics>
+						</format>
+						<track>
+							<clipitem id="sample_for_project_picture_1.png805306380">
+								<name>sample_for_project_picture_1.png</name>
+								<duration>300</duration>
+								<rate>
+									<ntsc>FALSE</ntsc>
+									<timebase>0</timebase>
+								</rate>
+								<in>0</in>
+								<out>300</out>
+								<start>0</start>
+								<end>300</end>
+								<pixelaspectratio>Square</pixelaspectratio>
+								<anamorphic>FALSE</anamorphic>
+								<alphatype>none</alphatype>
+								<masterclipid>sample_for_project_picture_1.png</masterclipid>
+								<logginginfo>
+									<scene />
+									<shottake />
+									<lognote />
+									<good>FALSE</good>
+								</logginginfo>
+								<labels>
+									<label2 />
+								</labels>
+								<comments>
+									<mastercomment1 />
+									<mastercomment2 />
+									<mastercomment3 />
+									<mastercomment4 />
+								</comments>
+								<file id="sample_for_project_picture_1" />
+								<filter>
+									<effect>
+										<name>Opacity</name>
+										<effectid>opacity</effectid>
+										<effectcategory>motion</effectcategory>
+										<effecttype>motion</effecttype>
+										<mediatype>video</mediatype>
+										<parameter>
+											<name>opacity</name>
+											<parameterid>opacity</parameterid>
+											<valuemin>0</valuemin>
+											<valuemax>100</valuemax>
+											<value>100</value>
+										</parameter>
+									</effect>
+								</filter>
+								<sourcetrack>
+									<mediatype>video</mediatype>
+								</sourcetrack>
+								<fielddominance>none</fielddominance>
+							</clipitem>
+							<clipitem id="sample_for_project_picture_2.png805306381">
+								<name>sample_for_project_picture_2.png</name>
+								<duration>300</duration>
+								<rate>
+									<ntsc>FALSE</ntsc>
+									<timebase>0</timebase>
+								</rate>
+								<in>0</in>
+								<out>300</out>
+								<start>300</start>
+								<end>600</end>
+								<pixelaspectratio>Square</pixelaspectratio>
+								<anamorphic>FALSE</anamorphic>
+								<alphatype>none</alphatype>
+								<masterclipid>sample_for_project_picture_2.png</masterclipid>
+								<logginginfo>
+									<scene />
+									<shottake />
+									<lognote />
+									<good>FALSE</good>
+								</logginginfo>
+								<labels>
+									<label2 />
+								</labels>
+								<comments>
+									<mastercomment1 />
+									<mastercomment2 />
+									<mastercomment3 />
+									<mastercomment4 />
+								</comments>
+								<file id="sample_for_project_picture_2" />
+								<filter>
+									<effect>
+										<name>Opacity</name>
+										<effectid>opacity</effectid>
+										<effectcategory>motion</effectcategory>
+										<effecttype>motion</effecttype>
+										<mediatype>video</mediatype>
+										<parameter>
+											<name>opacity</name>
+											<parameterid>opacity</parameterid>
+											<valuemin>0</valuemin>
+											<valuemax>100</valuemax>
+											<value>100</value>
+										</parameter>
+									</effect>
+								</filter>
+								<sourcetrack>
+									<mediatype>video</mediatype>
+								</sourcetrack>
+								<fielddominance>none</fielddominance>
+							</clipitem>
+						</track>
+					</video>
+					<audio />
+				</media>
+			</sequence>
+		</children>
+	</project>
+</xmeml>

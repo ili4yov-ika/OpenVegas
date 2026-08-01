@@ -1,0 +1,8 @@
+example_project_with_2_videos-одно_растянуто.veg	17808
+example_project_with_2_videos-одно_сжато.veg	17800
+example_project_with_2_videos.veg	17776
+example_project_with_only_audio.veg	12200
+example_project_with_only_video.veg	13600
+example_project_with_video_and_audio.veg	14256
+example_project_with_video_and_audio_trimmers.veg	19448
+example_project_with_video_and_audio_with_crossfade.veg	14288

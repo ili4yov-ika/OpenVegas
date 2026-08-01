@@ -1,0 +1,21 @@
+{
+  "lsp": {
+    "clangd": {
+      "binary": {
+        "path": "clangd",
+        "arguments": [
+          "--background-index",
+          "--completion-style=detailed",
+          "--header-insertion=never",
+          "--pch-storage=memory",
+          "--compile-commands-dir=build",
+          "--query-driver=C:/Qt/Tools/mingw1310_64/bin/g++.exe",
+          "--clang-tidy=false"
+        ]
+      }
+    }
+  },
+  "file_types": {
+    "XML": ["ui", "qrc"]
+  }
+}

@@ -1,0 +1,166 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "CMake: Configure (MinGW Debug)",
+            "type": "shell",
+            "command": "cmake",
+            "args": [
+                "-S", "${workspaceFolder}",
+                "-B", "${workspaceFolder}/build",
+                "-G", "Ninja",
+                "-DCMAKE_BUILD_TYPE=Debug",
+                "-DCMAKE_PREFIX_PATH=C:/Qt/6.9.3/mingw_64",
+                "-DCMAKE_CXX_COMPILER=C:/Qt/Tools/mingw1310_64/bin/g++.exe",
+                "-DCMAKE_MAKE_PROGRAM=C:/Qt/Tools/Ninja/ninja.exe",
+                "-DCMAKE_EXPORT_COMPILE_COMMANDS=ON"
+            ],
+            "group": "build",
+            "presentation": { "reveal": "always", "panel": "shared" },
+            "problemMatcher": [],
+            "detail": "CMake → build/ (MinGW + Ninja Debug)",
+            "options": {
+                "cwd": "${workspaceFolder}",
+                "env": {
+                    "PATH": "C:/Qt/Tools/mingw1310_64/bin;C:/Qt/6.9.3/mingw_64/bin;C:/Qt/Tools/Ninja;C:/Program Files/CMake/bin;${env:PATH}"
+                }
+            }
+        },
+        {
+            "label": "CMake: Build (MinGW Debug)",
+            "type": "shell",
+            "command": "cmake",
+            "args": ["--build", "${workspaceFolder}/build", "--parallel"],
+            "group": { "kind": "build", "isDefault": true },
+            "presentation": { "reveal": "always", "panel": "shared" },
+            "problemMatcher": ["$gcc"],
+            "detail": "Сборка OpenVegas.exe (CMake MinGW Debug)",
+            "options": {
+                "cwd": "${workspaceFolder}",
+                "env": {
+                    "PATH": "C:/Qt/Tools/mingw1310_64/bin;C:/Qt/6.9.3/mingw_64/bin;C:/Qt/Tools/Ninja;C:/Program Files/CMake/bin;${env:PATH}"
+                }
+            },
+            "dependsOn": "CMake: Configure (MinGW Debug)"
+        },
+        {
+            "label": "CMake: Configure (MinGW Release)",
+            "type": "shell",
+            "command": "cmake",
+            "args": [
+                "-S", "${workspaceFolder}",
+                "-B", "${workspaceFolder}/build-release",
+                "-G", "Ninja",
+                "-DCMAKE_BUILD_TYPE=Release",
+                "-DCMAKE_PREFIX_PATH=C:/Qt/6.9.3/mingw_64",
+                "-DCMAKE_CXX_COMPILER=C:/Qt/Tools/mingw1310_64/bin/g++.exe",
+                "-DCMAKE_MAKE_PROGRAM=C:/Qt/Tools/Ninja/ninja.exe"
+            ],
+            "group": "build",
+            "presentation": { "reveal": "always", "panel": "shared" },
+            "problemMatcher": [],
+            "options": {
+                "cwd": "${workspaceFolder}",
+                "env": {
+                    "PATH": "C:/Qt/Tools/mingw1310_64/bin;C:/Qt/6.9.3/mingw_64/bin;C:/Qt/Tools/Ninja;C:/Program Files/CMake/bin;${env:PATH}"
+                }
+            }
+        },
+        {
+            "label": "CMake: Build (MinGW Release)",
+            "type": "shell",
+            "command": "cmake",
+            "args": ["--build", "${workspaceFolder}/build-release", "--parallel"],
+            "group": "build",
+            "presentation": { "reveal": "always", "panel": "shared" },
+            "problemMatcher": ["$gcc"],
+            "dependsOn": "CMake: Configure (MinGW Release)",
+            "options": {
+                "cwd": "${workspaceFolder}",
+                "env": {
+                    "PATH": "C:/Qt/Tools/mingw1310_64/bin;C:/Qt/6.9.3/mingw_64/bin;C:/Qt/Tools/Ninja;C:/Program Files/CMake/bin;${env:PATH}"
+                }
+            }
+        },
+        {
+            "label": "CMake: Configure (MSVC Debug)",
+            "type": "shell",
+            "command": "cmd",
+            "args": [
+                "/c",
+                "call \"%ProgramFiles(x86)%\\Microsoft Visual Studio\\Installer\\vswhere.exe\" -latest -property installationPath > \"%TEMP%\\ov_vs.txt\" && set /p VS=<\"%TEMP%\\ov_vs.txt\" && call \"%VS%\\VC\\Auxiliary\\Build\\vcvars64.bat\" && cmake -S \"${workspaceFolder}\" -B \"${workspaceFolder}/build-msvc\" -G Ninja -DCMAKE_BUILD_TYPE=Debug -DCMAKE_PREFIX_PATH=C:/Qt/6.9.3/msvc2022_64 -DCMAKE_MAKE_PROGRAM=C:/Qt/Tools/Ninja/ninja.exe -DCMAKE_EXPORT_COMPILE_COMMANDS=ON"
+            ],
+            "group": "build",
+            "presentation": { "reveal": "always", "panel": "shared" },
+            "problemMatcher": [],
+            "detail": "CMake → build-msvc/ (MSVC + Qt msvc2022_64)",
+            "options": { "cwd": "${workspaceFolder}" }
+        },
+        {
+            "label": "CMake: Build (MSVC Debug)",
+            "type": "shell",
+            "command": "cmd",
+            "args": [
+                "/c",
+                "call \"%ProgramFiles(x86)%\\Microsoft Visual Studio\\Installer\\vswhere.exe\" -latest -property installationPath > \"%TEMP%\\ov_vs.txt\" && set /p VS=<\"%TEMP%\\ov_vs.txt\" && call \"%VS%\\VC\\Auxiliary\\Build\\vcvars64.bat\" && cmake --build \"${workspaceFolder}/build-msvc\" --parallel"
+            ],
+            "group": "build",
+            "presentation": { "reveal": "always", "panel": "shared" },
+            "problemMatcher": ["$msCompile"],
+            "dependsOn": "CMake: Configure (MSVC Debug)",
+            "options": { "cwd": "${workspaceFolder}" }
+        },
+        {
+            "label": "qmake: Configure (MinGW Debug)",
+            "type": "shell",
+            "command": "powershell",
+            "args": [
+                "-NoProfile",
+                "-Command",
+                "New-Item -ItemType Directory -Force -Path '${workspaceFolder}/build-pro' | Out-Null; Set-Location '${workspaceFolder}/build-pro'; & 'C:/Qt/6.9.3/mingw_64/bin/qmake.exe' '${workspaceFolder}/OpenVegas.pro' CONFIG+=debug -spec win32-g++"
+            ],
+            "group": "build",
+            "presentation": { "reveal": "always", "panel": "shared" },
+            "problemMatcher": [],
+            "detail": "qmake OpenVegas.pro → build-pro/",
+            "options": {
+                "cwd": "${workspaceFolder}",
+                "env": {
+                    "PATH": "C:/Qt/Tools/mingw1310_64/bin;C:/Qt/6.9.3/mingw_64/bin;${env:PATH}"
+                }
+            }
+        },
+        {
+            "label": "qmake: Build (MinGW Debug)",
+            "type": "shell",
+            "command": "C:/Qt/Tools/mingw1310_64/bin/mingw32-make.exe",
+            "args": ["-j${env:NUMBER_OF_PROCESSORS}"],
+            "group": "build",
+            "presentation": { "reveal": "always", "panel": "shared" },
+            "problemMatcher": ["$gcc"],
+            "detail": "mingw32-make OpenVegas (qmake)",
+            "dependsOn": "qmake: Configure (MinGW Debug)",
+            "options": {
+                "cwd": "${workspaceFolder}/build-pro",
+                "env": {
+                    "PATH": "C:/Qt/Tools/mingw1310_64/bin;C:/Qt/6.9.3/mingw_64/bin;${env:PATH}"
+                }
+            }
+        },
+        {
+            "label": "CMake: Clean (MinGW)",
+            "type": "shell",
+            "command": "cmake",
+            "args": ["--build", "${workspaceFolder}/build", "--target", "clean"],
+            "group": "build",
+            "presentation": { "reveal": "always", "panel": "shared" },
+            "problemMatcher": [],
+            "options": {
+                "cwd": "${workspaceFolder}",
+                "env": {
+                    "PATH": "C:/Qt/Tools/mingw1310_64/bin;C:/Qt/Tools/Ninja;C:/Program Files/CMake/bin;${env:PATH}"
+                }
+            }
+        }
+    ]
+}

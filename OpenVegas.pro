@@ -1,0 +1,152 @@
+# OpenVegas — qmake project for Qt Creator
+# Open this file in Qt Creator (Qt 6.8+ Widgets kit).
+# Alternative build: CMakeLists.txt
+
+QT       += core gui widgets svg
+CONFIG   += c++17 warn_on
+CONFIG   -= app_bundle
+
+TEMPLATE = app
+TARGET   = OpenVegas
+VERSION  = 0.1.0
+
+# Headers live under src/; .ui under ui/
+INCLUDEPATH += $$PWD/src
+UI_DIR       = $$OUT_PWD/ui_headers
+MOC_DIR      = $$OUT_PWD/moc
+OBJECTS_DIR  = $$OUT_PWD/obj
+RCC_DIR      = $$OUT_PWD/rcc
+
+# Tell uic where to find .ui files referenced by #include "ui_*.h"
+FORMS += \
+    ui/MainWindow.ui \
+    ui/WelcomeDialog.ui \
+    ui/ProjectPropertiesDialog.ui \
+    ui/RenderAsDialog.ui \
+    ui/PreferencesDialog.ui \
+    ui/EventPropertiesDialog.ui \
+    ui/TrimmerWindow.ui \
+    ui/PluginChooserDialog.ui
+
+HEADERS += \
+    src/app/MainWindow.h \
+    src/ui/Theme.h \
+    src/ui/MenuBuilder.h \
+    src/ui/IconFactory.h \
+    src/ui/WelcomeDialog.h \
+    src/ui/ProjectPropertiesDialog.h \
+    src/ui/RenderAsDialog.h \
+    src/ui/PreferencesDialog.h \
+    src/ui/EventPropertiesDialog.h \
+    src/ui/TrimmerWindow.h \
+    src/ui/PluginChooserDialog.h \
+    src/ui/AudioEventFxDialog.h \
+    src/ui/ContextMenuBuilder.h \
+    src/ui/FadeCurvePopup.h \
+    src/ui/ExplorerPane.h \
+    src/ui/VideoFxPane.h \
+    src/ui/MediaGeneratorPane.h \
+    src/ui/TransitionsPane.h \
+    src/ui/ProjectNotesPane.h \
+    src/ui/MixingConsoleWindow.h \
+    src/ui/RateSlider.h \
+    src/ui/VideoEventFxDialog.h \
+    src/ui/VideoEventFxDialogExact.h \
+    src/ui/MediaBinListWidget.h \
+    src/timeline/TimelineView.h \
+    src/timeline/TimelineScrollHost.h \
+    src/model/ProjectModel.h \
+    src/io/VegReader.h \
+    src/io/ProjectInterchange.h \
+    src/io/SamplePaths.h \
+    src/io/MediaMime.h \
+    src/io/MediaThumbCache.h \
+    src/io/MediaWaveformCache.h \
+    src/io/MediaFilmstripCache.h \
+    src/plugins/PluginScanner.h \
+    src/plugins/AudioPluginTypes.h \
+    src/plugins/BuiltinAudioCatalog.h \
+    src/plugins/AudioPluginScanner.h \
+    src/plugins/AudioPluginRegistry.h \
+    src/plugins/AudioPluginHost.h
+
+SOURCES += \
+    src/app/main.cpp \
+    src/app/MainWindow.cpp \
+    src/ui/Theme.cpp \
+    src/ui/MenuBuilder.cpp \
+    src/ui/IconFactory.cpp \
+    src/ui/WelcomeDialog.cpp \
+    src/ui/ProjectPropertiesDialog.cpp \
+    src/ui/RenderAsDialog.cpp \
+    src/ui/PreferencesDialog.cpp \
+    src/ui/EventPropertiesDialog.cpp \
+    src/ui/TrimmerWindow.cpp \
+    src/ui/PluginChooserDialog.cpp \
+    src/ui/AudioEventFxDialog.cpp \
+    src/ui/ContextMenuBuilder.cpp \
+    src/ui/FadeCurvePopup.cpp \
+    src/ui/ExplorerPane.cpp \
+    src/ui/VideoFxPane.cpp \
+    src/ui/MediaGeneratorPane.cpp \
+    src/ui/TransitionsPane.cpp \
+    src/ui/ProjectNotesPane.cpp \
+    src/ui/MixingConsoleWindow.cpp \
+    src/ui/RateSlider.cpp \
+    src/ui/VideoEventFxDialog.cpp \
+    src/ui/VideoEventFxDialogExact.cpp \
+    src/ui/MediaBinListWidget.cpp \
+    src/timeline/TimelineView.cpp \
+    src/timeline/TimelineScrollHost.cpp \
+    src/model/ProjectModel.cpp \
+    src/io/VegReader.cpp \
+    src/io/ProjectInterchange.cpp \
+    src/io/SamplePaths.cpp \
+    src/io/MediaMime.cpp \
+    src/io/MediaThumbCache.cpp \
+    src/io/MediaWaveformCache.cpp \
+    src/io/MediaFilmstripCache.cpp \
+    src/plugins/PluginScanner.cpp \
+    src/plugins/BuiltinAudioCatalog.cpp \
+    src/plugins/AudioPluginScanner.cpp \
+    src/plugins/AudioPluginRegistry.cpp \
+    src/plugins/AudioPluginHost.cpp
+
+RESOURCES += \
+    resources/resources.qrc
+
+win32:RC_ICONS = resources/icons/logo.ico
+win32:LIBS += -lole32 -lshell32 -luuid -lgdi32
+
+# Warning levels. For MSVC do not append /W4 on top of Qt mkspec /W3 (D9025).
+win32-msvc {
+    QMAKE_CFLAGS_WARN_ON = -W4
+    QMAKE_CXXFLAGS_WARN_ON = -W4
+    QMAKE_CXXFLAGS += /permissive-
+} else {
+    QMAKE_CXXFLAGS += -Wall -Wextra -Wpedantic
+}
+
+# Optional Vegas staging (gitignored). Prefer CMake -DOPENVGAS_COPY_VEGAS_RUNTIME=ON.
+# In Creator: Projects → Build → Additional qmake arguments: CONFIG+=copy_vegas_runtime
+copy_vegas_runtime {
+    VEGAS_SRC = $$PWD/SAMPLES/VEGAS-PRO-22-PROGRAM-FILES
+    VEGAS_DST = $$OUT_PWD/vegas-runtime
+    !exists($$VEGAS_SRC) {
+        warning("CONFIG+=copy_vegas_runtime set but SAMPLES/VEGAS-PRO-22-PROGRAM-FILES not found")
+    } else {
+        message("Build will stage OFX/Icons into $$VEGAS_DST (do not commit)")
+        QMAKE_POST_LINK += $$quote($$QMAKE_MKDIR $$shell_quote($$VEGAS_DST)) $$escape_expand(\\n\\t)
+        QMAKE_POST_LINK += $$quote($$QMAKE_COPY_DIR $$shell_quote($$VEGAS_SRC/Icons) $$shell_quote($$VEGAS_DST/Icons))
+    }
+}
+
+# Desktop deployment hints
+win32 {
+    CONFIG += windows
+}
+
+unix:!macx {
+    target.path = /usr/local/bin
+    INSTALLS += target
+}

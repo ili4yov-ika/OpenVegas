@@ -1,0 +1,127 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>EventPropertiesDialog</class>
+ <widget class="QDialog" name="EventPropertiesDialog">
+  <property name="geometry">
+   <rect>
+    <x>0</x>
+    <y>0</y>
+    <width>520</width>
+    <height>400</height>
+   </rect>
+  </property>
+  <property name="windowTitle">
+   <string>Event Properties</string>
+  </property>
+  <layout class="QVBoxLayout" name="verticalLayout">
+   <item>
+    <widget class="QTabWidget" name="tabs">
+     <widget class="QWidget" name="tabEvent">
+      <attribute name="title">
+       <string>Event</string>
+      </attribute>
+      <layout class="QFormLayout" name="eventForm">
+       <item row="0" column="0">
+        <widget class="QLabel" name="labelName">
+         <property name="text">
+          <string>Name</string>
+         </property>
+        </widget>
+       </item>
+       <item row="0" column="1">
+        <widget class="QLineEdit" name="eventName"/>
+       </item>
+       <item row="1" column="0">
+        <widget class="QLabel" name="labelStart">
+         <property name="text">
+          <string>Start (s)</string>
+         </property>
+        </widget>
+       </item>
+       <item row="1" column="1">
+        <widget class="QDoubleSpinBox" name="spinStart">
+         <property name="decimals">
+          <number>3</number>
+         </property>
+         <property name="maximum">
+          <number>86400.000000000000000</number>
+         </property>
+        </widget>
+       </item>
+       <item row="2" column="0">
+        <widget class="QLabel" name="labelLength">
+         <property name="text">
+          <string>Length (s)</string>
+         </property>
+        </widget>
+       </item>
+       <item row="2" column="1">
+        <widget class="QDoubleSpinBox" name="spinLength">
+         <property name="decimals">
+          <number>3</number>
+         </property>
+         <property name="maximum">
+          <number>86400.000000000000000</number>
+         </property>
+         <property name="value">
+          <number>5.000000000000000</number>
+         </property>
+        </widget>
+       </item>
+      </layout>
+     </widget>
+     <widget class="QWidget" name="tabMedia">
+      <attribute name="title">
+       <string>Media</string>
+      </attribute>
+      <layout class="QVBoxLayout" name="mediaLayout">
+       <item>
+        <widget class="QLabel" name="mediaInfo">
+         <property name="text">
+          <string>Media properties (stub)</string>
+         </property>
+        </widget>
+       </item>
+      </layout>
+     </widget>
+     <widget class="QWidget" name="tabGeneral">
+      <attribute name="title">
+       <string>General</string>
+      </attribute>
+      <layout class="QVBoxLayout" name="generalLayout">
+       <item>
+        <widget class="QLabel" name="generalInfo">
+         <property name="text">
+          <string>General (stub)</string>
+         </property>
+        </widget>
+       </item>
+      </layout>
+     </widget>
+    </widget>
+   </item>
+   <item>
+    <widget class="QDialogButtonBox" name="buttonBox">
+     <property name="standardButtons">
+      <set>QDialogButtonBox::Cancel|QDialogButtonBox::Ok</set>
+     </property>
+    </widget>
+   </item>
+  </layout>
+ </widget>
+ <resources/>
+ <connections>
+  <connection>
+   <sender>buttonBox</sender>
+   <signal>accepted()</signal>
+   <receiver>EventPropertiesDialog</receiver>
+   <slot>accept()</slot>
+  </connection>
+  <connection>
+   <sender>buttonBox</sender>
+   <signal>rejected()</signal>
+   <receiver>EventPropertiesDialog</receiver>
+   <slot>reject()</slot>
+  </connection>
+ </connections>
+</ui>

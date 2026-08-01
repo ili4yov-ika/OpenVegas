@@ -1,0 +1,203 @@
+[
+  {
+    "name": "example_project_with_2_videos-one_compressed.veg",
+    "size": 19096,
+    "md5": "309fbfafc93abd6cd62cb0f58b62e149",
+    "ver": 22,
+    "sr": 48000,
+    "fps": 59.94005994005994,
+    "labels": 0,
+    "media": [
+      "C:\\Users\\Admin\\Videos\\1untitled.mp4"
+    ],
+    "fx": [
+      "VEGAS Track Compressor",
+      "VEGAS Track EQ",
+      "VEGAS Track Noise Gate"
+    ],
+    "svfx": [
+      "{Svfx:com.vegascreativesoftware:colorcorrector}"
+    ],
+    "proj_path": "D:\\Devs\\C++\\OpenVegas\\sample_ui\\example_project_with_2_videos-one_compressed.veg",
+    "playback_rates": [
+      {
+        "off": "0x1980",
+        "rate": 2.455782340108871,
+        "pct": 245.58,
+        "len_sec": 2.45245,
+        "source_used_sec": 6.022683
+      },
+      {
+        "off": "0x31C8",
+        "rate": 2.455782340108871,
+        "pct": 245.58,
+        "len_sec": 2.45245,
+        "source_used_sec": 6.022683
+      }
+    ]
+  },
+  {
+    "name": "example_project_with_2_videos-one_stretched.veg",
+    "size": 18496,
+    "md5": "4d8df3f724a5dde3b66b4f99ad416f20",
+    "ver": 22,
+    "sr": 48000,
+    "fps": 59.94005994005994,
+    "labels": 0,
+    "media": [
+      "C:\\Users\\Admin\\Videos\\1untitled.mp4"
+    ],
+    "fx": [
+      "VEGAS Track Compressor",
+      "VEGAS Track EQ",
+      "VEGAS Track Noise Gate"
+    ],
+    "svfx": [
+      "{Svfx:com.vegascreativesoftware:colorcorrector}"
+    ],
+    "proj_path": "D:\\Devs\\C++\\OpenVegas\\sample_ui\\example_project_with_2_videos-one_stretched.veg",
+    "playback_rates": [
+      {
+        "off": "0x1728",
+        "rate": 0.36317907700677965,
+        "pct": 36.32,
+        "len_sec": 16.583233,
+        "source_used_sec": 6.022683
+      },
+      {
+        "off": "0x2F70",
+        "rate": 0.36317907700677965,
+        "pct": 36.32,
+        "len_sec": 16.583233,
+        "source_used_sec": 6.022683
+      }
+    ]
+  },
+  {
+    "name": "example_project_with_2_videos.veg",
+    "size": 18464,
+    "md5": "24ccb8cb621a12f11bd8d08b94bc4321",
+    "ver": 22,
+    "sr": 48000,
+    "fps": 59.94005994005994,
+    "labels": 0,
+    "media": [
+      "C:\\Users\\Admin\\Videos\\1untitled.mp4"
+    ],
+    "fx": [
+      "VEGAS Track Compressor",
+      "VEGAS Track EQ",
+      "VEGAS Track Noise Gate"
+    ],
+    "svfx": [
+      "{Svfx:com.vegascreativesoftware:colorcorrector}"
+    ],
+    "proj_path": "D:\\Devs\\C++\\OpenVegas\\sample_ui\\example_project_with_2_videos.veg",
+    "playback_rates": []
+  },
+  {
+    "name": "example_project_with_only_audio.veg",
+    "size": 12200,
+    "md5": "cdbe48b1e3a1becd4eab438c7c640d6e",
+    "ver": 22,
+    "sr": 48000,
+    "fps": 59.94005994005994,
+    "labels": 1,
+    "media": [
+      "D:\\Devs\\C++\\OpenVegas\\sample_ui\\screenshots\\sample_for_project_audio.wav",
+      "D:\\Devs\\C++\\OpenVegas\\sample_ui\\screenshots\\sample_for_project_video.mp4"
+    ],
+    "fx": [
+      "VEGAS Track Compressor",
+      "VEGAS Track EQ",
+      "VEGAS Track Noise Gate"
+    ],
+    "svfx": [],
+    "proj_path": "D:\\Devs\\C++\\OpenVegas\\sample_ui\\example_project_with_only_audio.veg",
+    "playback_rates": []
+  },
+  {
+    "name": "example_project_with_only_video.veg",
+    "size": 13600,
+    "md5": "973ddddedc5a7cff340182dc84d9277e",
+    "ver": 22,
+    "sr": 48000,
+    "fps": 59.94005994005994,
+    "labels": 2,
+    "media": [
+      "D:\\Devs\\C++\\OpenVegas\\sample_ui\\screenshots\\sample_for_project_audio.wav",
+      "D:\\Devs\\C++\\OpenVegas\\sample_ui\\screenshots\\sample_for_project_video.mp4"
+    ],
+    "fx": [
+      "VEGAS Track Compressor",
+      "VEGAS Track EQ",
+      "VEGAS Track Noise Gate"
+    ],
+    "svfx": [],
+    "proj_path": "D:\\Devs\\C++\\OpenVegas\\sample_ui\\example_project_with_only_video.veg",
+    "playback_rates": []
+  },
+  {
+    "name": "example_project_with_video_and_audio.veg",
+    "size": 14256,
+    "md5": "5b625b92f6819b5560c9dc4137e8226c",
+    "ver": 22,
+    "sr": 48000,
+    "fps": 59.94005994005994,
+    "labels": 3,
+    "media": [
+      "D:\\Devs\\C++\\OpenVegas\\sample_ui\\screenshots\\sample_for_project_audio.wav",
+      "D:\\Devs\\C++\\OpenVegas\\sample_ui\\screenshots\\sample_for_project_video.mp4"
+    ],
+    "fx": [
+      "VEGAS Track Compressor",
+      "VEGAS Track EQ",
+      "VEGAS Track Noise Gate"
+    ],
+    "svfx": [],
+    "proj_path": "D:\\Devs\\C++\\OpenVegas\\sample_ui\\example_project_with_video_and_audio.veg",
+    "playback_rates": []
+  },
+  {
+    "name": "example_project_with_video_and_audio_trimmers.veg",
+    "size": 19448,
+    "md5": "8b7135145c87e14eb07b1377b254ffa8",
+    "ver": 22,
+    "sr": 48000,
+    "fps": 59.94005994005994,
+    "labels": 12,
+    "media": [
+      "D:\\Devs\\C++\\OpenVegas\\sample_ui\\screenshots\\sample_for_project_audio.wav",
+      "D:\\Devs\\C++\\OpenVegas\\sample_ui\\screenshots\\sample_for_project_video.mp4"
+    ],
+    "fx": [
+      "VEGAS Track Compressor",
+      "VEGAS Track EQ",
+      "VEGAS Track Noise Gate"
+    ],
+    "svfx": [],
+    "proj_path": "D:\\Devs\\C++\\OpenVegas\\sample_ui\\example_project_with_video_and_audio_trimmers.veg",
+    "playback_rates": []
+  },
+  {
+    "name": "example_project_with_video_and_audio_with_crossfade.veg",
+    "size": 14288,
+    "md5": "19bafce79a095665008e2931f96acc4c",
+    "ver": 22,
+    "sr": 48000,
+    "fps": 59.94005994005994,
+    "labels": 3,
+    "media": [
+      "D:\\Devs\\C++\\OpenVegas\\sample_ui\\screenshots\\sample_for_project_audio.wav",
+      "D:\\Devs\\C++\\OpenVegas\\sample_ui\\screenshots\\sample_for_project_video.mp4"
+    ],
+    "fx": [
+      "VEGAS Track Compressor",
+      "VEGAS Track EQ",
+      "VEGAS Track Noise Gate"
+    ],
+    "svfx": [],
+    "proj_path": "D:\\Devs\\C++\\OpenVegas\\sample_ui\\example_project_with_video_and_audio_with_crossfade.veg",
+    "playback_rates": []
+  }
+]

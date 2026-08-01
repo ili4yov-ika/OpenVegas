@@ -1,0 +1,18 @@
+Archiving D:\Devs\C++\OpenVegas\SAMPLES\veg_project\project_sample_for_project_pictures.veg
+	to D:\Devs\C++\OpenVegas\SAMPLES\veg_project\final-cut-pro-7_davinci-resolve\project_sample_for_project_pictures.xml
+Copied D:\Devs\C++\OpenVegas\SAMPLES\veg_project\sample_for_project_picture_1.png
+	to D:\Devs\C++\OpenVegas\SAMPLES\veg_project\final-cut-pro-7_davinci-resolve\sample_for_project_picture_1.png
+Copied D:\Devs\C++\OpenVegas\SAMPLES\veg_project\sample_for_project_picture_2.png
+	to D:\Devs\C++\OpenVegas\SAMPLES\veg_project\final-cut-pro-7_davinci-resolve\sample_for_project_picture_2.png
+Deinterlace method ignored.
+Motion blur type ignored.
+Codec for first video event in sequence not found.
+Composite mode for track 1 ignored.
+Loop switch for event at 00:00:00,00 in track 1 ignored.
+Loop switch for event at 00:00:05,00 in track 1 ignored.
+Saved project D:\Devs\C++\OpenVegas\SAMPLES\veg_project\project_sample_for_project_pictures.veg
+	to D:\Devs\C++\OpenVegas\SAMPLES\veg_project\final-cut-pro-7_davinci-resolve\project_sample_for_project_pictures.xml
+Removed unused media from the project:
+    removed D:\Devs\C++\OpenVegas\SAMPLES\veg_project\big-buck-bunny_video-60fps-4k.mp4
+    removed D:\Devs\C++\OpenVegas\SAMPLES\veg_project\sample_for_project_audio.wav
+Archiving complete.

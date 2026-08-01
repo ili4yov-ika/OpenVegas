@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>UI Catalog — menus / Welcome / context — OpenVegas</title>
+  <link rel="stylesheet" href="../css/tokens.css" />
+  <link rel="stylesheet" href="../css/layout.css" />
+  <link rel="stylesheet" href="../css/components.css" />
+  <link rel="stylesheet" href="../css/ui-catalog.css" />
+</head>
+<body class="ui-catalog-body">
+  <div class="ui-catalog-page">
+    <div class="ui-catalog-page__inner">
+      <h1>UI Catalog — меню и панели</h1>
+      <p class="lead">
+        Эталон всех пунктов меню File–Help (с подменю), контекстных меню таймлайна,
+        вкладок Welcome и выпадающих меню Preview. Без интерактива в статичном снимке
+        (<code>ui-catalog_static.html</code>). Источник данных: <code>js/menus.js</code>,
+        <code>pages/welcome.html</code>, <code>js/chrome.js</code>.
+      </p>
+      <div id="ui-catalog-root"></div>
+    </div>
+  </div>
+
+  <!-- Hidden sources for cloning into the catalog -->
+  <div class="ui-catalog-sources" hidden aria-hidden="true">
+    <div class="welcome-overlay">
+      <div class="welcome-modal" role="dialog" aria-label="Welcome to OpenVegas">
+        <aside class="welcome-side">
+          <div class="welcome-side__brand">
+            <span class="logo">O</span>
+            <span>OpenVegas</span>
+          </div>
+          <button type="button" class="welcome-nav-btn is-active" data-welcome="new">
+            <svg viewBox="0 0 24 24"><path d="M6 2h9l5 5v15H6V2zm9 0v5h5"/><path d="M10 12h6M13 9v6"/></svg>
+            New Project
+          </button>
+          <button type="button" class="welcome-nav-btn" data-welcome="open">
+            <svg viewBox="0 0 24 24"><path d="M2 6h7l2 3h11v11H2V6z"/></svg>
+            Open Project
+          </button>
+          <button type="button" class="welcome-nav-btn" data-welcome="getting">
+            <svg viewBox="0 0 24 24"><path d="M12 3l9 5v2H3V8l9-5zm-7 9h14v7H5v-7zm3 2v3h2v-3H8zm6 0v3h2v-3h-2z"/></svg>
+            Getting Started
+          </button>
+        </aside>
+        <div class="welcome-main">
+          <button type="button" class="welcome-close" aria-label="Close">✕</button>
+          <div class="welcome-pane is-active" data-welcome-pane="new">
+            <div class="welcome-hero"><div class="welcome-hero__pattern"></div></div>
+            <div class="welcome-content">
+              <h2>Create a new project</h2>
+              <div class="aspect-row">
+                <div class="aspect-card is-selected" data-ratio="16:9"><div class="aspect-card__box"></div>Widescreen (16:9)</div>
+                <div class="aspect-card" data-ratio="4:3"><div class="aspect-card__box"></div>Fullscreen (4:3)</div>
+                <div class="aspect-card" data-ratio="9:16"><div class="aspect-card__box"></div>Portrait (9:16)</div>
+                <div class="aspect-card" data-ratio="1:1"><div class="aspect-card__box"></div>Square (1:1)</div>
+                <div class="aspect-card" data-ratio="2.4:1"><div class="aspect-card__box"></div>Scope (2.4:1)</div>
+              </div>
+              <div class="form-row">
+                <label>Resolution</label>
+                <select>
+                  <option>Full HD (1920 x 1080)</option>
+                  <option>UHD 4K (3840 x 2160)</option>
+                  <option>HD (1280 x 720)</option>
+                </select>
+              </div>
+              <div class="form-row">
+                <label>Framerate</label>
+                <select>
+                  <option>60p (59.940)</option>
+                  <option>30p (29.970)</option>
+                  <option>24p (23.976)</option>
+                </select>
+              </div>
+              <div class="form-row">
+                <label>Drop Frame</label>
+                <select><option>Yes</option><option>No</option></select>
+              </div>
+              <div class="btn-row">
+                <button type="button" class="btn btn--primary">Create Project</button>
+                <button type="button" class="btn">Advanced Settings...</button>
+              </div>
+            </div>
+          </div>
+          <div class="welcome-pane" data-welcome-pane="open">
+            <div class="welcome-content" style="padding-top:28px">
+              <h2>Open existing project</h2>
+              <div class="btn-row" style="margin-top:0;margin-bottom:16px">
+                <button type="button" class="btn">Browse...</button>
+              </div>
+              <p style="color:var(--text-muted);font-size:12px;margin:0 0 8px">Open a recent project:</p>
+              <ul class="recent-list">
+                <li><span>Project.veg</span><span class="date">07/20/2026 14:22</span></li>
+                <li><span>Untitled.veg</span><span class="date">07/18/2026 09:05</span></li>
+                <li><span>example_project_with_video_and_audio.veg</span><span class="date">Sample</span></li>
+              </ul>
+            </div>
+          </div>
+          <div class="welcome-pane" data-welcome-pane="getting">
+            <div class="welcome-hero welcome-hero--getting"><div class="welcome-hero__pattern"></div></div>
+            <div class="welcome-content">
+              <div class="tutorial-cards">
+                <div class="tutorial-card">
+                  <div class="tutorial-card__img" style="background:linear-gradient(135deg,#1a4a6a,#2a7aaa)"></div>
+                  <p>OpenVegas Tutorials</p>
+                </div>
+                <div class="tutorial-card">
+                  <div class="tutorial-card__img" style="background:linear-gradient(135deg,#6a2a4a,#aa4070)"></div>
+                  <p>Quick Start: Editing Timeline Basics</p>
+                </div>
+                <div class="tutorial-card">
+                  <div class="tutorial-card__img" style="background:linear-gradient(135deg,#2a4a2a,#4a8a4a)"></div>
+                  <p>Color Grading &amp; Effects Overview</p>
+                </div>
+              </div>
+              <div class="getting-actions">
+                <button type="button" class="btn is-active">Video Tutorials</button>
+                <button type="button" class="btn">Online Help</button>
+                <button type="button" class="btn">Community</button>
+                <button type="button" class="btn">Social Media</button>
+              </div>
+            </div>
+          </div>
+          <div class="welcome-footer">
+            <label><input type="checkbox" checked /> Show Welcome Screen on Startup</label>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Minimal shell so chrome.js fills preview toolbar dropdowns -->
+    <div class="app" style="height:0;overflow:hidden;position:absolute;left:-9999px">
+      <div class="main-toolbar" data-chrome="main-toolbar"></div>
+      <section class="panel preview-panel">
+        <div class="panel__toolbar" data-chrome="preview-toolbar"></div>
+        <div class="preview-viewport" data-context="preview"></div>
+        <div class="preview-footer" data-chrome="preview-footer"
+             data-project="1920x1080x32; 59,940p" data-preview="960x540x32; 59,940p"
+             data-frame="0" data-display="1128x630x32"></div>
+      </section>
+      <div class="panel__toolbar" data-chrome="media-toolbar"></div>
+      <aside class="panel master-bus" data-chrome="master-bus" data-level-l="0" data-level-r="0"></aside>
+      <div class="timeline-tools" data-chrome="timeline-tools" data-timecode="00:00:00,000"></div>
+    </div>
+  </div>
+
+  <script src="../js/chrome.js"></script>
+  <script src="../js/menus.js"></script>
+  <script src="../js/ui-catalog.js"></script>
+</body>
+</html>

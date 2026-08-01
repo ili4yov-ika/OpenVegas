@@ -1,0 +1,10 @@
+VEGAS-PRO-22-PROGRAM-FILES/
+node_modules/
+package-lock.json
+# Large sample media (GitHub 100 MB limit) — keep locally
+**/*.mp4
+**/*.mov
+**/*.mkv
+**/*.avi
+**/*.m4v
+**/*.bin

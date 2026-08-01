@@ -1,0 +1,336 @@
+﻿<?xml version="1.0"?>
+<xmeml version="5">
+	<project>
+		<name>Untitled Project 1</name>
+		<children>
+			<bin>
+				<updatebehavior>add</updatebehavior>
+				<name>Custom Bins</name>
+				<children />
+			</bin>
+			<clip id="sample_for_project_audio - 1.wav">
+				<updatebehavior>add</updatebehavior>
+				<name>sample_for_project_audio - 1.wav</name>
+				<duration>308</duration>
+				<rate>
+					<ntsc>TRUE</ntsc>
+					<timebase>30</timebase>
+				</rate>
+				<in>-1</in>
+				<out>-1</out>
+				<masterclipid>sample_for_project_audio - 1.wav</masterclipid>
+				<ismasterclip>TRUE</ismasterclip>
+				<logginginfo>
+					<scene />
+					<shottake />
+					<lognote />
+					<good>FALSE</good>
+				</logginginfo>
+				<labels>
+					<label2 />
+				</labels>
+				<comments>
+					<mastercomment1 />
+					<mastercomment2 />
+					<mastercomment3 />
+					<mastercomment4 />
+				</comments>
+				<media>
+					<video />
+					<audio>
+						<track>
+							<clipitem id="sample_for_project_audio - 1.wav1">
+								<name>sample_for_project_audio - 1.wav</name>
+								<duration>308</duration>
+								<rate>
+									<ntsc>TRUE</ntsc>
+									<timebase>30</timebase>
+								</rate>
+								<in>0</in>
+								<out>308</out>
+								<start>0</start>
+								<end>308</end>
+								<masterclipid>sample_for_project_audio - 1.wav</masterclipid>
+								<logginginfo>
+									<scene />
+									<shottake />
+									<lognote />
+									<good>FALSE</good>
+								</logginginfo>
+								<labels>
+									<label2 />
+								</labels>
+								<comments>
+									<mastercomment1 />
+									<mastercomment2 />
+									<mastercomment3 />
+									<mastercomment4 />
+								</comments>
+								<file id="sample_for_project_audio - 1">
+									<name>sample_for_project_audio - 1.wav</name>
+									<pathurl>file://localhost/D:/Devs/C++/OpenVegas/SAMPLES/veg_project/final-cut-pro-7_davinci-resolve/sample_for_project_audio - 1.wav</pathurl>
+									<rate>
+										<timebase>30</timebase>
+										<ntsc>TRUE</ntsc>
+									</rate>
+									<duration>308</duration>
+									<timecode>
+										<rate>
+											<timebase>30</timebase>
+											<ntsc>TRUE</ntsc>
+										</rate>
+										<frame>0</frame>
+										<displayformat>DF</displayformat>
+										<source>source</source>
+									</timecode>
+									<media>
+										<audio>
+											<samplecharacteristics>
+												<samplerate>192000</samplerate>
+												<depth>24</depth>
+											</samplecharacteristics>
+											<channelcount>1</channelcount>
+										</audio>
+										<audio>
+											<samplecharacteristics>
+												<samplerate>192000</samplerate>
+												<depth>24</depth>
+											</samplecharacteristics>
+											<channelcount>1</channelcount>
+										</audio>
+									</media>
+								</file>
+								<sourcetrack>
+									<mediatype>audio</mediatype>
+								</sourcetrack>
+							</clipitem>
+							<enabled>TRUE</enabled>
+							<locked>FALSE</locked>
+						</track>
+						<track>
+							<clipitem id="sample_for_project_audio - 1.wav2">
+								<name>sample_for_project_audio - 1.wav</name>
+								<duration>308</duration>
+								<rate>
+									<ntsc>TRUE</ntsc>
+									<timebase>30</timebase>
+								</rate>
+								<in>0</in>
+								<out>308</out>
+								<start>0</start>
+								<end>308</end>
+								<masterclipid>sample_for_project_audio - 1.wav</masterclipid>
+								<logginginfo>
+									<scene />
+									<shottake />
+									<lognote />
+									<good>FALSE</good>
+								</logginginfo>
+								<labels>
+									<label2 />
+								</labels>
+								<comments>
+									<mastercomment1 />
+									<mastercomment2 />
+									<mastercomment3 />
+									<mastercomment4 />
+								</comments>
+								<file id="sample_for_project_audio - 1" />
+								<sourcetrack>
+									<mediatype>audio</mediatype>
+								</sourcetrack>
+							</clipitem>
+							<enabled>TRUE</enabled>
+							<locked>FALSE</locked>
+						</track>
+					</audio>
+				</media>
+			</clip>
+			<sequence id="Sequence 1">
+				<updatebehavior>add</updatebehavior>
+				<name>Sequence 1</name>
+				<duration>308</duration>
+				<rate>
+					<ntsc>TRUE</ntsc>
+					<timebase>30</timebase>
+				</rate>
+				<timecode>
+					<rate>
+						<ntsc>TRUE</ntsc>
+						<timebase>30</timebase>
+					</rate>
+					<frame>107892</frame>
+					<source>source</source>
+					<displayformat>DF</displayformat>
+				</timecode>
+				<in>-1</in>
+				<out>-1</out>
+				<media>
+					<video>
+						<format>
+							<samplecharacteristics>
+								<width>1920</width>
+								<height>1080</height>
+								<pixelaspectratio>Square</pixelaspectratio>
+								<anamorphic>FALSE</anamorphic>
+								<fielddominance>none</fielddominance>
+								<rate>
+									<ntsc>TRUE</ntsc>
+									<timebase>30</timebase>
+								</rate>
+							</samplecharacteristics>
+						</format>
+					</video>
+					<audio>
+						<track>
+							<clipitem id="sample_for_project_audio - 1.wav536870913">
+								<name>sample_for_project_audio - 1.wav</name>
+								<duration>308</duration>
+								<rate>
+									<ntsc>TRUE</ntsc>
+									<timebase>30</timebase>
+								</rate>
+								<in>0</in>
+								<out>308</out>
+								<start>0</start>
+								<end>308</end>
+								<masterclipid>sample_for_project_audio - 1.wav</masterclipid>
+								<logginginfo>
+									<scene />
+									<shottake />
+									<lognote />
+									<good>FALSE</good>
+								</logginginfo>
+								<labels>
+									<label2 />
+								</labels>
+								<comments>
+									<mastercomment1 />
+									<mastercomment2 />
+									<mastercomment3 />
+									<mastercomment4 />
+								</comments>
+								<file id="sample_for_project_audio - 1" />
+								<filter>
+									<effect>
+										<name>Audio Levels</name>
+										<effectid>audiolevels</effectid>
+										<effectcategory>audiolevels</effectcategory>
+										<effecttype>audiolevels</effecttype>
+										<mediatype>audio</mediatype>
+										<parameter>
+											<name>Level</name>
+											<parameterid>level</parameterid>
+											<valuemin>0</valuemin>
+											<valuemax>3.98109</valuemax>
+											<value>1</value>
+										</parameter>
+									</effect>
+								</filter>
+								<filter>
+									<effect>
+										<name>Audio Pan</name>
+										<effectid>audiopan</effectid>
+										<effectcategory>audiopan</effectcategory>
+										<effecttype>audiopan</effecttype>
+										<mediatype>audio</mediatype>
+										<parameter>
+											<name>Pan</name>
+											<parameterid>pan</parameterid>
+											<valuemin>-1</valuemin>
+											<valuemax>1</valuemax>
+											<value>-1</value>
+										</parameter>
+									</effect>
+								</filter>
+								<sourcetrack>
+									<mediatype>audio</mediatype>
+									<trackindex>1</trackindex>
+								</sourcetrack>
+								<link>
+									<linkclipref>sample_for_project_audio - 1.wav536870913</linkclipref>
+								</link>
+								<link>
+									<linkclipref>sample_for_project_audio - 1.wav5368709131</linkclipref>
+								</link>
+							</clipitem>
+						</track>
+						<track>
+							<clipitem id="sample_for_project_audio - 1.wav5368709131">
+								<name>sample_for_project_audio - 1.wav</name>
+								<duration>308</duration>
+								<rate>
+									<ntsc>TRUE</ntsc>
+									<timebase>30</timebase>
+								</rate>
+								<in>0</in>
+								<out>308</out>
+								<start>0</start>
+								<end>308</end>
+								<masterclipid>sample_for_project_audio - 1.wav</masterclipid>
+								<logginginfo>
+									<scene />
+									<shottake />
+									<lognote />
+									<good>FALSE</good>
+								</logginginfo>
+								<labels>
+									<label2 />
+								</labels>
+								<comments>
+									<mastercomment1 />
+									<mastercomment2 />
+									<mastercomment3 />
+									<mastercomment4 />
+								</comments>
+								<file id="sample_for_project_audio - 1" />
+								<filter>
+									<effect>
+										<name>Audio Levels</name>
+										<effectid>audiolevels</effectid>
+										<effectcategory>audiolevels</effectcategory>
+										<effecttype>audiolevels</effecttype>
+										<mediatype>audio</mediatype>
+										<parameter>
+											<name>Level</name>
+											<parameterid>level</parameterid>
+											<valuemin>0</valuemin>
+											<valuemax>3.98109</valuemax>
+											<value>1</value>
+										</parameter>
+									</effect>
+								</filter>
+								<filter>
+									<effect>
+										<name>Audio Pan</name>
+										<effectid>audiopan</effectid>
+										<effectcategory>audiopan</effectcategory>
+										<effecttype>audiopan</effecttype>
+										<mediatype>audio</mediatype>
+										<parameter>
+											<name>Pan</name>
+											<parameterid>pan</parameterid>
+											<valuemin>-1</valuemin>
+											<valuemax>1</valuemax>
+											<value>1</value>
+										</parameter>
+									</effect>
+								</filter>
+								<sourcetrack>
+									<mediatype>audio</mediatype>
+									<trackindex>2</trackindex>
+								</sourcetrack>
+								<link>
+									<linkclipref>sample_for_project_audio - 1.wav536870913</linkclipref>
+								</link>
+								<link>
+									<linkclipref>sample_for_project_audio - 1.wav5368709131</linkclipref>
+								</link>
+							</clipitem>
+						</track>
+					</audio>
+				</media>
+			</sequence>
+		</children>
+	</project>
+</xmeml>

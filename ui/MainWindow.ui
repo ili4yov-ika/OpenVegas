@@ -1,0 +1,538 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>MainWindow</class>
+ <widget class="QMainWindow" name="MainWindow">
+  <property name="geometry">
+   <rect>
+    <x>0</x>
+    <y>0</y>
+    <width>1280</width>
+    <height>800</height>
+   </rect>
+  </property>
+  <property name="windowTitle">
+   <string>Untitled - OpenVegas</string>
+  </property>
+  <widget class="QWidget" name="centralwidget">
+   <layout class="QVBoxLayout" name="centralLayout">
+    <property name="spacing">
+     <number>0</number>
+    </property>
+    <property name="leftMargin">
+     <number>0</number>
+    </property>
+    <property name="topMargin">
+     <number>0</number>
+    </property>
+    <property name="rightMargin">
+     <number>0</number>
+    </property>
+    <property name="bottomMargin">
+     <number>0</number>
+    </property>
+    <item>
+     <widget class="QWidget" name="mainToolBarHost" native="true">
+      <property name="minimumHeight">
+       <number>28</number>
+      </property>
+      <property name="maximumHeight">
+       <number>32</number>
+      </property>
+      <layout class="QHBoxLayout" name="mainToolBarLayout">
+       <property name="spacing">
+        <number>4</number>
+       </property>
+       <property name="leftMargin">
+        <number>6</number>
+       </property>
+       <property name="topMargin">
+        <number>2</number>
+       </property>
+       <property name="rightMargin">
+        <number>6</number>
+       </property>
+       <property name="bottomMargin">
+        <number>2</number>
+       </property>
+      </layout>
+     </widget>
+    </item>
+    <item>
+     <widget class="QSplitter" name="workspaceSplitter">
+      <property name="orientation">
+       <enum>Qt::Vertical</enum>
+      </property>
+      <property name="childrenCollapsible">
+       <bool>false</bool>
+      </property>
+      <widget class="QSplitter" name="upperSplitter">
+       <property name="orientation">
+        <enum>Qt::Horizontal</enum>
+       </property>
+       <property name="childrenCollapsible">
+        <bool>false</bool>
+       </property>
+       <widget class="QWidget" name="mediaPanel" native="true">
+        <layout class="QVBoxLayout" name="mediaLayout">
+         <property name="spacing">
+          <number>0</number>
+         </property>
+         <property name="leftMargin">
+          <number>0</number>
+         </property>
+         <property name="topMargin">
+          <number>0</number>
+         </property>
+         <property name="rightMargin">
+          <number>0</number>
+         </property>
+         <property name="bottomMargin">
+          <number>0</number>
+         </property>
+         <item>
+          <widget class="QWidget" name="mediaToolbar" native="true">
+           <property name="minimumHeight">
+            <number>26</number>
+           </property>
+           <property name="maximumHeight">
+            <number>28</number>
+           </property>
+           <layout class="QHBoxLayout" name="mediaToolbarLayout">
+            <property name="spacing">
+             <number>2</number>
+            </property>
+            <property name="leftMargin">
+             <number>4</number>
+            </property>
+            <property name="topMargin">
+             <number>2</number>
+            </property>
+            <property name="rightMargin">
+             <number>4</number>
+            </property>
+            <property name="bottomMargin">
+             <number>2</number>
+            </property>
+           </layout>
+          </widget>
+         </item>
+         <item>
+          <widget class="QTabWidget" name="mediaTabs">
+           <property name="tabPosition">
+            <enum>QTabWidget::South</enum>
+           </property>
+           <property name="currentIndex">
+            <number>0</number>
+           </property>
+           <widget class="QWidget" name="tabProjectMedia">
+            <attribute name="title">
+             <string>Project Media</string>
+            </attribute>
+            <layout class="QHBoxLayout" name="projectMediaLayout">
+             <property name="spacing">
+              <number>0</number>
+             </property>
+             <property name="leftMargin">
+              <number>0</number>
+             </property>
+             <property name="topMargin">
+              <number>0</number>
+             </property>
+             <property name="rightMargin">
+              <number>0</number>
+             </property>
+             <property name="bottomMargin">
+              <number>0</number>
+             </property>
+             <item>
+              <widget class="QListWidget" name="mediaTree">
+               <property name="maximumWidth">
+                <number>160</number>
+               </property>
+              </widget>
+             </item>
+             <item>
+              <layout class="QVBoxLayout" name="mediaRightLayout">
+               <property name="spacing">
+                <number>0</number>
+               </property>
+               <item>
+                <widget class="MediaBinListWidget" name="mediaGrid"/>
+               </item>
+               <item>
+                <widget class="QLabel" name="mediaMeta">
+                 <property name="text">
+                  <string/>
+                 </property>
+                 <property name="minimumHeight">
+                  <number>22</number>
+                 </property>
+                 <property name="maximumHeight">
+                  <number>22</number>
+                 </property>
+                </widget>
+               </item>
+              </layout>
+             </item>
+            </layout>
+           </widget>
+           <widget class="QWidget" name="tabExplorer">
+            <attribute name="title">
+             <string>Explorer</string>
+            </attribute>
+            <layout class="QVBoxLayout" name="explorerLayout">
+             <item>
+              <widget class="QLabel" name="explorerPlaceholder">
+               <property name="text">
+                <string>Explorer</string>
+               </property>
+               <property name="alignment">
+                <set>Qt::AlignCenter</set>
+               </property>
+              </widget>
+             </item>
+            </layout>
+           </widget>
+           <widget class="QWidget" name="tabVideoFx">
+            <attribute name="title">
+             <string>Video FX</string>
+            </attribute>
+            <layout class="QVBoxLayout" name="videoFxLayout">
+             <item>
+              <widget class="QLabel" name="videoFxPlaceholder">
+               <property name="text">
+                <string>Video FX / OFX</string>
+               </property>
+               <property name="alignment">
+                <set>Qt::AlignCenter</set>
+               </property>
+              </widget>
+             </item>
+            </layout>
+           </widget>
+           <widget class="QWidget" name="tabMediaGenerators">
+            <attribute name="title">
+             <string>Media Generator</string>
+            </attribute>
+            <layout class="QVBoxLayout" name="generatorsLayout">
+             <item>
+              <widget class="QLabel" name="generatorsPlaceholder">
+               <property name="text">
+                <string>Media Generator</string>
+               </property>
+               <property name="alignment">
+                <set>Qt::AlignCenter</set>
+               </property>
+              </widget>
+             </item>
+            </layout>
+           </widget>
+           <widget class="QWidget" name="tabTransitions">
+            <attribute name="title">
+             <string>Transitions</string>
+            </attribute>
+            <layout class="QVBoxLayout" name="transitionsLayout">
+             <item>
+              <widget class="QLabel" name="transitionsPlaceholder">
+               <property name="text">
+                <string>Transitions</string>
+               </property>
+               <property name="alignment">
+                <set>Qt::AlignCenter</set>
+               </property>
+              </widget>
+             </item>
+            </layout>
+           </widget>
+           <widget class="QWidget" name="tabProjectNotes">
+            <attribute name="title">
+             <string>Project Notes</string>
+            </attribute>
+            <layout class="QVBoxLayout" name="notesLayout">
+             <item>
+              <widget class="QLabel" name="notesPlaceholder">
+               <property name="text">
+                <string>Project Notes</string>
+               </property>
+               <property name="alignment">
+                <set>Qt::AlignCenter</set>
+               </property>
+              </widget>
+             </item>
+            </layout>
+           </widget>
+          </widget>
+         </item>
+        </layout>
+       </widget>
+       <widget class="QWidget" name="previewPanel" native="true">
+        <layout class="QVBoxLayout" name="previewLayout">
+         <property name="spacing">
+          <number>0</number>
+         </property>
+         <property name="leftMargin">
+          <number>0</number>
+         </property>
+         <property name="topMargin">
+          <number>0</number>
+         </property>
+         <property name="rightMargin">
+          <number>0</number>
+         </property>
+         <property name="bottomMargin">
+          <number>0</number>
+         </property>
+         <item>
+          <widget class="QWidget" name="previewToolbar" native="true">
+           <layout class="QHBoxLayout" name="previewToolbarLayout">
+            <property name="leftMargin">
+             <number>6</number>
+            </property>
+            <property name="topMargin">
+             <number>2</number>
+            </property>
+            <property name="rightMargin">
+             <number>6</number>
+            </property>
+            <property name="bottomMargin">
+             <number>2</number>
+            </property>
+            <item>
+             <widget class="QLabel" name="previewTitle">
+              <property name="text">
+               <string>Video Preview</string>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <spacer name="previewToolbarSpacer">
+              <property name="orientation">
+               <enum>Qt::Horizontal</enum>
+              </property>
+              <property name="sizeHint" stdset="0">
+               <size>
+                <width>40</width>
+                <height>20</height>
+               </size>
+              </property>
+             </spacer>
+            </item>
+           </layout>
+          </widget>
+         </item>
+         <item>
+          <widget class="QFrame" name="previewViewport">
+           <property name="frameShape">
+            <enum>QFrame::StyledPanel</enum>
+           </property>
+           <property name="minimumSize">
+            <size>
+             <width>320</width>
+             <height>180</height>
+            </size>
+           </property>
+           <layout class="QVBoxLayout" name="previewViewportLayout">
+            <item>
+             <widget class="QLabel" name="previewLabel">
+              <property name="text">
+               <string>Preview</string>
+              </property>
+              <property name="alignment">
+               <set>Qt::AlignCenter</set>
+              </property>
+             </widget>
+            </item>
+           </layout>
+          </widget>
+         </item>
+         <item>
+          <widget class="QWidget" name="previewFooterHost" native="true">
+           <layout class="QVBoxLayout" name="previewFooterHostLayout">
+            <property name="spacing">
+             <number>0</number>
+            </property>
+            <property name="leftMargin">
+             <number>4</number>
+            </property>
+            <property name="topMargin">
+             <number>2</number>
+            </property>
+            <property name="rightMargin">
+             <number>4</number>
+            </property>
+            <property name="bottomMargin">
+             <number>2</number>
+            </property>
+            <item>
+             <widget class="QWidget" name="previewTransport" native="true">
+              <layout class="QHBoxLayout" name="previewTransportLayout">
+               <property name="spacing">
+                <number>2</number>
+               </property>
+               <property name="leftMargin">
+                <number>0</number>
+               </property>
+               <property name="topMargin">
+                <number>0</number>
+               </property>
+               <property name="rightMargin">
+                <number>0</number>
+               </property>
+               <property name="bottomMargin">
+                <number>0</number>
+               </property>
+              </layout>
+             </widget>
+            </item>
+            <item>
+             <widget class="QLabel" name="previewFooter">
+              <property name="text">
+               <string>1920x1080x32; 29,970p   |   Frame 0</string>
+              </property>
+             </widget>
+            </item>
+           </layout>
+          </widget>
+         </item>
+        </layout>
+       </widget>
+       <widget class="QWidget" name="masterBusPanel" native="true">
+        <property name="minimumWidth">
+         <number>108</number>
+        </property>
+        <property name="maximumWidth">
+         <number>128</number>
+        </property>
+        <layout class="QVBoxLayout" name="masterLayout">
+         <item>
+          <widget class="QLabel" name="masterTitle">
+           <property name="text">
+            <string>Master</string>
+           </property>
+           <property name="alignment">
+            <set>Qt::AlignCenter</set>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QProgressBar" name="meterL">
+           <property name="orientation">
+            <enum>Qt::Vertical</enum>
+           </property>
+           <property name="value">
+            <number>35</number>
+           </property>
+           <property name="textVisible">
+            <bool>false</bool>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QProgressBar" name="meterR">
+           <property name="orientation">
+            <enum>Qt::Vertical</enum>
+           </property>
+           <property name="value">
+            <number>30</number>
+           </property>
+           <property name="textVisible">
+            <bool>false</bool>
+           </property>
+          </widget>
+         </item>
+        </layout>
+       </widget>
+      </widget>
+      <widget class="QWidget" name="timelinePanel" native="true">
+       <layout class="QVBoxLayout" name="timelinePanelLayout">
+        <property name="spacing">
+         <number>0</number>
+        </property>
+        <property name="leftMargin">
+         <number>0</number>
+        </property>
+        <property name="topMargin">
+         <number>0</number>
+        </property>
+        <property name="rightMargin">
+         <number>0</number>
+        </property>
+        <property name="bottomMargin">
+         <number>0</number>
+        </property>
+        <item>
+         <widget class="QWidget" name="timelineHost" native="true">
+          <layout class="QVBoxLayout" name="timelineHostLayout">
+           <property name="spacing">
+            <number>0</number>
+           </property>
+           <property name="leftMargin">
+            <number>0</number>
+           </property>
+           <property name="topMargin">
+            <number>0</number>
+           </property>
+           <property name="rightMargin">
+            <number>0</number>
+           </property>
+           <property name="bottomMargin">
+            <number>0</number>
+           </property>
+          </layout>
+         </widget>
+        </item>
+        <item>
+         <widget class="QWidget" name="timelineToolsHost" native="true">
+          <property name="minimumHeight">
+           <number>30</number>
+          </property>
+          <property name="maximumHeight">
+           <number>36</number>
+          </property>
+          <layout class="QHBoxLayout" name="timelineToolsLayout">
+           <property name="spacing">
+            <number>2</number>
+           </property>
+           <property name="leftMargin">
+            <number>4</number>
+           </property>
+           <property name="topMargin">
+            <number>2</number>
+           </property>
+           <property name="rightMargin">
+            <number>6</number>
+           </property>
+           <property name="bottomMargin">
+            <number>2</number>
+           </property>
+          </layout>
+         </widget>
+        </item>
+       </layout>
+      </widget>
+     </widget>
+    </item>
+   </layout>
+  </widget>
+  <widget class="QMenuBar" name="menubar">
+   <property name="geometry">
+    <rect>
+     <x>0</x>
+     <y>0</y>
+     <width>1280</width>
+     <height>22</height>
+    </rect>
+   </property>
+  </widget>
+  <widget class="QStatusBar" name="statusbar"/>
+ </widget>
+ <customwidgets>
+  <customwidget>
+   <class>MediaBinListWidget</class>
+   <extends>QListWidget</extends>
+   <header>ui/MediaBinListWidget.h</header>
+  </customwidget>
+ </customwidgets>
+ <resources/>
+ <connections/>
+</ui>

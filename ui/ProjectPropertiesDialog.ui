@@ -1,0 +1,196 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>ProjectPropertiesDialog</class>
+ <widget class="QDialog" name="ProjectPropertiesDialog">
+  <property name="geometry">
+   <rect>
+    <x>0</x>
+    <y>0</y>
+    <width>640</width>
+    <height>480</height>
+   </rect>
+  </property>
+  <property name="windowTitle">
+   <string>Project Properties</string>
+  </property>
+  <layout class="QVBoxLayout" name="verticalLayout">
+   <item>
+    <widget class="QTabWidget" name="tabs">
+     <property name="currentIndex">
+      <number>0</number>
+     </property>
+     <widget class="QWidget" name="tabVideo">
+      <attribute name="title">
+       <string>Video</string>
+      </attribute>
+      <layout class="QFormLayout" name="videoForm">
+       <item row="0" column="0">
+        <widget class="QLabel" name="labelWidth">
+         <property name="text">
+          <string>Width</string>
+         </property>
+        </widget>
+       </item>
+       <item row="0" column="1">
+        <widget class="QSpinBox" name="spinWidth">
+         <property name="maximum">
+          <number>8192</number>
+         </property>
+         <property name="value">
+          <number>1920</number>
+         </property>
+        </widget>
+       </item>
+       <item row="1" column="0">
+        <widget class="QLabel" name="labelHeight">
+         <property name="text">
+          <string>Height</string>
+         </property>
+        </widget>
+       </item>
+       <item row="1" column="1">
+        <widget class="QSpinBox" name="spinHeight">
+         <property name="maximum">
+          <number>8192</number>
+         </property>
+         <property name="value">
+          <number>1080</number>
+         </property>
+        </widget>
+       </item>
+       <item row="2" column="0">
+        <widget class="QLabel" name="labelFps">
+         <property name="text">
+          <string>Frame rate</string>
+         </property>
+        </widget>
+       </item>
+       <item row="2" column="1">
+        <widget class="QDoubleSpinBox" name="spinFps">
+         <property name="decimals">
+          <number>3</number>
+         </property>
+         <property name="maximum">
+          <number>240.000000000000000</number>
+         </property>
+         <property name="value">
+          <number>29.970000000000001</number>
+         </property>
+        </widget>
+       </item>
+      </layout>
+     </widget>
+     <widget class="QWidget" name="tabAudio">
+      <attribute name="title">
+       <string>Audio</string>
+      </attribute>
+      <layout class="QFormLayout" name="audioForm">
+       <item row="0" column="0">
+        <widget class="QLabel" name="labelSampleRate">
+         <property name="text">
+          <string>Sample rate</string>
+         </property>
+        </widget>
+       </item>
+       <item row="0" column="1">
+        <widget class="QComboBox" name="comboSampleRate">
+         <item>
+          <property name="text">
+           <string>48000</string>
+          </property>
+         </item>
+         <item>
+          <property name="text">
+           <string>44100</string>
+          </property>
+         </item>
+        </widget>
+       </item>
+      </layout>
+     </widget>
+     <widget class="QWidget" name="tabRuler">
+      <attribute name="title">
+       <string>Ruler</string>
+      </attribute>
+      <layout class="QVBoxLayout" name="rulerLayout">
+       <item>
+        <widget class="QLabel" name="rulerInfo">
+         <property name="text">
+          <string>Ruler / timecode options (stub)</string>
+         </property>
+        </widget>
+       </item>
+      </layout>
+     </widget>
+     <widget class="QWidget" name="tabSummary">
+      <attribute name="title">
+       <string>Summary</string>
+      </attribute>
+      <layout class="QVBoxLayout" name="summaryLayout">
+       <item>
+        <widget class="QLabel" name="summaryInfo">
+         <property name="text">
+          <string>Project summary (stub)</string>
+         </property>
+        </widget>
+       </item>
+      </layout>
+     </widget>
+     <widget class="QWidget" name="tabAudioCD">
+      <attribute name="title">
+       <string>Audio CD</string>
+      </attribute>
+      <layout class="QVBoxLayout" name="cdLayout">
+       <item>
+        <widget class="QLabel" name="cdInfo">
+         <property name="text">
+          <string>Audio CD (stub)</string>
+         </property>
+        </widget>
+       </item>
+      </layout>
+     </widget>
+     <widget class="QWidget" name="tabPixelAspect">
+      <attribute name="title">
+       <string>Pixel Aspect</string>
+      </attribute>
+      <layout class="QVBoxLayout" name="pixelLayout">
+       <item>
+        <widget class="QLabel" name="pixelInfo">
+         <property name="text">
+          <string>Pixel aspect (stub)</string>
+         </property>
+        </widget>
+       </item>
+      </layout>
+     </widget>
+    </widget>
+   </item>
+   <item>
+    <widget class="QDialogButtonBox" name="buttonBox">
+     <property name="orientation">
+      <enum>Qt::Horizontal</enum>
+     </property>
+     <property name="standardButtons">
+      <set>QDialogButtonBox::Cancel|QDialogButtonBox::Ok</set>
+     </property>
+    </widget>
+   </item>
+  </layout>
+ </widget>
+ <resources/>
+ <connections>
+  <connection>
+   <sender>buttonBox</sender>
+   <signal>accepted()</signal>
+   <receiver>ProjectPropertiesDialog</receiver>
+   <slot>accept()</slot>
+  </connection>
+  <connection>
+   <sender>buttonBox</sender>
+   <signal>rejected()</signal>
+   <receiver>ProjectPropertiesDialog</receiver>
+   <slot>reject()</slot>
+  </connection>
+ </connections>
+</ui>

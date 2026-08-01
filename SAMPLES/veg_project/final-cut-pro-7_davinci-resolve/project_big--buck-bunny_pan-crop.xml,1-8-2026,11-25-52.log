@@ -1,0 +1,17 @@
+Archiving D:\Devs\C++\OpenVegas\SAMPLES\veg_project\project_big--buck-bunny_pan-crop.veg
+	to D:\Devs\C++\OpenVegas\SAMPLES\veg_project\final-cut-pro-7_davinci-resolve\project_big--buck-bunny_pan-crop.xml
+Copied D:\Devs\C++\OpenVegas\SAMPLES\veg_project\big-buck-bunny_video-60fps-4k.mp4
+	to D:\Devs\C++\OpenVegas\SAMPLES\veg_project\final-cut-pro-7_davinci-resolve\big-buck-bunny_video-60fps-4k - 9.mp4
+Deinterlace method ignored.
+Motion blur type ignored.
+Codec for first video event in sequence not found.
+Composite mode for track 1 ignored.
+Loop switch for event at 00:00:00,00 in track 1 ignored.
+Ignoring scale at 00:00:30,56 in track 1(encountered rotate export first).
+Ignoring scale at 00:00:37,01 in track 1(encountered rotate export first).
+Ignoring scale at 00:00:44,01 in track 1(encountered rotate export first).
+Ignoring scale at 00:00:52,36 in track 1(encountered rotate export first).
+Ignoring scale at 00:00:56,31 in track 1(encountered rotate export first).
+Saved project D:\Devs\C++\OpenVegas\SAMPLES\veg_project\project_big--buck-bunny_pan-crop.veg
+	to D:\Devs\C++\OpenVegas\SAMPLES\veg_project\final-cut-pro-7_davinci-resolve\project_big--buck-bunny_pan-crop.xml
+Archiving complete.

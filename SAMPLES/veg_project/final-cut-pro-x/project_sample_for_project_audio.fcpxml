@@ -1,0 +1,17 @@
+﻿<?xml version="1.0"?>
+<fcpxml version="1.2">
+	<project name="Untitled Project 1">
+		<resources>
+			<format id="r1" name="FFVideoFormat1080p2997" frameDuration="1001/30000s" width="1920" height="1080" />
+			<projectRef id="r2" name="Untitled Project 1" />
+			<asset id="r3" name="sample_for_project_audio-3" projectRef="r2" src="file://localhost/D:/Devs/C++/OpenVegas/SAMPLES/veg_project/final-cut-pro-x/sample_for_project_audio-3.wav" start="0/30000s" hasAudio="1" />
+		</resources>
+		<sequence duration="308308/30000s" format="r1" tcFormat="NDF" audioLayout="stereo" audioRate="48k">
+			<spine>
+				<audio ref="r3" duration="308308/30000s" start="0/30000s" srcID="0" srcCh="1">
+					<audio ref="r3" duration="308308/30000s" start="0/30000s" lane="-1" srcID="1" srcCh="1" />
+				</audio>
+			</spine>
+		</sequence>
+	</project>
+</fcpxml>

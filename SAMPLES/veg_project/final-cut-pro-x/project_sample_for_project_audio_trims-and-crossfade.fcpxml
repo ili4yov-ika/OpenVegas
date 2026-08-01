@@ -1,0 +1,31 @@
+﻿<?xml version="1.0"?>
+<fcpxml version="1.2">
+	<project name="Untitled Project 1">
+		<resources>
+			<format id="r1" name="FFVideoFormat1080p2997" frameDuration="1001/30000s" width="1920" height="1080" />
+			<projectRef id="r2" name="Untitled Project 1" />
+			<asset id="r3" name="sample_for_project_audio-2" projectRef="r2" src="file://localhost/D:/Devs/C++/OpenVegas/SAMPLES/veg_project/final-cut-pro-x/sample_for_project_audio-2.wav" start="0/30000s" hasAudio="1" />
+			<effect id="r4" name="Cross Dissolve" uid="FxPlug:4731E73A-8DAC-4113-9A30-AE85B1761265" />
+		</resources>
+		<sequence duration="551551/30000s" format="r1" tcFormat="NDF" audioLayout="stereo" audioRate="48k">
+			<spine>
+				<audio ref="r3" duration="82082/30000s" start="0/30000s" srcID="0" srcCh="1">
+					<audio ref="r3" duration="82082/30000s" start="0/30000s" lane="-1" srcID="1" srcCh="1" />
+				</audio>
+				<audio offset="82082/30000s" ref="r3" duration="72072/30000s" start="82082/30000s" srcID="0" srcCh="1">
+					<audio offset="82082/30000s" ref="r3" duration="72072/30000s" start="82082/30000s" lane="-1" srcID="1" srcCh="1" />
+				</audio>
+				<audio offset="154154/30000s" ref="r3" duration="154154/30000s" start="154154/30000s" srcID="0" srcCh="1">
+					<audio offset="154154/30000s" ref="r3" duration="154154/30000s" start="154154/30000s" lane="-1" srcID="1" srcCh="1" />
+				</audio>
+				<audio offset="308308/30000s" ref="r3" duration="106106/30000s" start="0/30000s" srcID="0" srcCh="1">
+					<audio offset="308308/30000s" ref="r3" duration="106106/30000s" start="0/30000s" lane="-1" srcID="1" srcCh="1" />
+				</audio>
+				<transition offset="381381/30000s" ref="r4" name="Cross Dissolve" duration="64064/30000s" />
+				<audio offset="413413/30000s" ref="r3" duration="138138/30000s" start="170170/30000s" srcID="0" srcCh="1">
+					<audio offset="413413/30000s" ref="r3" duration="138138/30000s" start="170170/30000s" lane="-1" srcID="1" srcCh="1" />
+				</audio>
+			</spine>
+		</sequence>
+	</project>
+</fcpxml>

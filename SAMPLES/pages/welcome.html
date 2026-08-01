@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Welcome - OpenVegas</title>
+  <link rel="stylesheet" href="../css/tokens.css" />
+  <link rel="stylesheet" href="../css/layout.css" />
+  <link rel="stylesheet" href="../css/components.css" />
+</head>
+<body>
+  <div class="app">
+    <header class="title-bar">
+      <div class="title-bar__left">
+        <span class="title-bar__logo">O</span>
+        <span>Untitled - OpenVegas</span>
+      </div>
+      <div class="title-bar__controls">
+        <button class="win-btn" type="button">─</button>
+        <button class="win-btn" type="button">☐</button>
+        <button class="win-btn win-btn--close" type="button">✕</button>
+      </div>
+    </header>
+
+    <nav class="menu-bar">
+      <button type="button" class="menu-item" data-menu="File">File</button>
+      <button type="button" class="menu-item" data-menu="Edit">Edit</button>
+      <button type="button" class="menu-item" data-menu="View">View</button>
+      <button type="button" class="menu-item" data-menu="Insert">Insert</button>
+      <button type="button" class="menu-item" data-menu="Tools">Tools</button>
+      <button type="button" class="menu-item" data-menu="Options">Options</button>
+      <button type="button" class="menu-item" data-menu="Help">Help</button>
+    </nav>
+
+    <div class="main-toolbar" data-chrome="main-toolbar"></div>
+
+    <div class="workspace">
+      <div class="upper-workspace">
+        <section class="panel" data-tabs>
+          <div class="panel__toolbar" data-chrome="media-toolbar"></div>
+          <div class="panel__body">
+            <div class="tab-panel is-active" data-panel="project-media">
+              <div class="media-layout">
+                <div class="media-tree">
+                  <div class="tree-item is-selected"><span class="arrow">▾</span> All Media</div>
+                  <div class="tree-item"><span class="arrow">▸</span> Media By Type</div>
+                  <div class="tree-item"><span class="arrow">▸</span> Tagged Media</div>
+                  <div class="tree-item"><span class="arrow">▸</span> Custom Bins</div>
+                  <div class="tree-item">Storyboard Bin</div>
+                  <div class="tree-item">Main Timeline</div>
+                </div>
+                <div class="media-grid"></div>
+              </div>
+            </div>
+            <div class="tab-panel" data-panel="explorer"><div class="placeholder-pane">Explorer</div></div>
+            <div class="tab-panel" data-panel="video-fx"><div class="placeholder-pane">Video FX</div></div>
+            <div class="tab-panel" data-panel="media-generators"><div class="placeholder-pane">Media Generators</div></div>
+            <div class="tab-panel" data-panel="transitions"><div class="placeholder-pane">Transitions</div></div>
+            <div class="tab-panel" data-panel="project-notes"><div class="placeholder-pane">Project Notes</div></div>
+          </div>
+          <div class="panel-tabs">
+            <button type="button" class="panel-tab" data-tab="explorer">Explorer</button>
+            <button type="button" class="panel-tab is-active" data-tab="project-media">Project Media</button>
+            <button type="button" class="panel-tab" data-tab="video-fx">Video FX</button>
+            <button type="button" class="panel-tab" data-tab="media-generators">Media Generators</button>
+            <button type="button" class="panel-tab" data-tab="transitions">Transitions</button>
+            <button type="button" class="panel-tab" data-tab="project-notes">Project Notes</button>
+            <span class="panel-tabs__spacer"></span>
+            <button type="button" class="panel-tab-ico" title="Maximize">▣</button>
+            <button type="button" class="panel-tab-ico" title="Close">×</button>
+          </div>
+        </section>
+
+        <section class="panel preview-panel">
+          <div class="panel__toolbar" data-chrome="preview-toolbar"></div>
+          <div class="preview-viewport" data-context="preview"></div>
+          <div class="preview-footer" data-chrome="preview-footer"
+               data-project="1920x1080x32; 59,940p" data-preview="960x540x32; 59,940p"
+               data-frame="0"
+               data-display="1128x630x32"></div>
+        </section>
+
+        <aside class="panel master-bus" data-chrome="master-bus" data-level-l="0" data-level-r="0"></aside>
+      </div>
+
+      <section class="timeline-panel">
+        <div class="timeline-ruler">
+          <div class="ruler-corner" data-context="time-display"><span class="ruler-corner__grip" aria-hidden="true"></span><span>00:00:00,000</span></div>
+          <div class="ruler-ticks" data-context="timeline-ruler">
+            <span class="ruler-playhead-mark" style="left:0px"></span>
+            <span class="ruler-tick ruler-tick--major" style="left:0">1.1.000</span>
+            <span class="ruler-tick" style="left:160px">3.1</span>
+            <span class="ruler-tick" style="left:320px">5.1</span>
+            <span class="ruler-tick" style="left:480px">7.1</span>
+          </div>
+        </div>
+        <div class="timeline-main timeline-main--empty">
+          <div class="track-headers" aria-hidden="true"></div>
+          <div class="tracks-area" data-context="timeline-empty">
+            <div class="tracks-inner" style="min-height:100%;min-width:900px">
+              <div class="playhead" style="left:0px"></div>
+            </div>
+          </div>
+        </div>
+        <div class="timeline-tools" data-chrome="timeline-tools" data-timecode="00:00:00,000"></div>
+      </section>
+    </div>
+</div>
+
+  <div class="welcome-overlay">
+    <div class="welcome-modal" role="dialog" aria-label="Welcome to OpenVegas">
+      <aside class="welcome-side">
+        <div class="welcome-side__brand">
+          <span class="logo">O</span>
+          <span>OpenVegas</span>
+        </div>
+        <button type="button" class="welcome-nav-btn is-active" data-welcome="new">
+          <svg viewBox="0 0 24 24"><path d="M6 2h9l5 5v15H6V2zm9 0v5h5"/><path d="M10 12h6M13 9v6"/></svg>
+          New Project
+        </button>
+        <button type="button" class="welcome-nav-btn" data-welcome="open">
+          <svg viewBox="0 0 24 24"><path d="M2 6h7l2 3h11v11H2V6z"/></svg>
+          Open Project
+        </button>
+        <button type="button" class="welcome-nav-btn" data-welcome="getting">
+          <svg viewBox="0 0 24 24"><path d="M12 3l9 5v2H3V8l9-5zm-7 9h14v7H5v-7zm3 2v3h2v-3H8zm6 0v3h2v-3h-2z"/></svg>
+          Getting Started
+        </button>
+      </aside>
+
+      <div class="welcome-main">
+        <button type="button" class="welcome-close" aria-label="Close">✕</button>
+
+        <div class="welcome-pane is-active" data-welcome-pane="new">
+          <div class="welcome-hero"><div class="welcome-hero__pattern"></div></div>
+          <div class="welcome-content">
+            <h2>Create a new project</h2>
+            <div class="aspect-row">
+              <div class="aspect-card is-selected" data-ratio="16:9"><div class="aspect-card__box"></div>Widescreen (16:9)</div>
+              <div class="aspect-card" data-ratio="4:3"><div class="aspect-card__box"></div>Fullscreen (4:3)</div>
+              <div class="aspect-card" data-ratio="9:16"><div class="aspect-card__box"></div>Portrait (9:16)</div>
+              <div class="aspect-card" data-ratio="1:1"><div class="aspect-card__box"></div>Square (1:1)</div>
+              <div class="aspect-card" data-ratio="2.4:1"><div class="aspect-card__box"></div>Scope (2.4:1)</div>
+            </div>
+            <div class="form-row">
+              <label>Resolution</label>
+              <select>
+                <option>Full HD (1920 x 1080)</option>
+                <option>UHD 4K (3840 x 2160)</option>
+                <option>HD (1280 x 720)</option>
+              </select>
+            </div>
+            <div class="form-row">
+              <label>Framerate</label>
+              <select>
+                <option>60p (59.940)</option>
+                <option>30p (29.970)</option>
+                <option>24p (23.976)</option>
+              </select>
+            </div>
+            <div class="form-row">
+              <label>Drop Frame</label>
+              <select><option>Yes</option><option>No</option></select>
+            </div>
+            <div class="btn-row">
+              <button type="button" class="btn btn--primary" id="btn-create-project">Create Project</button>
+              <button type="button" class="btn">Advanced Settings...</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="welcome-pane" data-welcome-pane="open">
+          <div class="welcome-content" style="padding-top:28px">
+            <h2>Open existing project</h2>
+            <div class="btn-row" style="margin-top:0;margin-bottom:16px">
+              <button type="button" class="btn">Browse...</button>
+            </div>
+            <p style="color:var(--text-muted);font-size:12px;margin:0 0 8px">Open a recent project:</p>
+            <ul class="recent-list">
+              <li><span>Project.veg</span><span class="date">07/20/2026 14:22</span></li>
+              <li><span>Untitled.veg</span><span class="date">07/18/2026 09:05</span></li>
+              <li>
+                <a href="project-video-audio.html" style="color:inherit;text-decoration:none;display:flex;justify-content:space-between;width:100%">
+                  <span>example_project_with_video_and_audio.veg</span>
+                  <span class="date">Sample</span>
+                </a>
+              </li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="welcome-pane" data-welcome-pane="getting">
+          <div class="welcome-hero welcome-hero--getting"><div class="welcome-hero__pattern"></div></div>
+          <div class="welcome-content">
+            <div class="tutorial-cards">
+              <div class="tutorial-card">
+                <div class="tutorial-card__img" style="background:linear-gradient(135deg,#1a4a6a,#2a7aaa)"></div>
+                <p>OpenVegas Tutorials</p>
+              </div>
+              <div class="tutorial-card">
+                <div class="tutorial-card__img" style="background:linear-gradient(135deg,#6a2a4a,#aa4070)"></div>
+                <p>Quick Start: Editing Timeline Basics</p>
+              </div>
+              <div class="tutorial-card">
+                <div class="tutorial-card__img" style="background:linear-gradient(135deg,#2a4a2a,#4a8a4a)"></div>
+                <p>Color Grading &amp; Effects Overview</p>
+              </div>
+            </div>
+            <div class="getting-actions">
+              <button type="button" class="btn is-active">Video Tutorials</button>
+              <button type="button" class="btn">Online Help</button>
+              <button type="button" class="btn">Community</button>
+              <button type="button" class="btn">Social Media</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="welcome-footer">
+          <label><input type="checkbox" checked /> Show Welcome Screen on Startup</label>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="../js/chrome.js"></script>
+  <script src="../js/dock-tabs.js"></script>
+  <script src="../js/menus.js"></script>
+  <script src="../js/project-properties.js"></script>
+  <script src="../js/render-as.js"></script>
+  <script src="../js/preferences.js"></script>
+  <script src="../js/timeline-chrome.js"></script>
+  <script src="../js/pan-crop.js"></script>
+  <script src="../js/audio-fx.js"></script>
+  <script src="../js/timeline-resize.js"></script>
+  <script src="../js/timeline-scroll.js"></script>
+  <script src="../js/upper-resize.js"></script>
+  <script src="../js/welcome.js"></script>
+</body>
+</html>

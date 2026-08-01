@@ -1,0 +1,95 @@
+{
+    "version": 4,
+    "configurations": [
+        {
+            "name": "Win32 (MinGW / Qt 6.9)",
+            "includePath": [
+                "${workspaceFolder}/src",
+                "${workspaceFolder}/ui",
+                "${workspaceFolder}/build",
+                "${workspaceFolder}/build/OpenVegas_autogen/include",
+                "${workspaceFolder}/build-pro/ui_headers",
+                "${workspaceFolder}/build-pro/moc",
+                "C:/Qt/6.9.3/mingw_64/include",
+                "C:/Qt/6.9.3/mingw_64/include/QtCore",
+                "C:/Qt/6.9.3/mingw_64/include/QtGui",
+                "C:/Qt/6.9.3/mingw_64/include/QtWidgets",
+                "C:/Qt/6.9.3/mingw_64/mkspecs/win32-g++",
+                "C:/Qt/Tools/mingw1310_64/lib/gcc/x86_64-w64-mingw32/13.1.0/include/c++",
+                "C:/Qt/Tools/mingw1310_64/lib/gcc/x86_64-w64-mingw32/13.1.0/include/c++/x86_64-w64-mingw32",
+                "C:/Qt/Tools/mingw1310_64/lib/gcc/x86_64-w64-mingw32/13.1.0/include",
+                "C:/Qt/Tools/mingw1310_64/x86_64-w64-mingw32/include"
+            ],
+            "defines": [
+                "_DEBUG",
+                "UNICODE",
+                "_UNICODE",
+                "WIN32",
+                "WIN64",
+                "MINGW_HAS_SECURE_API",
+                "QT_CORE_LIB",
+                "QT_GUI_LIB",
+                "QT_WIDGETS_LIB"
+            ],
+            "compilerPath": "C:/Qt/Tools/mingw1310_64/bin/g++.exe",
+            "cStandard": "c17",
+            "cppStandard": "c++17",
+            "intelliSenseMode": "windows-gcc-x64",
+            "compileCommands": "${workspaceFolder}/build/compile_commands.json"
+        },
+        {
+            "name": "Win32 (MSVC / Qt 6.9)",
+            "includePath": [
+                "${workspaceFolder}/src",
+                "${workspaceFolder}/ui",
+                "${workspaceFolder}/build-msvc",
+                "${workspaceFolder}/build-msvc/OpenVegas_autogen/include",
+                "C:/Qt/6.9.3/msvc2022_64/include",
+                "C:/Qt/6.9.3/msvc2022_64/include/QtCore",
+                "C:/Qt/6.9.3/msvc2022_64/include/QtGui",
+                "C:/Qt/6.9.3/msvc2022_64/include/QtWidgets",
+                "C:/Qt/6.9.3/msvc2022_64/mkspecs/win32-msvc"
+            ],
+            "defines": [
+                "_DEBUG",
+                "UNICODE",
+                "_UNICODE",
+                "WIN32",
+                "WIN64",
+                "QT_CORE_LIB",
+                "QT_GUI_LIB",
+                "QT_WIDGETS_LIB"
+            ],
+            "windowsSdkVersion": "10.0.22621.0",
+            "compilerPath": "C:/Program Files/Microsoft Visual Studio/18/Community/VC/Tools/MSVC/14.44.35207/bin/Hostx64/x64/cl.exe",
+            "cStandard": "c17",
+            "cppStandard": "c++17",
+            "intelliSenseMode": "windows-msvc-x64",
+            "configurationProvider": "ms-vscode.cmake-tools"
+        },
+        {
+            "name": "Linux",
+            "includePath": [
+                "${workspaceFolder}/src",
+                "${workspaceFolder}/ui",
+                "${workspaceFolder}/build",
+                "${workspaceFolder}/build/OpenVegas_autogen/include",
+                "/usr/include/x86_64-linux-gnu/qt6",
+                "/usr/include/x86_64-linux-gnu/qt6/QtCore",
+                "/usr/include/x86_64-linux-gnu/qt6/QtGui",
+                "/usr/include/x86_64-linux-gnu/qt6/QtWidgets",
+                "/usr/lib/x86_64-linux-gnu/qt6/mkspecs/linux-g++"
+            ],
+            "defines": [
+                "QT_CORE_LIB",
+                "QT_GUI_LIB",
+                "QT_WIDGETS_LIB"
+            ],
+            "compilerPath": "/usr/bin/g++",
+            "cStandard": "c17",
+            "cppStandard": "c++17",
+            "intelliSenseMode": "linux-gcc-x64",
+            "compileCommands": "${workspaceFolder}/build/compile_commands.json"
+        }
+    ]
+}

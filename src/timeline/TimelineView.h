@@ -1,0 +1,304 @@
+#pragma once
+
+#include "model/ProjectModel.h"
+
+#include <QWidget>
+#include <QPoint>
+#include <QRect>
+#include <QElapsedTimer>
+#include <QHash>
+#include <optional>
+
+class QLineEdit;
+class QTimer;
+class QKeyEvent;
+class QMimeData;
+
+namespace openvegas {
+
+class FadeCurvePopup;
+
+class TimelineView : public QWidget {
+    Q_OBJECT
+public:
+    explicit TimelineView(ProjectModel *model, QWidget *parent = nullptr);
+
+    ProjectModel *model() const { return m_model; }
+    void refreshLayout();
+    void beginTrackRename(int trackIndex);
+
+    int headerWidth() const { return m_headerWidth; }
+    void setHeaderWidth(int width);
+
+    int scrollX() const { return m_scrollX; }
+    int scrollY() const { return m_scrollY; }
+    void setScrollX(int x);
+    void setScrollY(int y);
+    int contentWidthPx() const;
+    int tracksHeightPx() const;
+    int maxScrollX() const;
+    int maxScrollY() const;
+    int rulerHeight() const { return markerLaneHeight() + ticksHeight(); }
+    int markerLaneHeight() const { return 18; }
+    int ticksHeight() const { return 22; }
+
+    bool isPlaying() const { return m_playing; }
+    void setPlaying(bool playing);
+    void stopPlayback();
+    void togglePlaying();
+    /** Seek playhead; optionally stop playback. */
+    void seekPlayhead(double sec, bool stop = false);
+    void stepFrames(int deltaFrames);
+
+    /**
+     * When true, AudioEngine owns time during Play — the local QTimer only
+     * refreshes UI from model playhead (does not advance it).
+     */
+    void setExternalTransportClock(bool on);
+    bool externalTransportClock() const { return m_externalTransportClock; }
+
+    /** Shuttle rate −20…+20 (0 = idle). Non-zero drives the playhead while held. */
+    double shuttleRate() const { return m_shuttleRate; }
+    void setShuttleRate(double rate);
+
+    /** Insert numbered marker at the playhead and start label edit. */
+    void insertMarkerAtPlayhead();
+    /** Place / move Loop Region starting at the playhead. */
+    void insertLoopRegionAtPlayhead();
+
+signals:
+    void eventDoubleClicked(int eventId);
+    void eventContextMenuRequested(int eventId, const QPoint &globalPos);
+    void eventPanCropRequested(int eventId);
+    void eventFxRequested(int eventId);
+    /** Right-click on event chrome "fx" button. */
+    void eventFxMenuRequested(int eventId, const QPoint &globalPos);
+    void eventMoreMenuRequested(int eventId, const QPoint &globalPos);
+    void emptyAreaContextMenuRequested(const QPoint &globalPos);
+    void playheadChanged(double seconds);
+    void headerWidthChanged(int width);
+    void headerWidthEditFinished(int width);
+    void trackHeaderContextMenuRequested(int trackIndex, const QPoint &globalPos);
+    /** Audio/video header "…" (More) chip. */
+    void trackMoreMenuRequested(int trackIndex, const QPoint &globalPos);
+    /** Header "fx" chip → Track FX. */
+    void trackFxRequested(int trackIndex);
+    void trackEmptyContextMenuRequested(int trackIndex, const QPoint &globalPos);
+    void rulerContextMenuRequested(const QPoint &globalPos);
+    void scrollMetricsChanged();
+    void scrollOffsetChanged();
+    void playingChanged(bool playing);
+    /** Drop from Project Media (or files): place at timeline time on optional track. */
+    void mediaDropRequested(const QString &name, const QString &kind, double timeSec, int trackIndex,
+                            double lengthSec, const QString &path);
+    /** Document mutation about to begin / finished (for Undo). */
+    void documentEditBegan();
+    void documentEditCommitted(const QString &text);
+
+protected:
+    void paintEvent(QPaintEvent *event) override;
+    void mousePressEvent(QMouseEvent *event) override;
+    void mouseMoveEvent(QMouseEvent *event) override;
+    void mouseReleaseEvent(QMouseEvent *event) override;
+    void mouseDoubleClickEvent(QMouseEvent *event) override;
+    void leaveEvent(QEvent *event) override;
+    void wheelEvent(QWheelEvent *event) override;
+    void keyPressEvent(QKeyEvent *event) override;
+    void contextMenuEvent(QContextMenuEvent *event) override;
+    void resizeEvent(QResizeEvent *event) override;
+    void dragEnterEvent(QDragEnterEvent *event) override;
+    void dragMoveEvent(QDragMoveEvent *event) override;
+    void dragLeaveEvent(QDragLeaveEvent *event) override;
+    void dropEvent(QDropEvent *event) override;
+    bool eventFilter(QObject *watched, QEvent *event) override;
+
+private:
+    struct Hit {
+        int trackIndex = -1;
+        int eventId = -1;
+        QRect eventRect;
+    };
+
+    enum class EventEditMode {
+        None,
+        Move,
+        TrimStart,
+        TrimEnd,
+        FadeIn,
+        FadeOut,
+        Level // opacity (video) / gain (audio)
+    };
+
+    enum class EventChromeButton {
+        None,
+        PanCrop,
+        Fx,
+        More
+    };
+
+    enum class RulerDragMode {
+        None,
+        Playhead,
+        Marker,
+        LoopCreate,
+        LoopMove,
+        LoopStart,
+        LoopEnd
+    };
+
+    int railWidth() const { return 26; }
+    int splitterHitPad() const { return 4; }
+    int trackResizeHitPad() const { return 5; }
+    int eventEdgeHitPad() const { return 6; }
+    int fadeCornerHitPad() const { return 12; }
+    int minTrackHeight() const { return 36; }
+    int maxTrackHeight() const { return 420; }
+    double minEventLengthSec() const { return 0.05; }
+    int defaultTrackHeight(TrackKind kind) const;
+    bool nearHeaderSplitter(const QPoint &pos) const;
+    int trackResizeIndexAt(const QPoint &pos) const;
+    int trackIndexAtY(int y) const;
+    /** Y of the bottom edge of the last track (next free slot). */
+    int tracksBottomY() const;
+    bool isBelowTracksDropZone(const QPoint &pos) const;
+    /** Left track-controller column (below ruler). */
+    bool isTrackHeaderDropZone(const QPoint &pos) const;
+    /** Header hit → track index; empty header/body → kDropCreateNewTracks. */
+    int dropTargetTrackIndex(const QPoint &pos) const;
+    double dropTargetTimeSec(const QPoint &pos) const;
+    int reorderInsertIndexAtY(int y) const;
+    bool isHeaderEmptyDragSpace(const QPoint &pos, int *outTrackIndex = nullptr) const;
+    double xToTime(int x) const;
+    int timeToX(double sec) const;
+    int trackY(int trackIndex) const;
+    QRect eventRect(const Track &track, const TrackEvent &ev, int trackTop) const;
+    std::optional<Hit> hitTest(const QPoint &pos) const;
+    EventEditMode eventEditModeAt(const QPoint &pos, Hit *outHit = nullptr) const;
+    void clampEventFades(TrackEvent &ev) const;
+    void paintRuler(QPainter &p);
+    void paintLoopRegion(QPainter &p);
+    void paintMarkers(QPainter &p);
+    void paintTracks(QPainter &p);
+    void paintTrackHeader(QPainter &p, const Track &track, int index, int y);
+    void paintReorderCue(QPainter &p);
+    void paintEventBlock(QPainter &p, const Track &track, const TrackEvent &ev, const QRect &r);
+    void paintEventFades(QPainter &p, const Track &track, const TrackEvent &ev, const QRect &r);
+    void paintEventChrome(QPainter &p, const Track &track, const TrackEvent &ev, const QRect &r);
+    void paintCrossfades(QPainter &p, const Track &track, int trackTop);
+    void showFadeCurvePopup(int eventId, bool fadeIn, const QPoint &globalPos);
+    void emitDocumentEditBegan();
+    void emitDocumentEditCommitted(const QString &text);
+    void paintVideoThumbs(QPainter &p, const QRect &body, const TrackEvent &ev);
+    void paintStillImage(QPainter &p, const QRect &body, const TrackEvent &ev);
+    void paintAudioWave(QPainter &p, const QRect &body, const TrackEvent &ev);
+    QString eventMediaPath(const TrackEvent &ev) const;
+    double overlapSec(const TrackEvent &a, const TrackEvent &b) const;
+    double incomingCrossfadeSec(const Track &track, const TrackEvent &ev) const;
+    double outgoingCrossfadeSec(const Track &track, const TrackEvent &ev) const;
+    /** Left inset (px) so title/level/buttons clear an incoming crossfade. */
+    int eventChromeLeftInset(const Track &track, const TrackEvent &ev) const;
+    int eventChromeRightInset(const Track &track, const TrackEvent &ev) const;
+    QRect eventContentRect(const Track &track, const TrackEvent &ev, const QRect &r) const;
+    /** Body band where opacity/gain travels (below title, above button strip). */
+    QRect eventLevelBodyRect(const Track &track, const TrackEvent &ev, const QRect &r) const;
+    int levelYFromNormalized(const QRect &body, double n) const;
+    double normalizedFromLevelY(const QRect &body, int y) const;
+    QRect eventLevelHandleRect(const Track &track, const TrackEvent &ev, const QRect &r) const;
+    double eventLevelNormalized(const TrackEvent &ev) const;
+    void setEventLevelFromNormalized(TrackEvent &ev, double n) const;
+    QString eventLevelTooltip(const TrackEvent &ev) const;
+    QRect eventButtonRect(const Track &track, const TrackEvent &ev, const QRect &r,
+                          EventChromeButton button) const;
+    EventChromeButton eventButtonAt(const QPoint &pos, Hit *outHit = nullptr) const;
+    void paintPlayhead(QPainter &p);
+    void paintDropGhost(QPainter &p);
+    void updateDropGhost(const QPoint &pos, const QMimeData *md);
+    void clearDropGhost();
+    static bool mimeHasMedia(const QMimeData *md);
+    static void parseMediaMime(const QMimeData *md, QStringList *names, QStringList *kinds,
+                               QStringList *paths, QVector<double> *lengths);
+    void paintHeaderSplitter(QPainter &p);
+    void paintMiniButton(QPainter &p, const QRect &r, const QString &text, bool active,
+                         const QColor &activeBg);
+    void paintSlider(QPainter &p, const QRect &r, const QString &label, const QString &value,
+                     double normalized);
+    void paintCropGlyph(QPainter &p, const QRect &r) const;
+    void ensureContentWidth();
+    void updateHoverCursor(const QPoint &pos);
+    void updateEventChromeTooltip(const QPoint &pos);
+    void clampScroll();
+    void moveTrack(int fromIndex, int insertBefore);
+    QRect trackNameRect(int trackIndex) const;
+    void positionTrackNameEdit();
+    void finishTrackRename(bool accept);
+
+    QRect markerHeadRect(const TimelineMarker &marker) const;
+    QRect markerLabelRect(const TimelineMarker &marker) const;
+    int markerAtPos(const QPoint &pos) const;
+    RulerDragMode loopHitAt(const QPoint &pos) const;
+    QRect loopBarRect() const;
+    QRect loopSeedRect() const;
+    void beginMarkerRename(int markerId);
+    void positionMarkerLabelEdit();
+    void finishMarkerRename(bool accept);
+
+    ProjectModel *m_model = nullptr;
+    FadeCurvePopup *m_fadeCurvePopup = nullptr;
+    int m_fadeCurveEventId = -1;
+    bool m_fadeCurveIsIn = true;
+    QLineEdit *m_trackNameEdit = nullptr;
+    QLineEdit *m_markerLabelEdit = nullptr;
+    int m_renamingTrackIndex = -1;
+    int m_renamingMarkerId = -1;
+    int m_headerWidth = 210;
+    int m_scrollX = 0;
+    int m_scrollY = 0;
+    bool m_dragging = false;
+    bool m_draggingPlayhead = false;
+    RulerDragMode m_rulerDrag = RulerDragMode::None;
+    int m_dragMarkerId = -1;
+    double m_dragMarkerOriginTime = 0.0;
+    double m_dragLoopOriginStart = 0.0;
+    double m_dragLoopOriginEnd = 0.0;
+    double m_dragLoopCreateOrigin = 0.0;
+    bool m_resizingHeader = false;
+    int m_resizingTrackIndex = -1;
+    int m_resizeTrackOriginHeight = 0;
+    int m_resizeTrackOriginY = 0;
+    int m_hoverResizeTrack = -1;
+    int m_dragEventId = -1;
+    double m_dragOriginStart = 0.0;
+    double m_dragOriginLength = 0.0;
+    double m_dragOriginFadeIn = 0.0;
+    double m_dragOriginFadeOut = 0.0;
+    double m_dragOriginLevel = 1.0;
+    int m_dragOriginX = 0;
+    int m_dragOriginY = 0;
+    EventEditMode m_eventEditMode = EventEditMode::None;
+    int m_reorderingTrack = -1;
+    int m_reorderInsertBefore = -1;
+    int m_hoverReorderTrack = -1;
+    EventChromeButton m_hoverButton = EventChromeButton::None;
+    int m_hoverLevelEventId = -1;
+    /** eventId → origin startSec for grouped move */
+    QHash<int, double> m_dragGroupOrigins;
+    /** Track created during this drag by dropping below the timeline; -1 if none. */
+    int m_dragCreatedTrack = -1;
+    bool m_docEditOpen = false;
+
+    bool m_dropGhostActive = false;
+    double m_dropGhostStartSec = 0.0;
+    double m_dropGhostLengthSec = 8.0;
+    QString m_dropGhostKind;
+    int m_dropGhostTrack = -1;
+
+    bool m_playing = false;
+    bool m_externalTransportClock = false;
+    double m_shuttleRate = 0.0;
+    bool m_playheadBlinkLight = true;
+    QTimer *m_blinkTimer = nullptr;
+    QTimer *m_playTimer = nullptr;
+    QElapsedTimer m_playClock;
+};
+
+} // namespace openvegas

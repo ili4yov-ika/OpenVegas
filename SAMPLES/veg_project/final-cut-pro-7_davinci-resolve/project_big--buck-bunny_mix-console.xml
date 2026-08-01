@@ -1,0 +1,1014 @@
+﻿<?xml version="1.0"?>
+<xmeml version="5">
+	<project>
+		<name>Untitled Project 1</name>
+		<children>
+			<bin>
+				<updatebehavior>add</updatebehavior>
+				<name>Custom Bins</name>
+				<children />
+			</bin>
+			<clip id="big-buck-bunny_video-60fps-4k - 6.mp4">
+				<updatebehavior>add</updatebehavior>
+				<name>big-buck-bunny_video-60fps-4k - 6.mp4</name>
+				<duration>38074</duration>
+				<rate>
+					<ntsc>FALSE</ntsc>
+					<timebase>60</timebase>
+				</rate>
+				<in>-1</in>
+				<out>-1</out>
+				<masterclipid>big-buck-bunny_video-60fps-4k - 6.mp4</masterclipid>
+				<ismasterclip>TRUE</ismasterclip>
+				<logginginfo>
+					<scene />
+					<shottake />
+					<lognote />
+					<good>FALSE</good>
+				</logginginfo>
+				<labels>
+					<label2 />
+				</labels>
+				<comments>
+					<mastercomment1 />
+					<mastercomment2 />
+					<mastercomment3 />
+					<mastercomment4 />
+				</comments>
+				<media>
+					<video>
+						<track>
+							<clipitem id="big-buck-bunny_video-60fps-4k - 6.mp41">
+								<name>big-buck-bunny_video-60fps-4k - 6.mp4</name>
+								<duration>38074</duration>
+								<rate>
+									<ntsc>FALSE</ntsc>
+									<timebase>60</timebase>
+								</rate>
+								<in>0</in>
+								<out>38074</out>
+								<start>0</start>
+								<end>38074</end>
+								<pixelaspectratio>Square</pixelaspectratio>
+								<anamorphic>FALSE</anamorphic>
+								<alphatype>none</alphatype>
+								<masterclipid>big-buck-bunny_video-60fps-4k - 6.mp4</masterclipid>
+								<logginginfo>
+									<scene />
+									<shottake />
+									<lognote />
+									<good>FALSE</good>
+								</logginginfo>
+								<labels>
+									<label2 />
+								</labels>
+								<comments>
+									<mastercomment1 />
+									<mastercomment2 />
+									<mastercomment3 />
+									<mastercomment4 />
+								</comments>
+								<file id="big-buck-bunny_video-60fps-4k - 6">
+									<name>big-buck-bunny_video-60fps-4k - 6.mp4</name>
+									<pathurl>file://localhost/D:/Devs/C++/OpenVegas/SAMPLES/veg_project/final-cut-pro-7_davinci-resolve/big-buck-bunny_video-60fps-4k - 6.mp4</pathurl>
+									<rate>
+										<timebase>60</timebase>
+										<ntsc>FALSE</ntsc>
+									</rate>
+									<duration>38074</duration>
+									<timecode>
+										<rate>
+											<timebase>60</timebase>
+											<ntsc>FALSE</ntsc>
+										</rate>
+										<frame>0</frame>
+										<displayformat>NDF</displayformat>
+										<source>source</source>
+									</timecode>
+									<media>
+										<video>
+											<duration>38074</duration>
+											<samplecharacteristics>
+												<width>3840</width>
+												<height>2160</height>
+											</samplecharacteristics>
+										</video>
+										<audio>
+											<samplecharacteristics>
+												<samplerate>48000</samplerate>
+												<depth>16</depth>
+											</samplecharacteristics>
+											<channelcount>1</channelcount>
+										</audio>
+										<audio>
+											<samplecharacteristics>
+												<samplerate>48000</samplerate>
+												<depth>16</depth>
+											</samplecharacteristics>
+											<channelcount>1</channelcount>
+										</audio>
+										<audio>
+											<samplecharacteristics>
+												<samplerate>48000</samplerate>
+												<depth>16</depth>
+											</samplecharacteristics>
+											<channelcount>1</channelcount>
+										</audio>
+										<audio>
+											<samplecharacteristics>
+												<samplerate>48000</samplerate>
+												<depth>16</depth>
+											</samplecharacteristics>
+											<channelcount>1</channelcount>
+										</audio>
+										<audio>
+											<samplecharacteristics>
+												<samplerate>48000</samplerate>
+												<depth>16</depth>
+											</samplecharacteristics>
+											<channelcount>1</channelcount>
+										</audio>
+										<audio>
+											<samplecharacteristics>
+												<samplerate>48000</samplerate>
+												<depth>16</depth>
+											</samplecharacteristics>
+											<channelcount>1</channelcount>
+										</audio>
+									</media>
+								</file>
+								<sourcetrack>
+									<mediatype>video</mediatype>
+								</sourcetrack>
+								<fielddominance>none</fielddominance>
+							</clipitem>
+							<enabled>TRUE</enabled>
+							<locked>FALSE</locked>
+						</track>
+					</video>
+					<audio>
+						<track>
+							<clipitem id="big-buck-bunny_video-60fps-4k - 6.mp42">
+								<name>big-buck-bunny_video-60fps-4k - 6.mp4</name>
+								<duration>38074</duration>
+								<rate>
+									<ntsc>FALSE</ntsc>
+									<timebase>60</timebase>
+								</rate>
+								<in>0</in>
+								<out>38074</out>
+								<start>0</start>
+								<end>38074</end>
+								<masterclipid>big-buck-bunny_video-60fps-4k - 6.mp4</masterclipid>
+								<logginginfo>
+									<scene />
+									<shottake />
+									<lognote />
+									<good>FALSE</good>
+								</logginginfo>
+								<labels>
+									<label2 />
+								</labels>
+								<comments>
+									<mastercomment1 />
+									<mastercomment2 />
+									<mastercomment3 />
+									<mastercomment4 />
+								</comments>
+								<file id="big-buck-bunny_video-60fps-4k - 6" />
+								<sourcetrack>
+									<mediatype>audio</mediatype>
+								</sourcetrack>
+							</clipitem>
+							<enabled>TRUE</enabled>
+							<locked>FALSE</locked>
+						</track>
+						<track>
+							<clipitem id="big-buck-bunny_video-60fps-4k - 6.mp43">
+								<name>big-buck-bunny_video-60fps-4k - 6.mp4</name>
+								<duration>38074</duration>
+								<rate>
+									<ntsc>FALSE</ntsc>
+									<timebase>60</timebase>
+								</rate>
+								<in>0</in>
+								<out>38074</out>
+								<start>0</start>
+								<end>38074</end>
+								<masterclipid>big-buck-bunny_video-60fps-4k - 6.mp4</masterclipid>
+								<logginginfo>
+									<scene />
+									<shottake />
+									<lognote />
+									<good>FALSE</good>
+								</logginginfo>
+								<labels>
+									<label2 />
+								</labels>
+								<comments>
+									<mastercomment1 />
+									<mastercomment2 />
+									<mastercomment3 />
+									<mastercomment4 />
+								</comments>
+								<file id="big-buck-bunny_video-60fps-4k - 6" />
+								<sourcetrack>
+									<mediatype>audio</mediatype>
+								</sourcetrack>
+							</clipitem>
+							<enabled>TRUE</enabled>
+							<locked>FALSE</locked>
+						</track>
+						<track>
+							<clipitem id="big-buck-bunny_video-60fps-4k - 6.mp44">
+								<name>big-buck-bunny_video-60fps-4k - 6.mp4</name>
+								<duration>38074</duration>
+								<rate>
+									<ntsc>FALSE</ntsc>
+									<timebase>60</timebase>
+								</rate>
+								<in>0</in>
+								<out>38074</out>
+								<start>0</start>
+								<end>38074</end>
+								<masterclipid>big-buck-bunny_video-60fps-4k - 6.mp4</masterclipid>
+								<logginginfo>
+									<scene />
+									<shottake />
+									<lognote />
+									<good>FALSE</good>
+								</logginginfo>
+								<labels>
+									<label2 />
+								</labels>
+								<comments>
+									<mastercomment1 />
+									<mastercomment2 />
+									<mastercomment3 />
+									<mastercomment4 />
+								</comments>
+								<file id="big-buck-bunny_video-60fps-4k - 6" />
+								<sourcetrack>
+									<mediatype>audio</mediatype>
+								</sourcetrack>
+							</clipitem>
+							<enabled>TRUE</enabled>
+							<locked>FALSE</locked>
+						</track>
+						<track>
+							<clipitem id="big-buck-bunny_video-60fps-4k - 6.mp45">
+								<name>big-buck-bunny_video-60fps-4k - 6.mp4</name>
+								<duration>38074</duration>
+								<rate>
+									<ntsc>FALSE</ntsc>
+									<timebase>60</timebase>
+								</rate>
+								<in>0</in>
+								<out>38074</out>
+								<start>0</start>
+								<end>38074</end>
+								<masterclipid>big-buck-bunny_video-60fps-4k - 6.mp4</masterclipid>
+								<logginginfo>
+									<scene />
+									<shottake />
+									<lognote />
+									<good>FALSE</good>
+								</logginginfo>
+								<labels>
+									<label2 />
+								</labels>
+								<comments>
+									<mastercomment1 />
+									<mastercomment2 />
+									<mastercomment3 />
+									<mastercomment4 />
+								</comments>
+								<file id="big-buck-bunny_video-60fps-4k - 6" />
+								<sourcetrack>
+									<mediatype>audio</mediatype>
+								</sourcetrack>
+							</clipitem>
+							<enabled>TRUE</enabled>
+							<locked>FALSE</locked>
+						</track>
+						<track>
+							<clipitem id="big-buck-bunny_video-60fps-4k - 6.mp46">
+								<name>big-buck-bunny_video-60fps-4k - 6.mp4</name>
+								<duration>38074</duration>
+								<rate>
+									<ntsc>FALSE</ntsc>
+									<timebase>60</timebase>
+								</rate>
+								<in>0</in>
+								<out>38074</out>
+								<start>0</start>
+								<end>38074</end>
+								<masterclipid>big-buck-bunny_video-60fps-4k - 6.mp4</masterclipid>
+								<logginginfo>
+									<scene />
+									<shottake />
+									<lognote />
+									<good>FALSE</good>
+								</logginginfo>
+								<labels>
+									<label2 />
+								</labels>
+								<comments>
+									<mastercomment1 />
+									<mastercomment2 />
+									<mastercomment3 />
+									<mastercomment4 />
+								</comments>
+								<file id="big-buck-bunny_video-60fps-4k - 6" />
+								<sourcetrack>
+									<mediatype>audio</mediatype>
+								</sourcetrack>
+							</clipitem>
+							<enabled>TRUE</enabled>
+							<locked>FALSE</locked>
+						</track>
+						<track>
+							<clipitem id="big-buck-bunny_video-60fps-4k - 6.mp47">
+								<name>big-buck-bunny_video-60fps-4k - 6.mp4</name>
+								<duration>38074</duration>
+								<rate>
+									<ntsc>FALSE</ntsc>
+									<timebase>60</timebase>
+								</rate>
+								<in>0</in>
+								<out>38074</out>
+								<start>0</start>
+								<end>38074</end>
+								<masterclipid>big-buck-bunny_video-60fps-4k - 6.mp4</masterclipid>
+								<logginginfo>
+									<scene />
+									<shottake />
+									<lognote />
+									<good>FALSE</good>
+								</logginginfo>
+								<labels>
+									<label2 />
+								</labels>
+								<comments>
+									<mastercomment1 />
+									<mastercomment2 />
+									<mastercomment3 />
+									<mastercomment4 />
+								</comments>
+								<file id="big-buck-bunny_video-60fps-4k - 6" />
+								<sourcetrack>
+									<mediatype>audio</mediatype>
+								</sourcetrack>
+							</clipitem>
+							<enabled>TRUE</enabled>
+							<locked>FALSE</locked>
+						</track>
+					</audio>
+				</media>
+			</clip>
+			<sequence id="Sequence 1">
+				<updatebehavior>add</updatebehavior>
+				<name>Sequence 1</name>
+				<duration>38074</duration>
+				<rate>
+					<ntsc>FALSE</ntsc>
+					<timebase>60</timebase>
+				</rate>
+				<timecode>
+					<rate>
+						<ntsc>FALSE</ntsc>
+						<timebase>60</timebase>
+					</rate>
+					<frame>216000</frame>
+					<source>source</source>
+					<displayformat>NDF</displayformat>
+				</timecode>
+				<in>-1</in>
+				<out>-1</out>
+				<media>
+					<video>
+						<format>
+							<samplecharacteristics>
+								<width>3840</width>
+								<height>2160</height>
+								<pixelaspectratio>Square</pixelaspectratio>
+								<anamorphic>FALSE</anamorphic>
+								<fielddominance>none</fielddominance>
+								<rate>
+									<ntsc>FALSE</ntsc>
+									<timebase>60</timebase>
+								</rate>
+								<colordepth>24</colordepth>
+							</samplecharacteristics>
+						</format>
+						<track>
+							<clipitem id="big-buck-bunny_video-60fps-4k - 6.mp4805306369">
+								<name>big-buck-bunny_video-60fps-4k - 6.mp4</name>
+								<duration>38074</duration>
+								<rate>
+									<ntsc>FALSE</ntsc>
+									<timebase>60</timebase>
+								</rate>
+								<in>0</in>
+								<out>38074</out>
+								<start>0</start>
+								<end>38074</end>
+								<pixelaspectratio>Square</pixelaspectratio>
+								<anamorphic>FALSE</anamorphic>
+								<alphatype>none</alphatype>
+								<masterclipid>big-buck-bunny_video-60fps-4k - 6.mp4</masterclipid>
+								<logginginfo>
+									<scene />
+									<shottake />
+									<lognote />
+									<good>FALSE</good>
+								</logginginfo>
+								<labels>
+									<label2 />
+								</labels>
+								<comments>
+									<mastercomment1 />
+									<mastercomment2 />
+									<mastercomment3 />
+									<mastercomment4 />
+								</comments>
+								<file id="big-buck-bunny_video-60fps-4k - 6" />
+								<filter>
+									<effect>
+										<name>Opacity</name>
+										<effectid>opacity</effectid>
+										<effectcategory>motion</effectcategory>
+										<effecttype>motion</effecttype>
+										<mediatype>video</mediatype>
+										<parameter>
+											<name>opacity</name>
+											<parameterid>opacity</parameterid>
+											<valuemin>0</valuemin>
+											<valuemax>100</valuemax>
+											<value>100</value>
+										</parameter>
+									</effect>
+								</filter>
+								<sourcetrack>
+									<mediatype>video</mediatype>
+								</sourcetrack>
+								<link>
+									<linkclipref>big-buck-bunny_video-60fps-4k - 6.mp4805306369</linkclipref>
+								</link>
+								<link>
+									<linkclipref>big-buck-bunny_video-60fps-4k - 6.mp4536870914</linkclipref>
+								</link>
+								<link>
+									<linkclipref>big-buck-bunny_video-60fps-4k - 6.mp45368709141</linkclipref>
+								</link>
+								<link>
+									<linkclipref>big-buck-bunny_video-60fps-4k - 6.mp4536870915</linkclipref>
+								</link>
+								<link>
+									<linkclipref>big-buck-bunny_video-60fps-4k - 6.mp4536870916</linkclipref>
+								</link>
+								<link>
+									<linkclipref>big-buck-bunny_video-60fps-4k - 6.mp4536870917</linkclipref>
+								</link>
+								<link>
+									<linkclipref>big-buck-bunny_video-60fps-4k - 6.mp45368709171</linkclipref>
+								</link>
+								<fielddominance>none</fielddominance>
+							</clipitem>
+						</track>
+					</video>
+					<audio>
+						<track>
+							<clipitem id="big-buck-bunny_video-60fps-4k - 6.mp4536870917">
+								<name>big-buck-bunny_video-60fps-4k - 6.mp4</name>
+								<duration>38074</duration>
+								<rate>
+									<ntsc>FALSE</ntsc>
+									<timebase>60</timebase>
+								</rate>
+								<in>0</in>
+								<out>38074</out>
+								<start>0</start>
+								<end>38074</end>
+								<masterclipid>big-buck-bunny_video-60fps-4k - 6.mp4</masterclipid>
+								<logginginfo>
+									<scene />
+									<shottake />
+									<lognote />
+									<good>FALSE</good>
+								</logginginfo>
+								<labels>
+									<label2 />
+								</labels>
+								<comments>
+									<mastercomment1 />
+									<mastercomment2 />
+									<mastercomment3 />
+									<mastercomment4 />
+								</comments>
+								<file id="big-buck-bunny_video-60fps-4k - 6" />
+								<filter>
+									<effect>
+										<name>Audio Levels</name>
+										<effectid>audiolevels</effectid>
+										<effectcategory>audiolevels</effectcategory>
+										<effecttype>audiolevels</effecttype>
+										<mediatype>audio</mediatype>
+										<parameter>
+											<name>Level</name>
+											<parameterid>level</parameterid>
+											<valuemin>0</valuemin>
+											<valuemax>3.98109</valuemax>
+											<value>1</value>
+										</parameter>
+									</effect>
+								</filter>
+								<filter>
+									<effect>
+										<name>Audio Pan</name>
+										<effectid>audiopan</effectid>
+										<effectcategory>audiopan</effectcategory>
+										<effecttype>audiopan</effecttype>
+										<mediatype>audio</mediatype>
+										<parameter>
+											<name>Pan</name>
+											<parameterid>pan</parameterid>
+											<valuemin>-1</valuemin>
+											<valuemax>1</valuemax>
+											<value>-1</value>
+										</parameter>
+									</effect>
+								</filter>
+								<sourcetrack>
+									<mediatype>audio</mediatype>
+									<trackindex>5</trackindex>
+								</sourcetrack>
+								<link>
+									<linkclipref>big-buck-bunny_video-60fps-4k - 6.mp4805306369</linkclipref>
+								</link>
+								<link>
+									<linkclipref>big-buck-bunny_video-60fps-4k - 6.mp4536870914</linkclipref>
+								</link>
+								<link>
+									<linkclipref>big-buck-bunny_video-60fps-4k - 6.mp45368709141</linkclipref>
+								</link>
+								<link>
+									<linkclipref>big-buck-bunny_video-60fps-4k - 6.mp4536870915</linkclipref>
+								</link>
+								<link>
+									<linkclipref>big-buck-bunny_video-60fps-4k - 6.mp4536870916</linkclipref>
+								</link>
+								<link>
+									<linkclipref>big-buck-bunny_video-60fps-4k - 6.mp4536870917</linkclipref>
+								</link>
+								<link>
+									<linkclipref>big-buck-bunny_video-60fps-4k - 6.mp45368709171</linkclipref>
+								</link>
+							</clipitem>
+						</track>
+						<track>
+							<clipitem id="big-buck-bunny_video-60fps-4k - 6.mp45368709171">
+								<name>big-buck-bunny_video-60fps-4k - 6.mp4</name>
+								<duration>38074</duration>
+								<rate>
+									<ntsc>FALSE</ntsc>
+									<timebase>60</timebase>
+								</rate>
+								<in>0</in>
+								<out>38074</out>
+								<start>0</start>
+								<end>38074</end>
+								<masterclipid>big-buck-bunny_video-60fps-4k - 6.mp4</masterclipid>
+								<logginginfo>
+									<scene />
+									<shottake />
+									<lognote />
+									<good>FALSE</good>
+								</logginginfo>
+								<labels>
+									<label2 />
+								</labels>
+								<comments>
+									<mastercomment1 />
+									<mastercomment2 />
+									<mastercomment3 />
+									<mastercomment4 />
+								</comments>
+								<file id="big-buck-bunny_video-60fps-4k - 6" />
+								<filter>
+									<effect>
+										<name>Audio Levels</name>
+										<effectid>audiolevels</effectid>
+										<effectcategory>audiolevels</effectcategory>
+										<effecttype>audiolevels</effecttype>
+										<mediatype>audio</mediatype>
+										<parameter>
+											<name>Level</name>
+											<parameterid>level</parameterid>
+											<valuemin>0</valuemin>
+											<valuemax>3.98109</valuemax>
+											<value>1</value>
+										</parameter>
+									</effect>
+								</filter>
+								<filter>
+									<effect>
+										<name>Audio Pan</name>
+										<effectid>audiopan</effectid>
+										<effectcategory>audiopan</effectcategory>
+										<effecttype>audiopan</effecttype>
+										<mediatype>audio</mediatype>
+										<parameter>
+											<name>Pan</name>
+											<parameterid>pan</parameterid>
+											<valuemin>-1</valuemin>
+											<valuemax>1</valuemax>
+											<value>1</value>
+										</parameter>
+									</effect>
+								</filter>
+								<sourcetrack>
+									<mediatype>audio</mediatype>
+									<trackindex>6</trackindex>
+								</sourcetrack>
+								<link>
+									<linkclipref>big-buck-bunny_video-60fps-4k - 6.mp4805306369</linkclipref>
+								</link>
+								<link>
+									<linkclipref>big-buck-bunny_video-60fps-4k - 6.mp4536870914</linkclipref>
+								</link>
+								<link>
+									<linkclipref>big-buck-bunny_video-60fps-4k - 6.mp45368709141</linkclipref>
+								</link>
+								<link>
+									<linkclipref>big-buck-bunny_video-60fps-4k - 6.mp4536870915</linkclipref>
+								</link>
+								<link>
+									<linkclipref>big-buck-bunny_video-60fps-4k - 6.mp4536870916</linkclipref>
+								</link>
+								<link>
+									<linkclipref>big-buck-bunny_video-60fps-4k - 6.mp4536870917</linkclipref>
+								</link>
+								<link>
+									<linkclipref>big-buck-bunny_video-60fps-4k - 6.mp45368709171</linkclipref>
+								</link>
+							</clipitem>
+						</track>
+						<track>
+							<clipitem id="big-buck-bunny_video-60fps-4k - 6.mp4536870915">
+								<name>big-buck-bunny_video-60fps-4k - 6.mp4</name>
+								<duration>38074</duration>
+								<rate>
+									<ntsc>FALSE</ntsc>
+									<timebase>60</timebase>
+								</rate>
+								<in>0</in>
+								<out>38074</out>
+								<start>0</start>
+								<end>38074</end>
+								<masterclipid>big-buck-bunny_video-60fps-4k - 6.mp4</masterclipid>
+								<logginginfo>
+									<scene />
+									<shottake />
+									<lognote />
+									<good>FALSE</good>
+								</logginginfo>
+								<labels>
+									<label2 />
+								</labels>
+								<comments>
+									<mastercomment1 />
+									<mastercomment2 />
+									<mastercomment3 />
+									<mastercomment4 />
+								</comments>
+								<file id="big-buck-bunny_video-60fps-4k - 6" />
+								<filter>
+									<effect>
+										<name>Audio Levels</name>
+										<effectid>audiolevels</effectid>
+										<effectcategory>audiolevels</effectcategory>
+										<effecttype>audiolevels</effecttype>
+										<mediatype>audio</mediatype>
+										<parameter>
+											<name>Level</name>
+											<parameterid>level</parameterid>
+											<valuemin>0</valuemin>
+											<valuemax>3.98109</valuemax>
+											<value>1</value>
+										</parameter>
+									</effect>
+								</filter>
+								<filter>
+									<effect>
+										<name>Audio Pan</name>
+										<effectid>audiopan</effectid>
+										<effectcategory>audiopan</effectcategory>
+										<effecttype>audiopan</effecttype>
+										<mediatype>audio</mediatype>
+										<parameter>
+											<name>Pan</name>
+											<parameterid>pan</parameterid>
+											<valuemin>-1</valuemin>
+											<valuemax>1</valuemax>
+											<value>0</value>
+										</parameter>
+									</effect>
+								</filter>
+								<sourcetrack>
+									<mediatype>audio</mediatype>
+									<trackindex>3</trackindex>
+								</sourcetrack>
+								<link>
+									<linkclipref>big-buck-bunny_video-60fps-4k - 6.mp4805306369</linkclipref>
+								</link>
+								<link>
+									<linkclipref>big-buck-bunny_video-60fps-4k - 6.mp4536870914</linkclipref>
+								</link>
+								<link>
+									<linkclipref>big-buck-bunny_video-60fps-4k - 6.mp45368709141</linkclipref>
+								</link>
+								<link>
+									<linkclipref>big-buck-bunny_video-60fps-4k - 6.mp4536870915</linkclipref>
+								</link>
+								<link>
+									<linkclipref>big-buck-bunny_video-60fps-4k - 6.mp4536870916</linkclipref>
+								</link>
+								<link>
+									<linkclipref>big-buck-bunny_video-60fps-4k - 6.mp4536870917</linkclipref>
+								</link>
+								<link>
+									<linkclipref>big-buck-bunny_video-60fps-4k - 6.mp45368709171</linkclipref>
+								</link>
+							</clipitem>
+						</track>
+						<track>
+							<clipitem id="big-buck-bunny_video-60fps-4k - 6.mp4536870916">
+								<name>big-buck-bunny_video-60fps-4k - 6.mp4</name>
+								<duration>38074</duration>
+								<rate>
+									<ntsc>FALSE</ntsc>
+									<timebase>60</timebase>
+								</rate>
+								<in>0</in>
+								<out>38074</out>
+								<start>0</start>
+								<end>38074</end>
+								<masterclipid>big-buck-bunny_video-60fps-4k - 6.mp4</masterclipid>
+								<logginginfo>
+									<scene />
+									<shottake />
+									<lognote />
+									<good>FALSE</good>
+								</logginginfo>
+								<labels>
+									<label2 />
+								</labels>
+								<comments>
+									<mastercomment1 />
+									<mastercomment2 />
+									<mastercomment3 />
+									<mastercomment4 />
+								</comments>
+								<file id="big-buck-bunny_video-60fps-4k - 6" />
+								<filter>
+									<effect>
+										<name>Audio Levels</name>
+										<effectid>audiolevels</effectid>
+										<effectcategory>audiolevels</effectcategory>
+										<effecttype>audiolevels</effecttype>
+										<mediatype>audio</mediatype>
+										<parameter>
+											<name>Level</name>
+											<parameterid>level</parameterid>
+											<valuemin>0</valuemin>
+											<valuemax>3.98109</valuemax>
+											<value>1</value>
+										</parameter>
+									</effect>
+								</filter>
+								<filter>
+									<effect>
+										<name>Audio Pan</name>
+										<effectid>audiopan</effectid>
+										<effectcategory>audiopan</effectcategory>
+										<effecttype>audiopan</effecttype>
+										<mediatype>audio</mediatype>
+										<parameter>
+											<name>Pan</name>
+											<parameterid>pan</parameterid>
+											<valuemin>-1</valuemin>
+											<valuemax>1</valuemax>
+											<value>0</value>
+										</parameter>
+									</effect>
+								</filter>
+								<sourcetrack>
+									<mediatype>audio</mediatype>
+									<trackindex>4</trackindex>
+								</sourcetrack>
+								<link>
+									<linkclipref>big-buck-bunny_video-60fps-4k - 6.mp4805306369</linkclipref>
+								</link>
+								<link>
+									<linkclipref>big-buck-bunny_video-60fps-4k - 6.mp4536870914</linkclipref>
+								</link>
+								<link>
+									<linkclipref>big-buck-bunny_video-60fps-4k - 6.mp45368709141</linkclipref>
+								</link>
+								<link>
+									<linkclipref>big-buck-bunny_video-60fps-4k - 6.mp4536870915</linkclipref>
+								</link>
+								<link>
+									<linkclipref>big-buck-bunny_video-60fps-4k - 6.mp4536870916</linkclipref>
+								</link>
+								<link>
+									<linkclipref>big-buck-bunny_video-60fps-4k - 6.mp4536870917</linkclipref>
+								</link>
+								<link>
+									<linkclipref>big-buck-bunny_video-60fps-4k - 6.mp45368709171</linkclipref>
+								</link>
+							</clipitem>
+						</track>
+						<track>
+							<clipitem id="big-buck-bunny_video-60fps-4k - 6.mp4536870914">
+								<name>big-buck-bunny_video-60fps-4k - 6.mp4</name>
+								<duration>38074</duration>
+								<rate>
+									<ntsc>FALSE</ntsc>
+									<timebase>60</timebase>
+								</rate>
+								<in>0</in>
+								<out>38074</out>
+								<start>0</start>
+								<end>38074</end>
+								<masterclipid>big-buck-bunny_video-60fps-4k - 6.mp4</masterclipid>
+								<logginginfo>
+									<scene />
+									<shottake />
+									<lognote />
+									<good>FALSE</good>
+								</logginginfo>
+								<labels>
+									<label2 />
+								</labels>
+								<comments>
+									<mastercomment1 />
+									<mastercomment2 />
+									<mastercomment3 />
+									<mastercomment4 />
+								</comments>
+								<file id="big-buck-bunny_video-60fps-4k - 6" />
+								<filter>
+									<effect>
+										<name>Audio Levels</name>
+										<effectid>audiolevels</effectid>
+										<effectcategory>audiolevels</effectcategory>
+										<effecttype>audiolevels</effecttype>
+										<mediatype>audio</mediatype>
+										<parameter>
+											<name>Level</name>
+											<parameterid>level</parameterid>
+											<valuemin>0</valuemin>
+											<valuemax>3.98109</valuemax>
+											<value>1</value>
+										</parameter>
+									</effect>
+								</filter>
+								<filter>
+									<effect>
+										<name>Audio Pan</name>
+										<effectid>audiopan</effectid>
+										<effectcategory>audiopan</effectcategory>
+										<effecttype>audiopan</effecttype>
+										<mediatype>audio</mediatype>
+										<parameter>
+											<name>Pan</name>
+											<parameterid>pan</parameterid>
+											<valuemin>-1</valuemin>
+											<valuemax>1</valuemax>
+											<value>-1</value>
+										</parameter>
+									</effect>
+								</filter>
+								<sourcetrack>
+									<mediatype>audio</mediatype>
+									<trackindex>1</trackindex>
+								</sourcetrack>
+								<link>
+									<linkclipref>big-buck-bunny_video-60fps-4k - 6.mp4805306369</linkclipref>
+								</link>
+								<link>
+									<linkclipref>big-buck-bunny_video-60fps-4k - 6.mp4536870914</linkclipref>
+								</link>
+								<link>
+									<linkclipref>big-buck-bunny_video-60fps-4k - 6.mp45368709141</linkclipref>
+								</link>
+								<link>
+									<linkclipref>big-buck-bunny_video-60fps-4k - 6.mp4536870915</linkclipref>
+								</link>
+								<link>
+									<linkclipref>big-buck-bunny_video-60fps-4k - 6.mp4536870916</linkclipref>
+								</link>
+								<link>
+									<linkclipref>big-buck-bunny_video-60fps-4k - 6.mp4536870917</linkclipref>
+								</link>
+								<link>
+									<linkclipref>big-buck-bunny_video-60fps-4k - 6.mp45368709171</linkclipref>
+								</link>
+							</clipitem>
+						</track>
+						<track>
+							<clipitem id="big-buck-bunny_video-60fps-4k - 6.mp45368709141">
+								<name>big-buck-bunny_video-60fps-4k - 6.mp4</name>
+								<duration>38074</duration>
+								<rate>
+									<ntsc>FALSE</ntsc>
+									<timebase>60</timebase>
+								</rate>
+								<in>0</in>
+								<out>38074</out>
+								<start>0</start>
+								<end>38074</end>
+								<masterclipid>big-buck-bunny_video-60fps-4k - 6.mp4</masterclipid>
+								<logginginfo>
+									<scene />
+									<shottake />
+									<lognote />
+									<good>FALSE</good>
+								</logginginfo>
+								<labels>
+									<label2 />
+								</labels>
+								<comments>
+									<mastercomment1 />
+									<mastercomment2 />
+									<mastercomment3 />
+									<mastercomment4 />
+								</comments>
+								<file id="big-buck-bunny_video-60fps-4k - 6" />
+								<filter>
+									<effect>
+										<name>Audio Levels</name>
+										<effectid>audiolevels</effectid>
+										<effectcategory>audiolevels</effectcategory>
+										<effecttype>audiolevels</effecttype>
+										<mediatype>audio</mediatype>
+										<parameter>
+											<name>Level</name>
+											<parameterid>level</parameterid>
+											<valuemin>0</valuemin>
+											<valuemax>3.98109</valuemax>
+											<value>1</value>
+										</parameter>
+									</effect>
+								</filter>
+								<filter>
+									<effect>
+										<name>Audio Pan</name>
+										<effectid>audiopan</effectid>
+										<effectcategory>audiopan</effectcategory>
+										<effecttype>audiopan</effecttype>
+										<mediatype>audio</mediatype>
+										<parameter>
+											<name>Pan</name>
+											<parameterid>pan</parameterid>
+											<valuemin>-1</valuemin>
+											<valuemax>1</valuemax>
+											<value>1</value>
+										</parameter>
+									</effect>
+								</filter>
+								<sourcetrack>
+									<mediatype>audio</mediatype>
+									<trackindex>2</trackindex>
+								</sourcetrack>
+								<link>
+									<linkclipref>big-buck-bunny_video-60fps-4k - 6.mp4805306369</linkclipref>
+								</link>
+								<link>
+									<linkclipref>big-buck-bunny_video-60fps-4k - 6.mp4536870914</linkclipref>
+								</link>
+								<link>
+									<linkclipref>big-buck-bunny_video-60fps-4k - 6.mp45368709141</linkclipref>
+								</link>
+								<link>
+									<linkclipref>big-buck-bunny_video-60fps-4k - 6.mp4536870915</linkclipref>
+								</link>
+								<link>
+									<linkclipref>big-buck-bunny_video-60fps-4k - 6.mp4536870916</linkclipref>
+								</link>
+								<link>
+									<linkclipref>big-buck-bunny_video-60fps-4k - 6.mp4536870917</linkclipref>
+								</link>
+								<link>
+									<linkclipref>big-buck-bunny_video-60fps-4k - 6.mp45368709171</linkclipref>
+								</link>
+							</clipitem>
+						</track>
+					</audio>
+				</media>
+			</sequence>
+		</children>
+	</project>
+</xmeml>

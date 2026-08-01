@@ -1,0 +1,22 @@
+﻿<?xml version="1.0"?>
+<fcpxml version="1.2">
+	<project name="Untitled Project 1">
+		<resources>
+			<format id="r1" name="FFVideoFormatRateUndefined" frameDuration="100/6000s" width="3840" height="2160" />
+			<projectRef id="r2" name="Untitled Project 1" />
+			<format id="r3" frameDuration="100/6000s" width="3840" height="2160" />
+			<asset id="r4" name="big-buck-bunny_video-60fps-4k-9" projectRef="r2" src="file://localhost/D:/Devs/C++/OpenVegas/SAMPLES/veg_project/final-cut-pro-x/big-buck-bunny_video-60fps-4k-9.mp4" start="0/6000s" hasVideo="1" hasAudio="1" />
+		</resources>
+		<sequence duration="360100/6000s" format="r1" tcFormat="NDF" audioLayout="stereo" audioRate="48k">
+			<spine>
+				<video ref="r4" duration="360100/6000s" start="0/6000s">
+					<adjust-transform>
+						<param name="rotation" keyValues="0;0;0;0;0;0;0;0;0;0;0;0" keyTimes="0/6000s;26000/6000s;45900/6000s;84300/6000s;105800/6000s;136400/6000s;185600/6000s;222100/6000s;264100/6000s;315600/6000s;339100/6000s;351600/6000s" />
+						<param name="position" keyValues="0 0;0 0;0 0;0 0;0 0;0 0;0 0;0 0;0 0;0 0;0 0;0 0" keyTimes="0/6000s;26000/6000s;45900/6000s;84300/6000s;105800/6000s;136400/6000s;185600/6000s;222100/6000s;264100/6000s;315600/6000s;339100/6000s;351600/6000s" />
+						<param name="anchor" keyValues="0.00 0.00;-42.29 0.00;77.68 0.00;0.00 0.00;0.00 0.00;0.00 0.00;0.00 0.00;0.00 0.00;0.00 0.00;0.00 111.44;0.00 -101.71;0.00 0.00" keyTimes="0/6000s;26000/6000s;45900/6000s;84300/6000s;105800/6000s;136400/6000s;185600/6000s;222100/6000s;264100/6000s;315600/6000s;339100/6000s;351600/6000s" />
+					</adjust-transform>
+				</video>
+			</spine>
+		</sequence>
+	</project>
+</fcpxml>

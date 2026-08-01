@@ -1,0 +1,14 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=OpenVegas
+Name[ru]=OpenVegas
+Comment=Open-source video editor (VEGAS Pro–like)
+Comment[ru]=Открытый видеоредактор (аналог VEGAS Pro)
+Comment[en]=Open-source nonlinear video editor
+Exec=OpenVegas %F
+Icon=openvegas
+Terminal=false
+Categories=AudioVideo;Video;AudioVideoEditing;
+MimeType=application/x-vegas-project;video/mp4;video/x-msvideo;video/quicktime;audio/wav;audio/mpeg;
+StartupNotify=true

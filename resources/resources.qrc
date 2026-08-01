@@ -1,0 +1,8 @@
+<!DOCTYPE RCC>
+<RCC version="1.0">
+  <qresource prefix="/">
+    <file>openvegas.qss</file>
+    <file>icons/logo.svg</file>
+    <file>icons/logo.png</file>
+  </qresource>
+</RCC>

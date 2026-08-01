@@ -1,0 +1,3239 @@
+[
+  {
+    "file": "example_project_with_2_videos-one_compressed.veg",
+    "size": 17800,
+    "md5": "95ec437e46e330168e5a186df482f859",
+    "header": {
+      "magic": "riff",
+      "guid_a": "11CF912E-D6A5-DB28-04C1-000088450000",
+      "raw16_4_19": "2e91cf11a5d628db04c1000088450000",
+      "size_at_16": 17800,
+      "size_matches_file": true,
+      "u32_16": 17800,
+      "u32_20": 0,
+      "guid_24": "46C429EF-904A-11D2-8722-00C04F8EDB8A",
+      "guid_40": "B28F2D5A-230F-11D2-86AF-00C04F8EDB8A",
+      "u64_56": 3824
+    },
+    "strings_ascii": [
+      {
+        "off": 3162,
+        "s": "MProjectNotesLibrary, Version=22.0.0.250, Culture=neutral, PublicKeyToken=null"
+      },
+      {
+        "off": 3245,
+        "s": "0ScriptPortal.Vegas.ProjectNotes.ProjectNotesList"
+      },
+      {
+        "off": 3310,
+        "s": "m_hideResolvedNotes"
+      },
+      {
+        "off": 3330,
+        "s": "m_reviewMode"
+      },
+      {
+        "off": 3347,
+        "s": "System.Collections.Generic.List`1[[ScriptPortal.Vegas.ProjectNotes.ProjectNoteItem, ProjectNotesLibrary, Version=22.0.0.250, Culture=neutral, PublicKeyToken=null]]"
+      },
+      {
+        "off": 3530,
+        "s": "System.Collections.Generic.List`1[[ScriptPortal.Vegas.ProjectNotes.ProjectNoteItem, ProjectNotesLibrary, Version=22.0.0.250, Culture=neutral, PublicKeyToken=null]]"
+      },
+      {
+        "off": 3722,
+        "s": "1ScriptPortal.Vegas.ProjectNotes.ProjectNoteItem[]"
+      },
+      {
+        "off": 3806,
+        "s": "/ScriptPortal.Vegas.ProjectNotes.ProjectNoteItem"
+      },
+      {
+        "off": 3864,
+        "s": "list/"
+      },
+      {
+        "off": 3968,
+        "s": "list/"
+      },
+      {
+        "off": 5152,
+        "s": "list/"
+      },
+      {
+        "off": 5303,
+        "s": " list/"
+      },
+      {
+        "off": 5344,
+        "s": "list/"
+      },
+      {
+        "off": 5776,
+        "s": "list/"
+      },
+      {
+        "off": 5816,
+        "s": "list/"
+      },
+      {
+        "off": 6184,
+        "s": "list/"
+      },
+      {
+        "off": 6391,
+        "s": "?list/"
+      },
+      {
+        "off": 6640,
+        "s": "list/"
+      },
+      {
+        "off": 6680,
+        "s": "list/"
+      },
+      {
+        "off": 6720,
+        "s": "list/"
+      },
+      {
+        "off": 6760,
+        "s": "list/"
+      },
+      {
+        "off": 7192,
+        "s": "list/"
+      },
+      {
+        "off": 7232,
+        "s": "list/"
+      },
+      {
+        "off": 7688,
+        "s": "list/"
+      },
+      {
+        "off": 7895,
+        "s": "?list/"
+      },
+      {
+        "off": 8144,
+        "s": "list/"
+      },
+      {
+        "off": 8184,
+        "s": "list/"
+      },
+      {
+        "off": 8224,
+        "s": "list/"
+      },
+      {
+        "off": 8264,
+        "s": "list/"
+      },
+      {
+        "off": 8696,
+        "s": "list/"
+      },
+      {
+        "off": 8736,
+        "s": "list/"
+      },
+      {
+        "off": 9192,
+        "s": "list/"
+      },
+      {
+        "off": 9296,
+        "s": "list/"
+      },
+      {
+        "off": 10144,
+        "s": "list/"
+      },
+      {
+        "off": 10848,
+        "s": "list/"
+      },
+      {
+        "off": 11280,
+        "s": "list/"
+      },
+      {
+        "off": 11320,
+        "s": "list/"
+      },
+      {
+        "off": 11688,
+        "s": "list/"
+      },
+      {
+        "off": 11792,
+        "s": "list/"
+      },
+      {
+        "off": 12640,
+        "s": "list/"
+      },
+      {
+        "off": 13344,
+        "s": "list/"
+      },
+      {
+        "off": 13472,
+        "s": "list/"
+      },
+      {
+        "off": 17056,
+        "s": "list/"
+      },
+      {
+        "off": 17096,
+        "s": "list/"
+      },
+      {
+        "off": 17136,
+        "s": "list/"
+      },
+      {
+        "off": 17288,
+        "s": "list/"
+      }
+    ],
+    "strings_utf16": [
+      {
+        "off": 248,
+        "s": "D:\\Devs\\C++\\OpenVegas\\sample_ui\\example_project_with_2_videos-одно_сжато.veg"
+      },
+      {
+        "off": 402,
+        "s": "C:\\Users\\Admin\\Documents"
+      },
+      {
+        "off": 452,
+        "s": "C:\\Users\\Admin\\AppData\\Local\\VEGAS Pro\\22.0\\"
+      },
+      {
+        "off": 4160,
+        "s": "C:\\Users\\Admin\\Videos\\1untitled.mp4"
+      },
+      {
+        "off": 4680,
+        "s": "D:\\Devs\\C++\\OpenVegas\\sample_ui\\example_project_with_video_and_audio_with_crossfade.veg"
+      },
+      {
+        "off": 6162,
+        "s": "1untitled"
+      },
+      {
+        "off": 7578,
+        "s": "example_project_with_video_and_audio_with_crossfade"
+      },
+      {
+        "off": 9082,
+        "s": "example_project_with_video_and_audio_with_crossfade"
+      },
+      {
+        "off": 10248,
+        "s": "VEGAS Track Compressor"
+      },
+      {
+        "off": 10356,
+        "s": "VEGAS Track Noise Gate"
+      },
+      {
+        "off": 10486,
+        "s": "VEGAS Track EQ"
+      },
+      {
+        "off": 10712,
+        "s": "VEGAS Track Compressor"
+      },
+      {
+        "off": 11666,
+        "s": "1untitled"
+      },
+      {
+        "off": 12744,
+        "s": "VEGAS Track Compressor"
+      },
+      {
+        "off": 12852,
+        "s": "VEGAS Track Noise Gate"
+      },
+      {
+        "off": 12982,
+        "s": "VEGAS Track EQ"
+      },
+      {
+        "off": 13208,
+        "s": "VEGAS Track Compressor"
+      },
+      {
+        "off": 16160,
+        "s": "Microsoft Sound Mapper"
+      },
+      {
+        "off": 17256,
+        "s": "Main Timeline"
+      },
+      {
+        "off": 17408,
+        "s": "C:\\Users\\Admin\\AppData\\Local\\VEGAS Pro\\22.0\\"
+      },
+      {
+        "off": 17506,
+        "s": "C:\\Users\\Admin\\Documents"
+      }
+    ],
+    "paths": [
+      {
+        "off": 3806,
+        "s": "/ScriptPortal.Vegas.ProjectNotes.ProjectNoteItem",
+        "enc": "ascii"
+      },
+      {
+        "off": 248,
+        "s": "D:\\Devs\\C++\\OpenVegas\\sample_ui\\example_project_with_2_videos-одно_сжато.veg",
+        "enc": "utf16le"
+      },
+      {
+        "off": 402,
+        "s": "C:\\Users\\Admin\\Documents",
+        "enc": "utf16le"
+      },
+      {
+        "off": 452,
+        "s": "C:\\Users\\Admin\\AppData\\Local\\VEGAS Pro\\22.0\\",
+        "enc": "utf16le"
+      },
+      {
+        "off": 4160,
+        "s": "C:\\Users\\Admin\\Videos\\1untitled.mp4",
+        "enc": "utf16le"
+      },
+      {
+        "off": 4680,
+        "s": "D:\\Devs\\C++\\OpenVegas\\sample_ui\\example_project_with_video_and_audio_with_crossfade.veg",
+        "enc": "utf16le"
+      },
+      {
+        "off": 17408,
+        "s": "C:\\Users\\Admin\\AppData\\Local\\VEGAS Pro\\22.0\\",
+        "enc": "utf16le"
+      },
+      {
+        "off": 17506,
+        "s": "C:\\Users\\Admin\\Documents",
+        "enc": "utf16le"
+      }
+    ],
+    "media_hints": [
+      {
+        "off": 248,
+        "s": "D:\\Devs\\C++\\OpenVegas\\sample_ui\\example_project_with_2_videos-одно_сжато.veg"
+      },
+      {
+        "off": 452,
+        "s": "C:\\Users\\Admin\\AppData\\Local\\VEGAS Pro\\22.0\\"
+      },
+      {
+        "off": 4680,
+        "s": "D:\\Devs\\C++\\OpenVegas\\sample_ui\\example_project_with_video_and_audio_with_crossfade.veg"
+      },
+      {
+        "off": 10248,
+        "s": "VEGAS Track Compressor"
+      },
+      {
+        "off": 10356,
+        "s": "VEGAS Track Noise Gate"
+      },
+      {
+        "off": 10486,
+        "s": "VEGAS Track EQ"
+      },
+      {
+        "off": 10712,
+        "s": "VEGAS Track Compressor"
+      },
+      {
+        "off": 12744,
+        "s": "VEGAS Track Compressor"
+      },
+      {
+        "off": 12852,
+        "s": "VEGAS Track Noise Gate"
+      },
+      {
+        "off": 12982,
+        "s": "VEGAS Track EQ"
+      },
+      {
+        "off": 13208,
+        "s": "VEGAS Track Compressor"
+      },
+      {
+        "off": 17408,
+        "s": "C:\\Users\\Admin\\AppData\\Local\\VEGAS Pro\\22.0\\"
+      }
+    ],
+    "chunk_like": [
+      {
+        "off": 1245,
+        "tag": "ec70",
+        "size": 57
+      },
+      {
+        "off": 2101,
+        "tag": "ec70",
+        "size": 57
+      },
+      {
+        "off": 2957,
+        "tag": "ec70",
+        "size": 57
+      },
+      {
+        "off": 3236,
+        "tag": "null",
+        "size": 261
+      },
+      {
+        "off": 3289,
+        "tag": "sLis",
+        "size": 884
+      },
+      {
+        "off": 3337,
+        "tag": "wMod",
+        "size": 869
+      },
+      {
+        "off": 3714,
+        "tag": "rsio",
+        "size": 1134
+      },
+      {
+        "off": 3849,
+        "tag": "eIte",
+        "size": 621
+      },
+      {
+        "off": 17400,
+        "tag": "ppre",
+        "size": 90
+      },
+      {
+        "off": 17498,
+        "tag": "prec",
+        "size": 50
+      }
+    ],
+    "guid_hits": []
+  },
+  {
+    "file": "example_project_with_2_videos-one_stretched.veg",
+    "size": 17808,
+    "md5": "5c857c3b42a8021c5bb56baf4d8967b7",
+    "header": {
+      "magic": "riff",
+      "guid_a": "11CF912E-D6A5-DB28-04C1-000090450000",
+      "raw16_4_19": "2e91cf11a5d628db04c1000090450000",
+      "size_at_16": 17808,
+      "size_matches_file": true,
+      "u32_16": 17808,
+      "u32_20": 0,
+      "guid_24": "46C429EF-904A-11D2-8722-00C04F8EDB8A",
+      "guid_40": "B28F2D5A-230F-11D2-86AF-00C04F8EDB8A",
+      "u64_56": 3832
+    },
+    "strings_ascii": [
+      {
+        "off": 3170,
+        "s": "MProjectNotesLibrary, Version=22.0.0.250, Culture=neutral, PublicKeyToken=null"
+      },
+      {
+        "off": 3253,
+        "s": "0ScriptPortal.Vegas.ProjectNotes.ProjectNotesList"
+      },
+      {
+        "off": 3318,
+        "s": "m_hideResolvedNotes"
+      },
+      {
+        "off": 3338,
+        "s": "m_reviewMode"
+      },
+      {
+        "off": 3355,
+        "s": "System.Collections.Generic.List`1[[ScriptPortal.Vegas.ProjectNotes.ProjectNoteItem, ProjectNotesLibrary, Version=22.0.0.250, Culture=neutral, PublicKeyToken=null]]"
+      },
+      {
+        "off": 3538,
+        "s": "System.Collections.Generic.List`1[[ScriptPortal.Vegas.ProjectNotes.ProjectNoteItem, ProjectNotesLibrary, Version=22.0.0.250, Culture=neutral, PublicKeyToken=null]]"
+      },
+      {
+        "off": 3730,
+        "s": "1ScriptPortal.Vegas.ProjectNotes.ProjectNoteItem[]"
+      },
+      {
+        "off": 3814,
+        "s": "/ScriptPortal.Vegas.ProjectNotes.ProjectNoteItem"
+      },
+      {
+        "off": 3872,
+        "s": "list/"
+      },
+      {
+        "off": 3976,
+        "s": "list/"
+      },
+      {
+        "off": 5160,
+        "s": "list/"
+      },
+      {
+        "off": 5311,
+        "s": " list/"
+      },
+      {
+        "off": 5352,
+        "s": "list/"
+      },
+      {
+        "off": 5784,
+        "s": "list/"
+      },
+      {
+        "off": 5824,
+        "s": "list/"
+      },
+      {
+        "off": 6192,
+        "s": "list/"
+      },
+      {
+        "off": 6399,
+        "s": "?list/"
+      },
+      {
+        "off": 6648,
+        "s": "list/"
+      },
+      {
+        "off": 6688,
+        "s": "list/"
+      },
+      {
+        "off": 6728,
+        "s": "list/"
+      },
+      {
+        "off": 6768,
+        "s": "list/"
+      },
+      {
+        "off": 7200,
+        "s": "list/"
+      },
+      {
+        "off": 7240,
+        "s": "list/"
+      },
+      {
+        "off": 7696,
+        "s": "list/"
+      },
+      {
+        "off": 7903,
+        "s": "?list/"
+      },
+      {
+        "off": 8152,
+        "s": "list/"
+      },
+      {
+        "off": 8192,
+        "s": "list/"
+      },
+      {
+        "off": 8232,
+        "s": "list/"
+      },
+      {
+        "off": 8272,
+        "s": "list/"
+      },
+      {
+        "off": 8704,
+        "s": "list/"
+      },
+      {
+        "off": 8744,
+        "s": "list/"
+      },
+      {
+        "off": 9200,
+        "s": "list/"
+      },
+      {
+        "off": 9304,
+        "s": "list/"
+      },
+      {
+        "off": 10152,
+        "s": "list/"
+      },
+      {
+        "off": 10856,
+        "s": "list/"
+      },
+      {
+        "off": 11288,
+        "s": "list/"
+      },
+      {
+        "off": 11328,
+        "s": "list/"
+      },
+      {
+        "off": 11696,
+        "s": "list/"
+      },
+      {
+        "off": 11800,
+        "s": "list/"
+      },
+      {
+        "off": 12648,
+        "s": "list/"
+      },
+      {
+        "off": 13352,
+        "s": "list/"
+      },
+      {
+        "off": 13480,
+        "s": "list/"
+      },
+      {
+        "off": 17064,
+        "s": "list/"
+      },
+      {
+        "off": 17104,
+        "s": "list/"
+      },
+      {
+        "off": 17144,
+        "s": "list/"
+      },
+      {
+        "off": 17296,
+        "s": "list/"
+      }
+    ],
+    "strings_utf16": [
+      {
+        "off": 248,
+        "s": "D:\\Devs\\C++\\OpenVegas\\sample_ui\\example_project_with_2_videos-одно_растянуто.veg"
+      },
+      {
+        "off": 410,
+        "s": "C:\\Users\\Admin\\Documents"
+      },
+      {
+        "off": 460,
+        "s": "C:\\Users\\Admin\\AppData\\Local\\VEGAS Pro\\22.0\\"
+      },
+      {
+        "off": 4168,
+        "s": "C:\\Users\\Admin\\Videos\\1untitled.mp4"
+      },
+      {
+        "off": 4688,
+        "s": "D:\\Devs\\C++\\OpenVegas\\sample_ui\\example_project_with_video_and_audio_with_crossfade.veg"
+      },
+      {
+        "off": 6170,
+        "s": "1untitled"
+      },
+      {
+        "off": 7586,
+        "s": "example_project_with_video_and_audio_with_crossfade"
+      },
+      {
+        "off": 9090,
+        "s": "example_project_with_video_and_audio_with_crossfade"
+      },
+      {
+        "off": 10256,
+        "s": "VEGAS Track Compressor"
+      },
+      {
+        "off": 10364,
+        "s": "VEGAS Track Noise Gate"
+      },
+      {
+        "off": 10494,
+        "s": "VEGAS Track EQ"
+      },
+      {
+        "off": 10720,
+        "s": "VEGAS Track Compressor"
+      },
+      {
+        "off": 11674,
+        "s": "1untitled"
+      },
+      {
+        "off": 12752,
+        "s": "VEGAS Track Compressor"
+      },
+      {
+        "off": 12860,
+        "s": "VEGAS Track Noise Gate"
+      },
+      {
+        "off": 12990,
+        "s": "VEGAS Track EQ"
+      },
+      {
+        "off": 13216,
+        "s": "VEGAS Track Compressor"
+      },
+      {
+        "off": 16168,
+        "s": "Microsoft Sound Mapper"
+      },
+      {
+        "off": 17264,
+        "s": "Main Timeline"
+      },
+      {
+        "off": 17416,
+        "s": "C:\\Users\\Admin\\AppData\\Local\\VEGAS Pro\\22.0\\"
+      },
+      {
+        "off": 17514,
+        "s": "C:\\Users\\Admin\\Documents"
+      }
+    ],
+    "paths": [
+      {
+        "off": 3814,
+        "s": "/ScriptPortal.Vegas.ProjectNotes.ProjectNoteItem",
+        "enc": "ascii"
+      },
+      {
+        "off": 248,
+        "s": "D:\\Devs\\C++\\OpenVegas\\sample_ui\\example_project_with_2_videos-одно_растянуто.veg",
+        "enc": "utf16le"
+      },
+      {
+        "off": 410,
+        "s": "C:\\Users\\Admin\\Documents",
+        "enc": "utf16le"
+      },
+      {
+        "off": 460,
+        "s": "C:\\Users\\Admin\\AppData\\Local\\VEGAS Pro\\22.0\\",
+        "enc": "utf16le"
+      },
+      {
+        "off": 4168,
+        "s": "C:\\Users\\Admin\\Videos\\1untitled.mp4",
+        "enc": "utf16le"
+      },
+      {
+        "off": 4688,
+        "s": "D:\\Devs\\C++\\OpenVegas\\sample_ui\\example_project_with_video_and_audio_with_crossfade.veg",
+        "enc": "utf16le"
+      },
+      {
+        "off": 17416,
+        "s": "C:\\Users\\Admin\\AppData\\Local\\VEGAS Pro\\22.0\\",
+        "enc": "utf16le"
+      },
+      {
+        "off": 17514,
+        "s": "C:\\Users\\Admin\\Documents",
+        "enc": "utf16le"
+      }
+    ],
+    "media_hints": [
+      {
+        "off": 248,
+        "s": "D:\\Devs\\C++\\OpenVegas\\sample_ui\\example_project_with_2_videos-одно_растянуто.veg"
+      },
+      {
+        "off": 460,
+        "s": "C:\\Users\\Admin\\AppData\\Local\\VEGAS Pro\\22.0\\"
+      },
+      {
+        "off": 4688,
+        "s": "D:\\Devs\\C++\\OpenVegas\\sample_ui\\example_project_with_video_and_audio_with_crossfade.veg"
+      },
+      {
+        "off": 10256,
+        "s": "VEGAS Track Compressor"
+      },
+      {
+        "off": 10364,
+        "s": "VEGAS Track Noise Gate"
+      },
+      {
+        "off": 10494,
+        "s": "VEGAS Track EQ"
+      },
+      {
+        "off": 10720,
+        "s": "VEGAS Track Compressor"
+      },
+      {
+        "off": 12752,
+        "s": "VEGAS Track Compressor"
+      },
+      {
+        "off": 12860,
+        "s": "VEGAS Track Noise Gate"
+      },
+      {
+        "off": 12990,
+        "s": "VEGAS Track EQ"
+      },
+      {
+        "off": 13216,
+        "s": "VEGAS Track Compressor"
+      },
+      {
+        "off": 17416,
+        "s": "C:\\Users\\Admin\\AppData\\Local\\VEGAS Pro\\22.0\\"
+      }
+    ],
+    "chunk_like": [
+      {
+        "off": 1253,
+        "tag": "ec70",
+        "size": 57
+      },
+      {
+        "off": 2109,
+        "tag": "ec70",
+        "size": 57
+      },
+      {
+        "off": 2965,
+        "tag": "ec70",
+        "size": 57
+      },
+      {
+        "off": 3244,
+        "tag": "null",
+        "size": 261
+      },
+      {
+        "off": 3297,
+        "tag": "sLis",
+        "size": 884
+      },
+      {
+        "off": 3345,
+        "tag": "wMod",
+        "size": 869
+      },
+      {
+        "off": 3722,
+        "tag": "rsio",
+        "size": 1134
+      },
+      {
+        "off": 3857,
+        "tag": "eIte",
+        "size": 621
+      },
+      {
+        "off": 17408,
+        "tag": "ppre",
+        "size": 90
+      },
+      {
+        "off": 17506,
+        "tag": "prec",
+        "size": 50
+      }
+    ],
+    "guid_hits": []
+  },
+  {
+    "file": "example_project_with_2_videos.veg",
+    "size": 18464,
+    "md5": "24ccb8cb621a12f11bd8d08b94bc4321",
+    "header": {
+      "magic": "riff",
+      "guid_a": "11CF912E-D6A5-DB28-04C1-000020480000",
+      "raw16_4_19": "2e91cf11a5d628db04c1000020480000",
+      "size_at_16": 18464,
+      "size_matches_file": true,
+      "u32_16": 18464,
+      "u32_20": 0,
+      "guid_24": "46C429EF-904A-11D2-8722-00C04F8EDB8A",
+      "guid_40": "B28F2D5A-230F-11D2-86AF-00C04F8EDB8A",
+      "u64_56": 3800
+    },
+    "strings_ascii": [
+      {
+        "off": 3140,
+        "s": "MProjectNotesLibrary, Version=22.0.0.250, Culture=neutral, PublicKeyToken=null"
+      },
+      {
+        "off": 3223,
+        "s": "0ScriptPortal.Vegas.ProjectNotes.ProjectNotesList"
+      },
+      {
+        "off": 3288,
+        "s": "m_hideResolvedNotes"
+      },
+      {
+        "off": 3308,
+        "s": "m_reviewMode"
+      },
+      {
+        "off": 3325,
+        "s": "System.Collections.Generic.List`1[[ScriptPortal.Vegas.ProjectNotes.ProjectNoteItem, ProjectNotesLibrary, Version=22.0.0.250, Culture=neutral, PublicKeyToken=null]]"
+      },
+      {
+        "off": 3508,
+        "s": "System.Collections.Generic.List`1[[ScriptPortal.Vegas.ProjectNotes.ProjectNoteItem, ProjectNotesLibrary, Version=22.0.0.250, Culture=neutral, PublicKeyToken=null]]"
+      },
+      {
+        "off": 3700,
+        "s": "1ScriptPortal.Vegas.ProjectNotes.ProjectNoteItem[]"
+      },
+      {
+        "off": 3784,
+        "s": "/ScriptPortal.Vegas.ProjectNotes.ProjectNoteItem"
+      },
+      {
+        "off": 3840,
+        "s": "list/"
+      },
+      {
+        "off": 3944,
+        "s": "list/"
+      },
+      {
+        "off": 5128,
+        "s": "list/"
+      },
+      {
+        "off": 5279,
+        "s": " list/"
+      },
+      {
+        "off": 5320,
+        "s": "list/"
+      },
+      {
+        "off": 5752,
+        "s": "list/"
+      },
+      {
+        "off": 5792,
+        "s": "list/"
+      },
+      {
+        "off": 6160,
+        "s": "list/"
+      },
+      {
+        "off": 6367,
+        "s": "?list/"
+      },
+      {
+        "off": 6856,
+        "s": "list/"
+      },
+      {
+        "off": 7104,
+        "s": "list/"
+      },
+      {
+        "off": 7536,
+        "s": "list/"
+      },
+      {
+        "off": 7576,
+        "s": "list/"
+      },
+      {
+        "off": 8032,
+        "s": "list/"
+      },
+      {
+        "off": 8239,
+        "s": "?list/"
+      },
+      {
+        "off": 8728,
+        "s": "list/"
+      },
+      {
+        "off": 8976,
+        "s": "list/"
+      },
+      {
+        "off": 9408,
+        "s": "list/"
+      },
+      {
+        "off": 9448,
+        "s": "list/"
+      },
+      {
+        "off": 9904,
+        "s": "list/"
+      },
+      {
+        "off": 10008,
+        "s": "list/"
+      },
+      {
+        "off": 10856,
+        "s": "list/"
+      },
+      {
+        "off": 11536,
+        "s": "list/"
+      },
+      {
+        "off": 11968,
+        "s": "list/"
+      },
+      {
+        "off": 12008,
+        "s": "list/"
+      },
+      {
+        "off": 12376,
+        "s": "list/"
+      },
+      {
+        "off": 12480,
+        "s": "list/"
+      },
+      {
+        "off": 13328,
+        "s": "list/"
+      },
+      {
+        "off": 14008,
+        "s": "list/"
+      },
+      {
+        "off": 14136,
+        "s": "list/"
+      },
+      {
+        "off": 17720,
+        "s": "list/"
+      },
+      {
+        "off": 17760,
+        "s": "list/"
+      },
+      {
+        "off": 17800,
+        "s": "list/"
+      },
+      {
+        "off": 17952,
+        "s": "list/"
+      }
+    ],
+    "strings_utf16": [
+      {
+        "off": 248,
+        "s": "D:\\Devs\\C++\\OpenVegas\\sample_ui\\example_project_with_2_videos.veg"
+      },
+      {
+        "off": 380,
+        "s": "C:\\Users\\Admin\\Documents"
+      },
+      {
+        "off": 430,
+        "s": "C:\\Users\\Admin\\AppData\\Local\\VEGAS Pro\\22.0\\"
+      },
+      {
+        "off": 4136,
+        "s": "C:\\Users\\Admin\\Videos\\1untitled.mp4"
+      },
+      {
+        "off": 4656,
+        "s": "D:\\Devs\\C++\\OpenVegas\\sample_ui\\example_project_with_video_and_audio_with_crossfade.veg"
+      },
+      {
+        "off": 6138,
+        "s": "1untitled"
+      },
+      {
+        "off": 6480,
+        "s": "{Svfx:com.vegascreativesoftware:colorcorrector}"
+      },
+      {
+        "off": 6576,
+        "s": "(Default)"
+      },
+      {
+        "off": 6722,
+        "s": "Saturation"
+      },
+      {
+        "off": 7922,
+        "s": "example_project_with_video_and_audio_with_crossfade"
+      },
+      {
+        "off": 8352,
+        "s": "{Svfx:com.vegascreativesoftware:colorcorrector}"
+      },
+      {
+        "off": 8448,
+        "s": "(Default)"
+      },
+      {
+        "off": 8594,
+        "s": "Saturation"
+      },
+      {
+        "off": 9794,
+        "s": "example_project_with_video_and_audio_with_crossfade"
+      },
+      {
+        "off": 10960,
+        "s": "Empty Graph"
+      },
+      {
+        "off": 11046,
+        "s": "VEGAS Track Noise Gate"
+      },
+      {
+        "off": 11176,
+        "s": "VEGAS Track EQ"
+      },
+      {
+        "off": 11402,
+        "s": "VEGAS Track Compressor"
+      },
+      {
+        "off": 12354,
+        "s": "1untitled"
+      },
+      {
+        "off": 13432,
+        "s": "Empty Graph"
+      },
+      {
+        "off": 13518,
+        "s": "VEGAS Track Noise Gate"
+      },
+      {
+        "off": 13648,
+        "s": "VEGAS Track EQ"
+      },
+      {
+        "off": 13874,
+        "s": "VEGAS Track Compressor"
+      },
+      {
+        "off": 16824,
+        "s": "Microsoft Sound Mapper"
+      },
+      {
+        "off": 17920,
+        "s": "Main Timeline"
+      },
+      {
+        "off": 18072,
+        "s": "C:\\Users\\Admin\\AppData\\Local\\VEGAS Pro\\22.0\\"
+      },
+      {
+        "off": 18170,
+        "s": "C:\\Users\\Admin\\Documents"
+      }
+    ],
+    "paths": [
+      {
+        "off": 3784,
+        "s": "/ScriptPortal.Vegas.ProjectNotes.ProjectNoteItem",
+        "enc": "ascii"
+      },
+      {
+        "off": 248,
+        "s": "D:\\Devs\\C++\\OpenVegas\\sample_ui\\example_project_with_2_videos.veg",
+        "enc": "utf16le"
+      },
+      {
+        "off": 380,
+        "s": "C:\\Users\\Admin\\Documents",
+        "enc": "utf16le"
+      },
+      {
+        "off": 430,
+        "s": "C:\\Users\\Admin\\AppData\\Local\\VEGAS Pro\\22.0\\",
+        "enc": "utf16le"
+      },
+      {
+        "off": 4136,
+        "s": "C:\\Users\\Admin\\Videos\\1untitled.mp4",
+        "enc": "utf16le"
+      },
+      {
+        "off": 4656,
+        "s": "D:\\Devs\\C++\\OpenVegas\\sample_ui\\example_project_with_video_and_audio_with_crossfade.veg",
+        "enc": "utf16le"
+      },
+      {
+        "off": 18072,
+        "s": "C:\\Users\\Admin\\AppData\\Local\\VEGAS Pro\\22.0\\",
+        "enc": "utf16le"
+      },
+      {
+        "off": 18170,
+        "s": "C:\\Users\\Admin\\Documents",
+        "enc": "utf16le"
+      }
+    ],
+    "media_hints": [
+      {
+        "off": 248,
+        "s": "D:\\Devs\\C++\\OpenVegas\\sample_ui\\example_project_with_2_videos.veg"
+      },
+      {
+        "off": 430,
+        "s": "C:\\Users\\Admin\\AppData\\Local\\VEGAS Pro\\22.0\\"
+      },
+      {
+        "off": 4656,
+        "s": "D:\\Devs\\C++\\OpenVegas\\sample_ui\\example_project_with_video_and_audio_with_crossfade.veg"
+      },
+      {
+        "off": 6480,
+        "s": "{Svfx:com.vegascreativesoftware:colorcorrector}"
+      },
+      {
+        "off": 8352,
+        "s": "{Svfx:com.vegascreativesoftware:colorcorrector}"
+      },
+      {
+        "off": 11046,
+        "s": "VEGAS Track Noise Gate"
+      },
+      {
+        "off": 11176,
+        "s": "VEGAS Track EQ"
+      },
+      {
+        "off": 11402,
+        "s": "VEGAS Track Compressor"
+      },
+      {
+        "off": 13518,
+        "s": "VEGAS Track Noise Gate"
+      },
+      {
+        "off": 13648,
+        "s": "VEGAS Track EQ"
+      },
+      {
+        "off": 13874,
+        "s": "VEGAS Track Compressor"
+      },
+      {
+        "off": 18072,
+        "s": "C:\\Users\\Admin\\AppData\\Local\\VEGAS Pro\\22.0\\"
+      }
+    ],
+    "chunk_like": [
+      {
+        "off": 1223,
+        "tag": "ec70",
+        "size": 57
+      },
+      {
+        "off": 2079,
+        "tag": "ec70",
+        "size": 57
+      },
+      {
+        "off": 2935,
+        "tag": "ec70",
+        "size": 57
+      },
+      {
+        "off": 3214,
+        "tag": "null",
+        "size": 261
+      },
+      {
+        "off": 3267,
+        "tag": "sLis",
+        "size": 884
+      },
+      {
+        "off": 3315,
+        "tag": "wMod",
+        "size": 869
+      },
+      {
+        "off": 3692,
+        "tag": "rsio",
+        "size": 1134
+      },
+      {
+        "off": 3827,
+        "tag": "eIte",
+        "size": 621
+      },
+      {
+        "off": 18064,
+        "tag": "ppre",
+        "size": 90
+      },
+      {
+        "off": 18162,
+        "tag": "prec",
+        "size": 50
+      }
+    ],
+    "guid_hits": []
+  },
+  {
+    "file": "example_project_with_only_audio.veg",
+    "size": 12200,
+    "md5": "cdbe48b1e3a1becd4eab438c7c640d6e",
+    "header": {
+      "magic": "riff",
+      "guid_a": "11CF912E-D6A5-DB28-04C1-0000A82F0000",
+      "raw16_4_19": "2e91cf11a5d628db04c10000a82f0000",
+      "size_at_16": 12200,
+      "size_matches_file": true,
+      "u32_16": 12200,
+      "u32_20": 0,
+      "guid_24": "46C429EF-904A-11D2-8722-00C04F8EDB8A",
+      "guid_40": "B28F2D5A-230F-11D2-86AF-00C04F8EDB8A",
+      "u64_56": 3808
+    },
+    "strings_ascii": [
+      {
+        "off": 3144,
+        "s": "MProjectNotesLibrary, Version=22.0.0.250, Culture=neutral, PublicKeyToken=null"
+      },
+      {
+        "off": 3227,
+        "s": "0ScriptPortal.Vegas.ProjectNotes.ProjectNotesList"
+      },
+      {
+        "off": 3292,
+        "s": "m_hideResolvedNotes"
+      },
+      {
+        "off": 3312,
+        "s": "m_reviewMode"
+      },
+      {
+        "off": 3329,
+        "s": "System.Collections.Generic.List`1[[ScriptPortal.Vegas.ProjectNotes.ProjectNoteItem, ProjectNotesLibrary, Version=22.0.0.250, Culture=neutral, PublicKeyToken=null]]"
+      },
+      {
+        "off": 3512,
+        "s": "System.Collections.Generic.List`1[[ScriptPortal.Vegas.ProjectNotes.ProjectNoteItem, ProjectNotesLibrary, Version=22.0.0.250, Culture=neutral, PublicKeyToken=null]]"
+      },
+      {
+        "off": 3704,
+        "s": "1ScriptPortal.Vegas.ProjectNotes.ProjectNoteItem[]"
+      },
+      {
+        "off": 3788,
+        "s": "/ScriptPortal.Vegas.ProjectNotes.ProjectNoteItem"
+      },
+      {
+        "off": 3848,
+        "s": "list/"
+      },
+      {
+        "off": 3952,
+        "s": "list/"
+      },
+      {
+        "off": 5176,
+        "s": "list/"
+      },
+      {
+        "off": 5216,
+        "s": "list/"
+      },
+      {
+        "off": 5648,
+        "s": "list/"
+      },
+      {
+        "off": 5688,
+        "s": "list/"
+      },
+      {
+        "off": 6088,
+        "s": "list/"
+      },
+      {
+        "off": 6192,
+        "s": "list/"
+      },
+      {
+        "off": 7040,
+        "s": "list/"
+      },
+      {
+        "off": 7744,
+        "s": "list/"
+      },
+      {
+        "off": 7872,
+        "s": "list/"
+      },
+      {
+        "off": 11456,
+        "s": "list/"
+      },
+      {
+        "off": 11496,
+        "s": "list/"
+      },
+      {
+        "off": 11536,
+        "s": "list/"
+      },
+      {
+        "off": 11688,
+        "s": "list/"
+      }
+    ],
+    "strings_utf16": [
+      {
+        "off": 248,
+        "s": "D:\\Devs\\C++\\OpenVegas\\sample_ui\\example_project_with_only_audio.veg"
+      },
+      {
+        "off": 384,
+        "s": "C:\\Users\\Admin\\Documents"
+      },
+      {
+        "off": 434,
+        "s": "C:\\Users\\Admin\\AppData\\Local\\VEGAS Pro\\22.0\\"
+      },
+      {
+        "off": 4144,
+        "s": "D:\\Devs\\C++\\OpenVegas\\sample_ui\\screenshots\\sample_for_project_audio.wav"
+      },
+      {
+        "off": 4474,
+        "s": "LMMS (libsndfile-1.0.26pre5)"
+      },
+      {
+        "off": 4736,
+        "s": "D:\\Devs\\C++\\OpenVegas\\sample_ui\\screenshots\\sample_for_project_video.mp4"
+      },
+      {
+        "off": 6034,
+        "s": "sample_for_project_audio"
+      },
+      {
+        "off": 7144,
+        "s": "VEGAS Track Compressor"
+      },
+      {
+        "off": 7252,
+        "s": "VEGAS Track Noise Gate"
+      },
+      {
+        "off": 7382,
+        "s": "VEGAS Track EQ"
+      },
+      {
+        "off": 7608,
+        "s": "VEGAS Track Compressor"
+      },
+      {
+        "off": 10560,
+        "s": "Microsoft Sound Mapper"
+      },
+      {
+        "off": 11656,
+        "s": "Main Timeline"
+      },
+      {
+        "off": 11808,
+        "s": "C:\\Users\\Admin\\AppData\\Local\\VEGAS Pro\\22.0\\"
+      },
+      {
+        "off": 11906,
+        "s": "C:\\Users\\Admin\\Documents"
+      }
+    ],
+    "paths": [
+      {
+        "off": 3788,
+        "s": "/ScriptPortal.Vegas.ProjectNotes.ProjectNoteItem",
+        "enc": "ascii"
+      },
+      {
+        "off": 248,
+        "s": "D:\\Devs\\C++\\OpenVegas\\sample_ui\\example_project_with_only_audio.veg",
+        "enc": "utf16le"
+      },
+      {
+        "off": 384,
+        "s": "C:\\Users\\Admin\\Documents",
+        "enc": "utf16le"
+      },
+      {
+        "off": 434,
+        "s": "C:\\Users\\Admin\\AppData\\Local\\VEGAS Pro\\22.0\\",
+        "enc": "utf16le"
+      },
+      {
+        "off": 4144,
+        "s": "D:\\Devs\\C++\\OpenVegas\\sample_ui\\screenshots\\sample_for_project_audio.wav",
+        "enc": "utf16le"
+      },
+      {
+        "off": 4736,
+        "s": "D:\\Devs\\C++\\OpenVegas\\sample_ui\\screenshots\\sample_for_project_video.mp4",
+        "enc": "utf16le"
+      },
+      {
+        "off": 11808,
+        "s": "C:\\Users\\Admin\\AppData\\Local\\VEGAS Pro\\22.0\\",
+        "enc": "utf16le"
+      },
+      {
+        "off": 11906,
+        "s": "C:\\Users\\Admin\\Documents",
+        "enc": "utf16le"
+      }
+    ],
+    "media_hints": [
+      {
+        "off": 248,
+        "s": "D:\\Devs\\C++\\OpenVegas\\sample_ui\\example_project_with_only_audio.veg"
+      },
+      {
+        "off": 434,
+        "s": "C:\\Users\\Admin\\AppData\\Local\\VEGAS Pro\\22.0\\"
+      },
+      {
+        "off": 4144,
+        "s": "D:\\Devs\\C++\\OpenVegas\\sample_ui\\screenshots\\sample_for_project_audio.wav"
+      },
+      {
+        "off": 4736,
+        "s": "D:\\Devs\\C++\\OpenVegas\\sample_ui\\screenshots\\sample_for_project_video.mp4"
+      },
+      {
+        "off": 6034,
+        "s": "sample_for_project_audio"
+      },
+      {
+        "off": 7144,
+        "s": "VEGAS Track Compressor"
+      },
+      {
+        "off": 7252,
+        "s": "VEGAS Track Noise Gate"
+      },
+      {
+        "off": 7382,
+        "s": "VEGAS Track EQ"
+      },
+      {
+        "off": 7608,
+        "s": "VEGAS Track Compressor"
+      },
+      {
+        "off": 11808,
+        "s": "C:\\Users\\Admin\\AppData\\Local\\VEGAS Pro\\22.0\\"
+      }
+    ],
+    "chunk_like": [
+      {
+        "off": 1227,
+        "tag": "ec70",
+        "size": 57
+      },
+      {
+        "off": 2083,
+        "tag": "ec70",
+        "size": 57
+      },
+      {
+        "off": 2939,
+        "tag": "ec70",
+        "size": 57
+      },
+      {
+        "off": 3218,
+        "tag": "null",
+        "size": 261
+      },
+      {
+        "off": 3271,
+        "tag": "sLis",
+        "size": 884
+      },
+      {
+        "off": 3319,
+        "tag": "wMod",
+        "size": 869
+      },
+      {
+        "off": 3696,
+        "tag": "rsio",
+        "size": 1134
+      },
+      {
+        "off": 3831,
+        "tag": "eIte",
+        "size": 621
+      },
+      {
+        "off": 4466,
+        "tag": "ISFT",
+        "size": 58
+      },
+      {
+        "off": 11800,
+        "tag": "ppre",
+        "size": 90
+      },
+      {
+        "off": 11898,
+        "tag": "prec",
+        "size": 50
+      }
+    ],
+    "guid_hits": []
+  },
+  {
+    "file": "example_project_with_only_video.veg",
+    "size": 13600,
+    "md5": "973ddddedc5a7cff340182dc84d9277e",
+    "header": {
+      "magic": "riff",
+      "guid_a": "11CF912E-D6A5-DB28-04C1-000020350000",
+      "raw16_4_19": "2e91cf11a5d628db04c1000020350000",
+      "size_at_16": 13600,
+      "size_matches_file": true,
+      "u32_16": 13600,
+      "u32_20": 0,
+      "guid_24": "46C429EF-904A-11D2-8722-00C04F8EDB8A",
+      "guid_40": "B28F2D5A-230F-11D2-86AF-00C04F8EDB8A",
+      "u64_56": 3808
+    },
+    "strings_ascii": [
+      {
+        "off": 3144,
+        "s": "MProjectNotesLibrary, Version=22.0.0.250, Culture=neutral, PublicKeyToken=null"
+      },
+      {
+        "off": 3227,
+        "s": "0ScriptPortal.Vegas.ProjectNotes.ProjectNotesList"
+      },
+      {
+        "off": 3292,
+        "s": "m_hideResolvedNotes"
+      },
+      {
+        "off": 3312,
+        "s": "m_reviewMode"
+      },
+      {
+        "off": 3329,
+        "s": "System.Collections.Generic.List`1[[ScriptPortal.Vegas.ProjectNotes.ProjectNoteItem, ProjectNotesLibrary, Version=22.0.0.250, Culture=neutral, PublicKeyToken=null]]"
+      },
+      {
+        "off": 3512,
+        "s": "System.Collections.Generic.List`1[[ScriptPortal.Vegas.ProjectNotes.ProjectNoteItem, ProjectNotesLibrary, Version=22.0.0.250, Culture=neutral, PublicKeyToken=null]]"
+      },
+      {
+        "off": 3704,
+        "s": "1ScriptPortal.Vegas.ProjectNotes.ProjectNoteItem[]"
+      },
+      {
+        "off": 3788,
+        "s": "/ScriptPortal.Vegas.ProjectNotes.ProjectNoteItem"
+      },
+      {
+        "off": 3848,
+        "s": "list/"
+      },
+      {
+        "off": 3952,
+        "s": "list/"
+      },
+      {
+        "off": 5176,
+        "s": "list/"
+      },
+      {
+        "off": 5271,
+        "s": " list/"
+      },
+      {
+        "off": 5312,
+        "s": "list/"
+      },
+      {
+        "off": 5744,
+        "s": "list/"
+      },
+      {
+        "off": 5784,
+        "s": "list/"
+      },
+      {
+        "off": 6184,
+        "s": "list/"
+      },
+      {
+        "off": 6391,
+        "s": "?list/"
+      },
+      {
+        "off": 6640,
+        "s": "list/"
+      },
+      {
+        "off": 7072,
+        "s": "list/"
+      },
+      {
+        "off": 7112,
+        "s": "list/"
+      },
+      {
+        "off": 7512,
+        "s": "list/"
+      },
+      {
+        "off": 7616,
+        "s": "list/"
+      },
+      {
+        "off": 8464,
+        "s": "list/"
+      },
+      {
+        "off": 9144,
+        "s": "list/"
+      },
+      {
+        "off": 9272,
+        "s": "list/"
+      },
+      {
+        "off": 12856,
+        "s": "list/"
+      },
+      {
+        "off": 12896,
+        "s": "list/"
+      },
+      {
+        "off": 12936,
+        "s": "list/"
+      },
+      {
+        "off": 13088,
+        "s": "list/"
+      }
+    ],
+    "strings_utf16": [
+      {
+        "off": 248,
+        "s": "D:\\Devs\\C++\\OpenVegas\\sample_ui\\example_project_with_only_video.veg"
+      },
+      {
+        "off": 384,
+        "s": "C:\\Users\\Admin\\Documents"
+      },
+      {
+        "off": 434,
+        "s": "C:\\Users\\Admin\\AppData\\Local\\VEGAS Pro\\22.0\\"
+      },
+      {
+        "off": 4144,
+        "s": "D:\\Devs\\C++\\OpenVegas\\sample_ui\\screenshots\\sample_for_project_audio.wav"
+      },
+      {
+        "off": 4474,
+        "s": "LMMS (libsndfile-1.0.26pre5)"
+      },
+      {
+        "off": 4736,
+        "s": "D:\\Devs\\C++\\OpenVegas\\sample_ui\\screenshots\\sample_for_project_video.mp4"
+      },
+      {
+        "off": 6130,
+        "s": "sample_for_project_video"
+      },
+      {
+        "off": 7458,
+        "s": "sample_for_project_video"
+      },
+      {
+        "off": 8568,
+        "s": "Empty Graph"
+      },
+      {
+        "off": 8654,
+        "s": "VEGAS Track Noise Gate"
+      },
+      {
+        "off": 8784,
+        "s": "VEGAS Track EQ"
+      },
+      {
+        "off": 9010,
+        "s": "VEGAS Track Compressor"
+      },
+      {
+        "off": 11960,
+        "s": "Microsoft Sound Mapper"
+      },
+      {
+        "off": 13056,
+        "s": "Main Timeline"
+      },
+      {
+        "off": 13208,
+        "s": "C:\\Users\\Admin\\AppData\\Local\\VEGAS Pro\\22.0\\"
+      },
+      {
+        "off": 13306,
+        "s": "C:\\Users\\Admin\\Documents"
+      }
+    ],
+    "paths": [
+      {
+        "off": 3788,
+        "s": "/ScriptPortal.Vegas.ProjectNotes.ProjectNoteItem",
+        "enc": "ascii"
+      },
+      {
+        "off": 248,
+        "s": "D:\\Devs\\C++\\OpenVegas\\sample_ui\\example_project_with_only_video.veg",
+        "enc": "utf16le"
+      },
+      {
+        "off": 384,
+        "s": "C:\\Users\\Admin\\Documents",
+        "enc": "utf16le"
+      },
+      {
+        "off": 434,
+        "s": "C:\\Users\\Admin\\AppData\\Local\\VEGAS Pro\\22.0\\",
+        "enc": "utf16le"
+      },
+      {
+        "off": 4144,
+        "s": "D:\\Devs\\C++\\OpenVegas\\sample_ui\\screenshots\\sample_for_project_audio.wav",
+        "enc": "utf16le"
+      },
+      {
+        "off": 4736,
+        "s": "D:\\Devs\\C++\\OpenVegas\\sample_ui\\screenshots\\sample_for_project_video.mp4",
+        "enc": "utf16le"
+      },
+      {
+        "off": 13208,
+        "s": "C:\\Users\\Admin\\AppData\\Local\\VEGAS Pro\\22.0\\",
+        "enc": "utf16le"
+      },
+      {
+        "off": 13306,
+        "s": "C:\\Users\\Admin\\Documents",
+        "enc": "utf16le"
+      }
+    ],
+    "media_hints": [
+      {
+        "off": 248,
+        "s": "D:\\Devs\\C++\\OpenVegas\\sample_ui\\example_project_with_only_video.veg"
+      },
+      {
+        "off": 434,
+        "s": "C:\\Users\\Admin\\AppData\\Local\\VEGAS Pro\\22.0\\"
+      },
+      {
+        "off": 4144,
+        "s": "D:\\Devs\\C++\\OpenVegas\\sample_ui\\screenshots\\sample_for_project_audio.wav"
+      },
+      {
+        "off": 4736,
+        "s": "D:\\Devs\\C++\\OpenVegas\\sample_ui\\screenshots\\sample_for_project_video.mp4"
+      },
+      {
+        "off": 6130,
+        "s": "sample_for_project_video"
+      },
+      {
+        "off": 7458,
+        "s": "sample_for_project_video"
+      },
+      {
+        "off": 8654,
+        "s": "VEGAS Track Noise Gate"
+      },
+      {
+        "off": 8784,
+        "s": "VEGAS Track EQ"
+      },
+      {
+        "off": 9010,
+        "s": "VEGAS Track Compressor"
+      },
+      {
+        "off": 13208,
+        "s": "C:\\Users\\Admin\\AppData\\Local\\VEGAS Pro\\22.0\\"
+      }
+    ],
+    "chunk_like": [
+      {
+        "off": 1227,
+        "tag": "ec70",
+        "size": 57
+      },
+      {
+        "off": 2083,
+        "tag": "ec70",
+        "size": 57
+      },
+      {
+        "off": 2939,
+        "tag": "ec70",
+        "size": 57
+      },
+      {
+        "off": 3218,
+        "tag": "null",
+        "size": 261
+      },
+      {
+        "off": 3271,
+        "tag": "sLis",
+        "size": 884
+      },
+      {
+        "off": 3319,
+        "tag": "wMod",
+        "size": 869
+      },
+      {
+        "off": 3696,
+        "tag": "rsio",
+        "size": 1134
+      },
+      {
+        "off": 3831,
+        "tag": "eIte",
+        "size": 621
+      },
+      {
+        "off": 4466,
+        "tag": "ISFT",
+        "size": 58
+      },
+      {
+        "off": 13200,
+        "tag": "ppre",
+        "size": 90
+      },
+      {
+        "off": 13298,
+        "tag": "prec",
+        "size": 50
+      }
+    ],
+    "guid_hits": []
+  },
+  {
+    "file": "example_project_with_video_and_audio.veg",
+    "size": 14256,
+    "md5": "5b625b92f6819b5560c9dc4137e8226c",
+    "header": {
+      "magic": "riff",
+      "guid_a": "11CF912E-D6A5-DB28-04C1-0000B0370000",
+      "raw16_4_19": "2e91cf11a5d628db04c10000b0370000",
+      "size_at_16": 14256,
+      "size_matches_file": true,
+      "u32_16": 14256,
+      "u32_20": 0,
+      "guid_24": "46C429EF-904A-11D2-8722-00C04F8EDB8A",
+      "guid_40": "B28F2D5A-230F-11D2-86AF-00C04F8EDB8A",
+      "u64_56": 3816
+    },
+    "strings_ascii": [
+      {
+        "off": 3154,
+        "s": "MProjectNotesLibrary, Version=22.0.0.250, Culture=neutral, PublicKeyToken=null"
+      },
+      {
+        "off": 3237,
+        "s": "0ScriptPortal.Vegas.ProjectNotes.ProjectNotesList"
+      },
+      {
+        "off": 3302,
+        "s": "m_hideResolvedNotes"
+      },
+      {
+        "off": 3322,
+        "s": "m_reviewMode"
+      },
+      {
+        "off": 3339,
+        "s": "System.Collections.Generic.List`1[[ScriptPortal.Vegas.ProjectNotes.ProjectNoteItem, ProjectNotesLibrary, Version=22.0.0.250, Culture=neutral, PublicKeyToken=null]]"
+      },
+      {
+        "off": 3522,
+        "s": "System.Collections.Generic.List`1[[ScriptPortal.Vegas.ProjectNotes.ProjectNoteItem, ProjectNotesLibrary, Version=22.0.0.250, Culture=neutral, PublicKeyToken=null]]"
+      },
+      {
+        "off": 3714,
+        "s": "1ScriptPortal.Vegas.ProjectNotes.ProjectNoteItem[]"
+      },
+      {
+        "off": 3798,
+        "s": "/ScriptPortal.Vegas.ProjectNotes.ProjectNoteItem"
+      },
+      {
+        "off": 3856,
+        "s": "list/"
+      },
+      {
+        "off": 3960,
+        "s": "list/"
+      },
+      {
+        "off": 5184,
+        "s": "list/"
+      },
+      {
+        "off": 5279,
+        "s": " list/"
+      },
+      {
+        "off": 5320,
+        "s": "list/"
+      },
+      {
+        "off": 5752,
+        "s": "list/"
+      },
+      {
+        "off": 5792,
+        "s": "list/"
+      },
+      {
+        "off": 6192,
+        "s": "list/"
+      },
+      {
+        "off": 6399,
+        "s": "?list/"
+      },
+      {
+        "off": 6648,
+        "s": "list/"
+      },
+      {
+        "off": 6688,
+        "s": "list/"
+      },
+      {
+        "off": 6728,
+        "s": "list/"
+      },
+      {
+        "off": 6768,
+        "s": "list/"
+      },
+      {
+        "off": 7200,
+        "s": "list/"
+      },
+      {
+        "off": 7240,
+        "s": "list/"
+      },
+      {
+        "off": 7640,
+        "s": "list/"
+      },
+      {
+        "off": 7744,
+        "s": "list/"
+      },
+      {
+        "off": 8144,
+        "s": "list/"
+      },
+      {
+        "off": 8248,
+        "s": "list/"
+      },
+      {
+        "off": 9096,
+        "s": "list/"
+      },
+      {
+        "off": 9800,
+        "s": "list/"
+      },
+      {
+        "off": 9928,
+        "s": "list/"
+      },
+      {
+        "off": 13512,
+        "s": "list/"
+      },
+      {
+        "off": 13552,
+        "s": "list/"
+      },
+      {
+        "off": 13592,
+        "s": "list/"
+      },
+      {
+        "off": 13744,
+        "s": "list/"
+      }
+    ],
+    "strings_utf16": [
+      {
+        "off": 248,
+        "s": "D:\\Devs\\C++\\OpenVegas\\sample_ui\\example_project_with_video_and_audio.veg"
+      },
+      {
+        "off": 394,
+        "s": "C:\\Users\\Admin\\Documents"
+      },
+      {
+        "off": 444,
+        "s": "C:\\Users\\Admin\\AppData\\Local\\VEGAS Pro\\22.0\\"
+      },
+      {
+        "off": 4152,
+        "s": "D:\\Devs\\C++\\OpenVegas\\sample_ui\\screenshots\\sample_for_project_audio.wav"
+      },
+      {
+        "off": 4482,
+        "s": "LMMS (libsndfile-1.0.26pre5)"
+      },
+      {
+        "off": 4744,
+        "s": "D:\\Devs\\C++\\OpenVegas\\sample_ui\\screenshots\\sample_for_project_video.mp4"
+      },
+      {
+        "off": 6138,
+        "s": "sample_for_project_video"
+      },
+      {
+        "off": 7586,
+        "s": "sample_for_project_video"
+      },
+      {
+        "off": 8090,
+        "s": "sample_for_project_audio"
+      },
+      {
+        "off": 9200,
+        "s": "VEGAS Track Compressor"
+      },
+      {
+        "off": 9308,
+        "s": "VEGAS Track Noise Gate"
+      },
+      {
+        "off": 9438,
+        "s": "VEGAS Track EQ"
+      },
+      {
+        "off": 9664,
+        "s": "VEGAS Track Compressor"
+      },
+      {
+        "off": 12616,
+        "s": "Microsoft Sound Mapper"
+      },
+      {
+        "off": 13712,
+        "s": "Main Timeline"
+      },
+      {
+        "off": 13864,
+        "s": "C:\\Users\\Admin\\AppData\\Local\\VEGAS Pro\\22.0\\"
+      },
+      {
+        "off": 13962,
+        "s": "C:\\Users\\Admin\\Documents"
+      }
+    ],
+    "paths": [
+      {
+        "off": 3798,
+        "s": "/ScriptPortal.Vegas.ProjectNotes.ProjectNoteItem",
+        "enc": "ascii"
+      },
+      {
+        "off": 248,
+        "s": "D:\\Devs\\C++\\OpenVegas\\sample_ui\\example_project_with_video_and_audio.veg",
+        "enc": "utf16le"
+      },
+      {
+        "off": 394,
+        "s": "C:\\Users\\Admin\\Documents",
+        "enc": "utf16le"
+      },
+      {
+        "off": 444,
+        "s": "C:\\Users\\Admin\\AppData\\Local\\VEGAS Pro\\22.0\\",
+        "enc": "utf16le"
+      },
+      {
+        "off": 4152,
+        "s": "D:\\Devs\\C++\\OpenVegas\\sample_ui\\screenshots\\sample_for_project_audio.wav",
+        "enc": "utf16le"
+      },
+      {
+        "off": 4744,
+        "s": "D:\\Devs\\C++\\OpenVegas\\sample_ui\\screenshots\\sample_for_project_video.mp4",
+        "enc": "utf16le"
+      },
+      {
+        "off": 13864,
+        "s": "C:\\Users\\Admin\\AppData\\Local\\VEGAS Pro\\22.0\\",
+        "enc": "utf16le"
+      },
+      {
+        "off": 13962,
+        "s": "C:\\Users\\Admin\\Documents",
+        "enc": "utf16le"
+      }
+    ],
+    "media_hints": [
+      {
+        "off": 248,
+        "s": "D:\\Devs\\C++\\OpenVegas\\sample_ui\\example_project_with_video_and_audio.veg"
+      },
+      {
+        "off": 444,
+        "s": "C:\\Users\\Admin\\AppData\\Local\\VEGAS Pro\\22.0\\"
+      },
+      {
+        "off": 4152,
+        "s": "D:\\Devs\\C++\\OpenVegas\\sample_ui\\screenshots\\sample_for_project_audio.wav"
+      },
+      {
+        "off": 4744,
+        "s": "D:\\Devs\\C++\\OpenVegas\\sample_ui\\screenshots\\sample_for_project_video.mp4"
+      },
+      {
+        "off": 6138,
+        "s": "sample_for_project_video"
+      },
+      {
+        "off": 7586,
+        "s": "sample_for_project_video"
+      },
+      {
+        "off": 8090,
+        "s": "sample_for_project_audio"
+      },
+      {
+        "off": 9200,
+        "s": "VEGAS Track Compressor"
+      },
+      {
+        "off": 9308,
+        "s": "VEGAS Track Noise Gate"
+      },
+      {
+        "off": 9438,
+        "s": "VEGAS Track EQ"
+      },
+      {
+        "off": 9664,
+        "s": "VEGAS Track Compressor"
+      },
+      {
+        "off": 13864,
+        "s": "C:\\Users\\Admin\\AppData\\Local\\VEGAS Pro\\22.0\\"
+      }
+    ],
+    "chunk_like": [
+      {
+        "off": 1237,
+        "tag": "ec70",
+        "size": 57
+      },
+      {
+        "off": 2093,
+        "tag": "ec70",
+        "size": 57
+      },
+      {
+        "off": 2949,
+        "tag": "ec70",
+        "size": 57
+      },
+      {
+        "off": 3228,
+        "tag": "null",
+        "size": 261
+      },
+      {
+        "off": 3281,
+        "tag": "sLis",
+        "size": 884
+      },
+      {
+        "off": 3329,
+        "tag": "wMod",
+        "size": 869
+      },
+      {
+        "off": 3706,
+        "tag": "rsio",
+        "size": 1134
+      },
+      {
+        "off": 3841,
+        "tag": "eIte",
+        "size": 621
+      },
+      {
+        "off": 4474,
+        "tag": "ISFT",
+        "size": 58
+      },
+      {
+        "off": 13856,
+        "tag": "ppre",
+        "size": 90
+      },
+      {
+        "off": 13954,
+        "tag": "prec",
+        "size": 50
+      }
+    ],
+    "guid_hits": []
+  },
+  {
+    "file": "example_project_with_video_and_audio_trimmers.veg",
+    "size": 19448,
+    "md5": "8b7135145c87e14eb07b1377b254ffa8",
+    "header": {
+      "magic": "riff",
+      "guid_a": "11CF912E-D6A5-DB28-04C1-0000F84B0000",
+      "raw16_4_19": "2e91cf11a5d628db04c10000f84b0000",
+      "size_at_16": 19448,
+      "size_matches_file": true,
+      "u32_16": 19448,
+      "u32_20": 0,
+      "guid_24": "46C429EF-904A-11D2-8722-00C04F8EDB8A",
+      "guid_40": "B28F2D5A-230F-11D2-86AF-00C04F8EDB8A",
+      "u64_56": 3832
+    },
+    "strings_ascii": [
+      {
+        "off": 3172,
+        "s": "MProjectNotesLibrary, Version=22.0.0.250, Culture=neutral, PublicKeyToken=null"
+      },
+      {
+        "off": 3255,
+        "s": "0ScriptPortal.Vegas.ProjectNotes.ProjectNotesList"
+      },
+      {
+        "off": 3320,
+        "s": "m_hideResolvedNotes"
+      },
+      {
+        "off": 3340,
+        "s": "m_reviewMode"
+      },
+      {
+        "off": 3357,
+        "s": "System.Collections.Generic.List`1[[ScriptPortal.Vegas.ProjectNotes.ProjectNoteItem, ProjectNotesLibrary, Version=22.0.0.250, Culture=neutral, PublicKeyToken=null]]"
+      },
+      {
+        "off": 3540,
+        "s": "System.Collections.Generic.List`1[[ScriptPortal.Vegas.ProjectNotes.ProjectNoteItem, ProjectNotesLibrary, Version=22.0.0.250, Culture=neutral, PublicKeyToken=null]]"
+      },
+      {
+        "off": 3732,
+        "s": "1ScriptPortal.Vegas.ProjectNotes.ProjectNoteItem[]"
+      },
+      {
+        "off": 3816,
+        "s": "/ScriptPortal.Vegas.ProjectNotes.ProjectNoteItem"
+      },
+      {
+        "off": 3872,
+        "s": "list/"
+      },
+      {
+        "off": 3976,
+        "s": "list/"
+      },
+      {
+        "off": 5200,
+        "s": "list/"
+      },
+      {
+        "off": 5519,
+        "s": " list/"
+      },
+      {
+        "off": 5560,
+        "s": "list/"
+      },
+      {
+        "off": 5992,
+        "s": "list/"
+      },
+      {
+        "off": 6032,
+        "s": "list/"
+      },
+      {
+        "off": 6432,
+        "s": "list/"
+      },
+      {
+        "off": 6639,
+        "s": "?list/"
+      },
+      {
+        "off": 7040,
+        "s": "list/"
+      },
+      {
+        "off": 7247,
+        "s": "?list/"
+      },
+      {
+        "off": 7648,
+        "s": "list/"
+      },
+      {
+        "off": 7855,
+        "s": "?list/"
+      },
+      {
+        "off": 8256,
+        "s": "list/"
+      },
+      {
+        "off": 8463,
+        "s": "?list/"
+      },
+      {
+        "off": 8864,
+        "s": "list/"
+      },
+      {
+        "off": 9071,
+        "s": "?list/"
+      },
+      {
+        "off": 9320,
+        "s": "list/"
+      },
+      {
+        "off": 9360,
+        "s": "list/"
+      },
+      {
+        "off": 9400,
+        "s": "list/"
+      },
+      {
+        "off": 9440,
+        "s": "list/"
+      },
+      {
+        "off": 9872,
+        "s": "list/"
+      },
+      {
+        "off": 9912,
+        "s": "list/"
+      },
+      {
+        "off": 10312,
+        "s": "list/"
+      },
+      {
+        "off": 10416,
+        "s": "list/"
+      },
+      {
+        "off": 10816,
+        "s": "list/"
+      },
+      {
+        "off": 10920,
+        "s": "list/"
+      },
+      {
+        "off": 11320,
+        "s": "list/"
+      },
+      {
+        "off": 11424,
+        "s": "list/"
+      },
+      {
+        "off": 11824,
+        "s": "list/"
+      },
+      {
+        "off": 11928,
+        "s": "list/"
+      },
+      {
+        "off": 12328,
+        "s": "list/"
+      },
+      {
+        "off": 12432,
+        "s": "list/"
+      },
+      {
+        "off": 12832,
+        "s": "list/"
+      },
+      {
+        "off": 12936,
+        "s": "list/"
+      },
+      {
+        "off": 13336,
+        "s": "list/"
+      },
+      {
+        "off": 13440,
+        "s": "list/"
+      },
+      {
+        "off": 14288,
+        "s": "list/"
+      },
+      {
+        "off": 14992,
+        "s": "list/"
+      },
+      {
+        "off": 15120,
+        "s": "list/"
+      },
+      {
+        "off": 18704,
+        "s": "list/"
+      },
+      {
+        "off": 18744,
+        "s": "list/"
+      },
+      {
+        "off": 18784,
+        "s": "list/"
+      },
+      {
+        "off": 18936,
+        "s": "list/"
+      }
+    ],
+    "strings_utf16": [
+      {
+        "off": 248,
+        "s": "D:\\Devs\\C++\\OpenVegas\\sample_ui\\example_project_with_video_and_audio_trimmers.veg"
+      },
+      {
+        "off": 412,
+        "s": "C:\\Users\\Admin\\Documents"
+      },
+      {
+        "off": 462,
+        "s": "C:\\Users\\Admin\\AppData\\Local\\VEGAS Pro\\22.0\\"
+      },
+      {
+        "off": 4168,
+        "s": "D:\\Devs\\C++\\OpenVegas\\sample_ui\\screenshots\\sample_for_project_audio.wav"
+      },
+      {
+        "off": 4498,
+        "s": "LMMS (libsndfile-1.0.26pre5)"
+      },
+      {
+        "off": 4760,
+        "s": "D:\\Devs\\C++\\OpenVegas\\sample_ui\\screenshots\\sample_for_project_video.mp4"
+      },
+      {
+        "off": 6378,
+        "s": "sample_for_project_video"
+      },
+      {
+        "off": 6986,
+        "s": "sample_for_project_video"
+      },
+      {
+        "off": 7594,
+        "s": "sample_for_project_video"
+      },
+      {
+        "off": 8202,
+        "s": "sample_for_project_video"
+      },
+      {
+        "off": 8810,
+        "s": "sample_for_project_video"
+      },
+      {
+        "off": 10258,
+        "s": "sample_for_project_video"
+      },
+      {
+        "off": 10762,
+        "s": "sample_for_project_video"
+      },
+      {
+        "off": 11266,
+        "s": "sample_for_project_video"
+      },
+      {
+        "off": 11770,
+        "s": "sample_for_project_video"
+      },
+      {
+        "off": 12274,
+        "s": "sample_for_project_video"
+      },
+      {
+        "off": 12778,
+        "s": "sample_for_project_audio"
+      },
+      {
+        "off": 13282,
+        "s": "sample_for_project_audio"
+      },
+      {
+        "off": 14392,
+        "s": "VEGAS Track Compressor"
+      },
+      {
+        "off": 14500,
+        "s": "VEGAS Track Noise Gate"
+      },
+      {
+        "off": 14630,
+        "s": "VEGAS Track EQ"
+      },
+      {
+        "off": 14856,
+        "s": "VEGAS Track Compressor"
+      },
+      {
+        "off": 17808,
+        "s": "Microsoft Sound Mapper"
+      },
+      {
+        "off": 18904,
+        "s": "Main Timeline"
+      },
+      {
+        "off": 19056,
+        "s": "C:\\Users\\Admin\\AppData\\Local\\VEGAS Pro\\22.0\\"
+      },
+      {
+        "off": 19154,
+        "s": "C:\\Users\\Admin\\Documents"
+      }
+    ],
+    "paths": [
+      {
+        "off": 3816,
+        "s": "/ScriptPortal.Vegas.ProjectNotes.ProjectNoteItem",
+        "enc": "ascii"
+      },
+      {
+        "off": 248,
+        "s": "D:\\Devs\\C++\\OpenVegas\\sample_ui\\example_project_with_video_and_audio_trimmers.veg",
+        "enc": "utf16le"
+      },
+      {
+        "off": 412,
+        "s": "C:\\Users\\Admin\\Documents",
+        "enc": "utf16le"
+      },
+      {
+        "off": 462,
+        "s": "C:\\Users\\Admin\\AppData\\Local\\VEGAS Pro\\22.0\\",
+        "enc": "utf16le"
+      },
+      {
+        "off": 4168,
+        "s": "D:\\Devs\\C++\\OpenVegas\\sample_ui\\screenshots\\sample_for_project_audio.wav",
+        "enc": "utf16le"
+      },
+      {
+        "off": 4760,
+        "s": "D:\\Devs\\C++\\OpenVegas\\sample_ui\\screenshots\\sample_for_project_video.mp4",
+        "enc": "utf16le"
+      },
+      {
+        "off": 19056,
+        "s": "C:\\Users\\Admin\\AppData\\Local\\VEGAS Pro\\22.0\\",
+        "enc": "utf16le"
+      },
+      {
+        "off": 19154,
+        "s": "C:\\Users\\Admin\\Documents",
+        "enc": "utf16le"
+      }
+    ],
+    "media_hints": [
+      {
+        "off": 248,
+        "s": "D:\\Devs\\C++\\OpenVegas\\sample_ui\\example_project_with_video_and_audio_trimmers.veg"
+      },
+      {
+        "off": 462,
+        "s": "C:\\Users\\Admin\\AppData\\Local\\VEGAS Pro\\22.0\\"
+      },
+      {
+        "off": 4168,
+        "s": "D:\\Devs\\C++\\OpenVegas\\sample_ui\\screenshots\\sample_for_project_audio.wav"
+      },
+      {
+        "off": 4760,
+        "s": "D:\\Devs\\C++\\OpenVegas\\sample_ui\\screenshots\\sample_for_project_video.mp4"
+      },
+      {
+        "off": 6378,
+        "s": "sample_for_project_video"
+      },
+      {
+        "off": 6986,
+        "s": "sample_for_project_video"
+      },
+      {
+        "off": 7594,
+        "s": "sample_for_project_video"
+      },
+      {
+        "off": 8202,
+        "s": "sample_for_project_video"
+      },
+      {
+        "off": 8810,
+        "s": "sample_for_project_video"
+      },
+      {
+        "off": 10258,
+        "s": "sample_for_project_video"
+      },
+      {
+        "off": 10762,
+        "s": "sample_for_project_video"
+      },
+      {
+        "off": 11266,
+        "s": "sample_for_project_video"
+      },
+      {
+        "off": 11770,
+        "s": "sample_for_project_video"
+      },
+      {
+        "off": 12274,
+        "s": "sample_for_project_video"
+      },
+      {
+        "off": 12778,
+        "s": "sample_for_project_audio"
+      },
+      {
+        "off": 13282,
+        "s": "sample_for_project_audio"
+      },
+      {
+        "off": 14392,
+        "s": "VEGAS Track Compressor"
+      },
+      {
+        "off": 14500,
+        "s": "VEGAS Track Noise Gate"
+      },
+      {
+        "off": 14630,
+        "s": "VEGAS Track EQ"
+      },
+      {
+        "off": 14856,
+        "s": "VEGAS Track Compressor"
+      },
+      {
+        "off": 19056,
+        "s": "C:\\Users\\Admin\\AppData\\Local\\VEGAS Pro\\22.0\\"
+      }
+    ],
+    "chunk_like": [
+      {
+        "off": 1255,
+        "tag": "ec70",
+        "size": 57
+      },
+      {
+        "off": 2111,
+        "tag": "ec70",
+        "size": 57
+      },
+      {
+        "off": 2967,
+        "tag": "ec70",
+        "size": 57
+      },
+      {
+        "off": 3246,
+        "tag": "null",
+        "size": 261
+      },
+      {
+        "off": 3299,
+        "tag": "sLis",
+        "size": 884
+      },
+      {
+        "off": 3347,
+        "tag": "wMod",
+        "size": 869
+      },
+      {
+        "off": 3724,
+        "tag": "rsio",
+        "size": 1134
+      },
+      {
+        "off": 3859,
+        "tag": "eIte",
+        "size": 621
+      },
+      {
+        "off": 4490,
+        "tag": "ISFT",
+        "size": 58
+      },
+      {
+        "off": 19048,
+        "tag": "ppre",
+        "size": 90
+      },
+      {
+        "off": 19146,
+        "tag": "prec",
+        "size": 50
+      }
+    ],
+    "guid_hits": []
+  },
+  {
+    "file": "example_project_with_video_and_audio_with_crossfade.veg",
+    "size": 14288,
+    "md5": "19bafce79a095665008e2931f96acc4c",
+    "header": {
+      "magic": "riff",
+      "guid_a": "11CF912E-D6A5-DB28-04C1-0000D0370000",
+      "raw16_4_19": "2e91cf11a5d628db04c10000d0370000",
+      "size_at_16": 14288,
+      "size_matches_file": true,
+      "u32_16": 14288,
+      "u32_20": 0,
+      "guid_24": "46C429EF-904A-11D2-8722-00C04F8EDB8A",
+      "guid_40": "B28F2D5A-230F-11D2-86AF-00C04F8EDB8A",
+      "u64_56": 3848
+    },
+    "strings_ascii": [
+      {
+        "off": 3184,
+        "s": "MProjectNotesLibrary, Version=22.0.0.250, Culture=neutral, PublicKeyToken=null"
+      },
+      {
+        "off": 3267,
+        "s": "0ScriptPortal.Vegas.ProjectNotes.ProjectNotesList"
+      },
+      {
+        "off": 3332,
+        "s": "m_hideResolvedNotes"
+      },
+      {
+        "off": 3352,
+        "s": "m_reviewMode"
+      },
+      {
+        "off": 3369,
+        "s": "System.Collections.Generic.List`1[[ScriptPortal.Vegas.ProjectNotes.ProjectNoteItem, ProjectNotesLibrary, Version=22.0.0.250, Culture=neutral, PublicKeyToken=null]]"
+      },
+      {
+        "off": 3552,
+        "s": "System.Collections.Generic.List`1[[ScriptPortal.Vegas.ProjectNotes.ProjectNoteItem, ProjectNotesLibrary, Version=22.0.0.250, Culture=neutral, PublicKeyToken=null]]"
+      },
+      {
+        "off": 3744,
+        "s": "1ScriptPortal.Vegas.ProjectNotes.ProjectNoteItem[]"
+      },
+      {
+        "off": 3828,
+        "s": "/ScriptPortal.Vegas.ProjectNotes.ProjectNoteItem"
+      },
+      {
+        "off": 3888,
+        "s": "list/"
+      },
+      {
+        "off": 3992,
+        "s": "list/"
+      },
+      {
+        "off": 5216,
+        "s": "list/"
+      },
+      {
+        "off": 5311,
+        "s": " list/"
+      },
+      {
+        "off": 5352,
+        "s": "list/"
+      },
+      {
+        "off": 5784,
+        "s": "list/"
+      },
+      {
+        "off": 5824,
+        "s": "list/"
+      },
+      {
+        "off": 6224,
+        "s": "list/"
+      },
+      {
+        "off": 6431,
+        "s": "?list/"
+      },
+      {
+        "off": 6680,
+        "s": "list/"
+      },
+      {
+        "off": 6720,
+        "s": "list/"
+      },
+      {
+        "off": 6760,
+        "s": "list/"
+      },
+      {
+        "off": 6800,
+        "s": "list/"
+      },
+      {
+        "off": 7232,
+        "s": "list/"
+      },
+      {
+        "off": 7272,
+        "s": "list/"
+      },
+      {
+        "off": 7672,
+        "s": "list/"
+      },
+      {
+        "off": 7776,
+        "s": "list/"
+      },
+      {
+        "off": 8176,
+        "s": "list/"
+      },
+      {
+        "off": 8280,
+        "s": "list/"
+      },
+      {
+        "off": 9128,
+        "s": "list/"
+      },
+      {
+        "off": 9832,
+        "s": "list/"
+      },
+      {
+        "off": 9960,
+        "s": "list/"
+      },
+      {
+        "off": 13544,
+        "s": "list/"
+      },
+      {
+        "off": 13584,
+        "s": "list/"
+      },
+      {
+        "off": 13624,
+        "s": "list/"
+      },
+      {
+        "off": 13776,
+        "s": "list/"
+      }
+    ],
+    "strings_utf16": [
+      {
+        "off": 248,
+        "s": "D:\\Devs\\C++\\OpenVegas\\sample_ui\\example_project_with_video_and_audio_with_crossfade.veg"
+      },
+      {
+        "off": 424,
+        "s": "C:\\Users\\Admin\\Documents"
+      },
+      {
+        "off": 474,
+        "s": "C:\\Users\\Admin\\AppData\\Local\\VEGAS Pro\\22.0\\"
+      },
+      {
+        "off": 4184,
+        "s": "D:\\Devs\\C++\\OpenVegas\\sample_ui\\screenshots\\sample_for_project_audio.wav"
+      },
+      {
+        "off": 4514,
+        "s": "LMMS (libsndfile-1.0.26pre5)"
+      },
+      {
+        "off": 4776,
+        "s": "D:\\Devs\\C++\\OpenVegas\\sample_ui\\screenshots\\sample_for_project_video.mp4"
+      },
+      {
+        "off": 6170,
+        "s": "sample_for_project_video"
+      },
+      {
+        "off": 7618,
+        "s": "sample_for_project_video"
+      },
+      {
+        "off": 8122,
+        "s": "sample_for_project_audio"
+      },
+      {
+        "off": 9232,
+        "s": "VEGAS Track Compressor"
+      },
+      {
+        "off": 9340,
+        "s": "VEGAS Track Noise Gate"
+      },
+      {
+        "off": 9470,
+        "s": "VEGAS Track EQ"
+      },
+      {
+        "off": 9696,
+        "s": "VEGAS Track Compressor"
+      },
+      {
+        "off": 12648,
+        "s": "Microsoft Sound Mapper"
+      },
+      {
+        "off": 13744,
+        "s": "Main Timeline"
+      },
+      {
+        "off": 13896,
+        "s": "C:\\Users\\Admin\\AppData\\Local\\VEGAS Pro\\22.0\\"
+      },
+      {
+        "off": 13994,
+        "s": "C:\\Users\\Admin\\Documents"
+      }
+    ],
+    "paths": [
+      {
+        "off": 3828,
+        "s": "/ScriptPortal.Vegas.ProjectNotes.ProjectNoteItem",
+        "enc": "ascii"
+      },
+      {
+        "off": 248,
+        "s": "D:\\Devs\\C++\\OpenVegas\\sample_ui\\example_project_with_video_and_audio_with_crossfade.veg",
+        "enc": "utf16le"
+      },
+      {
+        "off": 424,
+        "s": "C:\\Users\\Admin\\Documents",
+        "enc": "utf16le"
+      },
+      {
+        "off": 474,
+        "s": "C:\\Users\\Admin\\AppData\\Local\\VEGAS Pro\\22.0\\",
+        "enc": "utf16le"
+      },
+      {
+        "off": 4184,
+        "s": "D:\\Devs\\C++\\OpenVegas\\sample_ui\\screenshots\\sample_for_project_audio.wav",
+        "enc": "utf16le"
+      },
+      {
+        "off": 4776,
+        "s": "D:\\Devs\\C++\\OpenVegas\\sample_ui\\screenshots\\sample_for_project_video.mp4",
+        "enc": "utf16le"
+      },
+      {
+        "off": 13896,
+        "s": "C:\\Users\\Admin\\AppData\\Local\\VEGAS Pro\\22.0\\",
+        "enc": "utf16le"
+      },
+      {
+        "off": 13994,
+        "s": "C:\\Users\\Admin\\Documents",
+        "enc": "utf16le"
+      }
+    ],
+    "media_hints": [
+      {
+        "off": 248,
+        "s": "D:\\Devs\\C++\\OpenVegas\\sample_ui\\example_project_with_video_and_audio_with_crossfade.veg"
+      },
+      {
+        "off": 474,
+        "s": "C:\\Users\\Admin\\AppData\\Local\\VEGAS Pro\\22.0\\"
+      },
+      {
+        "off": 4184,
+        "s": "D:\\Devs\\C++\\OpenVegas\\sample_ui\\screenshots\\sample_for_project_audio.wav"
+      },
+      {
+        "off": 4776,
+        "s": "D:\\Devs\\C++\\OpenVegas\\sample_ui\\screenshots\\sample_for_project_video.mp4"
+      },
+      {
+        "off": 6170,
+        "s": "sample_for_project_video"
+      },
+      {
+        "off": 7618,
+        "s": "sample_for_project_video"
+      },
+      {
+        "off": 8122,
+        "s": "sample_for_project_audio"
+      },
+      {
+        "off": 9232,
+        "s": "VEGAS Track Compressor"
+      },
+      {
+        "off": 9340,
+        "s": "VEGAS Track Noise Gate"
+      },
+      {
+        "off": 9470,
+        "s": "VEGAS Track EQ"
+      },
+      {
+        "off": 9696,
+        "s": "VEGAS Track Compressor"
+      },
+      {
+        "off": 13896,
+        "s": "C:\\Users\\Admin\\AppData\\Local\\VEGAS Pro\\22.0\\"
+      }
+    ],
+    "chunk_like": [
+      {
+        "off": 1267,
+        "tag": "ec70",
+        "size": 57
+      },
+      {
+        "off": 2123,
+        "tag": "ec70",
+        "size": 57
+      },
+      {
+        "off": 2979,
+        "tag": "ec70",
+        "size": 57
+      },
+      {
+        "off": 3258,
+        "tag": "null",
+        "size": 261
+      },
+      {
+        "off": 3311,
+        "tag": "sLis",
+        "size": 884
+      },
+      {
+        "off": 3359,
+        "tag": "wMod",
+        "size": 869
+      },
+      {
+        "off": 3736,
+        "tag": "rsio",
+        "size": 1134
+      },
+      {
+        "off": 3871,
+        "tag": "eIte",
+        "size": 621
+      },
+      {
+        "off": 4506,
+        "tag": "ISFT",
+        "size": 58
+      },
+      {
+        "off": 13888,
+        "tag": "ppre",
+        "size": 90
+      },
+      {
+        "off": 13986,
+        "tag": "prec",
+        "size": 50
+      }
+    ],
+    "guid_hits": []
+  }
+]

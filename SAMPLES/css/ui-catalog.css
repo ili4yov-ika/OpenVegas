@@ -1,0 +1,204 @@
+/* UI catalog — force all menus / flyouts visible for static reference. */
+
+.ui-catalog-page {
+  height: 100%;
+  overflow: auto;
+  background:
+    radial-gradient(ellipse at 15% 0%, #1a3050 0%, transparent 45%),
+    var(--bg-app);
+  color: var(--text);
+  padding: 28px 24px 64px;
+}
+
+.ui-catalog-page__inner {
+  max-width: 1280px;
+  margin: 0 auto;
+}
+
+.ui-catalog-page h1 {
+  margin: 0 0 6px;
+  font-size: 26px;
+  font-weight: 600;
+}
+
+.ui-catalog-page > .ui-catalog-page__inner > .lead {
+  margin: 0 0 22px;
+  color: var(--text-muted);
+  font-size: 13px;
+  max-width: 72ch;
+}
+
+.ui-catalog-page h2 {
+  margin: 28px 0 12px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--border);
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.ui-catalog-page h3 {
+  margin: 0 0 8px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--accent);
+}
+
+.ui-catalog-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 16px;
+  align-items: start;
+}
+
+.ui-catalog-card {
+  background: var(--bg-panel-2);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 12px;
+  min-width: 0;
+}
+
+.ui-catalog-card--wide {
+  grid-column: 1 / -1;
+}
+
+.ui-catalog-card__meta {
+  margin: 0 0 10px;
+  font-size: 11px;
+  color: var(--text-muted);
+  word-break: break-all;
+}
+
+/* —— Menus: always visible, nested flyouts as inset panels —— */
+.ui-catalog-card .dropdown-menu,
+.ui-catalog-card .context-menu {
+  display: block !important;
+  position: static !important;
+  left: auto !important;
+  top: auto !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+  max-height: none !important;
+  overflow: visible !important;
+  box-shadow: none;
+  width: 100%;
+  min-width: 0;
+  margin: 0;
+  z-index: auto;
+}
+
+.ui-catalog-card .context-menu {
+  border: 1px solid var(--border);
+}
+
+.ui-catalog-card .context-submenu,
+.ui-catalog-card .preview-dd__flyout {
+  display: block !important;
+  position: static !important;
+  left: auto !important;
+  top: auto !important;
+  right: auto !important;
+  bottom: auto !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+  margin: 4px 0 6px 18px;
+  width: auto;
+  min-width: 0;
+  max-width: none;
+  box-shadow: none;
+  border: 1px solid var(--border);
+  background: var(--bg-panel-3, #2a2a2e);
+}
+
+.ui-catalog-card .dropdown-menu__item.has-submenu,
+.ui-catalog-card .preview-dd__item.has-submenu {
+  flex-wrap: wrap;
+  height: auto;
+  min-height: 24px;
+  align-items: flex-start;
+}
+
+.ui-catalog-card .dropdown-menu__item.has-submenu > .context-submenu,
+.ui-catalog-card .preview-dd__item.has-submenu > .preview-dd__flyout {
+  flex: 1 1 100%;
+  order: 3;
+}
+
+.ui-catalog-card .dropdown-menu > .dropdown-menu__item.has-submenu:not(.is-open) > .context-submenu {
+  display: block !important;
+}
+
+.ui-catalog-card .has-submenu.is-open,
+.ui-catalog-card .has-submenu {
+  background: transparent;
+}
+
+.ui-catalog-card .preview-dd__menu {
+  display: block !important;
+  position: static !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+  width: 100%;
+  min-width: 0;
+  box-shadow: none;
+  border: 1px solid var(--border);
+}
+
+.ui-catalog-card .preview-dd__menu[hidden] {
+  display: block !important;
+}
+
+.ui-catalog-card .preview-dd {
+  display: block;
+}
+
+.ui-catalog-card .preview-dd__btn {
+  margin-bottom: 8px;
+}
+
+/* Welcome panes: show all three */
+.ui-catalog-welcome {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 16px;
+}
+
+.ui-catalog-welcome .welcome-pane {
+  display: block !important;
+  position: relative;
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  overflow: hidden;
+  min-height: 420px;
+}
+
+.ui-catalog-welcome .welcome-pane .welcome-content {
+  padding: 16px;
+}
+
+.ui-catalog-welcome .welcome-hero {
+  height: 100px;
+}
+
+.ui-catalog-toc {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0 0 20px;
+}
+
+.ui-catalog-toc a {
+  display: inline-block;
+  padding: 6px 10px;
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  background: var(--bg-panel-2);
+  color: var(--text);
+  text-decoration: none;
+  font-size: 12px;
+}
+
+.ui-catalog-toc a:hover {
+  border-color: var(--accent);
+}

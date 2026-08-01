@@ -1,0 +1,126 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>RenderAsDialog</class>
+ <widget class="QDialog" name="RenderAsDialog">
+  <property name="geometry">
+   <rect>
+    <x>0</x>
+    <y>0</y>
+    <width>720</width>
+    <height>480</height>
+   </rect>
+  </property>
+  <property name="windowTitle">
+   <string>Render As</string>
+  </property>
+  <layout class="QVBoxLayout" name="verticalLayout">
+   <item>
+    <layout class="QHBoxLayout" name="pathRow">
+     <item>
+      <widget class="QLabel" name="labelPath">
+       <property name="text">
+        <string>Output</string>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QLineEdit" name="outputPath">
+       <property name="text">
+        <string>C:/Render/output.mp4</string>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QPushButton" name="browseButton">
+       <property name="text">
+        <string>Browse…</string>
+       </property>
+      </widget>
+     </item>
+    </layout>
+   </item>
+   <item>
+    <layout class="QHBoxLayout" name="listsRow">
+     <item>
+      <widget class="QGroupBox" name="groupFormats">
+       <property name="title">
+        <string>Output Format</string>
+       </property>
+       <layout class="QVBoxLayout" name="formatsLayout">
+        <item>
+         <widget class="QListWidget" name="formatList">
+          <item>
+           <property name="text">
+            <string>MAGIX AVC/AAC MP4</string>
+           </property>
+          </item>
+          <item>
+           <property name="text">
+            <string>Windows Media Video</string>
+           </property>
+          </item>
+          <item>
+           <property name="text">
+            <string>Wave (Microsoft)</string>
+           </property>
+          </item>
+         </widget>
+        </item>
+       </layout>
+      </widget>
+     </item>
+     <item>
+      <widget class="QGroupBox" name="groupTemplates">
+       <property name="title">
+        <string>Template</string>
+       </property>
+       <layout class="QVBoxLayout" name="templatesLayout">
+        <item>
+         <widget class="QListWidget" name="templateList">
+          <item>
+           <property name="text">
+            <string>Internet HD 1080p</string>
+           </property>
+          </item>
+          <item>
+           <property name="text">
+            <string>Internet HD 720p</string>
+           </property>
+          </item>
+          <item>
+           <property name="text">
+            <string>Default Template</string>
+           </property>
+          </item>
+         </widget>
+        </item>
+       </layout>
+      </widget>
+     </item>
+    </layout>
+   </item>
+   <item>
+    <widget class="QDialogButtonBox" name="buttonBox">
+     <property name="standardButtons">
+      <set>QDialogButtonBox::Cancel|QDialogButtonBox::Ok</set>
+     </property>
+    </widget>
+   </item>
+  </layout>
+ </widget>
+ <resources/>
+ <connections>
+  <connection>
+   <sender>buttonBox</sender>
+   <signal>accepted()</signal>
+   <receiver>RenderAsDialog</receiver>
+   <slot>accept()</slot>
+  </connection>
+  <connection>
+   <sender>buttonBox</sender>
+   <signal>rejected()</signal>
+   <receiver>RenderAsDialog</receiver>
+   <slot>reject()</slot>
+  </connection>
+ </connections>
+</ui>

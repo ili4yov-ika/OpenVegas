@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256">
+  <!-- OpenVegas app mark: blue ring + navy disc + geometric V -->
+  <circle cx="128" cy="128" r="128" fill="#0715fb"/>
+  <circle cx="128" cy="128" r="102" fill="#010549"/>
+  <!-- Symmetrical bold V (equal arms, sharp tip, flat top caps) -->
+  <path fill="#e8e7e0" d="
+    M 58 56
+    L 128 208
+    L 198 56
+    L 162 56
+    L 128 148
+    L 94 56
+    Z"/>
+</svg>
