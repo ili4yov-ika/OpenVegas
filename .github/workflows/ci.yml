@@ -68,8 +68,11 @@ jobs:
             -DOPENVGAS_BUILD_TESTS=ON \
             -DOPENVGAS_COPY_VEGAS_RUNTIME=OFF
 
-      - name: Build
-        run: cmake --build build --parallel
+      - name: Build app
+        run: cmake --build build --target OpenVegas --parallel
+
+      - name: Build tests
+        run: cmake --build build --target openvegas_audio_tests openvegas_video_tests --parallel
 
       - name: Test
         shell: bash

@@ -335,6 +335,7 @@ if(OPENVGAS_BUILD_TESTS)
 
     add_executable(openvegas_video_tests
         tests/test_video_preview.cpp
+        tests/stub_media_path_for_event.cpp
         src/audio/FadeCurves.cpp
         src/video/VideoKeyframeEval.cpp
         src/video/PanCropApply.cpp
@@ -354,8 +355,10 @@ if(OPENVGAS_BUILD_TESTS)
         Qt6::Gui
         Qt6::Widgets
     )
+    # Forward slashes so the string is a valid C literal on Windows too.
+    file(TO_CMAKE_PATH "${CMAKE_SOURCE_DIR}/tests/fixtures/video" _ov_fixtures)
     target_compile_definitions(openvegas_video_tests PRIVATE
-        OPENVGAS_TEST_FIXTURES_DIR="${CMAKE_SOURCE_DIR}/tests/fixtures/video"
+        OPENVGAS_TEST_FIXTURES_DIR="${_ov_fixtures}"
     )
     if(MSVC)
         target_compile_options(openvegas_video_tests PRIVATE /W4 /permissive-)
