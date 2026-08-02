@@ -123,3 +123,9 @@ python -m http.server 8080
 Код OpenVegas — **GNU GPL v3 or later**. Полный текст и оговорки: [`LICENSE`](LICENSE).
 
 VEGAS Pro и материалы в `SAMPLES/VEGAS-PRO-22-PROGRAM-FILES/` принадлежат MAGIX/VEGAS и **не** покрываются этой GPL; они только справочные эталоны. Копии runtime (`build/vegas-runtime/`) не публиковать в git.
+
+---
+
+## Скриншот
+
+![Main Interface](docs/main_ui.png)
