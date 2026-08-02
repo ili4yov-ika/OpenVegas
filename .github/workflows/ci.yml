@@ -67,12 +67,32 @@ jobs:
             -DCMAKE_PREFIX_PATH="${QT_ROOT_DIR}" \
             -DOPENVGAS_BUILD_TESTS=ON \
             -DOPENVGAS_COPY_VEGAS_RUNTIME=OFF
+          echo "QT_ROOT_DIR=${QT_ROOT_DIR}"
+          cmake -L build | grep -E 'Qt6|CMAKE_CXX_COMPILER|CMAKE_BUILD_TYPE' || true
 
       - name: Build app
-        run: cmake --build build --target OpenVegas --parallel
+        shell: bash
+        run: cmake --build build --target OpenVegas --parallel 2
+
+      - name: Re-run failed build (verbose)
+        if: failure()
+        shell: bash
+        run: |
+          cmake --build build --target OpenVegas -j1 --verbose > build-app-verbose.log 2>&1 || true
+          echo "::group::verbose build tail"
+          tail -n 200 build-app-verbose.log || true
+          echo "::endgroup::"
+
+      - name: Upload build log
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-log-${{ matrix.os }}
+          path: build-app-verbose.log
+          if-no-files-found: ignore
 
       - name: Build tests
-        run: cmake --build build --target openvegas_audio_tests openvegas_video_tests --parallel
+        run: cmake --build build --target openvegas_audio_tests openvegas_video_tests --parallel 2
 
       - name: Test
         shell: bash

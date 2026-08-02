@@ -103,6 +103,9 @@ set(OPENVGAS_HEADERS
     src/ui/WelcomeDialog.h
     src/ui/ProjectPropertiesDialog.h
     src/ui/MatchMediaVideoSettingsDialog.h
+    src/ui/MissingFileDialog.h
+    src/ui/SearchMissingFilesDialog.h
+    src/ui/FindMissingFileDialog.h
     src/ui/RenderAsDialog.h
     src/ui/PreferencesDialog.h
     src/ui/EventPropertiesDialog.h
