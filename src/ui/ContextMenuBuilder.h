@@ -26,6 +26,10 @@ public:
     static void showTrackEmptyMenu(MainWindow *window, int trackIndex, const QPoint &globalPos);
     static void showTimelineEmptyMenu(MainWindow *window, const QPoint &globalPos);
     static void showRulerMenu(MainWindow *window, const QPoint &globalPos);
+    /** Marker bar / loop region lane (Vegas marker-bar shortcut menu). */
+    static void showMarkerLaneMenu(MainWindow *window, const QPoint &globalPos);
+    /** Single marker head (Go To / Rename / Delete). */
+    static void showMarkerMenu(MainWindow *window, int markerId, const QPoint &globalPos);
     static void showPreviewMenu(MainWindow *window, const QPoint &globalPos);
     static void showTimeDisplayMenu(MainWindow *window, const QPoint &globalPos);
     static void showSplitScreenMenu(QWidget *parent, const QPoint &globalPos);

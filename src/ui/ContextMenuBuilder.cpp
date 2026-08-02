@@ -1,6 +1,7 @@
 #include "ui/ContextMenuBuilder.h"
 #include "app/MainWindow.h"
 #include "model/ProjectModel.h"
+#include "timeline/TimelineView.h"
 #include "ui/ConfirmWarningDialog.h"
 #include "ui/PluginChooserDialog.h"
 #include "plugins/AudioPluginHost.h"
@@ -18,6 +19,7 @@
 #include <QPixmap>
 #include <QPainter>
 #include <QColor>
+#include <QSettings>
 #include <algorithm>
 
 namespace openvegas {
@@ -1126,45 +1128,272 @@ void ContextMenuBuilder::showRulerMenu(MainWindow *window, const QPoint &globalP
     QMenu menu(window);
     auto *group = new QActionGroup(&menu);
     group->setExclusive(true);
-    const auto cur = window ? window->projectModel().rulerTimeFormat() : RulerTimeFormat::Time;
+    const auto cur =
+        window ? window->projectModel().rulerTimeFormat() : RulerTimeFormat::TimeFrames;
 
-    auto addRadio = [&](const QString &label, RulerTimeFormat fmt) {
-        auto *a = addItem(&menu, label);
+    auto addRadio = [&](const QString &label, RulerTimeFormat fmt, bool enabled = true) {
+        auto *a = menu.addAction(label);
         a->setCheckable(true);
         a->setChecked(cur == fmt);
+        a->setEnabled(enabled);
         a->setActionGroup(group);
         a->setData(static_cast<int>(fmt));
+        if (!enabled) {
+            return a;
+        }
         QObject::connect(a, &QAction::triggered, &menu, [window, fmt]() {
             if (!window) {
                 return;
             }
             window->projectModel().setRulerTimeFormat(fmt);
+            QSettings s(QStringLiteral("OpenVegas"), QStringLiteral("OpenVegas"));
+            s.setValue(QStringLiteral("timeline/rulerTimeFormat"), static_cast<int>(fmt));
             window->refreshTimeline();
             window->refreshTimecodeLabels();
         });
         return a;
     };
 
-    addRadio(QObject::tr("Samples"), RulerTimeFormat::Samples);
-    addRadio(QObject::tr("Time"), RulerTimeFormat::Time);
-    addRadio(QObject::tr("Seconds"), RulerTimeFormat::Seconds);
-    addRadio(QObject::tr("Time & Frames"), RulerTimeFormat::TimeFrames);
-    addRadio(QObject::tr("Absolute Frames"), RulerTimeFormat::AbsoluteFrames);
-    addRadio(QObject::tr("Measures & Beats"), RulerTimeFormat::MeasuresBeats);
+    // Labels / mnemonics match Vegas Pro ruler context menu.
+    addRadio(QObject::tr("&Samples"), RulerTimeFormat::Samples);
+    addRadio(QObject::tr("&Time"), RulerTimeFormat::Time);
+    addRadio(QObject::tr("Secon&ds"), RulerTimeFormat::Seconds);
+    addRadio(QObject::tr("&Time && Frames"), RulerTimeFormat::TimeFrames);
+    addRadio(QObject::tr("Absolu&te Frames"), RulerTimeFormat::AbsoluteFrames);
+    addRadio(QObject::tr("Measures && &Beats"), RulerTimeFormat::MeasuresBeats);
+    addRadio(QObject::tr("Feet and Frames &16mm (40 fpf)"), RulerTimeFormat::Feet16mm);
+    addRadio(QObject::tr("Feet and Frames &35mm (16 fpf)"), RulerTimeFormat::Feet35mm);
+    addRadio(QObject::tr("SMPTE Fi&lm Sync IVTC (23.976 fps, Video)"),
+             RulerTimeFormat::SMPTE_IVTC);
+    addRadio(QObject::tr("SMPTE &Film Sync (24 fps, Film)"), RulerTimeFormat::SMPTE_Film);
+    addRadio(QObject::tr("SMPTE &EBU (25 fps, Video)"), RulerTimeFormat::SMPTE_EBU);
+    addRadio(QObject::tr("SMPTE &Non-Drop (29.97 fps, Video)"), RulerTimeFormat::SMPTE_NonDrop);
+    addRadio(QObject::tr("SMPTE &Drop (29.97 fps, Video)"), RulerTimeFormat::SMPTE_Drop);
+    addRadio(QObject::tr("SM&PTE 30 (30 fps, Audio)"), RulerTimeFormat::SMPTE_30);
+    addRadio(QObject::tr("Audio CD Time"), RulerTimeFormat::AudioCDTime, false);
     menu.addSeparator();
-    addRadio(QObject::tr("Feet and Frames 16mm (40 fpf)"), RulerTimeFormat::Feet16mm);
-    addRadio(QObject::tr("Feet and Frames 35mm (16 fpf)"), RulerTimeFormat::Feet35mm);
+    addItem(&menu, QObject::tr("Set Time &at Cursor..."));
+    addItem(&menu, QObject::tr("Set Project Tempo..."));
+    menu.exec(globalPos);
+}
+
+void ContextMenuBuilder::showMarkerLaneMenu(MainWindow *window, const QPoint &globalPos)
+{
+    if (!window) {
+        return;
+    }
+    auto &model = window->projectModel();
+    TimelineView *tl = window->timelineView();
+    QMenu menu(window);
+
+    auto saveTimelineOpts = [window]() {
+        QSettings s(QStringLiteral("OpenVegas"), QStringLiteral("OpenVegas"));
+        auto &m = window->projectModel();
+        s.setValue(QStringLiteral("timeline/snappingEnabled"), m.snappingEnabled());
+        s.setValue(QStringLiteral("timeline/snapToGrid"), m.snapToGrid());
+        s.setValue(QStringLiteral("timeline/snapToMarkers"), m.snapToMarkers());
+        s.setValue(QStringLiteral("timeline/snapToAllEvents"), m.snapToAllEvents());
+        s.setValue(QStringLiteral("timeline/quantizeToFrames"), m.quantizeToFrames());
+        s.setValue(QStringLiteral("timeline/gridSpacing"), static_cast<int>(m.gridSpacing()));
+    };
+
+    auto *loop = menu.addAction(QObject::tr("&Loop Playback"));
+    loop->setCheckable(true);
+    loop->setChecked(model.loopPlaybackEnabled());
+    loop->setShortcuts(
+        {QKeySequence(QStringLiteral("Ctrl+Shift+L")), QKeySequence(QStringLiteral("Q"))});
+    QObject::connect(loop, &QAction::triggered, &menu, [window](bool on) {
+        window->setLoopPlaybackEnabled(on);
+    });
+
+    auto *setView = menu.addAction(QObject::tr("Set Selection to &View"));
+    QObject::connect(setView, &QAction::triggered, &menu, [window, tl]() {
+        if (!tl) {
+            return;
+        }
+        double a = 0.0;
+        double b = 0.0;
+        tl->visibleTimeRange(&a, &b);
+        window->runDocumentEdit(QObject::tr("Set Selection to View"), [window, a, b]() {
+            window->projectModel().setLoopRegion(a, b);
+        });
+        window->refreshTimeline();
+    });
+
+    auto *setProj = menu.addAction(QObject::tr("Set Selection to &Project"));
+    QObject::connect(setProj, &QAction::triggered, &menu, [window]() {
+        const double end = window->projectModel().timelineEndSec();
+        window->runDocumentEdit(QObject::tr("Set Selection to Project"), [window, end]() {
+            window->projectModel().setLoopRegion(0.0, end);
+        });
+        window->refreshTimeline();
+    });
+
+    auto *selLoop = menu.addAction(QObject::tr("Select &Loop Region"));
+    selLoop->setShortcuts(
+        {QKeySequence(QStringLiteral("Shift+L")), QKeySequence(QStringLiteral("Shift+Q"))});
+    selLoop->setEnabled(model.hasLoopRegion());
+    QObject::connect(selLoop, &QAction::triggered, &menu, [window, tl]() {
+        if (!window->projectModel().hasLoopRegion() || !tl) {
+            return;
+        }
+        tl->seekPlayhead(window->projectModel().loopRegion().startSec, false);
+    });
+
     menu.addSeparator();
-    addRadio(QObject::tr("SMPTE Film Sync IVTC (23.976 fps, Video)"), RulerTimeFormat::SMPTE_IVTC);
-    addRadio(QObject::tr("SMPTE Film Sync (24 fps, Film)"), RulerTimeFormat::SMPTE_Film);
-    addRadio(QObject::tr("SMPTE EBU (25 fps, Video)"), RulerTimeFormat::SMPTE_EBU);
-    addRadio(QObject::tr("SMPTE Non-Drop (29.97 fps, Video)"), RulerTimeFormat::SMPTE_NonDrop);
-    addRadio(QObject::tr("SMPTE Drop (29.97 fps, Video)"), RulerTimeFormat::SMPTE_Drop);
-    addRadio(QObject::tr("SMPTE 30 (30 fps, Audio)"), RulerTimeFormat::SMPTE_30);
-    addRadio(QObject::tr("Audio CD Time"), RulerTimeFormat::AudioCDTime);
+
+    auto *markersMenu = menu.addMenu(QObject::tr("&Markers/Regions"));
+    {
+        auto *insMarker = markersMenu->addAction(QObject::tr("&Marker"));
+        insMarker->setShortcut(QKeySequence(QStringLiteral("M")));
+        QObject::connect(insMarker, &QAction::triggered, &menu, [tl]() {
+            if (tl) {
+                tl->insertMarkerAtPlayhead();
+            }
+        });
+        addItem(markersMenu, QObject::tr("&Region"))->setEnabled(false);
+        addItem(markersMenu, QObject::tr("&Command Marker"))->setEnabled(false);
+        addItem(markersMenu, QObject::tr("CD &Track Region"))->setEnabled(false);
+        addItem(markersMenu, QObject::tr("CD &Index Marker"))->setEnabled(false);
+        markersMenu->addSeparator();
+        auto *delAll = markersMenu->addAction(QObject::tr("&Delete All"));
+        delAll->setEnabled(!model.markers().isEmpty());
+        QObject::connect(delAll, &QAction::triggered, &menu, [window]() {
+            window->runDocumentEdit(QObject::tr("Delete All Markers"),
+                                    [window]() { window->projectModel().removeAllMarkers(); });
+            window->refreshTimeline();
+        });
+        markersMenu->addAction(QObject::tr("Delete All in &Selection"))->setEnabled(false);
+    }
+
     menu.addSeparator();
-    addItem(&menu, QObject::tr("Set Time at Cursor…"));
-    addItem(&menu, QObject::tr("Set Project Tempo…"));
+
+    auto *quantize = menu.addAction(QObject::tr("&Quantize to Frames"));
+    quantize->setCheckable(true);
+    quantize->setChecked(model.quantizeToFrames());
+    quantize->setShortcut(QKeySequence(QStringLiteral("Alt+F8")));
+    QObject::connect(quantize, &QAction::triggered, &menu, [window, saveTimelineOpts](bool on) {
+        window->projectModel().setQuantizeToFrames(on);
+        saveTimelineOpts();
+    });
+
+    menu.addSeparator();
+
+    auto *snap = menu.addAction(QObject::tr("&Enable Snapping"));
+    snap->setCheckable(true);
+    snap->setChecked(model.snappingEnabled());
+    snap->setShortcut(QKeySequence(QStringLiteral("F8")));
+
+    auto *snapGrid = menu.addAction(QObject::tr("Snap to &Grid"));
+    snapGrid->setCheckable(true);
+    snapGrid->setChecked(model.snapToGrid());
+    snapGrid->setShortcut(QKeySequence(QStringLiteral("Ctrl+F8")));
+    snapGrid->setEnabled(model.snappingEnabled());
+
+    auto *snapMarkers = menu.addAction(QObject::tr("Snap to Marke&rs"));
+    snapMarkers->setCheckable(true);
+    snapMarkers->setChecked(model.snapToMarkers());
+    snapMarkers->setShortcut(QKeySequence(QStringLiteral("Shift+F8")));
+    snapMarkers->setEnabled(model.snappingEnabled());
+
+    auto *snapEvents = menu.addAction(QObject::tr("Snap to &All Events"));
+    snapEvents->setCheckable(true);
+    snapEvents->setChecked(model.snapToAllEvents());
+    snapEvents->setShortcut(QKeySequence(QStringLiteral("Ctrl+Shift+F8")));
+    snapEvents->setEnabled(model.snappingEnabled());
+
+    QObject::connect(snap, &QAction::triggered, &menu,
+                     [window, saveTimelineOpts, snapGrid, snapMarkers, snapEvents](bool on) {
+                         window->projectModel().setSnappingEnabled(on);
+                         snapGrid->setEnabled(on);
+                         snapMarkers->setEnabled(on);
+                         snapEvents->setEnabled(on);
+                         saveTimelineOpts();
+                     });
+    QObject::connect(snapGrid, &QAction::triggered, &menu, [window, saveTimelineOpts](bool on) {
+        window->projectModel().setSnapToGrid(on);
+        saveTimelineOpts();
+    });
+    QObject::connect(snapMarkers, &QAction::triggered, &menu, [window, saveTimelineOpts](bool on) {
+        window->projectModel().setSnapToMarkers(on);
+        saveTimelineOpts();
+    });
+    QObject::connect(snapEvents, &QAction::triggered, &menu, [window, saveTimelineOpts](bool on) {
+        window->projectModel().setSnapToAllEvents(on);
+        saveTimelineOpts();
+    });
+
+    menu.addSeparator();
+
+    auto *gridMenu = menu.addMenu(QObject::tr("&Grid Spacing"));
+    {
+        auto *group = new QActionGroup(gridMenu);
+        group->setExclusive(true);
+        const auto cur = model.gridSpacing();
+        auto addGrid = [&](const QString &label, TimelineGridSpacing sp) {
+            auto *a = gridMenu->addAction(label);
+            a->setCheckable(true);
+            a->setChecked(cur == sp);
+            a->setActionGroup(group);
+            QObject::connect(a, &QAction::triggered, gridMenu, [window, sp, saveTimelineOpts]() {
+                window->projectModel().setGridSpacing(sp);
+                saveTimelineOpts();
+            });
+        };
+        addGrid(QObject::tr("&Ruler Marks"), TimelineGridSpacing::RulerMarks);
+        addGrid(QObject::tr("&Seconds"), TimelineGridSpacing::Seconds);
+        addGrid(QObject::tr("&Half Seconds"), TimelineGridSpacing::HalfSeconds);
+        addGrid(QObject::tr("&Quarter Seconds"), TimelineGridSpacing::QuarterSeconds);
+        gridMenu->addSeparator();
+        addGrid(QObject::tr("&Measures"), TimelineGridSpacing::Measures);
+        addGrid(QObject::tr("Half Measures"), TimelineGridSpacing::HalfMeasures);
+        addGrid(QObject::tr("Quarter &Notes"), TimelineGridSpacing::QuarterNotes);
+        addGrid(QObject::tr("&Eighth Notes"), TimelineGridSpacing::EighthNotes);
+        addGrid(QObject::tr("S&ixteenth Notes"), TimelineGridSpacing::SixteenthNotes);
+        addGrid(QObject::tr("&Thirty-Second Notes"), TimelineGridSpacing::ThirtySecondNotes);
+        addGrid(QObject::tr("Si&xty-Fourth Notes"), TimelineGridSpacing::SixtyFourthNotes);
+        gridMenu->addSeparator();
+        addGrid(QObject::tr("&Frames"), TimelineGridSpacing::Frames);
+        addGrid(QObject::tr("Half Frames"), TimelineGridSpacing::HalfFrames);
+    }
+
+    menu.addSeparator();
+
+    auto *prerender = menu.addAction(QObject::tr("&Selectively Prerender Video..."));
+    prerender->setShortcut(QKeySequence(QStringLiteral("Shift+M")));
+    prerender->setEnabled(false);
+    menu.addAction(QObject::tr("&Clean Up Prerendered Video..."));
+
+    menu.exec(globalPos);
+}
+
+void ContextMenuBuilder::showMarkerMenu(MainWindow *window, int markerId, const QPoint &globalPos)
+{
+    if (!window || !window->projectModel().findMarker(markerId)) {
+        return;
+    }
+    TimelineView *tl = window->timelineView();
+    QMenu menu(window);
+    auto *go = menu.addAction(QObject::tr("&Go To"));
+    QObject::connect(go, &QAction::triggered, &menu, [window, markerId, tl]() {
+        const auto *m = window->projectModel().findMarker(markerId);
+        if (m && tl) {
+            tl->seekPlayhead(m->timeSec, false);
+        }
+    });
+    auto *rename = menu.addAction(QObject::tr("&Rename"));
+    QObject::connect(rename, &QAction::triggered, &menu, [markerId, tl]() {
+        if (tl) {
+            tl->beginMarkerRename(markerId);
+        }
+    });
+    menu.addSeparator();
+    auto *del = menu.addAction(QObject::tr("&Delete"));
+    QObject::connect(del, &QAction::triggered, &menu, [window, markerId]() {
+        window->runDocumentEdit(QObject::tr("Delete Marker"),
+                                [window, markerId]() { window->projectModel().removeMarker(markerId); });
+        window->refreshTimeline();
+    });
     menu.exec(globalPos);
 }
 

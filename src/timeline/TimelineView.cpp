@@ -472,7 +472,8 @@ void TimelineView::updateHoverCursor(const QPoint &pos)
             setCursor(Qt::SizeAllCursor);
             return;
         default:
-            setCursor(Qt::ArrowCursor);
+            // Empty loop / marker lane: drag will create a region
+            setCursor(Qt::IBeamCursor);
             return;
         }
     }
@@ -876,10 +877,9 @@ TimelineView::RulerDragMode TimelineView::loopHitAt(const QPoint &pos) const
         if (bar.contains(pos)) {
             return RulerDragMode::LoopMove;
         }
-    } else if (loopSeedRect().adjusted(-2, -2, 4, 2).contains(pos)) {
-        return RulerDragMode::LoopCreate;
     }
-    return RulerDragMode::None;
+    // Empty marker / loop lane: press–drag creates (or replaces) the Loop Region.
+    return RulerDragMode::LoopCreate;
 }
 
 void TimelineView::insertMarkerAtPlayhead()
@@ -2600,11 +2600,11 @@ void TimelineView::mousePressEvent(QMouseEvent *event)
                 m_model->clearMarkerSelection();
                 m_rulerDrag = loopMode;
                 m_dragOriginX = event->pos().x();
-                if (m_model->hasLoopRegion()) {
+                if (loopMode == RulerDragMode::LoopCreate) {
+                    m_dragLoopCreateOrigin = std::max(0.0, xToTime(event->pos().x()));
+                } else if (m_model->hasLoopRegion()) {
                     m_dragLoopOriginStart = m_model->loopRegion().startSec;
                     m_dragLoopOriginEnd = m_model->loopRegion().endSec;
-                } else {
-                    m_dragLoopCreateOrigin = m_model->loopRegion().startSec;
                 }
                 setCursor(loopMode == RulerDragMode::LoopMove ? Qt::SizeAllCursor
                                                              : Qt::SizeHorCursor);
@@ -2612,12 +2612,15 @@ void TimelineView::mousePressEvent(QMouseEvent *event)
                 update();
                 return;
             }
-            m_model->clearMarkerSelection();
-            m_draggingPlayhead = true;
-            m_rulerDrag = RulerDragMode::Playhead;
-            m_model->setPlayheadSec(std::max(0.0, xToTime(event->pos().x())));
-            emit playheadChanged(m_model->playheadSec());
-            update();
+            // Time-ticks strip: scrub playhead
+            if (event->pos().y() >= markerLaneHeight()) {
+                m_model->clearMarkerSelection();
+                m_draggingPlayhead = true;
+                m_rulerDrag = RulerDragMode::Playhead;
+                m_model->setPlayheadSec(std::max(0.0, xToTime(event->pos().x())));
+                emit playheadChanged(m_model->playheadSec());
+                update();
+            }
             return;
         }
 
@@ -2919,12 +2922,10 @@ void TimelineView::mouseMoveEvent(QMouseEvent *event)
     if (m_rulerDrag == RulerDragMode::LoopCreate) {
         const double t = std::max(0.0, xToTime(event->pos().x()));
         const double origin = m_dragLoopCreateOrigin;
+        // Live preview while dragging; ignore tiny jitter until a real span exists.
         if (std::abs(t - origin) >= 0.02) {
             m_model->setLoopRegion(origin, t);
-            m_rulerDrag = (t >= origin) ? RulerDragMode::LoopEnd : RulerDragMode::LoopStart;
-            m_dragLoopOriginStart = m_model->loopRegion().startSec;
-            m_dragLoopOriginEnd = m_model->loopRegion().endSec;
-            m_dragOriginX = event->pos().x();
+            ensureContentWidth();
         }
         update();
         return;
@@ -3513,10 +3514,28 @@ void TimelineView::paintDropGhost(QPainter &p)
     p.drawLine(x0, rulerHeight(), x0, height());
 }
 
+void TimelineView::visibleTimeRange(double *startSec, double *endSec) const
+{
+    if (!startSec || !endSec) {
+        return;
+    }
+    *startSec = std::max(0.0, xToTime(headerWidth()));
+    *endSec = std::max(*startSec + 0.05, xToTime(width()));
+}
+
 void TimelineView::contextMenuEvent(QContextMenuEvent *event)
 {
     if (event->pos().y() < rulerHeight() && event->pos().x() >= headerWidth()) {
-        emit rulerContextMenuRequested(event->globalPos());
+        if (event->pos().y() < markerLaneHeight()) {
+            const int mid = markerAtPos(event->pos());
+            if (mid >= 0) {
+                emit markerContextMenuRequested(mid, event->globalPos());
+            } else {
+                emit markerLaneContextMenuRequested(event->globalPos());
+            }
+        } else {
+            emit rulerContextMenuRequested(event->globalPos());
+        }
         return;
     }
     if (event->pos().x() < headerWidth() && event->pos().y() >= rulerHeight() && m_model) {

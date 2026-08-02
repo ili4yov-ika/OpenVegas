@@ -65,6 +65,9 @@ public:
     void insertMarkerAtPlayhead();
     /** Place / move Loop Region starting at the playhead. */
     void insertLoopRegionAtPlayhead();
+    /** Visible timeline span (seconds), excluding the track header. */
+    void visibleTimeRange(double *startSec, double *endSec) const;
+    void beginMarkerRename(int markerId);
 
 signals:
     void eventDoubleClicked(int eventId);
@@ -84,7 +87,12 @@ signals:
     /** Header "fx" chip → Track FX. */
     void trackFxRequested(int trackIndex);
     void trackEmptyContextMenuRequested(int trackIndex, const QPoint &globalPos);
+    /** Time-ticks strip (below marker lane). */
     void rulerContextMenuRequested(const QPoint &globalPos);
+    /** Marker / loop lane (empty area or loop bar). */
+    void markerLaneContextMenuRequested(const QPoint &globalPos);
+    /** Right-click on a marker head. */
+    void markerContextMenuRequested(int markerId, const QPoint &globalPos);
     void scrollMetricsChanged();
     void scrollOffsetChanged();
     void playingChanged(bool playing);
@@ -238,7 +246,6 @@ private:
     RulerDragMode loopHitAt(const QPoint &pos) const;
     QRect loopBarRect() const;
     QRect loopSeedRect() const;
-    void beginMarkerRename(int markerId);
     void positionMarkerLabelEdit();
     void finishMarkerRename(bool accept);
 

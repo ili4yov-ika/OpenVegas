@@ -99,6 +99,9 @@ public slots:
 
     ProjectModel &projectModel() { return m_project; }
     const ProjectModel &projectModel() const { return m_project; }
+    TimelineView *timelineView() const { return m_timeline; }
+    /** Set loop-playback flag and sync toolbar / preview buttons. */
+    void setLoopPlaybackEnabled(bool on);
 
     QUndoStack *undoStack() const { return m_undoStack; }
     QAction *undoAction() const { return m_undoAction; }
@@ -173,6 +176,8 @@ private:
     void showTrackHeaderContextMenu(int trackIndex, const QPoint &globalPos);
     void showTrackEmptyContextMenu(int trackIndex, const QPoint &globalPos);
     void showRulerContextMenu(const QPoint &globalPos);
+    void showMarkerLaneContextMenu(const QPoint &globalPos);
+    void showMarkerContextMenu(int markerId, const QPoint &globalPos);
     void showPreviewContextMenu(const QPoint &globalPos);
     void showTimeDisplayContextMenu(const QPoint &globalPos);
     void updateTimecodeLabels(double sec);

@@ -7,7 +7,7 @@
             "command": "cmake",
             "args": [
                 "-S", "${workspaceFolder}",
-                "-B", "${workspaceFolder}/build",
+                "-B", "${workspaceFolder}/build/Windows-MinGW-x64",
                 "-G", "Ninja",
                 "-DCMAKE_BUILD_TYPE=Debug",
                 "-DCMAKE_PREFIX_PATH=C:/Qt/6.9.3/mingw_64",
@@ -18,7 +18,7 @@
             "group": "build",
             "presentation": { "reveal": "always", "panel": "shared" },
             "problemMatcher": [],
-            "detail": "CMake → build/ (MinGW + Ninja Debug)",
+            "detail": "CMake → build/Windows-MinGW-x64 (MinGW + Ninja Debug)",
             "options": {
                 "cwd": "${workspaceFolder}",
                 "env": {
@@ -30,7 +30,7 @@
             "label": "CMake: Build (MinGW Debug)",
             "type": "shell",
             "command": "cmake",
-            "args": ["--build", "${workspaceFolder}/build", "--parallel"],
+            "args": ["--build", "${workspaceFolder}/build/Windows-MinGW-x64", "--parallel"],
             "group": { "kind": "build", "isDefault": true },
             "presentation": { "reveal": "always", "panel": "shared" },
             "problemMatcher": ["$gcc"],
@@ -49,7 +49,7 @@
             "command": "cmake",
             "args": [
                 "-S", "${workspaceFolder}",
-                "-B", "${workspaceFolder}/build-release",
+                "-B", "${workspaceFolder}/build/Windows-MinGW-x64",
                 "-G", "Ninja",
                 "-DCMAKE_BUILD_TYPE=Release",
                 "-DCMAKE_PREFIX_PATH=C:/Qt/6.9.3/mingw_64",
@@ -70,7 +70,7 @@
             "label": "CMake: Build (MinGW Release)",
             "type": "shell",
             "command": "cmake",
-            "args": ["--build", "${workspaceFolder}/build-release", "--parallel"],
+            "args": ["--build", "${workspaceFolder}/build/Windows-MinGW-x64", "--parallel"],
             "group": "build",
             "presentation": { "reveal": "always", "panel": "shared" },
             "problemMatcher": ["$gcc"],
@@ -151,7 +151,7 @@
             "label": "CMake: Clean (MinGW)",
             "type": "shell",
             "command": "cmake",
-            "args": ["--build", "${workspaceFolder}/build", "--target", "clean"],
+            "args": ["--build", "${workspaceFolder}/build/Windows-MinGW-x64", "--target", "clean"],
             "group": "build",
             "presentation": { "reveal": "always", "panel": "shared" },
             "problemMatcher": [],

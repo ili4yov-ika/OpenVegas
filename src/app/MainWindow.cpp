@@ -383,6 +383,34 @@ void MainWindow::restoreUiSettings()
             m_timeline->update();
         }
     }
+
+    {
+        const int fmt = s.value(QStringLiteral("timeline/rulerTimeFormat"),
+                                static_cast<int>(RulerTimeFormat::TimeFrames))
+                            .toInt();
+        if (fmt >= static_cast<int>(RulerTimeFormat::Samples)
+            && fmt <= static_cast<int>(RulerTimeFormat::AudioCDTime)) {
+            m_project.setRulerTimeFormat(static_cast<RulerTimeFormat>(fmt));
+        }
+    }
+
+    m_project.setSnappingEnabled(
+        s.value(QStringLiteral("timeline/snappingEnabled"), true).toBool());
+    m_project.setSnapToGrid(s.value(QStringLiteral("timeline/snapToGrid"), false).toBool());
+    m_project.setSnapToMarkers(s.value(QStringLiteral("timeline/snapToMarkers"), true).toBool());
+    m_project.setSnapToAllEvents(
+        s.value(QStringLiteral("timeline/snapToAllEvents"), true).toBool());
+    m_project.setQuantizeToFrames(
+        s.value(QStringLiteral("timeline/quantizeToFrames"), true).toBool());
+    {
+        const int gs = s.value(QStringLiteral("timeline/gridSpacing"),
+                               static_cast<int>(TimelineGridSpacing::RulerMarks))
+                           .toInt();
+        if (gs >= static_cast<int>(TimelineGridSpacing::RulerMarks)
+            && gs <= static_cast<int>(TimelineGridSpacing::HalfFrames)) {
+            m_project.setGridSpacing(static_cast<TimelineGridSpacing>(gs));
+        }
+    }
 }
 
 void MainWindow::saveUiSettings()
@@ -394,6 +422,14 @@ void MainWindow::saveUiSettings()
     s.setValue(QStringLiteral("ui/upperSplitter"), ui->upperSplitter->saveState());
     s.setValue(QStringLiteral("ui/mediaTab"), ui->mediaTabs->currentIndex());
     s.setValue(QStringLiteral("timeline/pixelsPerSecond"), m_project.pixelsPerSecond());
+    s.setValue(QStringLiteral("timeline/rulerTimeFormat"),
+               static_cast<int>(m_project.rulerTimeFormat()));
+    s.setValue(QStringLiteral("timeline/snappingEnabled"), m_project.snappingEnabled());
+    s.setValue(QStringLiteral("timeline/snapToGrid"), m_project.snapToGrid());
+    s.setValue(QStringLiteral("timeline/snapToMarkers"), m_project.snapToMarkers());
+    s.setValue(QStringLiteral("timeline/snapToAllEvents"), m_project.snapToAllEvents());
+    s.setValue(QStringLiteral("timeline/quantizeToFrames"), m_project.quantizeToFrames());
+    s.setValue(QStringLiteral("timeline/gridSpacing"), static_cast<int>(m_project.gridSpacing()));
     if (m_timeline) {
         s.setValue(QStringLiteral("timeline/headerWidth"), m_timeline->headerWidth());
     }
@@ -1977,6 +2013,10 @@ void MainWindow::setupTimeline()
     connect(m_timeline, &TimelineView::trackEmptyContextMenuRequested, this,
             &MainWindow::showTrackEmptyContextMenu);
     connect(m_timeline, &TimelineView::rulerContextMenuRequested, this, &MainWindow::showRulerContextMenu);
+    connect(m_timeline, &TimelineView::markerLaneContextMenuRequested, this,
+            &MainWindow::showMarkerLaneContextMenu);
+    connect(m_timeline, &TimelineView::markerContextMenuRequested, this,
+            &MainWindow::showMarkerContextMenu);
     connect(m_timeline, &TimelineView::playheadChanged, this, &MainWindow::updateTimecodeLabels);
     connect(m_timeline, &TimelineView::documentEditBegan, this, &MainWindow::beginDocumentEdit);
     connect(m_timeline, &TimelineView::documentEditCommitted, this, &MainWindow::commitDocumentEdit);
@@ -3197,15 +3237,7 @@ void MainWindow::invokeKeyboardCommand(const QString &commandId)
     }
     if (commandId == QLatin1String("Transport.LoopPlayback")
         || commandId == QLatin1String("Options.LoopPlayback")) {
-        m_project.setLoopPlaybackEnabled(!m_project.loopPlaybackEnabled());
-        if (m_tlLoopBtn) {
-            QSignalBlocker b(m_tlLoopBtn);
-            m_tlLoopBtn->setChecked(m_project.loopPlaybackEnabled());
-        }
-        if (m_previewLoopBtn) {
-            QSignalBlocker b(m_previewLoopBtn);
-            m_previewLoopBtn->setChecked(m_project.loopPlaybackEnabled());
-        }
+        setLoopPlaybackEnabled(!m_project.loopPlaybackEnabled());
         return;
     }
     if (commandId == QLatin1String("Transport.Record")) {
@@ -3740,6 +3772,29 @@ void MainWindow::showTrackEmptyContextMenu(int trackIndex, const QPoint &globalP
 void MainWindow::showRulerContextMenu(const QPoint &globalPos)
 {
     ContextMenuBuilder::showRulerMenu(this, globalPos);
+}
+
+void MainWindow::showMarkerLaneContextMenu(const QPoint &globalPos)
+{
+    ContextMenuBuilder::showMarkerLaneMenu(this, globalPos);
+}
+
+void MainWindow::showMarkerContextMenu(int markerId, const QPoint &globalPos)
+{
+    ContextMenuBuilder::showMarkerMenu(this, markerId, globalPos);
+}
+
+void MainWindow::setLoopPlaybackEnabled(bool on)
+{
+    m_project.setLoopPlaybackEnabled(on);
+    if (m_tlLoopBtn) {
+        QSignalBlocker b(m_tlLoopBtn);
+        m_tlLoopBtn->setChecked(on);
+    }
+    if (m_previewLoopBtn) {
+        QSignalBlocker b(m_previewLoopBtn);
+        m_previewLoopBtn->setChecked(on);
+    }
 }
 
 void MainWindow::showPreviewContextMenu(const QPoint &globalPos)

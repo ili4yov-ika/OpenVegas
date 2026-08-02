@@ -2335,6 +2335,12 @@ bool ProjectModel::removeMarker(int markerId)
     return false;
 }
 
+void ProjectModel::removeAllMarkers()
+{
+    m_markers.clear();
+    m_nextMarkerNumber = 1;
+}
+
 void ProjectModel::clearMarkerSelection()
 {
     for (TimelineMarker &m : m_markers) {

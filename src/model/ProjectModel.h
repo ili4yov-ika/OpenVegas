@@ -80,6 +80,23 @@ enum class RulerTimeFormat {
     AudioCDTime
 };
 
+/** Timeline grid spacing (Options / marker-bar “Grid Spacing”). */
+enum class TimelineGridSpacing {
+    RulerMarks = 0,
+    Seconds,
+    HalfSeconds,
+    QuarterSeconds,
+    Measures,
+    HalfMeasures,
+    QuarterNotes,
+    EighthNotes,
+    SixteenthNotes,
+    ThirtySecondNotes,
+    SixtyFourthNotes,
+    Frames,
+    HalfFrames
+};
+
 /** Vegas-style fade curve shapes (File→… / event fade handle popup). */
 enum class FadeCurveType {
     Fast = 0,   // ease-out on fade-in / quick drop on fade-out
@@ -741,10 +758,24 @@ public:
     bool loopPlaybackEnabled() const { return m_loopPlayback; }
     void setLoopPlaybackEnabled(bool on) { m_loopPlayback = on; }
 
+    bool snappingEnabled() const { return m_snappingEnabled; }
+    void setSnappingEnabled(bool on) { m_snappingEnabled = on; }
+    bool snapToGrid() const { return m_snapToGrid; }
+    void setSnapToGrid(bool on) { m_snapToGrid = on; }
+    bool snapToMarkers() const { return m_snapToMarkers; }
+    void setSnapToMarkers(bool on) { m_snapToMarkers = on; }
+    bool snapToAllEvents() const { return m_snapToAllEvents; }
+    void setSnapToAllEvents(bool on) { m_snapToAllEvents = on; }
+    bool quantizeToFrames() const { return m_quantizeToFrames; }
+    void setQuantizeToFrames(bool on) { m_quantizeToFrames = on; }
+    TimelineGridSpacing gridSpacing() const { return m_gridSpacing; }
+    void setGridSpacing(TimelineGridSpacing s) { m_gridSpacing = s; }
+
     TimelineMarker *findMarker(int markerId);
     const TimelineMarker *findMarker(int markerId) const;
     int addMarkerAt(double timeSec, const QString &label = QString());
     bool removeMarker(int markerId);
+    void removeAllMarkers();
     void clearMarkerSelection();
     void selectMarker(int markerId, bool additive = false);
     void renumberMarkers();
@@ -882,7 +913,13 @@ private:
     int m_nextMixerInputBusId = 1;
     bool m_ignoreEventGrouping = false;
     bool m_loopPlayback = true;
-    RulerTimeFormat m_rulerTimeFormat = RulerTimeFormat::Time;
+    bool m_snappingEnabled = true;
+    bool m_snapToGrid = false;
+    bool m_snapToMarkers = true;
+    bool m_snapToAllEvents = true;
+    bool m_quantizeToFrames = true;
+    TimelineGridSpacing m_gridSpacing = TimelineGridSpacing::RulerMarks;
+    RulerTimeFormat m_rulerTimeFormat = RulerTimeFormat::TimeFrames;
 };
 
 } // namespace openvegas

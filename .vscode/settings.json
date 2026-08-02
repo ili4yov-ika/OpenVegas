@@ -1,5 +1,5 @@
 {
-    "cmake.buildDirectory": "${workspaceFolder}/build",
+    "cmake.buildDirectory": "${workspaceFolder}/build/Windows-MinGW-x64",
     "cmake.configureOnOpen": true,
     "cmake.buildBeforeRun": true,
     "cmake.preferredGenerators": [
@@ -20,7 +20,7 @@
         "-DCMAKE_C_COMPILER=C:/Qt/Tools/mingw1310_64/bin/gcc.exe",
         "-DCMAKE_MAKE_PROGRAM=C:/Qt/Tools/Ninja/ninja.exe"
     ],
-    "cmake.copyCompileCommands": "${workspaceFolder}/build/compile_commands.json",
+    "cmake.copyCompileCommands": "${workspaceFolder}/build/Windows-MinGW-x64/compile_commands.json",
     "cmake.debugConfig": {
         "targetArchitecture": "x64",
         "externalConsole": false,
@@ -44,8 +44,8 @@
     "C_Cpp.default.includePath": [
         "${workspaceFolder}/src",
         "${workspaceFolder}/ui",
-        "${workspaceFolder}/build",
-        "${workspaceFolder}/build/OpenVegas_autogen/include",
+        "${workspaceFolder}/build/Windows-MinGW-x64",
+        "${workspaceFolder}/build/Windows-MinGW-x64/OpenVegas_autogen/include",
         "${workspaceFolder}/build-pro/ui_headers",
         "C:/Qt/6.9.3/mingw_64/include",
         "C:/Qt/6.9.3/mingw_64/include/QtCore",
@@ -94,7 +94,7 @@
         "--completion-style=detailed",
         "--header-insertion=never",
         "--pch-storage=memory",
-        "--compile-commands-dir=${workspaceFolder}/build",
+        "--compile-commands-dir=${workspaceFolder}/build/Windows-MinGW-x64",
         "--query-driver=C:/Qt/Tools/mingw1310_64/bin/g++.exe",
         "--clang-tidy=false"
     ],

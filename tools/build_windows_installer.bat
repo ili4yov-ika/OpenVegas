@@ -7,7 +7,7 @@ setlocal enabledelayedexpansion
 
 set "SCRIPT_DIR=%~dp0"
 set "PROJECT_ROOT=%SCRIPT_DIR%.."
-set "BUILD_DIR=%PROJECT_ROOT%\build"
+set "BUILD_DIR=%PROJECT_ROOT%\build\Windows-MinGW-x64"
 set "INSTALL_DIR=%BUILD_DIR%\install"
 set "NSIS_SCRIPT=%SCRIPT_DIR%nsis_installer.nsi"
 
