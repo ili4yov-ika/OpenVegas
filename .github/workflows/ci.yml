@@ -68,33 +68,38 @@ jobs:
             -DOPENVGAS_BUILD_TESTS=ON \
             -DOPENVGAS_COPY_VEGAS_RUNTIME=OFF
           echo "QT_ROOT_DIR=${QT_ROOT_DIR}"
-          cmake -L build | grep -E 'Qt6|CMAKE_CXX_COMPILER|CMAKE_BUILD_TYPE' || true
+          ls -la build/build.ninja build/CMakeCache.txt || true
+          ninja -C build -t targets 2>/dev/null | head -n 40 || true
 
       - name: Build app
+        id: build_app
+        continue-on-error: true
         shell: bash
         run: cmake --build build --target OpenVegas --parallel 2
 
-      - name: Re-run failed build (verbose)
-        if: failure()
+      - name: Diagnose build failure
+        if: steps.build_app.outcome == 'failure'
         shell: bash
         run: |
-          cmake --build build --target OpenVegas -j1 --verbose > build-app-verbose.log 2>&1 || true
-          echo "::group::verbose build tail"
-          tail -n 200 build-app-verbose.log || true
-          echo "::endgroup::"
-
-      - name: Upload build log
-        if: failure()
-        uses: actions/upload-artifact@v4
-        with:
-          name: build-log-${{ matrix.os }}
-          path: build-app-verbose.log
-          if-no-files-found: ignore
+          set +e
+          cmake --build build --target OpenVegas -j1 > build-app.log 2>&1
+          echo "==== build log ===="
+          cat build-app.log
+          # Surface last lines as annotations (visible via Checks API)
+          tail -n 50 build-app.log | while IFS= read -r line; do
+            # Escape % and newlines for workflow commands
+            safe=${line//%/%25}
+            safe=${safe//$'\r'/}
+            echo "::error title=${{ matrix.name }}::$safe"
+          done
+          exit 1
 
       - name: Build tests
+        if: steps.build_app.outcome == 'success'
         run: cmake --build build --target openvegas_audio_tests openvegas_video_tests --parallel 2
 
       - name: Test
+        if: steps.build_app.outcome == 'success'
         shell: bash
         env:
           QT_QPA_PLATFORM: offscreen
