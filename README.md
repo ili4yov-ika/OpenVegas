@@ -1,10 +1,18 @@
 # OpenVegas
 
+[![CI](https://github.com/ili4yov-ika/OpenVegas/actions/workflows/ci.yml/badge.svg)](https://github.com/ili4yov-ika/OpenVegas/actions/workflows/ci.yml)
+
 Открытый кроссплатформенный видеоредактор — аналог **VEGAS Pro 22** на **C++ / Qt 6.8** с лицензией **GNU GPL**.
 
 Цель — воспроизвести привычный workspace Vegas (таймлайн, events, fades/crossfades, media bin, Trimmer, Properties) и уметь открывать проекты `.veg`.
 
 Сейчас есть **кликабельный MVP** (оболочка + таймлайн + диалоги) и эталоны в `SAMPLES/`.
+
+---
+
+## Скриншот
+
+![Main Interface](docs/main_ui.png)
 
 ---
 
@@ -62,6 +70,10 @@ cmake -S . -B build -DCMAKE_PREFIX_PATH=<Qt6.8> -DOPENVGAS_COPY_VEGAS_RUNTIME=ON
 ```
 
 **Не коммитьте** `build/`, `vegas-runtime/` и бинарники Vegas — они в [`.gitignore`](.gitignore).
+
+### CI (GitHub Actions)
+
+На каждый push / PR в `main` workflow [`.github/workflows/ci.yml`](.github/workflows/ci.yml) собирает Release на **Ubuntu 22.04**, **Windows 2022** и **macOS 14** (Qt **6.8.3** Widgets+Svg) и запускает `ctest`.
 
 ---
 
@@ -123,9 +135,3 @@ python -m http.server 8080
 Код OpenVegas — **GNU GPL v3 or later**. Полный текст и оговорки: [`LICENSE`](LICENSE).
 
 VEGAS Pro и материалы в `SAMPLES/VEGAS-PRO-22-PROGRAM-FILES/` принадлежат MAGIX/VEGAS и **не** покрываются этой GPL; они только справочные эталоны. Копии runtime (`build/vegas-runtime/`) не публиковать в git.
-
----
-
-## Скриншот
-
-![Main Interface](docs/main_ui.png)
