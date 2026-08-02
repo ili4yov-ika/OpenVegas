@@ -123,10 +123,11 @@ python -m http.server 8080
 1. **Правила разработки** — [`MARKDOWN/INIT.MD`](MARKDOWN/INIT.MD)
 2. **Баги и планы** — [`MARKDOWN/ISSUES_AND_PLANS.md`](MARKDOWN/ISSUES_AND_PLANS.md)
 3. **Открытие `.veg` (кратко)** — [`docs/VEG_OPEN.md`](docs/VEG_OPEN.md)
-4. **Открытие `.veg` (развёрнуто)** — [`MARKDOWN/VEG_READER_V0.md`](MARKDOWN/VEG_READER_V0.md)
-5. **Перенос на Qt + план парсера** — [`MARKDOWN/QT68_PORT_AND_VEG_OPEN.md`](MARKDOWN/QT68_PORT_AND_VEG_OPEN.md)
-6. **Формат `.veg`** — [`SAMPLES/docs_veg/00_format_overview.md`](SAMPLES/docs_veg/00_format_overview.md)
-7. **Program Files Vegas 22** — [`SAMPLES/VEGAS-PRO-22-PROGRAM-FILES/README.md`](SAMPLES/VEGAS-PRO-22-PROGRAM-FILES/README.md)
+4. **Поддерживаемые файлы** — [`docs/support_files.md`](docs/support_files.md)
+5. **Открытие `.veg` (развёрнуто)** — [`MARKDOWN/VEG_READER_V0.md`](MARKDOWN/VEG_READER_V0.md)
+6. **Перенос на Qt + план парсера** — [`MARKDOWN/QT68_PORT_AND_VEG_OPEN.md`](MARKDOWN/QT68_PORT_AND_VEG_OPEN.md)
+7. **Формат `.veg`** — [`SAMPLES/docs_veg/00_format_overview.md`](SAMPLES/docs_veg/00_format_overview.md)
+8. **Program Files Vegas 22** — [`SAMPLES/VEGAS-PRO-22-PROGRAM-FILES/README.md`](SAMPLES/VEGAS-PRO-22-PROGRAM-FILES/README.md)
 
 ---
 

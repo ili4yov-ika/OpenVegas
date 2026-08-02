@@ -30,7 +30,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Install Ninja (Windows)
         if: runner.os == 'Windows'
@@ -44,15 +44,16 @@ jobs:
         if: runner.os == 'Linux'
         run: sudo apt-get update && sudo apt-get install -y ninja-build
 
+      # qtsvg is a default archive, not an add-on module — do not pass modules: qtsvg
       - name: Install Qt
-        uses: jurplel/install-qt-action@v4
+        uses: jurplel/install-qt-action@v4.3.1
         with:
           version: "6.8.3"
           target: desktop
           arch: ${{ matrix.qt_arch }}
-          modules: qtsvg
           cache: true
           cache-key-prefix: qt-6.8.3-${{ matrix.qt_arch }}
+          aqtversion: "==3.3.*"
 
       - name: Setup MSVC
         if: runner.os == 'Windows'
