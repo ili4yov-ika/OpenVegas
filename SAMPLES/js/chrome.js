@@ -699,19 +699,34 @@
         rFill > 0
           ? `<div class="vu-peak" style="bottom:${Math.min(96, rFill + 2)}%"></div>`
           : "";
+      const downmixIcons = [
+        {
+          title: "Downmix Output (5.1 surround)",
+          path: '<path d="M2 6.5h2L6.5 4v8L4 9.5H2V6.5z" fill="none" stroke="currentColor" stroke-width="1.2"/><path d="M8.2 6.4a1.8 1.8 0 010 3.2M9.7 5.3a3.2 3.2 0 010 5.4M11.2 4.2a4.6 4.6 0 010 7.6" fill="none" stroke="currentColor" stroke-width="1.15" stroke-linecap="round"/>',
+          active: false,
+        },
+        {
+          title: "Downmix Output (Stereo)",
+          path: '<path d="M2 6.5h2L6.5 4v8L4 9.5H2V6.5zM8.2 6.3a2 2 0 010 3.4M9.7 5.2a3.4 3.4 0 010 5.6" fill="none" stroke="currentColor" stroke-width="1.2"/><path d="M12 4.5v5.5M10.2 8.2L12 10.2l1.8-2" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>',
+          active: true,
+        },
+        {
+          title: "Downmix Output (Mono)",
+          path: '<path d="M2 6.5h2L6.5 4v8L4 9.5H2V6.5z" fill="none" stroke="currentColor" stroke-width="1.2"/><path d="M9.2 5.5v5M11.5 4v8" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/><circle cx="13.2" cy="8" r="1.1" fill="currentColor"/>',
+          active: true,
+        },
+      ];
+      let downmixMode = 1;
       el.innerHTML =
         '<div class="master-bus__toolbar">' +
         I(
           "Master Bus Properties",
           '<circle cx="8" cy="8" r="2.2"/><path d="M8 1.5v1.6M8 12.9v1.6M1.5 8h1.6M12.9 8h1.6M3.3 3.3l1.1 1.1M11.6 11.6l1.1 1.1M12.7 3.3l-1.1 1.1M4.4 11.6l-1.1 1.1" fill="none" stroke="currentColor" stroke-width="1.2"/>'
         ) +
+        I(downmixIcons[downmixMode].title, downmixIcons[downmixMode].path, true) +
         I(
-          "Audio Device",
-          '<path d="M3 6.5h2.2L8 3.8v8.4L5.2 9.5H3V6.5zM10 6.2a2.2 2.2 0 010 3.6M11.6 5a3.8 3.8 0 010 6" fill="none" stroke="currentColor" stroke-width="1.2"/>'
-        ) +
-        I(
-          "Downmix / Monitor",
-          '<path d="M2.5 6.5h2L7 4v8L4.5 9.5h-2V6.5zM9.5 5.5v5M11.5 4.5v7M13.5 3.5v9" fill="none" stroke="currentColor" stroke-width="1.2"/>'
+          "Dim Output",
+          '<path d="M2 6.5h2L6.5 4v8L4 9.5H2V6.5zM8.5 6.6a1.6 1.6 0 010 2.8M10 5.6a3 3 0 010 4.8" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/><path d="M12.2 7.2h2.6M12.2 8.8h2.6" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" opacity=".85"/>'
         ) +
         I(
           "Mixing Console",
@@ -757,6 +772,26 @@
         '<button type="button" class="panel-tab-ico" title="Maximize">▣</button>' +
         '<button type="button" class="panel-tab-ico" title="Close">×</button>' +
         "</div>";
+
+      const downmixBtn = el.querySelector('.master-bus__toolbar .icon-btn[title^="Downmix Output"]');
+      const dimBtn = el.querySelector('.master-bus__toolbar .icon-btn[title="Dim Output"]');
+      if (downmixBtn) {
+        downmixBtn.addEventListener("click", (e) => {
+          e.stopPropagation();
+          downmixMode = (downmixMode + 1) % downmixIcons.length;
+          const mode = downmixIcons[downmixMode];
+          downmixBtn.title = mode.title;
+          downmixBtn.classList.toggle("is-active", mode.active);
+          const svg = downmixBtn.querySelector("svg");
+          if (svg) svg.innerHTML = mode.path;
+        });
+      }
+      if (dimBtn) {
+        dimBtn.addEventListener("click", (e) => {
+          e.stopPropagation();
+          dimBtn.classList.toggle("is-active");
+        });
+      }
     });
   }
 

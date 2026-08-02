@@ -2,6 +2,7 @@
 #include "io/VegReader.h"
 #include "io/ProjectInterchange.h"
 #include "io/SamplePaths.h"
+#include "io/MediaProbe.h"
 #include "io/MediaWaveformCache.h"
 #include "plugins/BuiltinAudioCatalog.h"
 
@@ -10,6 +11,9 @@
 #include <QHash>
 #include <QSet>
 #include <QRegularExpression>
+#include <QDataStream>
+#include <QIODevice>
+#include <QVariantMap>
 #include <algorithm>
 #include <cmath>
 
@@ -779,9 +783,8 @@ int ProjectModel::addMediaAt(const QString &name, const QString &kind, double st
                              double lengthSec, int preferTrack, const QString &mediaPath)
 {
     const QString k = kind.toLower();
-    const double resolvedLen =
-        lengthSec > 0.05 ? lengthSec : defaultLengthForMediaKind(k);
     const QString path = mediaPath;
+    const double resolvedLen = MediaProbe::lengthForInsert(path, k, lengthSec);
 
     if (k == QLatin1String("audio")) {
         const int channels = path.isEmpty()
@@ -859,6 +862,73 @@ int ProjectModel::addMediaAt(const QString &name, const QString &kind, double st
     }
     // Default: video file → linked video + audio group
     return addGroupedAvMedia(name, startSec, resolvedLen, 0.0, 0.0, preferTrack, path);
+}
+
+int ProjectModel::relinkMedia(const QString &oldPath, const QString &newPath)
+{
+    if (newPath.isEmpty() || !QFileInfo::exists(newPath)) {
+        return 0;
+    }
+    const QString newClean = QDir::cleanPath(newPath);
+    const QString oldClean = QDir::cleanPath(oldPath);
+    const QString oldName = QFileInfo(oldPath).fileName();
+    const QString oldBase = QFileInfo(oldName).completeBaseName();
+    const QString newName = QFileInfo(newClean).fileName();
+    int n = 0;
+
+    auto pathMatches = [&](const QString &p) {
+        if (p.isEmpty()) {
+            return false;
+        }
+        const QString c = QDir::cleanPath(p);
+        if (!oldClean.isEmpty() && c.compare(oldClean, Qt::CaseInsensitive) == 0) {
+            return true;
+        }
+        return !oldName.isEmpty()
+               && QFileInfo(c).fileName().compare(oldName, Qt::CaseInsensitive) == 0;
+    };
+
+    for (MediaItem &m : m_mediaPool) {
+        if (!pathMatches(m.path)
+            && m.displayName.compare(oldName, Qt::CaseInsensitive) != 0) {
+            continue;
+        }
+        m.path = newClean;
+        m.displayName = newName;
+        m.kind = guessKindFromPath(newClean);
+        m.missing = false;
+        ++n;
+    }
+
+    for (Track &tr : m_tracks) {
+        for (TrackEvent &ev : tr.events) {
+            const bool byPath = pathMatches(ev.mediaPath);
+            const bool byName =
+                !oldName.isEmpty()
+                && (QFileInfo(ev.name).fileName().compare(oldName, Qt::CaseInsensitive) == 0
+                    || QFileInfo(ev.name).completeBaseName().compare(oldBase, Qt::CaseInsensitive)
+                           == 0);
+            if (!byPath && !byName) {
+                continue;
+            }
+            ev.mediaPath = newClean;
+            ++n;
+        }
+    }
+    return n;
+}
+
+QStringList ProjectModel::missingMediaPaths() const
+{
+    QStringList out;
+    for (const MediaItem &m : m_mediaPool) {
+        // Prefer the explicit flag (Ignore clears it to suppress re-prompts).
+        if (m.missing) {
+            out << m.path;
+        }
+    }
+    out.removeDuplicates();
+    return out;
 }
 
 QString ProjectModel::mediaPathForEvent(const TrackEvent &ev) const
@@ -1055,6 +1125,7 @@ bool ProjectModel::applyVegImport(const VegOpenResult &veg, const QString &opene
                 return addTrack(kind);
             };
 
+            bool appliedVideoEventFx = false;
             for (const InterchangeEvent &ev : edl.events) {
                 const bool isAudio = (ev.kind == QLatin1String("audio"));
                 const bool isStill = (ev.kind == QLatin1String("still")
@@ -1072,6 +1143,7 @@ bool ProjectModel::applyVegImport(const VegOpenResult &veg, const QString &opene
                                    : resolveMediaPath(ev.sourcePath, openedPath);
                 te.startSec = ev.startSec;
                 te.lengthSec = std::max(0.05, ev.lengthSec);
+                te.mediaStartSec = std::max(0.0, ev.mediaStartSec);
                 te.fadeInSec = std::max(0.0, ev.fadeInSec);
                 te.fadeOutSec = std::max(0.0, ev.fadeOutSec);
                 if (te.fadeInSec + te.fadeOutSec > te.lengthSec) {
@@ -1083,6 +1155,27 @@ bool ProjectModel::applyVegImport(const VegOpenResult &veg, const QString &opene
                 te.fadeOutCurve = ev.fadeOutCurve;
                 te.mediaKind = isAudio ? EventMediaKind::Audio
                                        : (isStill ? EventMediaKind::Still : EventMediaKind::Video);
+                {
+                    const QString base = QFileInfo(te.mediaPath.isEmpty() ? te.name : te.mediaPath)
+                                             .fileName()
+                                             .toLower();
+                    const QString ext = QFileInfo(base).suffix().toLower();
+                    const bool videoContainer =
+                        (ext == QLatin1String("mp4") || ext == QLatin1String("mov")
+                         || ext == QLatin1String("mkv") || ext == QLatin1String("avi")
+                         || ext == QLatin1String("m2ts") || ext == QLatin1String("mxf"));
+                    // Reverse SubClip on an A/V file usually applies to the video take only
+                    // (paired audio from the same mp4 stays forward — see FCPX timeMap).
+                    const bool reverseOk =
+                        !base.isEmpty() && veg.reversedMediaBasenames.contains(base)
+                        && !(isAudio && videoContainer);
+                    if (reverseOk || ev.playRate < 0.0) {
+                        te.reversed = true;
+                        // Full reverse SubClip (META start=0): EDL StreamStart sits at the
+                        // far edge of the reversed window — map decode as length→0 from 0.
+                        te.mediaStartSec = 0.0;
+                    }
+                }
                 if (isAudio) {
                     te.firstChannel = ev.firstChannel;
                     te.channelCount = ev.channelCount > 0 ? ev.channelCount : 2;
@@ -1095,13 +1188,31 @@ bool ProjectModel::applyVegImport(const VegOpenResult &veg, const QString &opene
                             te.gainDb = std::clamp(te.gainDb, -40.0, 12.0);
                         }
                     }
-                    for (const QString &fx : veg.audioEventFxNames) {
-                        te.fxChain.push_back(fxSlotFromVegName(fx));
+                    // Audio Event FX from .veg belong on dedicated audio clips (e.g. wav),
+                    // not on A/V-paired stream from a video file.
+                    const QString ext = QFileInfo(te.mediaPath).suffix().toLower();
+                    const bool audioOnlyFile = (ext == QLatin1String("wav")
+                                                || ext == QLatin1String("flac")
+                                                || ext == QLatin1String("mp3")
+                                                || ext == QLatin1String("ogg")
+                                                || ext == QLatin1String("aif")
+                                                || ext == QLatin1String("aiff")
+                                                || ext == QLatin1String("wma"));
+                    if (audioOnlyFile) {
+                        for (const QString &fx : veg.audioEventFxNames) {
+                            te.fxChain.push_back(fxSlotFromVegName(fx));
+                        }
                     }
                 } else {
                     te.fxChain = {makeFxSlot(QStringLiteral("Pan/Crop"), PluginFormat::Builtin)};
                     if (ev.hasSustainGain) {
                         te.opacity = std::clamp(ev.sustainGain, 0.0, 1.0);
+                    }
+                    if (!appliedVideoEventFx && !veg.eventFxNames.isEmpty()) {
+                        for (const QString &fx : veg.eventFxNames) {
+                            te.fxChain.push_back(fxSlotFromVegName(fx));
+                        }
+                        appliedVideoEventFx = true;
                     }
                 }
                 m_tracks[ti].events.push_back(te);
@@ -1158,6 +1269,7 @@ bool ProjectModel::applyVegImport(const VegOpenResult &veg, const QString &opene
             applyMixerChannelsFromVeg(veg);
             applyTrackMotionFromVeg(veg);
             applyPanCropFromVeg(veg);
+            applyColorGradingFromVeg(veg);
             backfillEventMediaPaths();
             return true;
         }
@@ -1268,6 +1380,7 @@ bool ProjectModel::applyVegImport(const VegOpenResult &veg, const QString &opene
         applyMixerChannelsFromVeg(veg);
         applyTrackMotionFromVeg(veg);
         applyPanCropFromVeg(veg);
+        applyColorGradingFromVeg(veg);
         backfillEventMediaPaths();
         return false;
     }
@@ -1331,6 +1444,7 @@ bool ProjectModel::applyVegImport(const VegOpenResult &veg, const QString &opene
     applyMixerChannelsFromVeg(veg);
     applyTrackMotionFromVeg(veg);
     applyPanCropFromVeg(veg);
+    applyColorGradingFromVeg(veg);
     backfillEventMediaPaths();
     return false;
 }
@@ -1361,6 +1475,8 @@ void ProjectModel::applyPanCropFromVeg(const VegOpenResult &veg)
         && veg.eventPanCrop.maskKeyframes.isEmpty()) {
         return;
     }
+    const int fw = m_frameWidth > 0 ? m_frameWidth : 1920;
+    const int fh = m_frameHeight > 0 ? m_frameHeight : 1080;
     for (Track &tr : m_tracks) {
         if (tr.kind != TrackKind::Video) {
             continue;
@@ -1370,10 +1486,39 @@ void ProjectModel::applyPanCropFromVeg(const VegOpenResult &veg)
                 continue;
             }
             ev.panCrop = veg.eventPanCrop;
-            ev.panCrop.ensureDefault(m_frameWidth, m_frameHeight);
+            // Keep Vegas Source defaults (stretch/aspect). Media-space KF mapping is in applyPanCrop.
+            ev.panCrop.ensureDefault(fw, fh);
             ensureFxFirst(ev.fxChain, QStringLiteral("Pan/Crop"), PluginFormat::Builtin);
             return; // first video event
         }
+    }
+}
+
+void ProjectModel::applyColorGradingFromVeg(const VegOpenResult &veg)
+{
+    if (!veg.hasColorGrading) {
+        return;
+    }
+    for (Track &tr : m_tracks) {
+        if (tr.kind != TrackKind::Video) {
+            continue;
+        }
+        FxSlot slot = makeFxSlot(QStringLiteral("Color Grading"), PluginFormat::Builtin,
+                                 QStringLiteral("builtin:Color Grading"));
+        if (!veg.colorGradingParams.isEmpty()) {
+            QByteArray ba;
+            QDataStream out(&ba, QIODevice::WriteOnly);
+            out.setVersion(QDataStream::Qt_6_0);
+            out << veg.colorGradingParams;
+            slot.state = ba;
+        }
+        const int existing = indexOfFxName(tr.fxChain, QStringLiteral("Color Grading"));
+        if (existing >= 0) {
+            tr.fxChain[existing] = slot;
+        } else {
+            tr.fxChain.push_back(slot);
+        }
+        return; // first video track
     }
 }
 
@@ -1382,12 +1527,34 @@ void ProjectModel::applyAudioEventFxFromVeg(const VegOpenResult &veg)
     if (veg.audioEventFxNames.isEmpty()) {
         return;
     }
+    auto isAudioOnlyPath = [](const QString &path) -> bool {
+        const QString ext = QFileInfo(path).suffix().toLower();
+        return ext == QLatin1String("wav") || ext == QLatin1String("flac")
+               || ext == QLatin1String("mp3") || ext == QLatin1String("ogg")
+               || ext == QLatin1String("aif") || ext == QLatin1String("aiff")
+               || ext == QLatin1String("wma");
+    };
+    bool haveAudioOnly = false;
+    for (const Track &tr : m_tracks) {
+        if (tr.kind != TrackKind::Audio) {
+            continue;
+        }
+        for (const TrackEvent &ev : tr.events) {
+            if (isAudioOnlyPath(ev.mediaPath)) {
+                haveAudioOnly = true;
+                break;
+            }
+        }
+    }
     for (Track &tr : m_tracks) {
         if (tr.kind != TrackKind::Audio) {
             continue;
         }
         for (TrackEvent &ev : tr.events) {
             if (!ev.fxChain.isEmpty()) {
+                continue;
+            }
+            if (haveAudioOnly && !isAudioOnlyPath(ev.mediaPath)) {
                 continue;
             }
             for (const QString &fx : veg.audioEventFxNames) {

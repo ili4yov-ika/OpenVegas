@@ -12,16 +12,16 @@
     "AIFF",
     "FLAC Audio",
     "Image Sequence",
-    "MAGIX AV1",
-    "MAGIX AVC/AAC MP4",
-    "MAGIX HEVC/AAC MP4",
+    "AV1",
+    "AVC/AAC MP4",
+    "HEVC/AAC MP4",
     "MainConcept MPEG-1/2",
     "MP3 Audio",
     "OggVorbis",
-    "Sony AVC/MVC",
-    "Sony MXF",
-    "Sony Wave64",
-    "Sony XAVC / XAVC S",
+    "AVC/MVC",
+    "MXF",
+    "Wave64",
+    "XAVC / XAVC S",
     "Video for Windows",
     "Wave (Microsoft)",
     "Windows Media Video XAVC S",
@@ -30,11 +30,11 @@
     "XDCAM Transfer",
   ];
 
-  const DEFAULT_FORMAT = "MAGIX AVC/AAC MP4";
+  const DEFAULT_FORMAT = "AVC/AAC MP4";
   const DEFAULT_TEMPLATE = "Internet HD 1080p 59.94 fps (NVENC)";
 
   const TEMPLATES = {
-    "MAGIX AVC/AAC MP4": [
+    "AVC/AAC MP4": [
       { name: "Internet UHD 2160p 59.94 fps", fav: false },
       { name: "Internet UHD 2160p 50 fps", fav: false },
       { name: "Internet UHD 2160p 29.97 fps", fav: false },
@@ -64,14 +64,14 @@
       { name: "Internet 1080 9:16 (portrait) 29.97 fps", fav: false },
       { name: "Default Template", fav: false },
     ],
-    "MAGIX HEVC/AAC MP4": [
+    "HEVC/AAC MP4": [
       { name: "Internet UHD 2160p 59.94 fps (NVENC)", fav: false },
       { name: "Internet UHD 2160p 29.97 fps (NVENC)", fav: false },
       { name: "Internet HD 1080p 59.94 fps (NVENC)", fav: true },
       { name: "Internet HD 1080p 29.97 fps (NVENC)", fav: false },
       { name: "Default Template", fav: false },
     ],
-    "MAGIX AV1": [
+    "AV1": [
       { name: "Internet UHD 2160p 29.97 fps", fav: false },
       { name: "Internet HD 1080p 29.97 fps", fav: false },
       { name: "Default Template", fav: false },
@@ -110,16 +110,16 @@
     AIFF: ".aif",
     "FLAC Audio": ".flac",
     "Image Sequence": ".png",
-    "MAGIX AV1": ".mp4",
-    "MAGIX AVC/AAC MP4": ".mp4",
-    "MAGIX HEVC/AAC MP4": ".mp4",
+    "AV1": ".mp4",
+    "AVC/AAC MP4": ".mp4",
+    "HEVC/AAC MP4": ".mp4",
     "MainConcept MPEG-1/2": ".mpg",
     "MP3 Audio": ".mp3",
     OggVorbis: ".ogg",
-    "Sony AVC/MVC": ".mp4",
-    "Sony MXF": ".mxf",
-    "Sony Wave64": ".w64",
-    "Sony XAVC / XAVC S": ".mxf",
+    "AVC/MVC": ".mp4",
+    "MXF": ".mxf",
+    "Wave64": ".w64",
+    "XAVC / XAVC S": ".mxf",
     "Video for Windows": ".avi",
     "Wave (Microsoft)": ".wav",
     "Windows Media Video XAVC S": ".wmv",

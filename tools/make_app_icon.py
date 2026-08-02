@@ -32,14 +32,15 @@ def draw_logo(size: int):
         [cx - r_inner, cy - r_inner, cx + r_inner, cy + r_inner],
         fill=(1, 5, 73, 255),
     )
-    # Symmetric V (same path as logo.svg)
+    # Symmetric V — path from logo.svg:
+    # M41 76 L128.5 230 L216 76 H184 L128.5 173 L73 76 H41 Z
     v = [
-        xy(58, 56),
-        xy(128, 208),
-        xy(198, 56),
-        xy(162, 56),
-        xy(128, 148),
-        xy(94, 56),
+        xy(41, 76),
+        xy(128.5, 230),
+        xy(216, 76),
+        xy(184, 76),
+        xy(128.5, 173),
+        xy(73, 76),
     ]
     draw.polygon(v, fill=(232, 231, 224, 255))
     return img

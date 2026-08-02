@@ -47,7 +47,7 @@ private slots:
     void onListDoubleClicked(const QModelIndex &index);
     void onListContextMenu(const QPoint &pos);
     void onTreeContextMenu(const QPoint &pos);
-    void onThumbnailReady(const QString &path);
+    void onThumbnailReady(const QString &path); // thumbs + filmstrip scrub frames
 
 private:
     void buildUi();

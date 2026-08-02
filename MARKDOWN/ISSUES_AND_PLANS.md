@@ -29,6 +29,17 @@
 
 ---
 
+## Render As (2026-08-01)
+
+| Фаза | Статус | Содержание |
+|------|--------|------------|
+| UI Vegas parity | Done | Formats/Templates, search, filters, favorites, Folder/Name, free space, Render Options, About/Help |
+| Catalog | Done | `RenderTemplateCatalog` (Vegas-style names; AAC LC/HE-AAC templates) |
+| Wave export | Done | `Wave (Microsoft)` → `AudioEngine::renderToWav` (+ optional loop region) |
+| FFmpeg AAC/MP4/ProRes | Planned | Encode pipeline for non-Wave templates; Customize Template editor |
+
+---
+
 ## Audio roadmap phases (2026-08-01)
 
 | Фаза | Статус | Содержание |

@@ -1,0 +1,39 @@
+﻿<?xml version="1.0"?>
+<fcpxml version="1.2">
+	<project name="Untitled Project 1">
+		<resources>
+			<format id="r1" name="FFVideoFormat640x480p2997" frameDuration="1001/30000s" width="640" height="480" />
+			<projectRef id="r2" name="Untitled Project 1" />
+			<format id="r3" frameDuration="100/6000s" width="3840" height="2160" />
+			<asset id="r4" name="big-buck-bunny_video-60fps-4k-12" projectRef="r2" src="file://localhost/D:/Devs/C++/OpenVegas/SAMPLES/veg_project/final-cut-pro-x/big-buck-bunny_video-60fps-4k-12.mp4" start="0/30000s" hasVideo="1" hasAudio="1" />
+		</resources>
+		<sequence duration="6982976/30000s" format="r1" tcFormat="NDF" audioLayout="stereo" audioRate="48k">
+			<spine>
+				<clip duration="0s">
+					<spine lane="-1">
+						<audio ref="r4" duration="6982976/30000s" start="0/30000s" srcID="1" srcCh="1, 2">
+							<adjust-volume>
+								<param name="amount">
+									<fadeIn type="linear" duration="1097096/30000s" />
+									<fadeOut type="linear" duration="1107106/30000s" />
+								</param>
+							</adjust-volume>
+						</audio>
+					</spine>
+				</clip>
+				<video ref="r4" duration="6982976/30000s" start="0/30000s">
+					<adjust-blend>
+						<param name="amount">
+							<fadeIn type="linear" duration="682682/30000s" />
+							<fadeOut type="linear" duration="857857/30000s" />
+						</param>
+					</adjust-blend>
+					<adjust-transform>
+						<param name="scale" keyValues="1.333333 1;1.333333 1" keyTimes="0/30000s;0/30000s" />
+						<param name="position" keyValues="0 0;0 0" keyTimes="0/30000s;0/30000s" />
+					</adjust-transform>
+				</video>
+			</spine>
+		</sequence>
+	</project>
+</fcpxml>

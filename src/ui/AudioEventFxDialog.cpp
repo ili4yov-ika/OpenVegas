@@ -1,4 +1,5 @@
 #include "ui/AudioEventFxDialog.h"
+#include "ui/ColorGradingEditor.h"
 #include "ui/PluginChooserDialog.h"
 #include "ui/IconFactory.h"
 #include "plugins/AudioPluginHost.h"
@@ -459,10 +460,18 @@ void AudioEventFxDialog::setTrack(Track *track)
     m_track = track;
     m_event = nullptr;
     m_chain = nullptr;
-    setWindowTitle(tr("Audio Track FX"));
-    m_eventName->setText(eventTitle());
-    m_eventIcon->setPixmap(
-        IconFactory::iconFromSvgBody(IconFactory::svgAudioDevice(), 16).pixmap(16, 16));
+    if (track && track->kind == TrackKind::Video) {
+        setWindowTitle(tr("Video Track FX"));
+        m_eventName->setText(tr("Video Track FX: %1").arg(eventTitle()));
+        m_eventIcon->setPixmap(
+            IconFactory::iconFromSvgBody(IconFactory::svgFx(), 16).pixmap(16, 16));
+        resize(std::max(width(), 1100), std::max(height(), 620));
+    } else {
+        setWindowTitle(tr("Audio Track FX"));
+        m_eventName->setText(eventTitle());
+        m_eventIcon->setPixmap(
+            IconFactory::iconFromSvgBody(IconFactory::svgAudioDevice(), 16).pixmap(16, 16));
+    }
     rebuildChain();
 }
 
@@ -584,6 +593,18 @@ void AudioEventFxDialog::selectPlugin(int index)
     refreshViewport();
 }
 
+void AudioEventFxDialog::selectByName(const QString &displayName)
+{
+    QVector<FxSlot> *c = chain();
+    if (!c) {
+        return;
+    }
+    const int idx = indexOfFxName(*c, displayName);
+    if (idx >= 0) {
+        selectPlugin(idx);
+    }
+}
+
 void AudioEventFxDialog::refreshViewport()
 {
     while (m_viewport->count() > 1) {
@@ -608,6 +629,10 @@ void AudioEventFxDialog::refreshViewport()
 QWidget *AudioEventFxDialog::buildBuiltinEditor(FxSlot &slot)
 {
     const QString n = slot.displayName;
+    if (n.contains(QLatin1String("color grading"), Qt::CaseInsensitive)
+        || n.compare(QLatin1String("ColorGrading"), Qt::CaseInsensitive) == 0) {
+        return buildColorGradingEditor(slot);
+    }
     if (n.contains(QLatin1String("chorus"), Qt::CaseInsensitive)) {
         return buildChorusEditor(slot);
     }
@@ -624,6 +649,11 @@ QWidget *AudioEventFxDialog::buildBuiltinEditor(FxSlot &slot)
         return buildTrackCompressorEditor(slot);
     }
     return buildGenericBuiltinEditor(slot);
+}
+
+QWidget *AudioEventFxDialog::buildColorGradingEditor(FxSlot &slot)
+{
+    return new ColorGradingEditor(&slot, this);
 }
 
 QWidget *AudioEventFxDialog::buildChorusEditor(FxSlot &slot)

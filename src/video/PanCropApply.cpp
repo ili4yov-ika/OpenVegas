@@ -143,7 +143,50 @@ void applyMaskAlpha(QImage *layerArgbPremul, const MaskKeyframe &mask, int frame
     }
 }
 
-QImage applyPanCrop(const QImage &source, const PanCropKeyframe &kf, int frameW, int frameH,
+namespace {
+
+/**
+ * VEG Event Pan/Crop for “Match Output Aspect” often stores width/height/center in
+ * *media* pixels (e.g. 2880×2160 crop of 3840×2160 into a 640×480 project). Our
+ * compositor works in project-frame pixels — map oversized keyframes down.
+ */
+PanCropKeyframe toProjectSpace(const PanCropKeyframe &kf, int frameW, int frameH)
+{
+    const double aw = std::abs(kf.width);
+    const double ah = std::abs(kf.height);
+    if (aw <= frameW * 1.25 && ah <= frameH * 1.25) {
+        return kf;
+    }
+
+    PanCropKeyframe out = kf;
+    const double frameAr = double(frameW) / double(std::max(1, frameH));
+    const double kfAr = aw / std::max(1e-9, ah);
+
+    // Crop AR matches project → that media rect fills the frame (Match Output Aspect).
+    if (std::abs(kfAr - frameAr) < 0.05) {
+        out.width = (kf.width < 0.0) ? -double(frameW) : double(frameW);
+        out.height = (kf.height < 0.0) ? -double(frameH) : double(frameH);
+        out.xCenter = frameW * 0.5;
+        out.yCenter = frameH * 0.5;
+        out.rotationXCenter = out.xCenter;
+        out.rotationYCenter = out.yCenter;
+        return out;
+    }
+
+    // Otherwise scale the crop into the frame, centered.
+    const double s = std::min(double(frameW) / aw, double(frameH) / ah);
+    out.width = kf.width * s;
+    out.height = kf.height * s;
+    out.xCenter = frameW * 0.5;
+    out.yCenter = frameH * 0.5;
+    out.rotationXCenter = out.xCenter;
+    out.rotationYCenter = out.yCenter;
+    return out;
+}
+
+} // namespace
+
+QImage applyPanCrop(const QImage &source, const PanCropKeyframe &kfIn, int frameW, int frameH,
                     int outW, int outH, bool stretchToFill, const MaskKeyframe *maskHold)
 {
     outW = std::max(1, outW);
@@ -151,7 +194,15 @@ QImage applyPanCrop(const QImage &source, const PanCropKeyframe &kf, int frameW,
     frameW = std::max(1, frameW);
     frameH = std::max(1, frameH);
 
-    const QImage fitted = fitSourceToFrame(source, frameW, frameH, stretchToFill);
+    const PanCropKeyframe kf = toProjectSpace(kfIn, frameW, frameH);
+
+    // Media-space Match Output Aspect must keep AR (center-crop), not stretch.
+    const double aw0 = std::abs(kfIn.width);
+    const double ah0 = std::abs(kfIn.height);
+    const bool mediaSpace = (aw0 > frameW * 1.25 || ah0 > frameH * 1.25);
+    const bool stretch = stretchToFill && !mediaSpace;
+
+    const QImage fitted = fitSourceToFrame(source, frameW, frameH, stretch);
 
     const double absW = std::max(1.0, std::abs(kf.width));
     const double absH = std::max(1.0, std::abs(kf.height));

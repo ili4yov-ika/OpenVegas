@@ -495,7 +495,9 @@ void buildVideoTrackMoreMenu(QMenu *more, MainWindow *window, int trackIndex)
     addItem(more, QObject::tr("Make Compositing Child"), {}, false);
     addItem(more, QObject::tr("Minimize"));
     addItem(more, QObject::tr("Maximize"));
-    addItem(more, QObject::tr("Color Grading"));
+    more->addAction(QObject::tr("Color Grading"), window, [window, trackIndex]() {
+        window->onColorGrading(trackIndex);
+    });
     more->addSeparator();
     addItem(more, QObject::tr("Edit Visible Button Set…"));
 }
@@ -1208,7 +1210,7 @@ void ContextMenuBuilder::showSplitScreenMenu(QWidget *parent, const QPoint &glob
     menu.exec(globalPos);
 }
 
-void ContextMenuBuilder::showQualityMenu(QToolButton *chip, const QPoint &globalPos)
+void ContextMenuBuilder::showQualityMenu(MainWindow *window, QToolButton *chip, const QPoint &globalPos)
 {
     QMenu menu(chip);
     const QStringList levels = {QObject::tr("Draft"), QObject::tr("Preview"), QObject::tr("Good"),
@@ -1222,11 +1224,14 @@ void ContextMenuBuilder::showQualityMenu(QToolButton *chip, const QPoint &global
             a->setCheckable(true);
             const bool on = (level == QObject::tr("Preview") && i == 0);
             a->setChecked(on);
-            if (chip) {
-                QObject::connect(a, &QAction::triggered, chip, [chip, level, r = res[i]]() {
+            QObject::connect(a, &QAction::triggered, chip, [window, chip, level, r = res[i]]() {
+                if (chip) {
                     chip->setText(QStringLiteral("%1 (%2) ▾").arg(level, r));
-                });
-            }
+                }
+                if (window) {
+                    window->setPreviewQuality(level, r);
+                }
+            });
         }
     }
     menu.exec(globalPos);

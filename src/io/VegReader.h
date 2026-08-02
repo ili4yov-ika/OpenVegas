@@ -5,6 +5,7 @@
 #include <QByteArray>
 #include <QString>
 #include <QStringList>
+#include <QVariantMap>
 #include <QVector>
 
 namespace openvegas {
@@ -68,6 +69,17 @@ struct VegOpenResult {
     /** First video event Pan/Crop (POSL/POSK) + optional Mask (MSKL/MSKK/ANCP). */
     EventPanCropState eventPanCrop;
     bool hasEventPanCrop = false;
+    /**
+     * Video track Color Grading (`{Svfx:com.vegascreativesoftware:colorgrading}`).
+     * Params use ColorGradingEditor keys: lift|gamma|gain|offset.{r,g,b,y}, curve.rgb.
+     */
+    bool hasColorGrading = false;
+    QVariantMap colorGradingParams;
+    /**
+     * Media basenames (lower) marked reversed via META:\\SubClip\\…[…][1] or
+     * labels containing “(reversed)”.
+     */
+    QStringList reversedMediaBasenames;
     QString projectPathHint;
     QStringList warnings;
     QString sourcePath;
@@ -91,6 +103,7 @@ private:
     static void parseMarkers(const QByteArray &data, VegOpenResult *result);
     static void parseTrackMotion(const QByteArray &data, VegOpenResult *result);
     static void parsePanCrop(const QByteArray &data, VegOpenResult *result);
+    static void parseColorGrading(const QByteArray &data, VegOpenResult *result);
     static void assignEventNames(VegOpenResult *result);
 };
 

@@ -5,14 +5,17 @@
 #include <QMutex>
 #include <QObject>
 #include <QPixmap>
+#include <QRect>
 #include <QSize>
 #include <QString>
+
+class QPainter;
 
 namespace openvegas {
 
 /**
  * Cached thumbnails for Explorer / Project Media.
- * Images: QImageReader. Video (Windows): Shell IShellItemImageFactory when available.
+ * Images: QImageReader. Video: ffmpeg frame (+ Shell fallback on Windows).
  */
 class MediaThumbCache : public QObject {
     Q_OBJECT
@@ -30,6 +33,12 @@ public:
 
     /** Clear one path or everything. */
     void invalidate(const QString &path = {});
+
+    /**
+     * Vegas-style film sprocket "ladders" for Project Media / Explorer cards only.
+     * Do not bake into cached pixmaps used by the timeline filmstrip.
+     */
+    static void paintFilmSprockets(QPainter *painter, const QRect &rect);
 
     /** Called from worker threads after async decode. */
     void finishAsyncLoad(const QString &path, const QSize &size, const QString &kindHint);
@@ -50,6 +59,8 @@ private:
     QPixmap loadSync(const QString &path, const QSize &size, const QString &kindHint);
     QPixmap loadImageFile(const QString &path, const QSize &size) const;
     QPixmap loadShellThumbnail(const QString &path, const QSize &size) const;
+    /** Decode a representative video frame via ffmpeg (poster for Project Media / Explorer). */
+    QPixmap loadFfmpegVideoThumb(const QString &path, const QSize &size) const;
     QPixmap placeholder(const QString &kind, const QSize &size, int variant) const;
     void requestAsync(const QString &path, const QSize &size, const QString &kindHint);
 

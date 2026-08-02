@@ -34,6 +34,10 @@ struct InterchangeEvent {
      */
     bool hasSustainGain = false;
     double sustainGain = 1.0;
+    /** Vegas EDL StreamStart / StreamLength (ms→sec); PlayRate when present. */
+    double mediaStartSec = 0.0;
+    double mediaLengthSec = 0.0;
+    double playRate = 1.0;
 };
 
 struct InterchangeResult {

@@ -82,6 +82,8 @@ public:
     void setEvent(TrackEvent *ev);
     void setTrack(Track *track);
     void setChain(QVector<FxSlot> *chain, const QString &title);
+    /** Select chain node by display name (case-insensitive); no-op if missing. */
+    void selectByName(const QString &displayName);
     Mode mode() const { return m_mode; }
 
 private:
@@ -102,6 +104,7 @@ public:
 
 private:
     QWidget *buildBuiltinEditor(FxSlot &slot);
+    QWidget *buildColorGradingEditor(FxSlot &slot);
     QWidget *buildChorusEditor(FxSlot &slot);
     QWidget *buildNoiseGateEditor(FxSlot &slot);
     QWidget *buildTrackEqEditor(FxSlot &slot);

@@ -288,13 +288,42 @@ QString IconFactory::svgAudioDevice()
         "fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.2\"/>"
         "<rect x=\"11\" y=\"2\" width=\"4\" height=\"4\" rx=\"0.6\" fill=\"currentColor\"/>");
 }
+QString IconFactory::svgDownmixSurround()
+{
+    // Speaker + triple wave arcs (5.1 surround output).
+    return QStringLiteral(
+        "<path d=\"M2 6.5h2L6.5 4v8L4 9.5H2V6.5z\" fill=\"none\" stroke=\"currentColor\" "
+        "stroke-width=\"1.2\" stroke-linejoin=\"round\"/>"
+        "<path d=\"M8.2 6.4a1.8 1.8 0 010 3.2M9.7 5.3a3.2 3.2 0 010 5.4M11.2 4.2a4.6 4.6 0 010 "
+        "7.6\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.15\" stroke-linecap=\"round\"/>");
+}
 QString IconFactory::svgDownmix()
 {
+    // Speaker + down arrow (stereo downmix / stereo output).
     return QStringLiteral(
         "<path d=\"M2 6.5h2L6.5 4v8L4 9.5H2V6.5zM8.2 6.3a2 2 0 010 3.4M9.7 5.2a3.4 3.4 0 010 5.6\" "
         "fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.2\"/>"
         "<path d=\"M12 4.5v5.5M10.2 8.2L12 10.2l1.8-2\" fill=\"none\" stroke=\"currentColor\" "
         "stroke-width=\"1.2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/>");
+}
+QString IconFactory::svgDownmixMono()
+{
+    // Speaker + single channel mark (mono output).
+    return QStringLiteral(
+        "<path d=\"M2 6.5h2L6.5 4v8L4 9.5H2V6.5z\" fill=\"none\" stroke=\"currentColor\" "
+        "stroke-width=\"1.2\" stroke-linejoin=\"round\"/>"
+        "<path d=\"M9.2 5.5v5M11.5 4v8\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.3\" "
+        "stroke-linecap=\"round\"/>"
+        "<circle cx=\"13.2\" cy=\"8\" r=\"1.1\" fill=\"currentColor\"/>");
+}
+QString IconFactory::svgDimOutput()
+{
+    // Speaker + soft waves (Dim Output −20 dB).
+    return QStringLiteral(
+        "<path d=\"M2 6.5h2L6.5 4v8L4 9.5H2V6.5zM8.5 6.6a1.6 1.6 0 010 2.8M10 5.6a3 3 0 010 4.8\" "
+        "fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.2\" stroke-linecap=\"round\"/>"
+        "<path d=\"M12.2 7.2h2.6M12.2 8.8h2.6\" fill=\"none\" stroke=\"currentColor\" "
+        "stroke-width=\"1.2\" stroke-linecap=\"round\" opacity=\".85\"/>");
 }
 QString IconFactory::svgMixingConsole()
 {

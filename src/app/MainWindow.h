@@ -71,6 +71,8 @@ public slots:
     void onPluginChooser();
     void onAudioEventFx(int eventId);
     void onTrackFx(int trackIndex);
+    /** Add Color Grading to a video track FX chain and open Video Track FX. */
+    void onColorGrading(int trackIndex);
     void onTrackMotion(int trackIndex);
     void onSelectAll();
     void onEditCut();
@@ -117,6 +119,8 @@ public slots:
     bool overlaySafeAreas() const { return m_overlaySafeAreas; }
     void setOverlayGrid(bool on);
     void setOverlaySafeAreas(bool on);
+    /** Preview quality chip: level (Draft/Preview/…) + resolution (Auto/Full/Half/Quarter). */
+    void setPreviewQuality(const QString &level, const QString &resolution);
 
 protected:
     bool eventFilter(QObject *watched, QEvent *event) override;
@@ -138,6 +142,9 @@ private:
     void applyKeyboardMap();
     void invokeKeyboardCommand(const QString &commandId);
     void setupMasterBus();
+    void cycleDownmixOutput();
+    void setDimOutput(bool on);
+    void syncDownmixUi();
     void setupStatusBar();
     void restoreUiSettings();
     void saveUiSettings();
@@ -152,6 +159,9 @@ private:
     void addMediaCard(const QString &name, const QString &kind, const QString &meta = QString(),
                       const QString &path = QString(), double lengthSec = 0.0);
     void updateMediaMeta();
+    /** Vegas-style missing-media prompts (search / specify / ignore). */
+    void resolveMissingMedia();
+    void refreshMediaPoolUi();
     QString guessMediaKind(const QString &pathOrName) const;
     QString defaultMetaForKind(const QString &kind) const;
     QIcon mediaThumbIcon(const QString &kind, int variant = 0, const QString &path = QString()) const;
@@ -168,6 +178,8 @@ private:
     void updateTimecodeLabels(double sec);
     void updatePreviewDisplayMeta(double sec);
     void refreshPreviewProjectMeta();
+    QString formatPreviewFps() const;
+    int previewResolutionDivisor() const;
     void refreshPreviewFrame(double sec);
     void syncTransportUi(bool playing);
     void syncPreviewOverlays();
@@ -199,6 +211,9 @@ private:
     QAction *m_overlaySafeAct = nullptr;
     bool m_overlayGrid = false;
     bool m_overlaySafeAreas = false;
+    /** 1 = Auto/Full, 2 = Half, 4 = Quarter (Vegas Preview quality resolution). */
+    int m_previewResDivisor = 1;
+    QToolButton *m_previewQualityBtn = nullptr;
     QLabel *m_mainTimecode = nullptr;
     QLabel *m_tlTimecode = nullptr;
     QLabel *m_previewLeftMeta = nullptr;
@@ -206,6 +221,13 @@ private:
     QLabel *m_statusProject = nullptr;
     QLabel *m_statusAudio = nullptr;
     QLabel *m_statusRecord = nullptr;
+
+    /** Master Bus / Mixing Console: Downmix Output mode (Vegas cycles these). */
+    enum class DownmixOutputMode { Surround, Stereo, Mono };
+    DownmixOutputMode m_downmixMode = DownmixOutputMode::Stereo;
+    bool m_dimOutput = false;
+    QToolButton *m_masterDownmixBtn = nullptr;
+    QToolButton *m_masterDimBtn = nullptr;
 
     QToolButton *m_previewLoopBtn = nullptr;
     QToolButton *m_previewPlayBtn = nullptr;

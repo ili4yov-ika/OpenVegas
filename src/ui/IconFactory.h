@@ -57,7 +57,11 @@ public:
     static QString svgWaveform();
     static QString svgRemove();
     static QString svgAudioDevice();
+    /** Downmix Output: 5.1 surround / stereo / mono (button cycles these). */
+    static QString svgDownmixSurround();
     static QString svgDownmix();
+    static QString svgDownmixMono();
+    static QString svgDimOutput();
     static QString svgMixingConsole();
     static QString svgExternalMonitor();
     static QString svgSplitScreen();

@@ -27,6 +27,9 @@
 #include "ui/TrackMotionDialog.h"
 #include "ui/CustomizeKeyboardDialog.h"
 #include "ui/KeyboardMap.h"
+#include "ui/MissingFileDialog.h"
+#include "ui/SearchMissingFilesDialog.h"
+#include "ui/FindMissingFileDialog.h"
 #include "plugins/AudioPluginRegistry.h"
 #include "plugins/AudioPluginHost.h"
 #include "plugins/BuiltinAudioCatalog.h"
@@ -38,6 +41,7 @@
 #include "io/ProjectInterchange.h"
 #include "io/SamplePaths.h"
 #include "io/MediaMime.h"
+#include "io/MediaProbe.h"
 #include "io/MediaThumbCache.h"
 #include "ui/MediaBinListWidget.h"
 #include "model/SnapshotCommand.h"
@@ -549,15 +553,17 @@ void MainWindow::setupPreviewChrome()
         tb->addWidget(split);
     }
 
-    auto *quality = new QToolButton(this);
-    quality->setObjectName(QStringLiteral("previewChip"));
-    quality->setText(tr("Preview (Auto) ▾"));
-    quality->setToolTip(tr("Preview Quality"));
-    quality->setAutoRaise(true);
-    connect(quality, &QToolButton::clicked, this, [quality]() {
-        ContextMenuBuilder::showQualityMenu(quality, quality->mapToGlobal(QPoint(0, quality->height())));
+    m_previewQualityBtn = new QToolButton(this);
+    m_previewQualityBtn->setObjectName(QStringLiteral("previewChip"));
+    m_previewQualityBtn->setText(tr("Preview (Auto) ▾"));
+    m_previewQualityBtn->setToolTip(tr("Preview Quality"));
+    m_previewQualityBtn->setAutoRaise(true);
+    connect(m_previewQualityBtn, &QToolButton::clicked, this, [this]() {
+        ContextMenuBuilder::showQualityMenu(
+            this, m_previewQualityBtn,
+            m_previewQualityBtn->mapToGlobal(QPoint(0, m_previewQualityBtn->height())));
     });
-    tb->addWidget(quality);
+    tb->addWidget(m_previewQualityBtn);
 
     auto *zoom = new QToolButton(this);
     zoom->setObjectName(QStringLiteral("previewChip"));
@@ -759,25 +765,29 @@ void MainWindow::setupMasterBus()
     auto *top = new QHBoxLayout();
     top->setContentsMargins(2, 3, 2, 1);
     top->setSpacing(0);
-    auto addTop = [this, top](const QString &tip, const QString &svg) {
-        QToolButton *b = IconFactory::toolButton(this, tip, svg);
+    auto addTop = [this, top](const QString &tip, const QString &svg, bool checkable = false) {
+        QToolButton *b = IconFactory::toolButton(this, tip, svg, checkable);
         b->setFixedSize(22, 20);
         b->setIconSize(QSize(14, 14));
         top->addWidget(b);
+        return b;
     };
-    addTop(tr("Master Bus Properties"), IconFactory::svgGear());
-    addTop(tr("Bus Tracks"), IconFactory::svgAudioDevice());
-    addTop(tr("Audio Device"), IconFactory::svgDownmix());
     {
-        QToolButton *mix = IconFactory::toolButton(this, tr("Open Mixing Console"),
-                                                   IconFactory::svgMixingConsole());
-        mix->setFixedSize(22, 20);
-        mix->setIconSize(QSize(14, 14));
+        QToolButton *props = addTop(tr("Master Bus Properties"), IconFactory::svgGear());
+        connect(props, &QToolButton::clicked, this, &MainWindow::onProjectProperties);
+    }
+    // Vegas order: Downmix Output (cycles icon) → Dim Output → Mixing Console
+    m_masterDownmixBtn = addTop(tr("Downmix Output"), IconFactory::svgDownmix(), true);
+    connect(m_masterDownmixBtn, &QToolButton::clicked, this, &MainWindow::cycleDownmixOutput);
+    m_masterDimBtn = addTop(tr("Dim Output"), IconFactory::svgDimOutput(), true);
+    connect(m_masterDimBtn, &QToolButton::toggled, this, &MainWindow::setDimOutput);
+    {
+        QToolButton *mix = addTop(tr("Open Mixing Console"), IconFactory::svgMixingConsole());
         connect(mix, &QToolButton::clicked, this, &MainWindow::onMixingConsole);
-        top->addWidget(mix);
     }
     top->addStretch(1);
     layout->addLayout(top);
+    syncDownmixUi();
 
     auto *titleRow = new QHBoxLayout();
     titleRow->setContentsMargins(4, 2, 4, 4);
@@ -914,6 +924,85 @@ void MainWindow::setupMasterBus()
     tabLay->addWidget(maxBtn);
     tabLay->addWidget(closeBtn);
     layout->addWidget(tabRow);
+}
+
+void MainWindow::cycleDownmixOutput()
+{
+    switch (m_downmixMode) {
+    case DownmixOutputMode::Surround:
+        m_downmixMode = DownmixOutputMode::Stereo;
+        break;
+    case DownmixOutputMode::Stereo:
+        m_downmixMode = DownmixOutputMode::Mono;
+        break;
+    case DownmixOutputMode::Mono:
+        m_downmixMode = DownmixOutputMode::Surround;
+        break;
+    }
+    syncDownmixUi();
+    QString modeName;
+    switch (m_downmixMode) {
+    case DownmixOutputMode::Surround:
+        modeName = tr("5.1 surround");
+        break;
+    case DownmixOutputMode::Stereo:
+        modeName = tr("Stereo");
+        break;
+    case DownmixOutputMode::Mono:
+        modeName = tr("Mono");
+        break;
+    }
+    statusBar()->showMessage(tr("Downmix Output: %1").arg(modeName), 2000);
+}
+
+void MainWindow::setDimOutput(bool on)
+{
+    if (m_dimOutput == on) {
+        return;
+    }
+    m_dimOutput = on;
+    syncDownmixUi();
+    statusBar()->showMessage(on ? tr("Dim Output: −20 dB") : tr("Dim Output: off"), 2000);
+}
+
+void MainWindow::syncDownmixUi()
+{
+    QString svg;
+    QString tip;
+    // Vegas: button latched while playback is downmixed away from the project master layout.
+    // Default projects are stereo — Mono (and explicit Surround listen) show as pressed;
+    // Stereo matches the common “Downmix Output” highlight from Vegas screenshots.
+    bool latched = (m_downmixMode != DownmixOutputMode::Surround);
+    switch (m_downmixMode) {
+    case DownmixOutputMode::Surround:
+        svg = IconFactory::svgDownmixSurround();
+        tip = tr("Downmix Output (5.1 surround)");
+        break;
+    case DownmixOutputMode::Stereo:
+        svg = IconFactory::svgDownmix();
+        tip = tr("Downmix Output (Stereo)");
+        break;
+    case DownmixOutputMode::Mono:
+        svg = IconFactory::svgDownmixMono();
+        tip = tr("Downmix Output (Mono)");
+        break;
+    }
+
+    if (m_masterDownmixBtn) {
+        m_masterDownmixBtn->blockSignals(true);
+        m_masterDownmixBtn->setIcon(IconFactory::iconFromSvgBody(svg, 14));
+        m_masterDownmixBtn->setToolTip(tip);
+        m_masterDownmixBtn->setChecked(latched);
+        m_masterDownmixBtn->blockSignals(false);
+    }
+    if (m_masterDimBtn) {
+        m_masterDimBtn->blockSignals(true);
+        m_masterDimBtn->setChecked(m_dimOutput);
+        m_masterDimBtn->blockSignals(false);
+    }
+    if (m_mixingConsole) {
+        m_mixingConsole->syncMonitorButtons(int(m_downmixMode), m_dimOutput);
+    }
 }
 
 void MainWindow::setupTimelineTools()
@@ -1606,7 +1695,7 @@ void MainWindow::placeMediaOnTimeline(const QStringList &paths)
     for (const QString &path : media) {
         const QString name = QFileInfo(path).fileName();
         const QString kind = MediaMime::guessKind(path);
-        const double len = defaultLengthForMediaKind(kind);
+        const double len = MediaProbe::lengthForInsert(path, kind);
         bool found = false;
         for (const MediaItem &m : m_project.mediaPool()) {
             if (QDir::cleanPath(m.path).compare(QDir::cleanPath(path), Qt::CaseInsensitive) == 0) {
@@ -1907,10 +1996,7 @@ void MainWindow::setupTimeline()
                 beginDocumentEdit();
                 auto placeOne = [&](const QString &n, const QString &kIn, const QString &p) {
                     const QString kind = kIn.isEmpty() ? MediaMime::guessKind(p.isEmpty() ? n : p) : kIn;
-                    double len = lengthSec;
-                    if (len < 0.05) {
-                        len = defaultLengthForMediaKind(kind);
-                    }
+                    const double len = MediaProbe::lengthForInsert(p, kind, lengthSec);
                     if (!p.isEmpty()) {
                         bool found = false;
                         for (const MediaItem &m : m_project.mediaPool()) {
@@ -2117,7 +2203,8 @@ void MainWindow::refreshPreviewFrame(double sec)
     }
 
     QPixmap px(w, h);
-    px.fill(Qt::black);
+    // Match panel chrome (not pure black) for letterbox / pillarbox around the frame.
+    px.fill(QColor(0x1e, 0x1e, 0x1e));
     QPainter p(&px);
     p.setRenderHint(QPainter::SmoothPixmapTransform, true);
 
@@ -2215,6 +2302,31 @@ void MainWindow::updateOverlaysButton()
     m_overlaysBtn->setChecked(any);
 }
 
+QString MainWindow::formatPreviewFps() const
+{
+    return QString::number(m_project.frameRate(), 'f', 3).replace(QLatin1Char('.'), QLatin1Char(','));
+}
+
+int MainWindow::previewResolutionDivisor() const
+{
+    return std::max(1, m_previewResDivisor);
+}
+
+void MainWindow::setPreviewQuality(const QString &level, const QString &resolution)
+{
+    Q_UNUSED(level);
+    if (resolution == tr("Half")) {
+        m_previewResDivisor = 2;
+    } else if (resolution == tr("Quarter")) {
+        m_previewResDivisor = 4;
+    } else {
+        // Auto / Full — Vegas status shows full project frame size
+        m_previewResDivisor = 1;
+    }
+    refreshPreviewProjectMeta();
+    refreshPreviewFrame(m_project.playheadSec());
+}
+
 void MainWindow::updatePreviewDisplayMeta(double sec)
 {
     if (!m_previewRightMeta) {
@@ -2223,13 +2335,16 @@ void MainWindow::updatePreviewDisplayMeta(double sec)
     const int frame = static_cast<int>(std::llround(sec * m_project.frameRate()));
     const int dw = ui->previewViewport ? ui->previewViewport->width() : 0;
     const int dh = ui->previewViewport ? ui->previewViewport->height() : 0;
-    // Frame with thin space grouping like Vegas (e.g. 4 186)
+    // Frame with thin space grouping like Vegas (e.g. 3 260)
     QString frameStr = QString::number(frame);
     if (frameStr.size() > 3) {
         frameStr.insert(frameStr.size() - 3, QChar(0x2009));
     }
-    m_previewRightMeta->setText(
-        tr("Frame: <b>%1</b><br>Display: %2x%3x32").arg(frameStr).arg(dw).arg(dh));
+    m_previewRightMeta->setText(tr("Frame: <b>%1</b><br>Display: %2x%3x32; %4p")
+                                    .arg(frameStr)
+                                    .arg(dw)
+                                    .arg(dh)
+                                    .arg(formatPreviewFps()));
 }
 
 void MainWindow::refreshPreviewProjectMeta()
@@ -2239,18 +2354,20 @@ void MainWindow::refreshPreviewProjectMeta()
     }
     const int pw = m_project.frameWidth() > 0 ? m_project.frameWidth() : 1920;
     const int ph = m_project.frameHeight() > 0 ? m_project.frameHeight() : 1080;
-    // Vegas "Preview (Auto)" half-res quality — show in red when below project full
-    const int prevW = pw / 2;
-    const int prevH = ph / 2;
-    const QString fps = QString::number(m_project.frameRate(), 'f', 3).replace(QLatin1Char('.'), QLatin1Char(','));
-    m_previewLeftMeta->setText(
-        tr("Project: %1x%2x32; %3p<br>"
-           "Preview: <span style=\"color:#c43c3c\">%4x%5x32</span>; %3p")
-            .arg(pw)
-            .arg(ph)
-            .arg(fps)
-            .arg(prevW)
-            .arg(prevH));
+    const int div = previewResolutionDivisor();
+    const int prevW = std::max(1, pw / div);
+    const int prevH = std::max(1, ph / div);
+    const QString fps = formatPreviewFps();
+    // Vegas: Preview matches Project for Auto/Full; reduced sizes shown in red
+    const QString previewDims = QStringLiteral("%1x%2x32").arg(prevW).arg(prevH);
+    const QString previewPart =
+        (div > 1) ? QStringLiteral("<span style=\"color:#c43c3c\">%1</span>").arg(previewDims)
+                  : previewDims;
+    m_previewLeftMeta->setText(tr("Project: %1x%2x32; %3p<br>Preview: %4; %3p")
+                                   .arg(pw)
+                                   .arg(ph)
+                                   .arg(fps)
+                                   .arg(previewPart));
 }
 
 void MainWindow::onNewProject()
@@ -2304,8 +2421,13 @@ void MainWindow::onMixingConsole()
                 &MainWindow::beginDocumentEdit);
         connect(m_mixingConsole, &MixingConsoleWindow::documentEditCommitted, this,
                 &MainWindow::commitDocumentEdit);
+        connect(m_mixingConsole, &MixingConsoleWindow::downmixOutputCycled, this,
+                &MainWindow::cycleDownmixOutput);
+        connect(m_mixingConsole, &MixingConsoleWindow::dimOutputChanged, this,
+                &MainWindow::setDimOutput);
     }
     m_mixingConsole->refreshFromProject();
+    syncDownmixUi();
     m_mixingConsole->show();
     m_mixingConsole->raise();
     m_mixingConsole->activateWindow();
@@ -2404,15 +2526,85 @@ void MainWindow::openProjectPath(const QString &path)
     statusBar()->showMessage(notes.join(QStringLiteral("  |  ")), 16000);
 
     if (!missingPaths.isEmpty()) {
-        QMessageBox::warning(
-            this, tr("Missing Media"),
-            tr("Opened \"%1\", but %2 media file(s) could not be found.\n\n"
-               "Place the files next to the project or restore the original paths:\n\n%3")
-                .arg(QFileInfo(resolved).fileName())
-                .arg(missingPaths.size())
-                .arg(missingPaths.mid(0, 12).join(QLatin1Char('\n'))
-                     + (missingPaths.size() > 12 ? QStringLiteral("\n…") : QString())));
+        resolveMissingMedia();
     }
+}
+
+void MainWindow::resolveMissingMedia()
+{
+    bool ignoreAll = false;
+    // Re-read each round so relinks update the list.
+    while (true) {
+        const QStringList missing = m_project.missingMediaPaths();
+        if (missing.isEmpty() || ignoreAll) {
+            break;
+        }
+        const QString path = missing.first();
+
+        MissingFileDialog choice(path, this);
+        if (choice.exec() != QDialog::Accepted) {
+            break;
+        }
+
+        switch (choice.action()) {
+        case MissingFileAction::IgnoreAll:
+            ignoreAll = true;
+            break;
+        case MissingFileAction::Ignore: {
+            for (MediaItem &m : m_project.mediaPool()) {
+                if (QDir::cleanPath(m.path).compare(QDir::cleanPath(path), Qt::CaseInsensitive)
+                    == 0) {
+                    m.missing = false; // offline, no further prompts
+                    break;
+                }
+            }
+            break;
+        }
+        case MissingFileAction::Search: {
+            SearchMissingFilesDialog search(path, this);
+            if (search.exec() == QDialog::Accepted && !search.selectedPath().isEmpty()) {
+                m_project.relinkMedia(path, search.selectedPath());
+                VideoFrameCache::instance().invalidate();
+                MediaThumbCache::instance().invalidate(search.selectedPath());
+            }
+            // Cancel → re-show the choice dialog for the same file.
+            break;
+        }
+        case MissingFileAction::Specify: {
+            FindMissingFileDialog find(path, this);
+            if (find.exec() == QDialog::Accepted && !find.selectedPath().isEmpty()) {
+                m_project.relinkMedia(path, find.selectedPath());
+                VideoFrameCache::instance().invalidate();
+                MediaThumbCache::instance().invalidate(find.selectedPath());
+            }
+            break;
+        }
+        case MissingFileAction::Cancel:
+        default:
+            return;
+        }
+    }
+    refreshMediaPoolUi();
+    refreshTimeline();
+    refreshPreviewFrame(m_project.playheadSec());
+}
+
+void MainWindow::refreshMediaPoolUi()
+{
+    if (!ui || !ui->mediaGrid) {
+        return;
+    }
+    ui->mediaGrid->clear();
+    int i = 0;
+    for (const MediaItem &m : m_project.mediaPool()) {
+        addMediaCard(m.displayName.isEmpty() ? QFileInfo(m.path).fileName() : m.displayName, m.kind,
+                     m.missing || !QFileInfo::exists(m.path) ? tr("Offline") : defaultMetaForKind(m.kind),
+                     m.path);
+        ++i;
+        Q_UNUSED(i);
+    }
+    refreshMediaEmptyState();
+    updateMediaMeta();
 }
 
 void MainWindow::rememberRecentFile(const QString &path)
@@ -2788,10 +2980,39 @@ void MainWindow::onProjectProperties()
 
 void MainWindow::onRenderAs()
 {
-    RenderAsDialog dlg(this);
+    RenderAsDialog dlg(&m_project, this);
     if (dlg.exec() != QDialog::Accepted) {
         return;
     }
+    const QString path = dlg.outputPath();
+    if (path.isEmpty()) {
+        return;
+    }
+    if (dlg.isWaveMicrosoft()) {
+        if (!m_audioEngine) {
+            statusBar()->showMessage(tr("Audio engine unavailable"), 5000);
+            return;
+        }
+        m_audioEngine->syncGraphFromProject();
+        double start = 0.0;
+        double len = std::max(1.0, m_project.timelineEndSec());
+        if (dlg.optionLoopRegionOnly() && m_project.hasLoopRegion()) {
+            start = m_project.loopRegion().startSec;
+            len = std::max(0.05, m_project.loopRegion().endSec - m_project.loopRegion().startSec);
+        }
+        const bool ok = m_audioEngine->renderToWav(path, start, len);
+        statusBar()->showMessage(ok ? tr("Rendered to %1").arg(path)
+                                    : tr("Render failed: %1").arg(path),
+                                 8000);
+        return;
+    }
+    QMessageBox::information(
+        this, tr("Render As"),
+        tr("Template \"%1\" / \"%2\" is selected.\n"
+           "Output: %3\n\n"
+           "Encoding for this format is not implemented yet "
+           "(Wave/PCM export works).")
+            .arg(dlg.selectedFormat(), dlg.selectedTemplate(), path));
 }
 
 void MainWindow::onBounceAudioMixdown()
@@ -3186,15 +3407,13 @@ void MainWindow::onTrackFx(int trackIndex)
         return;
     }
     Track &track = m_project.tracks()[trackIndex];
-    if (track.kind != TrackKind::Audio) {
-        // Video track FX still use OFX chooser stub
-        onPluginChooser();
-        return;
-    }
     beginDocumentEdit();
-    if (track.fxChain.isEmpty()) {
-        track.fxChain = BuiltinAudioCatalog::defaultTrackFxChain();
+    if (track.kind == TrackKind::Audio) {
+        if (track.fxChain.isEmpty()) {
+            track.fxChain = BuiltinAudioCatalog::defaultTrackFxChain();
+        }
     }
+    // Video Track FX: open chain editor (may be empty until plug-ins / Color Grading added).
     AudioEventFxDialog dlg(this);
     dlg.setTrack(&track);
     dlg.exec();
@@ -3202,6 +3421,31 @@ void MainWindow::onTrackFx(int trackIndex)
     if (m_audioEngine) {
         m_audioEngine->syncGraphFromProject();
     }
+    if (m_timeline) {
+        m_timeline->update();
+    }
+}
+
+void MainWindow::onColorGrading(int trackIndex)
+{
+    if (trackIndex < 0 || trackIndex >= m_project.tracks().size()) {
+        return;
+    }
+    Track &track = m_project.tracks()[trackIndex];
+    if (track.kind != TrackKind::Video) {
+        return;
+    }
+    beginDocumentEdit();
+    if (indexOfFxName(track.fxChain, QStringLiteral("Color Grading")) < 0) {
+        track.fxChain.push_back(
+            makeFxSlot(QStringLiteral("Color Grading"), PluginFormat::Builtin,
+                       QStringLiteral("builtin:Color Grading")));
+    }
+    AudioEventFxDialog dlg(this);
+    dlg.setTrack(&track);
+    dlg.selectByName(QStringLiteral("Color Grading"));
+    dlg.exec();
+    commitDocumentEdit(tr("Color Grading"));
     if (m_timeline) {
         m_timeline->update();
     }

@@ -342,7 +342,7 @@ QProgressBar#masterMeter::chunk {
 }
 
 QFrame#previewViewport {
-  background-color: #000000;
+  background-color: #1e1e1e;
   border: 1px solid #111111;
 }
 
@@ -1707,6 +1707,12 @@ QDoubleSpinBox#tmSpin {
   color: #f0f0f0;
   padding: 0 3px;
   selection-background-color: #0078d7;
+  min-height: 18px;
+}
+
+QDoubleSpinBox#tmSpin:focus {
+  border: 1px solid #0078d7;
+  color: #ffffff;
 }
 
 /* —— Extract Audio from CD —— */

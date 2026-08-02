@@ -27,6 +27,8 @@ private:
     void applyToModel();
     void markDirty();
     void updateApplyEnabled();
+    void onMatchMediaVideoSettings();
+    void applyMatchedMedia(int width, int height, double frameRate, const QString &fieldOrder);
 
     ProjectModel *m_model = nullptr;
     bool m_dirty = false;

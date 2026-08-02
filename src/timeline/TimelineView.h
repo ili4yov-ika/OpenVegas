@@ -280,8 +280,10 @@ private:
     int m_hoverReorderTrack = -1;
     EventChromeButton m_hoverButton = EventChromeButton::None;
     int m_hoverLevelEventId = -1;
-    /** eventId → origin startSec for grouped move */
+    /** eventId → origin startSec for grouped move / trim */
     QHash<int, double> m_dragGroupOrigins;
+    /** eventId → origin lengthSec for grouped trim */
+    QHash<int, double> m_dragGroupLengths;
     /** Track created during this drag by dropping below the timeline; -1 if none. */
     int m_dragCreatedTrack = -1;
     bool m_docEditOpen = false;

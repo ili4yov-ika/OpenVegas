@@ -1,10 +1,13 @@
 #include "io/VegReader.h"
+#include "video/VideoKeyframeEval.h"
 
 #include <QDir>
 #include <QFile>
 #include <QFileInfo>
 #include <QRegularExpression>
 #include <QSet>
+#include <QVariantList>
+#include <QVariantMap>
 #include <QtEndian>
 
 #include <algorithm>
@@ -43,11 +46,13 @@ FrameSizeCandidate scanFrameSize(const QByteArray &data)
 {
     static const FrameSizeCandidate kCommon[] = {
         {1920, 1080}, {1280, 720},  {3840, 2160}, {2560, 1440}, {1080, 1920},
-        {720, 1280},  {1440, 1080}, {720, 480},   {720, 576},   {640, 480},
-        {4096, 2160},
+        {720, 1280},  {576, 1024},  {1440, 1080}, {720, 480},   {720, 576},
+        {640, 480},   {4096, 2160},
     };
 
-    for (int off = 0x40; off + 8 < data.size(); off += 4) {
+    // Step 2: Vegas often stores width/height on a 2-byte boundary after a UTF-16
+    // path (e.g. 640×480 @ 0x242 in 4:3 preview projects). A 4-byte stride misses them.
+    for (int off = 0x40; off + 8 < data.size(); off += 2) {
         const quint32 a = qFromLittleEndian<quint32>(
             reinterpret_cast<const uchar *>(data.constData() + off));
         const quint32 b = qFromLittleEndian<quint32>(
@@ -269,6 +274,10 @@ void VegReader::parseUtf16Metadata(const QByteArray &data, VegOpenResult *result
 
         if (s.startsWith(QLatin1String("{Svfx:"), Qt::CaseInsensitive)
             || s.startsWith(QLatin1String("OFX:"), Qt::CaseInsensitive)) {
+            // Track Color Grading is handled by parseColorGrading — not event FX.
+            if (s.contains(QLatin1String("colorgrading"), Qt::CaseInsensitive)) {
+                continue;
+            }
             if (!seenEventFx.contains(s)) {
                 seenEventFx.insert(s);
                 result->eventFxNames.push_back(s);
@@ -285,6 +294,33 @@ void VegReader::parseUtf16Metadata(const QByteArray &data, VegOpenResult *result
             && !s.contains(QLatin1Char('/')) && !seenLabels.contains(s)) {
             seenLabels.insert(s);
             result->eventLabels.push_back(s);
+        }
+
+        // META:\SubClip\{path} (n)[startTicks][lengthTicks][reverseFlag]
+        if (s.startsWith(QLatin1String("META:\\SubClip\\"), Qt::CaseInsensitive)
+            || s.startsWith(QLatin1String("META:/SubClip/"), Qt::CaseInsensitive)) {
+            static const QRegularExpression subRe(
+                QStringLiteral(
+                    R"(META:\\SubClip\\\{([^}]+)\}[^\[]*\[(\d+)\]\[(\d+)\]\[(\d+)\])"),
+                QRegularExpression::CaseInsensitiveOption);
+            const auto m = subRe.match(s);
+            if (m.hasMatch() && m.captured(4).toLongLong() != 0) {
+                const QString base = QFileInfo(QDir::fromNativeSeparators(m.captured(1)))
+                                         .fileName()
+                                         .toLower();
+                if (!base.isEmpty() && !result->reversedMediaBasenames.contains(base)) {
+                    result->reversedMediaBasenames.push_back(base);
+                }
+            }
+        }
+        // "file.mp4 - subclip 1 (reversed)"
+        if (s.contains(QLatin1String("(reversed)"), Qt::CaseInsensitive)) {
+            const int dash = s.indexOf(QLatin1String(" - "));
+            const QString base =
+                (dash > 0 ? s.left(dash) : s).trimmed().toLower();
+            if (!base.isEmpty() && !result->reversedMediaBasenames.contains(base)) {
+                result->reversedMediaBasenames.push_back(base);
+            }
         }
     }
 
@@ -614,6 +650,7 @@ VegOpenResult VegReader::open(const QString &path, QString *error)
     parseMarkers(data, &result);
     parseTrackMotion(data, &result);
     parsePanCrop(data, &result);
+    parseColorGrading(data, &result);
     assignEventNames(&result);
 
     return result;
@@ -807,10 +844,13 @@ void VegReader::parsePanCrop(const QByteArray &data, VegOpenResult *result)
                 break;
             }
             PanCropKeyframe kf = EventPanCropState::identityKeyframe(fw, fh);
-            kf.timeSec = double(qFromLittleEndian<quint64>(
-                             reinterpret_cast<const uchar *>(data.constData() + off + 8)))
-                         / double(kTicksPerSec);
-            const uchar *g = reinterpret_cast<const uchar *>(data.constData() + off + 0x1C);
+            const uchar *base =
+                reinterpret_cast<const uchar *>(data.constData() + off);
+            kf.timeSec = double(qFromLittleEndian<quint64>(base + 8)) / double(kTicksPerSec);
+            // POSK payload: time(u64) unk(u64) type(u32) + 8×double geometry @ +0x1C.
+            const int typeCode = int(qFromLittleEndian<quint32>(base + 0x18));
+            kf.type = videoKeyframeTypeFromVegasCode(typeCode);
+            const uchar *g = base + 0x1C;
             auto rd = [&](int i) {
                 double v = 0.0;
                 memcpy(&v, g + i * 8, sizeof(double));
@@ -979,6 +1019,150 @@ void VegReader::parsePanCrop(const QByteArray &data, VegOpenResult *result)
             return;
         }
         pos = posl + 1;
+    }
+}
+
+void VegReader::parseColorGrading(const QByteArray &data, VegOpenResult *result)
+{
+    if (!result || data.size() < 64) {
+        return;
+    }
+
+    auto toUtf16Le = [](const QString &s) -> QByteArray {
+        QByteArray n;
+        n.resize(s.size() * 2);
+        for (int i = 0; i < s.size(); ++i) {
+            const ushort c = s.at(i).unicode();
+            n[i * 2] = char(c & 0xFF);
+            n[i * 2 + 1] = char((c >> 8) & 0xFF);
+        }
+        return n;
+    };
+
+    if (!data.contains(
+            toUtf16Le(QStringLiteral("{Svfx:com.vegascreativesoftware:colorgrading}")))) {
+        return;
+    }
+    result->hasColorGrading = true;
+
+    auto findUtf16 = [&](const QString &name) -> int { return data.indexOf(toUtf16Le(name)); };
+
+    /** After UTF-16 name + NUL, Vegas stores the OFX param double at offset 0. */
+    auto readParamDouble = [&](const QString &name, bool *ok) -> double {
+        const int at = findUtf16(name);
+        if (at < 0) {
+            if (ok) {
+                *ok = false;
+            }
+            return 0.0;
+        }
+        int end = at + name.size() * 2;
+        if (end + 2 > data.size() || data.at(end) != '\0' || data.at(end + 1) != '\0') {
+            // still try reading immediately after the matched name bytes
+        } else {
+            end += 2;
+        }
+        if (end + 8 > data.size()) {
+            if (ok) {
+                *ok = false;
+            }
+            return 0.0;
+        }
+        const double v = qFromLittleEndian<double>(
+            reinterpret_cast<const uchar *>(data.constData() + end));
+        if (!std::isfinite(v)) {
+            if (ok) {
+                *ok = false;
+            }
+            return 0.0;
+        }
+        if (ok) {
+            *ok = true;
+        }
+        return v;
+    };
+
+    auto putWheel = [&](const QString &vegasPrefix, const QString &key) {
+        static const char *chans[] = {"R", "G", "B", "Y"};
+        static const char *outs[] = {"r", "g", "b", "y"};
+        for (int i = 0; i < 4; ++i) {
+            bool ok = false;
+            const double v =
+                readParamDouble(vegasPrefix + QLatin1Char('_') + QLatin1String(chans[i]), &ok);
+            if (ok) {
+                result->colorGradingParams.insert(key + QLatin1Char('.') + QLatin1String(outs[i]),
+                                                  v);
+            }
+        }
+    };
+
+    putWheel(QStringLiteral("Lift"), QStringLiteral("lift"));
+    putWheel(QStringLiteral("Gamma"), QStringLiteral("gamma"));
+    putWheel(QStringLiteral("Gain"), QStringLiteral("gain"));
+    putWheel(QStringLiteral("LogWheel_Offset"), QStringLiteral("offset"));
+
+    // Curve blob: "N:x0:y0:inX:inY:outX:outY:x1:y1:…" (6 floats per point after count).
+    // Prefer Curve_Y (luma); fall back to Curve_R.
+    auto parseCurveBlob = [&](const QString &curveName) -> QVariantList {
+        const int at = findUtf16(curveName);
+        if (at < 0) {
+            return {};
+        }
+        int end = at + curveName.size() * 2;
+        if (end + 2 <= data.size() && data.at(end) == '\0' && data.at(end + 1) == '\0') {
+            end += 2;
+        }
+        // Skip small binary header until ASCII digit of the blob (UTF-16 digit).
+        int p = end;
+        while (p + 1 < data.size() && p < end + 64) {
+            if (data.at(p + 1) == '\0' && data.at(p) >= '0' && data.at(p) <= '9') {
+                break;
+            }
+            ++p;
+        }
+        QString blob;
+        while (p + 1 < data.size() && data.at(p + 1) == '\0') {
+            const uchar c = uchar(data.at(p));
+            if (!((c >= '0' && c <= '9') || c == '.' || c == '-' || c == ':' || c == '+')) {
+                break;
+            }
+            blob.append(QChar(c));
+            p += 2;
+        }
+        const QStringList parts = blob.split(QLatin1Char(':'));
+        if (parts.size() < 7) {
+            return {};
+        }
+        bool okCount = false;
+        const int count = parts[0].toInt(&okCount);
+        if (!okCount || count < 2) {
+            return {};
+        }
+        QVariantList pts;
+        int idx = 1;
+        for (int i = 0; i < count && idx + 1 < parts.size(); ++i) {
+            bool okX = false;
+            bool okY = false;
+            const double x = parts[idx].toDouble(&okX);
+            const double y = parts[idx + 1].toDouble(&okY);
+            idx += 6; // x,y + 4 tangent components
+            if (!okX || !okY) {
+                continue;
+            }
+            QVariantMap pt;
+            pt.insert(QStringLiteral("x"), x);
+            pt.insert(QStringLiteral("y"), y);
+            pts.push_back(pt);
+        }
+        return pts;
+    };
+
+    QVariantList curve = parseCurveBlob(QStringLiteral("Curve_Y"));
+    if (curve.size() < 2) {
+        curve = parseCurveBlob(QStringLiteral("Curve_R"));
+    }
+    if (curve.size() >= 2) {
+        result->colorGradingParams.insert(QStringLiteral("curve.rgb"), curve);
     }
 }
 

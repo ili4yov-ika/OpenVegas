@@ -12,6 +12,7 @@ class QWidget;
 class QMenu;
 class QAction;
 class QActionGroup;
+class QToolButton;
 class QEvent;
 class QMouseEvent;
 class QFrame;
@@ -33,11 +34,16 @@ public:
     void setMasterMeter(float peakL, float peakR);
     void setTrackMeter(int trackId, float peakL, float peakR);
 
+    /** Mirror Master Bus Downmix / Dim buttons (mode: 0=Surround, 1=Stereo, 2=Mono). */
+    void syncMonitorButtons(int downmixMode, bool dimOutput);
+
 signals:
     /** Emitted after project track list changes from this window. */
     void tracksChanged();
     void documentEditBegan();
     void documentEditCommitted(const QString &text);
+    void downmixOutputCycled();
+    void dimOutputChanged(bool on);
 
 protected:
     void showEvent(QShowEvent *event) override;
@@ -81,7 +87,11 @@ private:
     QAction *m_actChannelList = nullptr;
     QAction *m_actViewControls = nullptr;
     QAction *m_actFaderTicks = nullptr;
+    QAction *m_actDownmix = nullptr;
+    QAction *m_actDim = nullptr;
     QActionGroup *m_widthGroup = nullptr;
+    QToolButton *m_downmixBtn = nullptr;
+    QToolButton *m_dimBtn = nullptr;
 
     bool m_reordering = false;
     int m_reorderFrom = -1;

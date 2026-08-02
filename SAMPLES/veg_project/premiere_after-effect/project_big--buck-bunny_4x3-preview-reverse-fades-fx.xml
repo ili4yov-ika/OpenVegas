@@ -1,0 +1,3108 @@
+﻿<?xml version="1.0"?>
+<xmeml version="5">
+	<project>
+		<name>Untitled Project 1</name>
+		<children>
+			<bin>
+				<updatebehavior>add</updatebehavior>
+				<name>Custom Bins</name>
+				<children />
+			</bin>
+			<clip id="big-buck-bunny_video-60fps-4k - 17.mp4">
+				<updatebehavior>add</updatebehavior>
+				<name>big-buck-bunny_video-60fps-4k - 17.mp4</name>
+				<duration>19017</duration>
+				<rate>
+					<ntsc>FALSE</ntsc>
+					<timebase>60</timebase>
+				</rate>
+				<in>-1</in>
+				<out>-1</out>
+				<masterclipid>big-buck-bunny_video-60fps-4k - 17.mp4</masterclipid>
+				<ismasterclip>TRUE</ismasterclip>
+				<logginginfo>
+					<scene />
+					<shottake />
+					<lognote />
+					<good>FALSE</good>
+				</logginginfo>
+				<labels>
+					<label2 />
+				</labels>
+				<comments>
+					<mastercomment1 />
+					<mastercomment2 />
+					<mastercomment3 />
+					<mastercomment4 />
+				</comments>
+				<media>
+					<video>
+						<track>
+							<clipitem id="big-buck-bunny_video-60fps-4k - 17.mp41">
+								<name>big-buck-bunny_video-60fps-4k - 17.mp4</name>
+								<duration>19017</duration>
+								<rate>
+									<ntsc>FALSE</ntsc>
+									<timebase>60</timebase>
+								</rate>
+								<in>0</in>
+								<out>19017</out>
+								<start>0</start>
+								<end>19017</end>
+								<pixelaspectratio>Square</pixelaspectratio>
+								<anamorphic>FALSE</anamorphic>
+								<alphatype>none</alphatype>
+								<masterclipid>big-buck-bunny_video-60fps-4k - 17.mp4</masterclipid>
+								<logginginfo>
+									<scene />
+									<shottake />
+									<lognote />
+									<good>FALSE</good>
+								</logginginfo>
+								<labels>
+									<label2 />
+								</labels>
+								<comments>
+									<mastercomment1 />
+									<mastercomment2 />
+									<mastercomment3 />
+									<mastercomment4 />
+								</comments>
+								<file id="big-buck-bunny_video-60fps-4k - 17">
+									<name>big-buck-bunny_video-60fps-4k - 17.mp4</name>
+									<pathurl>file://localhost/D:/Devs/C++/OpenVegas/SAMPLES/veg_project/premiere_after-effect/big-buck-bunny_video-60fps-4k - 17.mp4</pathurl>
+									<rate>
+										<timebase>60</timebase>
+										<ntsc>FALSE</ntsc>
+									</rate>
+									<duration>19017</duration>
+									<timecode>
+										<rate>
+											<timebase>60</timebase>
+											<ntsc>FALSE</ntsc>
+										</rate>
+										<frame>0</frame>
+										<displayformat>NDF</displayformat>
+										<source>source</source>
+									</timecode>
+									<media>
+										<video>
+											<duration>19017</duration>
+											<samplecharacteristics>
+												<width>3840</width>
+												<height>2160</height>
+											</samplecharacteristics>
+										</video>
+										<audio>
+											<samplecharacteristics>
+												<samplerate>48000</samplerate>
+												<depth>16</depth>
+											</samplecharacteristics>
+											<channelcount>1</channelcount>
+										</audio>
+										<audio>
+											<samplecharacteristics>
+												<samplerate>48000</samplerate>
+												<depth>16</depth>
+											</samplecharacteristics>
+											<channelcount>1</channelcount>
+										</audio>
+										<audio>
+											<samplecharacteristics>
+												<samplerate>48000</samplerate>
+												<depth>16</depth>
+											</samplecharacteristics>
+											<channelcount>1</channelcount>
+										</audio>
+										<audio>
+											<samplecharacteristics>
+												<samplerate>48000</samplerate>
+												<depth>16</depth>
+											</samplecharacteristics>
+											<channelcount>1</channelcount>
+										</audio>
+										<audio>
+											<samplecharacteristics>
+												<samplerate>48000</samplerate>
+												<depth>16</depth>
+											</samplecharacteristics>
+											<channelcount>1</channelcount>
+										</audio>
+										<audio>
+											<samplecharacteristics>
+												<samplerate>48000</samplerate>
+												<depth>16</depth>
+											</samplecharacteristics>
+											<channelcount>1</channelcount>
+										</audio>
+									</media>
+								</file>
+								<sourcetrack>
+									<mediatype>video</mediatype>
+								</sourcetrack>
+								<fielddominance>none</fielddominance>
+							</clipitem>
+							<enabled>TRUE</enabled>
+							<locked>FALSE</locked>
+						</track>
+					</video>
+					<audio>
+						<track>
+							<clipitem id="big-buck-bunny_video-60fps-4k - 17.mp42">
+								<name>big-buck-bunny_video-60fps-4k - 17.mp4</name>
+								<duration>19017</duration>
+								<rate>
+									<ntsc>TRUE</ntsc>
+									<timebase>30</timebase>
+								</rate>
+								<in>0</in>
+								<out>19017</out>
+								<start>0</start>
+								<end>19017</end>
+								<masterclipid>big-buck-bunny_video-60fps-4k - 17.mp4</masterclipid>
+								<logginginfo>
+									<scene />
+									<shottake />
+									<lognote />
+									<good>FALSE</good>
+								</logginginfo>
+								<labels>
+									<label2 />
+								</labels>
+								<comments>
+									<mastercomment1 />
+									<mastercomment2 />
+									<mastercomment3 />
+									<mastercomment4 />
+								</comments>
+								<file id="big-buck-bunny_video-60fps-4k - 17" />
+								<sourcetrack>
+									<mediatype>audio</mediatype>
+								</sourcetrack>
+							</clipitem>
+							<enabled>TRUE</enabled>
+							<locked>FALSE</locked>
+						</track>
+						<track>
+							<clipitem id="big-buck-bunny_video-60fps-4k - 17.mp43">
+								<name>big-buck-bunny_video-60fps-4k - 17.mp4</name>
+								<duration>19017</duration>
+								<rate>
+									<ntsc>TRUE</ntsc>
+									<timebase>30</timebase>
+								</rate>
+								<in>0</in>
+								<out>19017</out>
+								<start>0</start>
+								<end>19017</end>
+								<masterclipid>big-buck-bunny_video-60fps-4k - 17.mp4</masterclipid>
+								<logginginfo>
+									<scene />
+									<shottake />
+									<lognote />
+									<good>FALSE</good>
+								</logginginfo>
+								<labels>
+									<label2 />
+								</labels>
+								<comments>
+									<mastercomment1 />
+									<mastercomment2 />
+									<mastercomment3 />
+									<mastercomment4 />
+								</comments>
+								<file id="big-buck-bunny_video-60fps-4k - 17" />
+								<sourcetrack>
+									<mediatype>audio</mediatype>
+								</sourcetrack>
+							</clipitem>
+							<enabled>TRUE</enabled>
+							<locked>FALSE</locked>
+						</track>
+						<track>
+							<clipitem id="big-buck-bunny_video-60fps-4k - 17.mp44">
+								<name>big-buck-bunny_video-60fps-4k - 17.mp4</name>
+								<duration>19017</duration>
+								<rate>
+									<ntsc>TRUE</ntsc>
+									<timebase>30</timebase>
+								</rate>
+								<in>0</in>
+								<out>19017</out>
+								<start>0</start>
+								<end>19017</end>
+								<masterclipid>big-buck-bunny_video-60fps-4k - 17.mp4</masterclipid>
+								<logginginfo>
+									<scene />
+									<shottake />
+									<lognote />
+									<good>FALSE</good>
+								</logginginfo>
+								<labels>
+									<label2 />
+								</labels>
+								<comments>
+									<mastercomment1 />
+									<mastercomment2 />
+									<mastercomment3 />
+									<mastercomment4 />
+								</comments>
+								<file id="big-buck-bunny_video-60fps-4k - 17" />
+								<sourcetrack>
+									<mediatype>audio</mediatype>
+								</sourcetrack>
+							</clipitem>
+							<enabled>TRUE</enabled>
+							<locked>FALSE</locked>
+						</track>
+						<track>
+							<clipitem id="big-buck-bunny_video-60fps-4k - 17.mp45">
+								<name>big-buck-bunny_video-60fps-4k - 17.mp4</name>
+								<duration>19017</duration>
+								<rate>
+									<ntsc>TRUE</ntsc>
+									<timebase>30</timebase>
+								</rate>
+								<in>0</in>
+								<out>19017</out>
+								<start>0</start>
+								<end>19017</end>
+								<masterclipid>big-buck-bunny_video-60fps-4k - 17.mp4</masterclipid>
+								<logginginfo>
+									<scene />
+									<shottake />
+									<lognote />
+									<good>FALSE</good>
+								</logginginfo>
+								<labels>
+									<label2 />
+								</labels>
+								<comments>
+									<mastercomment1 />
+									<mastercomment2 />
+									<mastercomment3 />
+									<mastercomment4 />
+								</comments>
+								<file id="big-buck-bunny_video-60fps-4k - 17" />
+								<sourcetrack>
+									<mediatype>audio</mediatype>
+								</sourcetrack>
+							</clipitem>
+							<enabled>TRUE</enabled>
+							<locked>FALSE</locked>
+						</track>
+						<track>
+							<clipitem id="big-buck-bunny_video-60fps-4k - 17.mp46">
+								<name>big-buck-bunny_video-60fps-4k - 17.mp4</name>
+								<duration>19017</duration>
+								<rate>
+									<ntsc>TRUE</ntsc>
+									<timebase>30</timebase>
+								</rate>
+								<in>0</in>
+								<out>19017</out>
+								<start>0</start>
+								<end>19017</end>
+								<masterclipid>big-buck-bunny_video-60fps-4k - 17.mp4</masterclipid>
+								<logginginfo>
+									<scene />
+									<shottake />
+									<lognote />
+									<good>FALSE</good>
+								</logginginfo>
+								<labels>
+									<label2 />
+								</labels>
+								<comments>
+									<mastercomment1 />
+									<mastercomment2 />
+									<mastercomment3 />
+									<mastercomment4 />
+								</comments>
+								<file id="big-buck-bunny_video-60fps-4k - 17" />
+								<sourcetrack>
+									<mediatype>audio</mediatype>
+								</sourcetrack>
+							</clipitem>
+							<enabled>TRUE</enabled>
+							<locked>FALSE</locked>
+						</track>
+						<track>
+							<clipitem id="big-buck-bunny_video-60fps-4k - 17.mp47">
+								<name>big-buck-bunny_video-60fps-4k - 17.mp4</name>
+								<duration>19017</duration>
+								<rate>
+									<ntsc>TRUE</ntsc>
+									<timebase>30</timebase>
+								</rate>
+								<in>0</in>
+								<out>19017</out>
+								<start>0</start>
+								<end>19017</end>
+								<masterclipid>big-buck-bunny_video-60fps-4k - 17.mp4</masterclipid>
+								<logginginfo>
+									<scene />
+									<shottake />
+									<lognote />
+									<good>FALSE</good>
+								</logginginfo>
+								<labels>
+									<label2 />
+								</labels>
+								<comments>
+									<mastercomment1 />
+									<mastercomment2 />
+									<mastercomment3 />
+									<mastercomment4 />
+								</comments>
+								<file id="big-buck-bunny_video-60fps-4k - 17" />
+								<sourcetrack>
+									<mediatype>audio</mediatype>
+								</sourcetrack>
+							</clipitem>
+							<enabled>TRUE</enabled>
+							<locked>FALSE</locked>
+						</track>
+					</audio>
+				</media>
+			</clip>
+			<clip id="sample_for_project_audio - 4.wav">
+				<updatebehavior>add</updatebehavior>
+				<name>sample_for_project_audio - 4.wav</name>
+				<duration>308</duration>
+				<rate>
+					<ntsc>TRUE</ntsc>
+					<timebase>30</timebase>
+				</rate>
+				<in>-1</in>
+				<out>-1</out>
+				<masterclipid>sample_for_project_audio - 4.wav</masterclipid>
+				<ismasterclip>TRUE</ismasterclip>
+				<logginginfo>
+					<scene />
+					<shottake />
+					<lognote />
+					<good>FALSE</good>
+				</logginginfo>
+				<labels>
+					<label2 />
+				</labels>
+				<comments>
+					<mastercomment1 />
+					<mastercomment2 />
+					<mastercomment3 />
+					<mastercomment4 />
+				</comments>
+				<media>
+					<video />
+					<audio>
+						<track>
+							<clipitem id="sample_for_project_audio - 4.wav1">
+								<name>sample_for_project_audio - 4.wav</name>
+								<duration>308</duration>
+								<rate>
+									<ntsc>TRUE</ntsc>
+									<timebase>30</timebase>
+								</rate>
+								<in>0</in>
+								<out>308</out>
+								<start>0</start>
+								<end>308</end>
+								<masterclipid>sample_for_project_audio - 4.wav</masterclipid>
+								<logginginfo>
+									<scene />
+									<shottake />
+									<lognote />
+									<good>FALSE</good>
+								</logginginfo>
+								<labels>
+									<label2 />
+								</labels>
+								<comments>
+									<mastercomment1 />
+									<mastercomment2 />
+									<mastercomment3 />
+									<mastercomment4 />
+								</comments>
+								<file id="sample_for_project_audio - 4">
+									<name>sample_for_project_audio - 4.wav</name>
+									<pathurl>file://localhost/D:/Devs/C++/OpenVegas/SAMPLES/veg_project/premiere_after-effect/sample_for_project_audio - 4.wav</pathurl>
+									<rate>
+										<timebase>30</timebase>
+										<ntsc>TRUE</ntsc>
+									</rate>
+									<duration>308</duration>
+									<timecode>
+										<rate>
+											<timebase>30</timebase>
+											<ntsc>TRUE</ntsc>
+										</rate>
+										<frame>0</frame>
+										<displayformat>DF</displayformat>
+										<source>source</source>
+									</timecode>
+									<media>
+										<audio>
+											<samplecharacteristics>
+												<samplerate>192000</samplerate>
+												<depth>24</depth>
+											</samplecharacteristics>
+											<channelcount>1</channelcount>
+										</audio>
+										<audio>
+											<samplecharacteristics>
+												<samplerate>192000</samplerate>
+												<depth>24</depth>
+											</samplecharacteristics>
+											<channelcount>1</channelcount>
+										</audio>
+									</media>
+								</file>
+								<sourcetrack>
+									<mediatype>audio</mediatype>
+								</sourcetrack>
+							</clipitem>
+							<enabled>TRUE</enabled>
+							<locked>FALSE</locked>
+						</track>
+						<track>
+							<clipitem id="sample_for_project_audio - 4.wav2">
+								<name>sample_for_project_audio - 4.wav</name>
+								<duration>308</duration>
+								<rate>
+									<ntsc>TRUE</ntsc>
+									<timebase>30</timebase>
+								</rate>
+								<in>0</in>
+								<out>308</out>
+								<start>0</start>
+								<end>308</end>
+								<masterclipid>sample_for_project_audio - 4.wav</masterclipid>
+								<logginginfo>
+									<scene />
+									<shottake />
+									<lognote />
+									<good>FALSE</good>
+								</logginginfo>
+								<labels>
+									<label2 />
+								</labels>
+								<comments>
+									<mastercomment1 />
+									<mastercomment2 />
+									<mastercomment3 />
+									<mastercomment4 />
+								</comments>
+								<file id="sample_for_project_audio - 4" />
+								<sourcetrack>
+									<mediatype>audio</mediatype>
+								</sourcetrack>
+							</clipitem>
+							<enabled>TRUE</enabled>
+							<locked>FALSE</locked>
+						</track>
+					</audio>
+				</media>
+				<marker>
+					<name>
+					</name>
+					<in>16</in>
+					<out>-1</out>
+					<color>
+						<alpha>0</alpha>
+						<red>255</red>
+						<green>127</green>
+						<blue>0</blue>
+					</color>
+				</marker>
+				<marker>
+					<name>
+					</name>
+					<in>19</in>
+					<out>-1</out>
+					<color>
+						<alpha>0</alpha>
+						<red>255</red>
+						<green>127</green>
+						<blue>0</blue>
+					</color>
+				</marker>
+				<marker>
+					<name>
+					</name>
+					<in>22</in>
+					<out>-1</out>
+					<color>
+						<alpha>0</alpha>
+						<red>255</red>
+						<green>127</green>
+						<blue>0</blue>
+					</color>
+				</marker>
+				<marker>
+					<name>
+					</name>
+					<in>26</in>
+					<out>-1</out>
+					<color>
+						<alpha>0</alpha>
+						<red>255</red>
+						<green>127</green>
+						<blue>0</blue>
+					</color>
+				</marker>
+				<marker>
+					<name>
+					</name>
+					<in>29</in>
+					<out>-1</out>
+					<color>
+						<alpha>0</alpha>
+						<red>255</red>
+						<green>127</green>
+						<blue>0</blue>
+					</color>
+				</marker>
+				<marker>
+					<name>
+					</name>
+					<in>32</in>
+					<out>-1</out>
+					<color>
+						<alpha>0</alpha>
+						<red>255</red>
+						<green>127</green>
+						<blue>0</blue>
+					</color>
+				</marker>
+				<marker>
+					<name>
+					</name>
+					<in>36</in>
+					<out>-1</out>
+					<color>
+						<alpha>0</alpha>
+						<red>255</red>
+						<green>127</green>
+						<blue>0</blue>
+					</color>
+				</marker>
+				<marker>
+					<name>
+					</name>
+					<in>39</in>
+					<out>-1</out>
+					<color>
+						<alpha>0</alpha>
+						<red>255</red>
+						<green>127</green>
+						<blue>0</blue>
+					</color>
+				</marker>
+				<marker>
+					<name>
+					</name>
+					<in>42</in>
+					<out>-1</out>
+					<color>
+						<alpha>0</alpha>
+						<red>255</red>
+						<green>127</green>
+						<blue>0</blue>
+					</color>
+				</marker>
+				<marker>
+					<name>
+					</name>
+					<in>45</in>
+					<out>-1</out>
+					<color>
+						<alpha>0</alpha>
+						<red>255</red>
+						<green>127</green>
+						<blue>0</blue>
+					</color>
+				</marker>
+				<marker>
+					<name>
+					</name>
+					<in>48</in>
+					<out>-1</out>
+					<color>
+						<alpha>0</alpha>
+						<red>255</red>
+						<green>127</green>
+						<blue>0</blue>
+					</color>
+				</marker>
+				<marker>
+					<name>
+					</name>
+					<in>52</in>
+					<out>-1</out>
+					<color>
+						<alpha>0</alpha>
+						<red>255</red>
+						<green>127</green>
+						<blue>0</blue>
+					</color>
+				</marker>
+				<marker>
+					<name>
+					</name>
+					<in>55</in>
+					<out>-1</out>
+					<color>
+						<alpha>0</alpha>
+						<red>255</red>
+						<green>127</green>
+						<blue>0</blue>
+					</color>
+				</marker>
+				<marker>
+					<name>
+					</name>
+					<in>58</in>
+					<out>-1</out>
+					<color>
+						<alpha>0</alpha>
+						<red>255</red>
+						<green>127</green>
+						<blue>0</blue>
+					</color>
+				</marker>
+				<marker>
+					<name>
+					</name>
+					<in>61</in>
+					<out>-1</out>
+					<color>
+						<alpha>0</alpha>
+						<red>255</red>
+						<green>127</green>
+						<blue>0</blue>
+					</color>
+				</marker>
+				<marker>
+					<name>
+					</name>
+					<in>64</in>
+					<out>-1</out>
+					<color>
+						<alpha>0</alpha>
+						<red>255</red>
+						<green>127</green>
+						<blue>0</blue>
+					</color>
+				</marker>
+				<marker>
+					<name>
+					</name>
+					<in>68</in>
+					<out>-1</out>
+					<color>
+						<alpha>0</alpha>
+						<red>255</red>
+						<green>127</green>
+						<blue>0</blue>
+					</color>
+				</marker>
+				<marker>
+					<name>
+					</name>
+					<in>71</in>
+					<out>-1</out>
+					<color>
+						<alpha>0</alpha>
+						<red>255</red>
+						<green>127</green>
+						<blue>0</blue>
+					</color>
+				</marker>
+				<marker>
+					<name>
+					</name>
+					<in>74</in>
+					<out>-1</out>
+					<color>
+						<alpha>0</alpha>
+						<red>255</red>
+						<green>127</green>
+						<blue>0</blue>
+					</color>
+				</marker>
+				<marker>
+					<name>
+					</name>
+					<in>77</in>
+					<out>-1</out>
+					<color>
+						<alpha>0</alpha>
+						<red>255</red>
+						<green>127</green>
+						<blue>0</blue>
+					</color>
+				</marker>
+				<marker>
+					<name>
+					</name>
+					<in>81</in>
+					<out>-1</out>
+					<color>
+						<alpha>0</alpha>
+						<red>255</red>
+						<green>127</green>
+						<blue>0</blue>
+					</color>
+				</marker>
+				<marker>
+					<name>
+					</name>
+					<in>84</in>
+					<out>-1</out>
+					<color>
+						<alpha>0</alpha>
+						<red>255</red>
+						<green>127</green>
+						<blue>0</blue>
+					</color>
+				</marker>
+				<marker>
+					<name>
+					</name>
+					<in>87</in>
+					<out>-1</out>
+					<color>
+						<alpha>0</alpha>
+						<red>255</red>
+						<green>127</green>
+						<blue>0</blue>
+					</color>
+				</marker>
+				<marker>
+					<name>
+					</name>
+					<in>90</in>
+					<out>-1</out>
+					<color>
+						<alpha>0</alpha>
+						<red>255</red>
+						<green>127</green>
+						<blue>0</blue>
+					</color>
+				</marker>
+				<marker>
+					<name>
+					</name>
+					<in>95</in>
+					<out>-1</out>
+					<color>
+						<alpha>0</alpha>
+						<red>255</red>
+						<green>127</green>
+						<blue>0</blue>
+					</color>
+				</marker>
+				<marker>
+					<name>
+					</name>
+					<in>98</in>
+					<out>-1</out>
+					<color>
+						<alpha>0</alpha>
+						<red>255</red>
+						<green>127</green>
+						<blue>0</blue>
+					</color>
+				</marker>
+				<marker>
+					<name>
+					</name>
+					<in>102</in>
+					<out>-1</out>
+					<color>
+						<alpha>0</alpha>
+						<red>255</red>
+						<green>127</green>
+						<blue>0</blue>
+					</color>
+				</marker>
+				<marker>
+					<name>
+					</name>
+					<in>105</in>
+					<out>-1</out>
+					<color>
+						<alpha>0</alpha>
+						<red>255</red>
+						<green>127</green>
+						<blue>0</blue>
+					</color>
+				</marker>
+				<marker>
+					<name>
+					</name>
+					<in>108</in>
+					<out>-1</out>
+					<color>
+						<alpha>0</alpha>
+						<red>255</red>
+						<green>127</green>
+						<blue>0</blue>
+					</color>
+				</marker>
+				<marker>
+					<name>
+					</name>
+					<in>112</in>
+					<out>-1</out>
+					<color>
+						<alpha>0</alpha>
+						<red>255</red>
+						<green>127</green>
+						<blue>0</blue>
+					</color>
+				</marker>
+				<marker>
+					<name>
+					</name>
+					<in>115</in>
+					<out>-1</out>
+					<color>
+						<alpha>0</alpha>
+						<red>255</red>
+						<green>127</green>
+						<blue>0</blue>
+					</color>
+				</marker>
+				<marker>
+					<name>
+					</name>
+					<in>118</in>
+					<out>-1</out>
+					<color>
+						<alpha>0</alpha>
+						<red>255</red>
+						<green>127</green>
+						<blue>0</blue>
+					</color>
+				</marker>
+				<marker>
+					<name>
+					</name>
+					<in>121</in>
+					<out>-1</out>
+					<color>
+						<alpha>0</alpha>
+						<red>255</red>
+						<green>127</green>
+						<blue>0</blue>
+					</color>
+				</marker>
+				<marker>
+					<name>
+					</name>
+					<in>124</in>
+					<out>-1</out>
+					<color>
+						<alpha>0</alpha>
+						<red>255</red>
+						<green>127</green>
+						<blue>0</blue>
+					</color>
+				</marker>
+				<marker>
+					<name>
+					</name>
+					<in>128</in>
+					<out>-1</out>
+					<color>
+						<alpha>0</alpha>
+						<red>255</red>
+						<green>127</green>
+						<blue>0</blue>
+					</color>
+				</marker>
+				<marker>
+					<name>
+					</name>
+					<in>131</in>
+					<out>-1</out>
+					<color>
+						<alpha>0</alpha>
+						<red>255</red>
+						<green>127</green>
+						<blue>0</blue>
+					</color>
+				</marker>
+				<marker>
+					<name>
+					</name>
+					<in>140</in>
+					<out>-1</out>
+					<color>
+						<alpha>0</alpha>
+						<red>255</red>
+						<green>127</green>
+						<blue>0</blue>
+					</color>
+				</marker>
+				<marker>
+					<name>
+					</name>
+					<in>144</in>
+					<out>-1</out>
+					<color>
+						<alpha>0</alpha>
+						<red>255</red>
+						<green>127</green>
+						<blue>0</blue>
+					</color>
+				</marker>
+				<marker>
+					<name>
+					</name>
+					<in>148</in>
+					<out>-1</out>
+					<color>
+						<alpha>0</alpha>
+						<red>255</red>
+						<green>127</green>
+						<blue>0</blue>
+					</color>
+				</marker>
+				<marker>
+					<name>
+					</name>
+					<in>152</in>
+					<out>-1</out>
+					<color>
+						<alpha>0</alpha>
+						<red>255</red>
+						<green>127</green>
+						<blue>0</blue>
+					</color>
+				</marker>
+				<marker>
+					<name>
+					</name>
+					<in>155</in>
+					<out>-1</out>
+					<color>
+						<alpha>0</alpha>
+						<red>255</red>
+						<green>127</green>
+						<blue>0</blue>
+					</color>
+				</marker>
+				<marker>
+					<name>
+					</name>
+					<in>159</in>
+					<out>-1</out>
+					<color>
+						<alpha>0</alpha>
+						<red>255</red>
+						<green>127</green>
+						<blue>0</blue>
+					</color>
+				</marker>
+				<marker>
+					<name>
+					</name>
+					<in>162</in>
+					<out>-1</out>
+					<color>
+						<alpha>0</alpha>
+						<red>255</red>
+						<green>127</green>
+						<blue>0</blue>
+					</color>
+				</marker>
+				<marker>
+					<name>
+					</name>
+					<in>165</in>
+					<out>-1</out>
+					<color>
+						<alpha>0</alpha>
+						<red>255</red>
+						<green>127</green>
+						<blue>0</blue>
+					</color>
+				</marker>
+				<marker>
+					<name>
+					</name>
+					<in>169</in>
+					<out>-1</out>
+					<color>
+						<alpha>0</alpha>
+						<red>255</red>
+						<green>127</green>
+						<blue>0</blue>
+					</color>
+				</marker>
+				<marker>
+					<name>
+					</name>
+					<in>172</in>
+					<out>-1</out>
+					<color>
+						<alpha>0</alpha>
+						<red>255</red>
+						<green>127</green>
+						<blue>0</blue>
+					</color>
+				</marker>
+				<marker>
+					<name>
+					</name>
+					<in>175</in>
+					<out>-1</out>
+					<color>
+						<alpha>0</alpha>
+						<red>255</red>
+						<green>127</green>
+						<blue>0</blue>
+					</color>
+				</marker>
+				<marker>
+					<name>
+					</name>
+					<in>178</in>
+					<out>-1</out>
+					<color>
+						<alpha>0</alpha>
+						<red>255</red>
+						<green>127</green>
+						<blue>0</blue>
+					</color>
+				</marker>
+				<marker>
+					<name>
+					</name>
+					<in>181</in>
+					<out>-1</out>
+					<color>
+						<alpha>0</alpha>
+						<red>255</red>
+						<green>127</green>
+						<blue>0</blue>
+					</color>
+				</marker>
+				<marker>
+					<name>
+					</name>
+					<in>185</in>
+					<out>-1</out>
+					<color>
+						<alpha>0</alpha>
+						<red>255</red>
+						<green>127</green>
+						<blue>0</blue>
+					</color>
+				</marker>
+				<marker>
+					<name>
+					</name>
+					<in>188</in>
+					<out>-1</out>
+					<color>
+						<alpha>0</alpha>
+						<red>255</red>
+						<green>127</green>
+						<blue>0</blue>
+					</color>
+				</marker>
+				<marker>
+					<name>
+					</name>
+					<in>191</in>
+					<out>-1</out>
+					<color>
+						<alpha>0</alpha>
+						<red>255</red>
+						<green>127</green>
+						<blue>0</blue>
+					</color>
+				</marker>
+				<marker>
+					<name>
+					</name>
+					<in>194</in>
+					<out>-1</out>
+					<color>
+						<alpha>0</alpha>
+						<red>255</red>
+						<green>127</green>
+						<blue>0</blue>
+					</color>
+				</marker>
+				<marker>
+					<name>
+					</name>
+					<in>197</in>
+					<out>-1</out>
+					<color>
+						<alpha>0</alpha>
+						<red>255</red>
+						<green>127</green>
+						<blue>0</blue>
+					</color>
+				</marker>
+				<marker>
+					<name>
+					</name>
+					<in>201</in>
+					<out>-1</out>
+					<color>
+						<alpha>0</alpha>
+						<red>255</red>
+						<green>127</green>
+						<blue>0</blue>
+					</color>
+				</marker>
+				<marker>
+					<name>
+					</name>
+					<in>204</in>
+					<out>-1</out>
+					<color>
+						<alpha>0</alpha>
+						<red>255</red>
+						<green>127</green>
+						<blue>0</blue>
+					</color>
+				</marker>
+				<marker>
+					<name>
+					</name>
+					<in>207</in>
+					<out>-1</out>
+					<color>
+						<alpha>0</alpha>
+						<red>255</red>
+						<green>127</green>
+						<blue>0</blue>
+					</color>
+				</marker>
+				<marker>
+					<name>
+					</name>
+					<in>210</in>
+					<out>-1</out>
+					<color>
+						<alpha>0</alpha>
+						<red>255</red>
+						<green>127</green>
+						<blue>0</blue>
+					</color>
+				</marker>
+				<marker>
+					<name>
+					</name>
+					<in>215</in>
+					<out>-1</out>
+					<color>
+						<alpha>0</alpha>
+						<red>255</red>
+						<green>127</green>
+						<blue>0</blue>
+					</color>
+				</marker>
+				<marker>
+					<name>
+					</name>
+					<in>219</in>
+					<out>-1</out>
+					<color>
+						<alpha>0</alpha>
+						<red>255</red>
+						<green>127</green>
+						<blue>0</blue>
+					</color>
+				</marker>
+			</clip>
+			<clip id="big-buck-bunny_video-60fps-4k.mp4 - subclip 1 (reversed)">
+				<updatebehavior>add</updatebehavior>
+				<name>big-buck-bunny_video-60fps-4k.mp4 - subclip 1 (reversed)</name>
+				<duration>19017</duration>
+				<rate>
+					<ntsc>FALSE</ntsc>
+					<timebase>60</timebase>
+				</rate>
+				<in>-1</in>
+				<out>-1</out>
+				<masterclipid>big-buck-bunny_video-60fps-4k.mp4 - subclip 1 (reversed)</masterclipid>
+				<subclipmasterid>big-buck-bunny_video-60fps-4k - 17.mp4</subclipmasterid>
+				<ismasterclip>TRUE</ismasterclip>
+				<logginginfo>
+					<scene />
+					<shottake />
+					<lognote />
+					<good>FALSE</good>
+				</logginginfo>
+				<labels>
+					<label2 />
+				</labels>
+				<comments>
+					<mastercomment1 />
+					<mastercomment2 />
+					<mastercomment3 />
+					<mastercomment4 />
+				</comments>
+				<media>
+					<video>
+						<track>
+							<clipitem id="big-buck-bunny_video-60fps-4k.mp4 - subclip 1 (reversed)1">
+								<name>big-buck-bunny_video-60fps-4k.mp4 - subclip 1 (reversed)</name>
+								<duration>19017</duration>
+								<rate>
+									<ntsc>FALSE</ntsc>
+									<timebase>60</timebase>
+								</rate>
+								<in>0</in>
+								<out>19017</out>
+								<start>0</start>
+								<end>19017</end>
+								<subclipinfo />
+								<pixelaspectratio>Square</pixelaspectratio>
+								<anamorphic>FALSE</anamorphic>
+								<alphatype>none</alphatype>
+								<masterclipid>big-buck-bunny_video-60fps-4k.mp4 - subclip 1 (reversed)</masterclipid>
+								<subclipmasterid>big-buck-bunny_video-60fps-4k - 17.mp4</subclipmasterid>
+								<logginginfo>
+									<scene />
+									<shottake />
+									<lognote />
+									<good>FALSE</good>
+								</logginginfo>
+								<labels>
+									<label2 />
+								</labels>
+								<comments>
+									<mastercomment1 />
+									<mastercomment2 />
+									<mastercomment3 />
+									<mastercomment4 />
+								</comments>
+								<file id="big-buck-bunny_video-60fps-4k - 17" />
+								<sourcetrack>
+									<mediatype>video</mediatype>
+								</sourcetrack>
+								<fielddominance>none</fielddominance>
+							</clipitem>
+							<enabled>TRUE</enabled>
+							<locked>FALSE</locked>
+						</track>
+					</video>
+					<audio>
+						<track>
+							<clipitem id="big-buck-bunny_video-60fps-4k.mp4 - subclip 1 (reversed)2">
+								<name>big-buck-bunny_video-60fps-4k.mp4 - subclip 1 (reversed)</name>
+								<duration>19017</duration>
+								<rate>
+									<ntsc>TRUE</ntsc>
+									<timebase>30</timebase>
+								</rate>
+								<in>0</in>
+								<out>19017</out>
+								<start>0</start>
+								<end>19017</end>
+								<subclipinfo />
+								<masterclipid>big-buck-bunny_video-60fps-4k.mp4 - subclip 1 (reversed)</masterclipid>
+								<subclipmasterid>big-buck-bunny_video-60fps-4k - 17.mp4</subclipmasterid>
+								<logginginfo>
+									<scene />
+									<shottake />
+									<lognote />
+									<good>FALSE</good>
+								</logginginfo>
+								<labels>
+									<label2 />
+								</labels>
+								<comments>
+									<mastercomment1 />
+									<mastercomment2 />
+									<mastercomment3 />
+									<mastercomment4 />
+								</comments>
+								<file id="big-buck-bunny_video-60fps-4k - 17" />
+								<sourcetrack>
+									<mediatype>audio</mediatype>
+								</sourcetrack>
+							</clipitem>
+							<enabled>TRUE</enabled>
+							<locked>FALSE</locked>
+						</track>
+						<track>
+							<clipitem id="big-buck-bunny_video-60fps-4k.mp4 - subclip 1 (reversed)3">
+								<name>big-buck-bunny_video-60fps-4k.mp4 - subclip 1 (reversed)</name>
+								<duration>19017</duration>
+								<rate>
+									<ntsc>TRUE</ntsc>
+									<timebase>30</timebase>
+								</rate>
+								<in>0</in>
+								<out>19017</out>
+								<start>0</start>
+								<end>19017</end>
+								<subclipinfo />
+								<masterclipid>big-buck-bunny_video-60fps-4k.mp4 - subclip 1 (reversed)</masterclipid>
+								<subclipmasterid>big-buck-bunny_video-60fps-4k - 17.mp4</subclipmasterid>
+								<logginginfo>
+									<scene />
+									<shottake />
+									<lognote />
+									<good>FALSE</good>
+								</logginginfo>
+								<labels>
+									<label2 />
+								</labels>
+								<comments>
+									<mastercomment1 />
+									<mastercomment2 />
+									<mastercomment3 />
+									<mastercomment4 />
+								</comments>
+								<file id="big-buck-bunny_video-60fps-4k - 17" />
+								<sourcetrack>
+									<mediatype>audio</mediatype>
+								</sourcetrack>
+							</clipitem>
+							<enabled>TRUE</enabled>
+							<locked>FALSE</locked>
+						</track>
+						<track>
+							<clipitem id="big-buck-bunny_video-60fps-4k.mp4 - subclip 1 (reversed)4">
+								<name>big-buck-bunny_video-60fps-4k.mp4 - subclip 1 (reversed)</name>
+								<duration>19017</duration>
+								<rate>
+									<ntsc>TRUE</ntsc>
+									<timebase>30</timebase>
+								</rate>
+								<in>0</in>
+								<out>19017</out>
+								<start>0</start>
+								<end>19017</end>
+								<subclipinfo />
+								<masterclipid>big-buck-bunny_video-60fps-4k.mp4 - subclip 1 (reversed)</masterclipid>
+								<subclipmasterid>big-buck-bunny_video-60fps-4k - 17.mp4</subclipmasterid>
+								<logginginfo>
+									<scene />
+									<shottake />
+									<lognote />
+									<good>FALSE</good>
+								</logginginfo>
+								<labels>
+									<label2 />
+								</labels>
+								<comments>
+									<mastercomment1 />
+									<mastercomment2 />
+									<mastercomment3 />
+									<mastercomment4 />
+								</comments>
+								<file id="big-buck-bunny_video-60fps-4k - 17" />
+								<sourcetrack>
+									<mediatype>audio</mediatype>
+								</sourcetrack>
+							</clipitem>
+							<enabled>TRUE</enabled>
+							<locked>FALSE</locked>
+						</track>
+						<track>
+							<clipitem id="big-buck-bunny_video-60fps-4k.mp4 - subclip 1 (reversed)5">
+								<name>big-buck-bunny_video-60fps-4k.mp4 - subclip 1 (reversed)</name>
+								<duration>19017</duration>
+								<rate>
+									<ntsc>TRUE</ntsc>
+									<timebase>30</timebase>
+								</rate>
+								<in>0</in>
+								<out>19017</out>
+								<start>0</start>
+								<end>19017</end>
+								<subclipinfo />
+								<masterclipid>big-buck-bunny_video-60fps-4k.mp4 - subclip 1 (reversed)</masterclipid>
+								<subclipmasterid>big-buck-bunny_video-60fps-4k - 17.mp4</subclipmasterid>
+								<logginginfo>
+									<scene />
+									<shottake />
+									<lognote />
+									<good>FALSE</good>
+								</logginginfo>
+								<labels>
+									<label2 />
+								</labels>
+								<comments>
+									<mastercomment1 />
+									<mastercomment2 />
+									<mastercomment3 />
+									<mastercomment4 />
+								</comments>
+								<file id="big-buck-bunny_video-60fps-4k - 17" />
+								<sourcetrack>
+									<mediatype>audio</mediatype>
+								</sourcetrack>
+							</clipitem>
+							<enabled>TRUE</enabled>
+							<locked>FALSE</locked>
+						</track>
+						<track>
+							<clipitem id="big-buck-bunny_video-60fps-4k.mp4 - subclip 1 (reversed)6">
+								<name>big-buck-bunny_video-60fps-4k.mp4 - subclip 1 (reversed)</name>
+								<duration>19017</duration>
+								<rate>
+									<ntsc>TRUE</ntsc>
+									<timebase>30</timebase>
+								</rate>
+								<in>0</in>
+								<out>19017</out>
+								<start>0</start>
+								<end>19017</end>
+								<subclipinfo />
+								<masterclipid>big-buck-bunny_video-60fps-4k.mp4 - subclip 1 (reversed)</masterclipid>
+								<subclipmasterid>big-buck-bunny_video-60fps-4k - 17.mp4</subclipmasterid>
+								<logginginfo>
+									<scene />
+									<shottake />
+									<lognote />
+									<good>FALSE</good>
+								</logginginfo>
+								<labels>
+									<label2 />
+								</labels>
+								<comments>
+									<mastercomment1 />
+									<mastercomment2 />
+									<mastercomment3 />
+									<mastercomment4 />
+								</comments>
+								<file id="big-buck-bunny_video-60fps-4k - 17" />
+								<sourcetrack>
+									<mediatype>audio</mediatype>
+								</sourcetrack>
+							</clipitem>
+							<enabled>TRUE</enabled>
+							<locked>FALSE</locked>
+						</track>
+						<track>
+							<clipitem id="big-buck-bunny_video-60fps-4k.mp4 - subclip 1 (reversed)7">
+								<name>big-buck-bunny_video-60fps-4k.mp4 - subclip 1 (reversed)</name>
+								<duration>19017</duration>
+								<rate>
+									<ntsc>TRUE</ntsc>
+									<timebase>30</timebase>
+								</rate>
+								<in>0</in>
+								<out>19017</out>
+								<start>0</start>
+								<end>19017</end>
+								<subclipinfo />
+								<masterclipid>big-buck-bunny_video-60fps-4k.mp4 - subclip 1 (reversed)</masterclipid>
+								<subclipmasterid>big-buck-bunny_video-60fps-4k - 17.mp4</subclipmasterid>
+								<logginginfo>
+									<scene />
+									<shottake />
+									<lognote />
+									<good>FALSE</good>
+								</logginginfo>
+								<labels>
+									<label2 />
+								</labels>
+								<comments>
+									<mastercomment1 />
+									<mastercomment2 />
+									<mastercomment3 />
+									<mastercomment4 />
+								</comments>
+								<file id="big-buck-bunny_video-60fps-4k - 17" />
+								<sourcetrack>
+									<mediatype>audio</mediatype>
+								</sourcetrack>
+							</clipitem>
+							<enabled>TRUE</enabled>
+							<locked>FALSE</locked>
+						</track>
+					</audio>
+				</media>
+			</clip>
+			<clip id="sample_for_project_audio.wav - subclip 1 (reversed)">
+				<updatebehavior>add</updatebehavior>
+				<name>sample_for_project_audio.wav - subclip 1 (reversed)</name>
+				<duration>308</duration>
+				<rate>
+					<ntsc>TRUE</ntsc>
+					<timebase>30</timebase>
+				</rate>
+				<in>-1</in>
+				<out>-1</out>
+				<masterclipid>sample_for_project_audio.wav - subclip 1 (reversed)</masterclipid>
+				<subclipmasterid>sample_for_project_audio - 4.wav</subclipmasterid>
+				<ismasterclip>TRUE</ismasterclip>
+				<logginginfo>
+					<scene />
+					<shottake />
+					<lognote />
+					<good>FALSE</good>
+				</logginginfo>
+				<labels>
+					<label2 />
+				</labels>
+				<comments>
+					<mastercomment1 />
+					<mastercomment2 />
+					<mastercomment3 />
+					<mastercomment4 />
+				</comments>
+				<media>
+					<video />
+					<audio>
+						<track>
+							<clipitem id="sample_for_project_audio.wav - subclip 1 (reversed)1">
+								<name>sample_for_project_audio.wav - subclip 1 (reversed)</name>
+								<duration>308</duration>
+								<rate>
+									<ntsc>TRUE</ntsc>
+									<timebase>30</timebase>
+								</rate>
+								<in>0</in>
+								<out>308</out>
+								<start>0</start>
+								<end>308</end>
+								<subclipinfo />
+								<masterclipid>sample_for_project_audio.wav - subclip 1 (reversed)</masterclipid>
+								<subclipmasterid>sample_for_project_audio - 4.wav</subclipmasterid>
+								<logginginfo>
+									<scene />
+									<shottake />
+									<lognote />
+									<good>FALSE</good>
+								</logginginfo>
+								<labels>
+									<label2 />
+								</labels>
+								<comments>
+									<mastercomment1 />
+									<mastercomment2 />
+									<mastercomment3 />
+									<mastercomment4 />
+								</comments>
+								<file id="sample_for_project_audio - 4" />
+								<sourcetrack>
+									<mediatype>audio</mediatype>
+								</sourcetrack>
+							</clipitem>
+							<enabled>TRUE</enabled>
+							<locked>FALSE</locked>
+						</track>
+						<track>
+							<clipitem id="sample_for_project_audio.wav - subclip 1 (reversed)2">
+								<name>sample_for_project_audio.wav - subclip 1 (reversed)</name>
+								<duration>308</duration>
+								<rate>
+									<ntsc>TRUE</ntsc>
+									<timebase>30</timebase>
+								</rate>
+								<in>0</in>
+								<out>308</out>
+								<start>0</start>
+								<end>308</end>
+								<subclipinfo />
+								<masterclipid>sample_for_project_audio.wav - subclip 1 (reversed)</masterclipid>
+								<subclipmasterid>sample_for_project_audio - 4.wav</subclipmasterid>
+								<logginginfo>
+									<scene />
+									<shottake />
+									<lognote />
+									<good>FALSE</good>
+								</logginginfo>
+								<labels>
+									<label2 />
+								</labels>
+								<comments>
+									<mastercomment1 />
+									<mastercomment2 />
+									<mastercomment3 />
+									<mastercomment4 />
+								</comments>
+								<file id="sample_for_project_audio - 4" />
+								<sourcetrack>
+									<mediatype>audio</mediatype>
+								</sourcetrack>
+							</clipitem>
+							<enabled>TRUE</enabled>
+							<locked>FALSE</locked>
+						</track>
+					</audio>
+				</media>
+				<marker>
+					<name>
+					</name>
+					<in>89</in>
+					<out>-1</out>
+					<color>
+						<alpha>0</alpha>
+						<red>255</red>
+						<green>127</green>
+						<blue>0</blue>
+					</color>
+				</marker>
+				<marker>
+					<name>
+					</name>
+					<in>92</in>
+					<out>-1</out>
+					<color>
+						<alpha>0</alpha>
+						<red>255</red>
+						<green>127</green>
+						<blue>0</blue>
+					</color>
+				</marker>
+				<marker>
+					<name>
+					</name>
+					<in>97</in>
+					<out>-1</out>
+					<color>
+						<alpha>0</alpha>
+						<red>255</red>
+						<green>127</green>
+						<blue>0</blue>
+					</color>
+				</marker>
+				<marker>
+					<name>
+					</name>
+					<in>100</in>
+					<out>-1</out>
+					<color>
+						<alpha>0</alpha>
+						<red>255</red>
+						<green>127</green>
+						<blue>0</blue>
+					</color>
+				</marker>
+				<marker>
+					<name>
+					</name>
+					<in>104</in>
+					<out>-1</out>
+					<color>
+						<alpha>0</alpha>
+						<red>255</red>
+						<green>127</green>
+						<blue>0</blue>
+					</color>
+				</marker>
+				<marker>
+					<name>
+					</name>
+					<in>107</in>
+					<out>-1</out>
+					<color>
+						<alpha>0</alpha>
+						<red>255</red>
+						<green>127</green>
+						<blue>0</blue>
+					</color>
+				</marker>
+				<marker>
+					<name>
+					</name>
+					<in>110</in>
+					<out>-1</out>
+					<color>
+						<alpha>0</alpha>
+						<red>255</red>
+						<green>127</green>
+						<blue>0</blue>
+					</color>
+				</marker>
+				<marker>
+					<name>
+					</name>
+					<in>114</in>
+					<out>-1</out>
+					<color>
+						<alpha>0</alpha>
+						<red>255</red>
+						<green>127</green>
+						<blue>0</blue>
+					</color>
+				</marker>
+				<marker>
+					<name>
+					</name>
+					<in>117</in>
+					<out>-1</out>
+					<color>
+						<alpha>0</alpha>
+						<red>255</red>
+						<green>127</green>
+						<blue>0</blue>
+					</color>
+				</marker>
+				<marker>
+					<name>
+					</name>
+					<in>120</in>
+					<out>-1</out>
+					<color>
+						<alpha>0</alpha>
+						<red>255</red>
+						<green>127</green>
+						<blue>0</blue>
+					</color>
+				</marker>
+				<marker>
+					<name>
+					</name>
+					<in>122</in>
+					<out>-1</out>
+					<color>
+						<alpha>0</alpha>
+						<red>255</red>
+						<green>127</green>
+						<blue>0</blue>
+					</color>
+				</marker>
+				<marker>
+					<name>
+					</name>
+					<in>127</in>
+					<out>-1</out>
+					<color>
+						<alpha>0</alpha>
+						<red>255</red>
+						<green>127</green>
+						<blue>0</blue>
+					</color>
+				</marker>
+				<marker>
+					<name>
+					</name>
+					<in>130</in>
+					<out>-1</out>
+					<color>
+						<alpha>0</alpha>
+						<red>255</red>
+						<green>127</green>
+						<blue>0</blue>
+					</color>
+				</marker>
+				<marker>
+					<name>
+					</name>
+					<in>132</in>
+					<out>-1</out>
+					<color>
+						<alpha>0</alpha>
+						<red>255</red>
+						<green>127</green>
+						<blue>0</blue>
+					</color>
+				</marker>
+				<marker>
+					<name>
+					</name>
+					<in>135</in>
+					<out>-1</out>
+					<color>
+						<alpha>0</alpha>
+						<red>255</red>
+						<green>127</green>
+						<blue>0</blue>
+					</color>
+				</marker>
+				<marker>
+					<name>
+					</name>
+					<in>139</in>
+					<out>-1</out>
+					<color>
+						<alpha>0</alpha>
+						<red>255</red>
+						<green>127</green>
+						<blue>0</blue>
+					</color>
+				</marker>
+				<marker>
+					<name>
+					</name>
+					<in>142</in>
+					<out>-1</out>
+					<color>
+						<alpha>0</alpha>
+						<red>255</red>
+						<green>127</green>
+						<blue>0</blue>
+					</color>
+				</marker>
+				<marker>
+					<name>
+					</name>
+					<in>145</in>
+					<out>-1</out>
+					<color>
+						<alpha>0</alpha>
+						<red>255</red>
+						<green>127</green>
+						<blue>0</blue>
+					</color>
+				</marker>
+				<marker>
+					<name>
+					</name>
+					<in>149</in>
+					<out>-1</out>
+					<color>
+						<alpha>0</alpha>
+						<red>255</red>
+						<green>127</green>
+						<blue>0</blue>
+					</color>
+				</marker>
+				<marker>
+					<name>
+					</name>
+					<in>152</in>
+					<out>-1</out>
+					<color>
+						<alpha>0</alpha>
+						<red>255</red>
+						<green>127</green>
+						<blue>0</blue>
+					</color>
+				</marker>
+				<marker>
+					<name>
+					</name>
+					<in>155</in>
+					<out>-1</out>
+					<color>
+						<alpha>0</alpha>
+						<red>255</red>
+						<green>127</green>
+						<blue>0</blue>
+					</color>
+				</marker>
+				<marker>
+					<name>
+					</name>
+					<in>160</in>
+					<out>-1</out>
+					<color>
+						<alpha>0</alpha>
+						<red>255</red>
+						<green>127</green>
+						<blue>0</blue>
+					</color>
+				</marker>
+				<marker>
+					<name>
+					</name>
+					<in>164</in>
+					<out>-1</out>
+					<color>
+						<alpha>0</alpha>
+						<red>255</red>
+						<green>127</green>
+						<blue>0</blue>
+					</color>
+				</marker>
+				<marker>
+					<name>
+					</name>
+					<in>167</in>
+					<out>-1</out>
+					<color>
+						<alpha>0</alpha>
+						<red>255</red>
+						<green>127</green>
+						<blue>0</blue>
+					</color>
+				</marker>
+				<marker>
+					<name>
+					</name>
+					<in>177</in>
+					<out>-1</out>
+					<color>
+						<alpha>0</alpha>
+						<red>255</red>
+						<green>127</green>
+						<blue>0</blue>
+					</color>
+				</marker>
+				<marker>
+					<name>
+					</name>
+					<in>180</in>
+					<out>-1</out>
+					<color>
+						<alpha>0</alpha>
+						<red>255</red>
+						<green>127</green>
+						<blue>0</blue>
+					</color>
+				</marker>
+				<marker>
+					<name>
+					</name>
+					<in>184</in>
+					<out>-1</out>
+					<color>
+						<alpha>0</alpha>
+						<red>255</red>
+						<green>127</green>
+						<blue>0</blue>
+					</color>
+				</marker>
+				<marker>
+					<name>
+					</name>
+					<in>187</in>
+					<out>-1</out>
+					<color>
+						<alpha>0</alpha>
+						<red>255</red>
+						<green>127</green>
+						<blue>0</blue>
+					</color>
+				</marker>
+				<marker>
+					<name>
+					</name>
+					<in>190</in>
+					<out>-1</out>
+					<color>
+						<alpha>0</alpha>
+						<red>255</red>
+						<green>127</green>
+						<blue>0</blue>
+					</color>
+				</marker>
+				<marker>
+					<name>
+					</name>
+					<in>192</in>
+					<out>-1</out>
+					<color>
+						<alpha>0</alpha>
+						<red>255</red>
+						<green>127</green>
+						<blue>0</blue>
+					</color>
+				</marker>
+				<marker>
+					<name>
+					</name>
+					<in>195</in>
+					<out>-1</out>
+					<color>
+						<alpha>0</alpha>
+						<red>255</red>
+						<green>127</green>
+						<blue>0</blue>
+					</color>
+				</marker>
+				<marker>
+					<name>
+					</name>
+					<in>200</in>
+					<out>-1</out>
+					<color>
+						<alpha>0</alpha>
+						<red>255</red>
+						<green>127</green>
+						<blue>0</blue>
+					</color>
+				</marker>
+				<marker>
+					<name>
+					</name>
+					<in>202</in>
+					<out>-1</out>
+					<color>
+						<alpha>0</alpha>
+						<red>255</red>
+						<green>127</green>
+						<blue>0</blue>
+					</color>
+				</marker>
+				<marker>
+					<name>
+					</name>
+					<in>205</in>
+					<out>-1</out>
+					<color>
+						<alpha>0</alpha>
+						<red>255</red>
+						<green>127</green>
+						<blue>0</blue>
+					</color>
+				</marker>
+				<marker>
+					<name>
+					</name>
+					<in>210</in>
+					<out>-1</out>
+					<color>
+						<alpha>0</alpha>
+						<red>255</red>
+						<green>127</green>
+						<blue>0</blue>
+					</color>
+				</marker>
+				<marker>
+					<name>
+					</name>
+					<in>212</in>
+					<out>-1</out>
+					<color>
+						<alpha>0</alpha>
+						<red>255</red>
+						<green>127</green>
+						<blue>0</blue>
+					</color>
+				</marker>
+				<marker>
+					<name>
+					</name>
+					<in>217</in>
+					<out>-1</out>
+					<color>
+						<alpha>0</alpha>
+						<red>255</red>
+						<green>127</green>
+						<blue>0</blue>
+					</color>
+				</marker>
+				<marker>
+					<name>
+					</name>
+					<in>220</in>
+					<out>-1</out>
+					<color>
+						<alpha>0</alpha>
+						<red>255</red>
+						<green>127</green>
+						<blue>0</blue>
+					</color>
+				</marker>
+				<marker>
+					<name>
+					</name>
+					<in>224</in>
+					<out>-1</out>
+					<color>
+						<alpha>0</alpha>
+						<red>255</red>
+						<green>127</green>
+						<blue>0</blue>
+					</color>
+				</marker>
+				<marker>
+					<name>
+					</name>
+					<in>227</in>
+					<out>-1</out>
+					<color>
+						<alpha>0</alpha>
+						<red>255</red>
+						<green>127</green>
+						<blue>0</blue>
+					</color>
+				</marker>
+				<marker>
+					<name>
+					</name>
+					<in>230</in>
+					<out>-1</out>
+					<color>
+						<alpha>0</alpha>
+						<red>255</red>
+						<green>127</green>
+						<blue>0</blue>
+					</color>
+				</marker>
+				<marker>
+					<name>
+					</name>
+					<in>234</in>
+					<out>-1</out>
+					<color>
+						<alpha>0</alpha>
+						<red>255</red>
+						<green>127</green>
+						<blue>0</blue>
+					</color>
+				</marker>
+				<marker>
+					<name>
+					</name>
+					<in>237</in>
+					<out>-1</out>
+					<color>
+						<alpha>0</alpha>
+						<red>255</red>
+						<green>127</green>
+						<blue>0</blue>
+					</color>
+				</marker>
+				<marker>
+					<name>
+					</name>
+					<in>240</in>
+					<out>-1</out>
+					<color>
+						<alpha>0</alpha>
+						<red>255</red>
+						<green>127</green>
+						<blue>0</blue>
+					</color>
+				</marker>
+				<marker>
+					<name>
+					</name>
+					<in>244</in>
+					<out>-1</out>
+					<color>
+						<alpha>0</alpha>
+						<red>255</red>
+						<green>127</green>
+						<blue>0</blue>
+					</color>
+				</marker>
+				<marker>
+					<name>
+					</name>
+					<in>247</in>
+					<out>-1</out>
+					<color>
+						<alpha>0</alpha>
+						<red>255</red>
+						<green>127</green>
+						<blue>0</blue>
+					</color>
+				</marker>
+				<marker>
+					<name>
+					</name>
+					<in>250</in>
+					<out>-1</out>
+					<color>
+						<alpha>0</alpha>
+						<red>255</red>
+						<green>127</green>
+						<blue>0</blue>
+					</color>
+				</marker>
+				<marker>
+					<name>
+					</name>
+					<in>252</in>
+					<out>-1</out>
+					<color>
+						<alpha>0</alpha>
+						<red>255</red>
+						<green>127</green>
+						<blue>0</blue>
+					</color>
+				</marker>
+				<marker>
+					<name>
+					</name>
+					<in>255</in>
+					<out>-1</out>
+					<color>
+						<alpha>0</alpha>
+						<red>255</red>
+						<green>127</green>
+						<blue>0</blue>
+					</color>
+				</marker>
+				<marker>
+					<name>
+					</name>
+					<in>260</in>
+					<out>-1</out>
+					<color>
+						<alpha>0</alpha>
+						<red>255</red>
+						<green>127</green>
+						<blue>0</blue>
+					</color>
+				</marker>
+				<marker>
+					<name>
+					</name>
+					<in>262</in>
+					<out>-1</out>
+					<color>
+						<alpha>0</alpha>
+						<red>255</red>
+						<green>127</green>
+						<blue>0</blue>
+					</color>
+				</marker>
+				<marker>
+					<name>
+					</name>
+					<in>265</in>
+					<out>-1</out>
+					<color>
+						<alpha>0</alpha>
+						<red>255</red>
+						<green>127</green>
+						<blue>0</blue>
+					</color>
+				</marker>
+				<marker>
+					<name>
+					</name>
+					<in>269</in>
+					<out>-1</out>
+					<color>
+						<alpha>0</alpha>
+						<red>255</red>
+						<green>127</green>
+						<blue>0</blue>
+					</color>
+				</marker>
+				<marker>
+					<name>
+					</name>
+					<in>272</in>
+					<out>-1</out>
+					<color>
+						<alpha>0</alpha>
+						<red>255</red>
+						<green>127</green>
+						<blue>0</blue>
+					</color>
+				</marker>
+				<marker>
+					<name>
+					</name>
+					<in>275</in>
+					<out>-1</out>
+					<color>
+						<alpha>0</alpha>
+						<red>255</red>
+						<green>127</green>
+						<blue>0</blue>
+					</color>
+				</marker>
+				<marker>
+					<name>
+					</name>
+					<in>279</in>
+					<out>-1</out>
+					<color>
+						<alpha>0</alpha>
+						<red>255</red>
+						<green>127</green>
+						<blue>0</blue>
+					</color>
+				</marker>
+				<marker>
+					<name>
+					</name>
+					<in>282</in>
+					<out>-1</out>
+					<color>
+						<alpha>0</alpha>
+						<red>255</red>
+						<green>127</green>
+						<blue>0</blue>
+					</color>
+				</marker>
+				<marker>
+					<name>
+					</name>
+					<in>285</in>
+					<out>-1</out>
+					<color>
+						<alpha>0</alpha>
+						<red>255</red>
+						<green>127</green>
+						<blue>0</blue>
+					</color>
+				</marker>
+				<marker>
+					<name>
+					</name>
+					<in>289</in>
+					<out>-1</out>
+					<color>
+						<alpha>0</alpha>
+						<red>255</red>
+						<green>127</green>
+						<blue>0</blue>
+					</color>
+				</marker>
+				<marker>
+					<name>
+					</name>
+					<in>292</in>
+					<out>-1</out>
+					<color>
+						<alpha>0</alpha>
+						<red>255</red>
+						<green>127</green>
+						<blue>0</blue>
+					</color>
+				</marker>
+			</clip>
+			<sequence id="Sequence 1">
+				<updatebehavior>add</updatebehavior>
+				<name>Sequence 1</name>
+				<duration>7640</duration>
+				<rate>
+					<ntsc>TRUE</ntsc>
+					<timebase>30</timebase>
+				</rate>
+				<timecode>
+					<rate>
+						<ntsc>TRUE</ntsc>
+						<timebase>30</timebase>
+					</rate>
+					<frame>107892</frame>
+					<source>source</source>
+					<displayformat>DF</displayformat>
+				</timecode>
+				<in>-1</in>
+				<out>-1</out>
+				<media>
+					<video>
+						<format>
+							<samplecharacteristics>
+								<width>640</width>
+								<height>480</height>
+								<pixelaspectratio>Square</pixelaspectratio>
+								<anamorphic>FALSE</anamorphic>
+								<fielddominance>none</fielddominance>
+								<rate>
+									<ntsc>TRUE</ntsc>
+									<timebase>30</timebase>
+								</rate>
+								<colordepth>24</colordepth>
+							</samplecharacteristics>
+						</format>
+						<track>
+							<transitionitem>
+								<rate>
+									<ntsc>FALSE</ntsc>
+									<timebase>60</timebase>
+								</rate>
+								<start>0</start>
+								<end>682</end>
+								<alignment>start</alignment>
+								<effect>
+									<name>Fade In Fade Out Dissolve</name>
+									<effectid>Fade In Fade Out Dissolve</effectid>
+									<effectcategory>Dissolve</effectcategory>
+									<effecttype>transition</effecttype>
+									<mediatype>video</mediatype>
+									<wipecode>0</wipecode>
+									<wipeaccuracy>100</wipeaccuracy>
+									<startratio>0</startratio>
+									<endratio>1</endratio>
+									<reverse>FALSE</reverse>
+									<parameter>
+										<name>Threshold</name>
+										<parameterid>threshold</parameterid>
+										<valuemin>0</valuemin>
+										<valuemax>100</valuemax>
+										<value>50</value>
+									</parameter>
+									<parameter>
+										<name>Soft</name>
+										<parameterid>soft</parameterid>
+										<valuemin>0</valuemin>
+										<valuemax>100</valuemax>
+										<value>100</value>
+									</parameter>
+								</effect>
+							</transitionitem>
+							<clipitem id="big-buck-bunny_video-60fps-4k.mp4 - subclip 1 (reversed)805306369">
+								<name>big-buck-bunny_video-60fps-4k.mp4 - subclip 1 (reversed)</name>
+								<duration>6976</duration>
+								<rate>
+									<ntsc>FALSE</ntsc>
+									<timebase>60</timebase>
+								</rate>
+								<in>12041</in>
+								<out>19017</out>
+								<start>-1</start>
+								<end>-1</end>
+								<subclipinfo />
+								<pixelaspectratio>Square</pixelaspectratio>
+								<anamorphic>FALSE</anamorphic>
+								<alphatype>none</alphatype>
+								<masterclipid>big-buck-bunny_video-60fps-4k.mp4 - subclip 1 (reversed)</masterclipid>
+								<subclipmasterid>big-buck-bunny_video-60fps-4k - 17.mp4</subclipmasterid>
+								<logginginfo>
+									<scene />
+									<shottake />
+									<lognote />
+									<good>FALSE</good>
+								</logginginfo>
+								<labels>
+									<label2 />
+								</labels>
+								<comments>
+									<mastercomment1 />
+									<mastercomment2 />
+									<mastercomment3 />
+									<mastercomment4 />
+								</comments>
+								<file id="big-buck-bunny_video-60fps-4k - 17" />
+								<filter>
+									<effect>
+										<name>Time Remap</name>
+										<effectid>timeremap</effectid>
+										<effectcategory>motion</effectcategory>
+										<effecttype>motion</effecttype>
+										<mediatype>video</mediatype>
+										<parameter>
+											<name>speed</name>
+											<parameterid>speed</parameterid>
+											<valuemin>-10000</valuemin>
+											<valuemax>10000</valuemax>
+											<value>100</value>
+										</parameter>
+										<parameter>
+											<name>reverse</name>
+											<parameterid>reverse</parameterid>
+											<value>TRUE</value>
+										</parameter>
+										<parameter>
+											<name>graphdict</name>
+											<parameterid>graphdict</parameterid>
+											<valuemin>0</valuemin>
+											<valuemax>6976</valuemax>
+											<keyframe>
+												<when>12041</when>
+												<value>6976</value>
+												<speedkfin>TRUE</speedkfin>
+											</keyframe>
+											<keyframe>
+												<when>19017</when>
+												<value>1</value>
+												<speedkfout>TRUE</speedkfout>
+												<speedvirtualkf>TRUE</speedvirtualkf>
+											</keyframe>
+											<value>19016</value>
+											<interpolation>
+												<name>FCPCurve</name>
+											</interpolation>
+										</parameter>
+									</effect>
+								</filter>
+								<filter>
+									<effect>
+										<name>Opacity</name>
+										<effectid>opacity</effectid>
+										<effectcategory>motion</effectcategory>
+										<effecttype>motion</effecttype>
+										<mediatype>video</mediatype>
+										<parameter>
+											<name>opacity</name>
+											<parameterid>opacity</parameterid>
+											<valuemin>0</valuemin>
+											<valuemax>100</valuemax>
+											<value>100</value>
+										</parameter>
+									</effect>
+								</filter>
+								<filter>
+									<effect>
+										<name>Basic Motion</name>
+										<effectid>basic</effectid>
+										<effectcategory>motion</effectcategory>
+										<effecttype>motion</effecttype>
+										<mediatype>video</mediatype>
+										<parameter>
+											<name>Center</name>
+											<parameterid>center</parameterid>
+											<keyframe>
+												<when>0</when>
+												<value>
+													<horiz>0</horiz>
+													<vert>0</vert>
+												</value>
+											</keyframe>
+											<keyframe>
+												<when>0</when>
+												<value>
+													<horiz>0</horiz>
+													<vert>0</vert>
+												</value>
+											</keyframe>
+											<value>
+												<horiz>0</horiz>
+												<vert>0</vert>
+											</value>
+										</parameter>
+										<parameter>
+											<name>Scale</name>
+											<parameterid>scale</parameterid>
+											<valuemin>0</valuemin>
+											<valuemax>1000</valuemax>
+											<keyframe>
+												<when>0</when>
+												<value>133.3333</value>
+											</keyframe>
+											<keyframe>
+												<when>0</when>
+												<value>133.3333</value>
+											</keyframe>
+											<value>133.3333</value>
+										</parameter>
+									</effect>
+								</filter>
+								<filter>
+									<effect>
+										<name>Distort</name>
+										<effectid>deformation</effectid>
+										<effectcategory>motion</effectcategory>
+										<effecttype>motion</effecttype>
+										<mediatype>video</mediatype>
+										<parameter>
+											<name>Aspect</name>
+											<parameterid>aspect</parameterid>
+											<valuemin>-10000</valuemin>
+											<valuemax>10000</valuemax>
+											<keyframe>
+												<when>0</when>
+												<value>-33.33332</value>
+											</keyframe>
+											<keyframe>
+												<when>0</when>
+												<value>-33.33332</value>
+											</keyframe>
+											<value>-33.33332</value>
+										</parameter>
+									</effect>
+								</filter>
+								<sourcetrack>
+									<mediatype>video</mediatype>
+								</sourcetrack>
+								<link>
+									<linkclipref>big-buck-bunny_video-60fps-4k.mp4 - subclip 1 (reversed)805306369</linkclipref>
+								</link>
+								<link>
+									<linkclipref>big-buck-bunny_video-60fps-4k - 17.mp4536870914</linkclipref>
+								</link>
+								<link>
+									<linkclipref>big-buck-bunny_video-60fps-4k - 17.mp45368709141</linkclipref>
+								</link>
+								<fielddominance>none</fielddominance>
+							</clipitem>
+							<transitionitem>
+								<rate>
+									<ntsc>FALSE</ntsc>
+									<timebase>60</timebase>
+								</rate>
+								<start>6119</start>
+								<end>6976</end>
+								<alignment>end-black</alignment>
+								<effect>
+									<name>Fade In Fade Out Dissolve</name>
+									<effectid>Fade In Fade Out Dissolve</effectid>
+									<effectcategory>Dissolve</effectcategory>
+									<effecttype>transition</effecttype>
+									<mediatype>video</mediatype>
+									<wipecode>0</wipecode>
+									<wipeaccuracy>100</wipeaccuracy>
+									<startratio>0</startratio>
+									<endratio>1</endratio>
+									<reverse>FALSE</reverse>
+									<parameter>
+										<name>Threshold</name>
+										<parameterid>threshold</parameterid>
+										<valuemin>0</valuemin>
+										<valuemax>100</valuemax>
+										<value>50</value>
+									</parameter>
+									<parameter>
+										<name>Soft</name>
+										<parameterid>soft</parameterid>
+										<valuemin>0</valuemin>
+										<valuemax>100</valuemax>
+										<value>100</value>
+									</parameter>
+								</effect>
+							</transitionitem>
+						</track>
+					</video>
+					<audio>
+						<track>
+							<transitionitem>
+								<rate>
+									<ntsc>TRUE</ntsc>
+									<timebase>30</timebase>
+								</rate>
+								<start>0</start>
+								<end>1096</end>
+								<alignment>start</alignment>
+								<effect>
+									<name>Cross Fade ( 0dB)</name>
+									<effectid>KGAudioTransCrossFade0dB</effectid>
+									<effecttype>transition</effecttype>
+									<mediatype>audio</mediatype>
+								</effect>
+							</transitionitem>
+							<clipitem id="big-buck-bunny_video-60fps-4k - 17.mp4536870914">
+								<name>big-buck-bunny_video-60fps-4k - 17.mp4</name>
+								<duration>6976</duration>
+								<rate>
+									<ntsc>TRUE</ntsc>
+									<timebase>30</timebase>
+								</rate>
+								<in>0</in>
+								<out>6976</out>
+								<start>-1</start>
+								<end>-1</end>
+								<masterclipid>big-buck-bunny_video-60fps-4k - 17.mp4</masterclipid>
+								<logginginfo>
+									<scene />
+									<shottake />
+									<lognote />
+									<good>FALSE</good>
+								</logginginfo>
+								<labels>
+									<label2 />
+								</labels>
+								<comments>
+									<mastercomment1 />
+									<mastercomment2 />
+									<mastercomment3 />
+									<mastercomment4 />
+								</comments>
+								<file id="big-buck-bunny_video-60fps-4k - 17" />
+								<filter>
+									<effect>
+										<name>Audio Levels</name>
+										<effectid>audiolevels</effectid>
+										<effectcategory>audiolevels</effectcategory>
+										<effecttype>audiolevels</effecttype>
+										<mediatype>audio</mediatype>
+										<parameter>
+											<name>Level</name>
+											<parameterid>level</parameterid>
+											<valuemin>0</valuemin>
+											<valuemax>3.98109</valuemax>
+											<value>1</value>
+										</parameter>
+									</effect>
+								</filter>
+								<filter>
+									<effect>
+										<name>Audio Pan</name>
+										<effectid>audiopan</effectid>
+										<effectcategory>audiopan</effectcategory>
+										<effecttype>audiopan</effecttype>
+										<mediatype>audio</mediatype>
+										<parameter>
+											<name>Pan</name>
+											<parameterid>pan</parameterid>
+											<valuemin>-1</valuemin>
+											<valuemax>1</valuemax>
+											<value>-1</value>
+										</parameter>
+									</effect>
+								</filter>
+								<sourcetrack>
+									<mediatype>audio</mediatype>
+									<trackindex>1</trackindex>
+								</sourcetrack>
+								<link>
+									<linkclipref>big-buck-bunny_video-60fps-4k.mp4 - subclip 1 (reversed)805306369</linkclipref>
+								</link>
+								<link>
+									<linkclipref>big-buck-bunny_video-60fps-4k - 17.mp4536870914</linkclipref>
+								</link>
+								<link>
+									<linkclipref>big-buck-bunny_video-60fps-4k - 17.mp45368709141</linkclipref>
+								</link>
+							</clipitem>
+							<transitionitem>
+								<rate>
+									<ntsc>TRUE</ntsc>
+									<timebase>30</timebase>
+								</rate>
+								<start>6918</start>
+								<end>6976</end>
+								<alignment>center</alignment>
+								<effect>
+									<name>Cross Fade ( 0dB)</name>
+									<effectid>KGAudioTransCrossFade0dB</effectid>
+									<effecttype>transition</effecttype>
+									<mediatype>audio</mediatype>
+								</effect>
+							</transitionitem>
+							<clipitem id="sample_for_project_audio.wav - subclip 1 (reversed)536870942">
+								<name>sample_for_project_audio.wav - subclip 1 (reversed)</name>
+								<duration>722</duration>
+								<rate>
+									<ntsc>TRUE</ntsc>
+									<timebase>30</timebase>
+								</rate>
+								<in>245</in>
+								<out>967</out>
+								<start>-1</start>
+								<end>7640</end>
+								<subclipinfo />
+								<masterclipid>sample_for_project_audio.wav - subclip 1 (reversed)</masterclipid>
+								<subclipmasterid>sample_for_project_audio - 4.wav</subclipmasterid>
+								<logginginfo>
+									<scene />
+									<shottake />
+									<lognote />
+									<good>FALSE</good>
+								</logginginfo>
+								<labels>
+									<label2 />
+								</labels>
+								<comments>
+									<mastercomment1 />
+									<mastercomment2 />
+									<mastercomment3 />
+									<mastercomment4 />
+								</comments>
+								<file id="sample_for_project_audio - 4" />
+								<filter>
+									<effect>
+										<name>Time Remap</name>
+										<effectid>timeremap</effectid>
+										<effectcategory>motion</effectcategory>
+										<effecttype>motion</effecttype>
+										<mediatype>audio</mediatype>
+										<parameter>
+											<name>speed</name>
+											<parameterid>speed</parameterid>
+											<valuemin>-10000</valuemin>
+											<valuemax>10000</valuemax>
+											<value>100</value>
+										</parameter>
+										<parameter>
+											<name>reverse</name>
+											<parameterid>reverse</parameterid>
+											<value>TRUE</value>
+										</parameter>
+										<parameter>
+											<name>graphdict</name>
+											<parameterid>graphdict</parameterid>
+											<valuemin>0</valuemin>
+											<valuemax>63</valuemax>
+											<keyframe>
+												<when>245</when>
+												<value>63</value>
+												<speedkfin>TRUE</speedkfin>
+											</keyframe>
+											<keyframe>
+												<when>967</when>
+												<value>-658</value>
+												<speedkfout>TRUE</speedkfout>
+												<speedvirtualkf>TRUE</speedvirtualkf>
+											</keyframe>
+											<value>307</value>
+											<interpolation>
+												<name>FCPCurve</name>
+											</interpolation>
+										</parameter>
+									</effect>
+								</filter>
+								<filter>
+									<effect>
+										<name>Audio Levels</name>
+										<effectid>audiolevels</effectid>
+										<effectcategory>audiolevels</effectcategory>
+										<effecttype>audiolevels</effecttype>
+										<mediatype>audio</mediatype>
+										<parameter>
+											<name>Level</name>
+											<parameterid>level</parameterid>
+											<valuemin>0</valuemin>
+											<valuemax>3.98109</valuemax>
+											<value>1</value>
+										</parameter>
+									</effect>
+								</filter>
+								<filter>
+									<effect>
+										<name>Audio Pan</name>
+										<effectid>audiopan</effectid>
+										<effectcategory>audiopan</effectcategory>
+										<effecttype>audiopan</effecttype>
+										<mediatype>audio</mediatype>
+										<parameter>
+											<name>Pan</name>
+											<parameterid>pan</parameterid>
+											<valuemin>-1</valuemin>
+											<valuemax>1</valuemax>
+											<value>-1</value>
+										</parameter>
+									</effect>
+								</filter>
+								<sourcetrack>
+									<mediatype>audio</mediatype>
+									<trackindex>1</trackindex>
+								</sourcetrack>
+								<link>
+									<linkclipref>sample_for_project_audio.wav - subclip 1 (reversed)536870942</linkclipref>
+								</link>
+								<link>
+									<linkclipref>sample_for_project_audio.wav - subclip 1 (reversed)5368709421</linkclipref>
+								</link>
+							</clipitem>
+						</track>
+						<track>
+							<transitionitem>
+								<rate>
+									<ntsc>TRUE</ntsc>
+									<timebase>30</timebase>
+								</rate>
+								<start>0</start>
+								<end>1096</end>
+								<alignment>start</alignment>
+								<effect>
+									<name>Cross Fade ( 0dB)</name>
+									<effectid>KGAudioTransCrossFade0dB</effectid>
+									<effecttype>transition</effecttype>
+									<mediatype>audio</mediatype>
+								</effect>
+							</transitionitem>
+							<clipitem id="big-buck-bunny_video-60fps-4k - 17.mp45368709141">
+								<name>big-buck-bunny_video-60fps-4k - 17.mp4</name>
+								<duration>6976</duration>
+								<rate>
+									<ntsc>TRUE</ntsc>
+									<timebase>30</timebase>
+								</rate>
+								<in>0</in>
+								<out>6976</out>
+								<start>-1</start>
+								<end>-1</end>
+								<masterclipid>big-buck-bunny_video-60fps-4k - 17.mp4</masterclipid>
+								<logginginfo>
+									<scene />
+									<shottake />
+									<lognote />
+									<good>FALSE</good>
+								</logginginfo>
+								<labels>
+									<label2 />
+								</labels>
+								<comments>
+									<mastercomment1 />
+									<mastercomment2 />
+									<mastercomment3 />
+									<mastercomment4 />
+								</comments>
+								<file id="big-buck-bunny_video-60fps-4k - 17" />
+								<filter>
+									<effect>
+										<name>Audio Levels</name>
+										<effectid>audiolevels</effectid>
+										<effectcategory>audiolevels</effectcategory>
+										<effecttype>audiolevels</effecttype>
+										<mediatype>audio</mediatype>
+										<parameter>
+											<name>Level</name>
+											<parameterid>level</parameterid>
+											<valuemin>0</valuemin>
+											<valuemax>3.98109</valuemax>
+											<value>1</value>
+										</parameter>
+									</effect>
+								</filter>
+								<filter>
+									<effect>
+										<name>Audio Pan</name>
+										<effectid>audiopan</effectid>
+										<effectcategory>audiopan</effectcategory>
+										<effecttype>audiopan</effecttype>
+										<mediatype>audio</mediatype>
+										<parameter>
+											<name>Pan</name>
+											<parameterid>pan</parameterid>
+											<valuemin>-1</valuemin>
+											<valuemax>1</valuemax>
+											<value>1</value>
+										</parameter>
+									</effect>
+								</filter>
+								<sourcetrack>
+									<mediatype>audio</mediatype>
+									<trackindex>2</trackindex>
+								</sourcetrack>
+								<link>
+									<linkclipref>big-buck-bunny_video-60fps-4k.mp4 - subclip 1 (reversed)805306369</linkclipref>
+								</link>
+								<link>
+									<linkclipref>big-buck-bunny_video-60fps-4k - 17.mp4536870914</linkclipref>
+								</link>
+								<link>
+									<linkclipref>big-buck-bunny_video-60fps-4k - 17.mp45368709141</linkclipref>
+								</link>
+							</clipitem>
+							<transitionitem>
+								<rate>
+									<ntsc>TRUE</ntsc>
+									<timebase>30</timebase>
+								</rate>
+								<start>6918</start>
+								<end>6976</end>
+								<alignment>center</alignment>
+								<effect>
+									<name>Cross Fade ( 0dB)</name>
+									<effectid>KGAudioTransCrossFade0dB</effectid>
+									<effecttype>transition</effecttype>
+									<mediatype>audio</mediatype>
+								</effect>
+							</transitionitem>
+							<transitionitem>
+								<rate>
+									<ntsc>TRUE</ntsc>
+									<timebase>30</timebase>
+								</rate>
+								<start>6918</start>
+								<end>6976</end>
+								<alignment>center</alignment>
+								<effect>
+									<name>Cross Fade ( 0dB)</name>
+									<effectid>KGAudioTransCrossFade0dB</effectid>
+									<effecttype>transition</effecttype>
+									<mediatype>audio</mediatype>
+								</effect>
+							</transitionitem>
+							<clipitem id="sample_for_project_audio.wav - subclip 1 (reversed)5368709421">
+								<name>sample_for_project_audio.wav - subclip 1 (reversed)</name>
+								<duration>722</duration>
+								<rate>
+									<ntsc>TRUE</ntsc>
+									<timebase>30</timebase>
+								</rate>
+								<in>245</in>
+								<out>967</out>
+								<start>-1</start>
+								<end>7640</end>
+								<subclipinfo />
+								<masterclipid>sample_for_project_audio.wav - subclip 1 (reversed)</masterclipid>
+								<subclipmasterid>sample_for_project_audio - 4.wav</subclipmasterid>
+								<logginginfo>
+									<scene />
+									<shottake />
+									<lognote />
+									<good>FALSE</good>
+								</logginginfo>
+								<labels>
+									<label2 />
+								</labels>
+								<comments>
+									<mastercomment1 />
+									<mastercomment2 />
+									<mastercomment3 />
+									<mastercomment4 />
+								</comments>
+								<file id="sample_for_project_audio - 4" />
+								<filter>
+									<effect>
+										<name>Time Remap</name>
+										<effectid>timeremap</effectid>
+										<effectcategory>motion</effectcategory>
+										<effecttype>motion</effecttype>
+										<mediatype>audio</mediatype>
+										<parameter>
+											<name>speed</name>
+											<parameterid>speed</parameterid>
+											<valuemin>-10000</valuemin>
+											<valuemax>10000</valuemax>
+											<value>100</value>
+										</parameter>
+										<parameter>
+											<name>reverse</name>
+											<parameterid>reverse</parameterid>
+											<value>TRUE</value>
+										</parameter>
+										<parameter>
+											<name>graphdict</name>
+											<parameterid>graphdict</parameterid>
+											<valuemin>0</valuemin>
+											<valuemax>63</valuemax>
+											<keyframe>
+												<when>245</when>
+												<value>63</value>
+												<speedkfin>TRUE</speedkfin>
+											</keyframe>
+											<keyframe>
+												<when>967</when>
+												<value>-658</value>
+												<speedkfout>TRUE</speedkfout>
+												<speedvirtualkf>TRUE</speedvirtualkf>
+											</keyframe>
+											<value>307</value>
+											<interpolation>
+												<name>FCPCurve</name>
+											</interpolation>
+										</parameter>
+									</effect>
+								</filter>
+								<filter>
+									<effect>
+										<name>Audio Levels</name>
+										<effectid>audiolevels</effectid>
+										<effectcategory>audiolevels</effectcategory>
+										<effecttype>audiolevels</effecttype>
+										<mediatype>audio</mediatype>
+										<parameter>
+											<name>Level</name>
+											<parameterid>level</parameterid>
+											<valuemin>0</valuemin>
+											<valuemax>3.98109</valuemax>
+											<value>1</value>
+										</parameter>
+									</effect>
+								</filter>
+								<filter>
+									<effect>
+										<name>Audio Pan</name>
+										<effectid>audiopan</effectid>
+										<effectcategory>audiopan</effectcategory>
+										<effecttype>audiopan</effecttype>
+										<mediatype>audio</mediatype>
+										<parameter>
+											<name>Pan</name>
+											<parameterid>pan</parameterid>
+											<valuemin>-1</valuemin>
+											<valuemax>1</valuemax>
+											<value>1</value>
+										</parameter>
+									</effect>
+								</filter>
+								<sourcetrack>
+									<mediatype>audio</mediatype>
+									<trackindex>2</trackindex>
+								</sourcetrack>
+								<link>
+									<linkclipref>sample_for_project_audio.wav - subclip 1 (reversed)536870942</linkclipref>
+								</link>
+								<link>
+									<linkclipref>sample_for_project_audio.wav - subclip 1 (reversed)5368709421</linkclipref>
+								</link>
+							</clipitem>
+						</track>
+					</audio>
+				</media>
+			</sequence>
+		</children>
+	</project>
+</xmeml>

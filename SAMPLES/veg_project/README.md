@@ -21,6 +21,10 @@ build\OpenVegas.exe sample_for_project_pictures.veg
 build\OpenVegas.exe SAMPLES\veg_project\project_sample_for_project_audio.veg
 build\OpenVegas.exe project_sample_for_project_audio_trims-and-crossfade.veg
 build\OpenVegas.exe project_big--buck-bunny_opacity-gain.veg
+build\OpenVegas.exe SAMPLES\veg_project\project_big--buck-bunny_4x3-preview-and-fades.veg
+build\OpenVegas.exe SAMPLES\veg_project\project_big--buck-bunny_4x3-preview-and-fades_color-grading.veg
+build\OpenVegas.exe SAMPLES\veg_project\project_big--buck-bunny_4x3-preview-reverse-fades-fx.veg
+build\OpenVegas.exe SAMPLES\veg_project\project_big--buck-bunny_576x1024-preview-and-fades.veg
 ```
 
 Медиа должно лежать рядом с `.veg` (или по абсолютным путям внутри файла). Relink в OpenVegas ищет файлы по имени рядом с проектом, в `SAMPLES/veg_project`, `assets` и export-подпапках (в т.ч. суффиксы `-1` / `- 1`).
@@ -55,6 +59,22 @@ build\OpenVegas.exe project_big--buck-bunny_opacity-gain.veg
 
 Открыть → клик по иконке Pan/Crop на клипе (или Video Event FX). Interchange **частично** экспортирует motion (FCPX `adjust-transform` / FCP7 Basic Motion), но полный pan/zoom/flip — из бинарного `EPCP`→`POSK` в `.veg`. Поля KF (пиксели кадра): Width / Height / X Center / Y Center / Angle / rotation centers; отрицательные W/H = зеркало. Маска: `EPCP`→`MSKL`→`MSKK`/`MSKB` (время, тики `/1e7`) → `PTHL`/`PATH`/`ANCP` (якоря: x/y + in/out absolute → relative tangents). EDL таймлайн даёт только длину клипа — без Pan/Crop.
 
+### Color Grading sample
+
+| Файл | Содержание |
+|------|------------|
+| `project_big--buck-bunny_4x3-preview-and-fades_color-grading.veg` | Как **4x3 + fades**, плюс **Video Track FX → Color Grading** (`{Svfx:com.vegascreativesoftware:colorgrading}`) |
+
+Открыть `.veg` → ПКМ по видеодорожке → **Color Grading** / **Track FX**. Параметры в этом сэмпле — **identity** (Lift/Offset 0, Gamma/Gain 1, curves 2 точки 0→1); эталон наличия плагина и импорта в `FxSlot`. EDL/FCP/Premiere Color Grading **не** переносят (в FCP7 логе: `Effects for track … ignored`).
+
+### Reverse + Event FX sample
+
+| Файл | Содержание |
+|------|------------|
+| `project_big--buck-bunny_4x3-preview-reverse-fades-fx.veg` | **640×480**, BBB ~**232.8 s** **reversed** + fades; Video Event FX (Auto Frame / Chroma Blur / Sepia); wav clip + Audio Event FX (Pro-C 2 / Fresh Air / Auto-Key) |
+
+Открыть → видео играет **задом наперёд** (первые ~232.8 s источника). Reverse: `META:\SubClip\{…} (1)[0][…][1]` + label `(reversed)`; в EDL `PlayRate=1`, `StreamStart≈401.78 s` (quirk полного reverse-subclip). FCPX: `timeMap` 401.77→634.55 ⇒ value 232.77→0. Interchange **игнорирует** event/track FX (Premiere log: `Effects for event/track … ignored`).
+
 ---
 
 ## Структура
@@ -80,6 +100,10 @@ veg_project/
 ├── project_big--buck-bunny_track-motion.veg   # Track Motion: Position/Shadow/Glow KF
 ├── project_big--buck-bunny_pan-crop.veg       # Event Pan/Crop: 12 Position KF
 ├── project_big--buck-bunny_pan-crop_mask.veg  # Event Pan/Crop Mask: 7 Mask KF
+├── project_big--buck-bunny_4x3-preview-and-fades.veg  # 640×480 4:3 + event fades
+├── project_big--buck-bunny_4x3-preview-and-fades_color-grading.veg  # 4:3 + fades + Color Grading
+├── project_big--buck-bunny_4x3-preview-reverse-fades-fx.veg  # 4:3 reverse + fades + event FX
+├── project_big--buck-bunny_576x1024-preview-and-fades.veg  # 576×1024 portrait + fades
 ├── project_sample_for_project_audio.veg
 ├── project_sample_for_project_audio_trims-and-crossfade.veg
 ├── sample_for_project_pictures.veg      # два still по 5 s
@@ -125,9 +149,134 @@ Big Buck Bunny / pictures — **60.000 fps**; audio-only — **≈29.970 fps**.
 | `project_big--buck-bunny_track-motion.veg` | ~12.8 KB | 60 | Клип ~59.8 s + **Track Motion** KF | Эталон Track Motion (Position/Shadow/Glow) |
 | `project_big--buck-bunny_pan-crop.veg` | ~12.3 KB | 60 | Клип ~60.0 s + **Event Pan/Crop** 12 KF | Эталон Event Pan/Crop (`POSK`) |
 | `project_big--buck-bunny_pan-crop_mask.veg` | ~22.5 KB | 60 | Клип ~60.0 s + Pan/Crop **Mask** 7 KF | Эталон Mask (`MSKK`/`ANCP`) |
+| `project_big--buck-bunny_4x3-preview-and-fades.veg` | ~14.0 KB | **29.97** | BBB ~**232.8 s** в проекте **640×480 (4:3)** + fades | Эталон **4:3 preview** + event fades на A/V |
+| `project_big--buck-bunny_4x3-preview-and-fades_color-grading.veg` | ~20.1 KB | **29.97** | Тот же 4:3/fades + **track Color Grading** | Эталон Video Track FX Color Grading |
+| `project_big--buck-bunny_4x3-preview-reverse-fades-fx.veg` | ~40.0 KB | **29.97** | 4:3 + **reverse** BBB + fades + video/audio **Event FX** + wav | Эталон reverse SubClip + event FX chains |
+| `project_big--buck-bunny_576x1024-preview-and-fades.veg` | ~14.0 KB | **29.97** | BBB ~**232.8 s** в проекте **576×1024** (portrait) + fades | Эталон **вертикальный preview** + Match Output Aspect + fades |
 | `project_sample_for_project_audio.veg` | ~17.1 KB | 29.97 | 1 audio ~10.3 s + **Audio Event FX** | Эталон **Audio Event FX** на клипе |
 | `project_sample_for_project_audio_trims-and-crossfade.veg` | ~13 KB | 29.97 | **5** audio-сегментов | Audio trims + overlaps/fades |
 | `sample_for_project_pictures.veg` | ~12.5 KB | 60 | **2× still** PNG на video track, по **5.0 s**, без audio | Эталон still / image events (слайдшоу) |
+
+### Раскладка `project_big--buck-bunny_4x3-preview-and-fades`
+
+Проект **640×480** (aspect **4:3**), **≈29.970 fps**, sample rate **48000**, VEGAS **22**.  
+Размер `.veg` ≈ **13.96 KB** (`md5 fd52e414…`). Источник — 4K/60 fps `big-buck-bunny_video-60fps-4k.mp4`; **frame size проекта** SD 4:3 (не 3840×2160). Preview letterbox’ит 16:9 → 4:3.
+
+В бинарнике frame size **640×480 @ 0x242** (шаг скана 2 байта; иначе ложный fallback 1920×1080). Также встречаются 1920×1080 / 3840×2160 (медиа/пресеты) — не проектный кадр.
+
+| # | MediaType | Length | Fade in / out | CurveIn / Out |
+|---|-----------|--------|---------------|---------------|
+| 1 | VIDEO | **232.7833 s** (тики @ `0x14D8`…) | **22.7561** / **28.6127** s (`0x1548` / `0x1550`) | **2** / **−2** |
+| 2 | AUDIO | то же (`0x1D80`…) | **36.5952** / **36.9098** s (`0x1DF0` / `0x1DF8`) | **2** / **−2** |
+
+Audio: `FirstChannel`/`Channels` = **0 / 2**. Track FX (UTF-16): Noise Gate / EQ / Compressor. Также строки: `Preview`, `Master`, `Main Timeline`, `Microsoft Sound Mapper`, `Empty Graph`.
+
+Sidecar: **`edl-text-file/…_4x3-preview-and-fades.txt`** (нужен для fades — из бинарника OpenVegas пока не читает FadeTime*).
+
+Interchange (переэкспорт 2026-08-01 ≈23:44):
+
+| Формат | Файл | Заметки |
+|--------|------|---------|
+| Vegas EDL | `edl-text-file/…_4x3-preview-and-fades.txt` | VIDEO+AUDIO, fades/curves как выше |
+| FCP7 / Resolve | `final-cut-pro-7_davinci-resolve/…xml` | sequence **640×480**, media **3840×2160**; media-копия `… - 12.mp4` |
+| FCPX | `final-cut-pro-x/….fcpxml` | format `640x480p2997`; fades в `adjust-blend` / `adjust-volume`; **`adjust-transform` scale=`1.333333 1`** (вписывание 16:9 → 4:3) |
+| Premiere / AE | `premiere_after-effect/….prproj` | + `.log` |
+
+Открыть: `build\OpenVegas.exe SAMPLES\veg_project\project_big--buck-bunny_4x3-preview-and-fades.veg` → **640×480**, **29,97 fps**; длинные fade-in/out на A/V.
+
+### Раскладка `project_big--buck-bunny_4x3-preview-and-fades_color-grading`
+
+База — **`…_4x3-preview-and-fades`** (640×480 @ **29.97**, BBB ~**232.8 s**, те же fades).  
+Размер `.veg` ≈ **20.08 KB** (`md5 642b85c0…`); дельта ≈ **+6.1 KB** — blob OFX Color Grading.
+
+В UTF-16: `{Svfx:com.vegascreativesoftware:colorgrading}`, пресет `(Default)`, параметры `Lift_*` / `Gamma_*` / `Gain_*` / `LogWheel_*` / `Curve_*` / `LUT*`. В этом файле колёса и кривые — **identity** (после имени параметра double: Lift/Offset **0**, Gamma/Gain **1**; `Curve_Y` = `2:0.0:0.0:…:1.0:1.0:…`). OpenVegas кладёт слот **Color Grading** в FX-цепочку **видеодорожки** и читает `lift|gamma|gain|offset.{r,g,b,y}` + `curve.rgb`.
+
+| # | MediaType | Length | Fade in / out | CurveIn / Out |
+|---|-----------|--------|---------------|---------------|
+| 1 | VIDEO | **232.7833 s** | **22.7561** / **28.6127** s | **2** / **−2** |
+| 2 | AUDIO | то же | **36.5952** / **36.9098** s | **2** / **−2** |
+
+Sidecar: **`edl-text-file/…_color-grading.txt`** (таймлайн/fades; grading в EDL нет).
+
+Interchange (экспорт 2026-08-02 ≈03:48):
+
+| Формат | Файл | Заметки |
+|--------|------|---------|
+| Vegas EDL | `edl-text-file/…_color-grading.txt` | VIDEO+AUDIO, fades; **без** grading |
+| FCP7 / Resolve | `final-cut-pro-7_davinci-resolve/….xml` | `Effects for track … ignored` |
+| FCPX | `final-cut-pro-x/….fcpxml` | timeline only |
+| Premiere / AE | `premiere_after-effect/….prproj` | + `.log` |
+
+Открыть: `build\OpenVegas.exe SAMPLES\veg_project\project_big--buck-bunny_4x3-preview-and-fades_color-grading.veg` → **640×480** + Color Grading на video track.
+
+### Раскладка `project_big--buck-bunny_4x3-preview-reverse-fades-fx`
+
+Проект **640×480** @ **≈29.970 fps**, sample rate **48000**, VEGAS **22**.  
+Размер `.veg` ≈ **40.05 KB** (`md5 67a4bee8…`). Frame size **640×480 @ 0x250**.
+
+| # | MediaType | File | Start | Length | StreamStart | Fade in / out | Примечание |
+|---|-----------|------|-------|--------|-------------|---------------|------------|
+| 1 | VIDEO | BBB mp4 | 0 | **232.7833 s** | **401.7833 s** | **22.756** / **28.613** s | **reversed** (первые 232.8 s источника задом) |
+| 2 | AUDIO | BBB mp4 | 0 | **232.7833 s** | 0 | **36.595** / **0.010** s | paired audio (fade-out короткий) |
+| 3 | AUDIO | `sample_for_project_audio.wav` | **230.838 s** | **24.100 s** | **8.191 s** | **1.945** / **0.010** s | **reversed** wav + Audio Event FX |
+
+UTF-16 Video Event FX: `{Svfx:de.magix:autoframe}`, `{Svfx:com.vegascreativesoftware:chromablur}`, `{Svfx:com.vegascreativesoftware:sepia}` (+ preset «Soft Moderate Contrast»).  
+Audio Event FX (на wav): FabFilter Pro-C 2 (VST2), Fresh Air (VST2), Auto-Key (VST3).  
+Track FX (audio): VEGAS Track Noise Gate / EQ / Compressor.
+
+OpenVegas: `TrackEvent::reversed` + `sourceTimeSec()`; video event FX → цепочка первого video event; audio event FX → только audio-only файлы (wav).
+
+Sidecar: **`edl-text-file/…_reverse-fades-fx.txt`**.
+
+Interchange (экспорт 2026-08-02 ≈04:40–04:46):
+
+| Формат | Файл | Заметки |
+|--------|------|---------|
+| Vegas EDL | `edl-text-file/…_reverse-fades-fx.txt` | StreamStart/fades; PlayRate=1; FX нет |
+| FCP7 / Resolve | `final-cut-pro-7_davinci-resolve/….xml` | (+ `.log`) |
+| FCPX | `final-cut-pro-x/….fcpxml` | **`timeMap`** reverse на video + wav |
+| Premiere / AE | `premiere_after-effect/….prproj` | FX ignored; media-копии `-16.mp4` / `-3.wav` |
+
+Открыть: `build\OpenVegas.exe SAMPLES\veg_project\project_big--buck-bunny_4x3-preview-reverse-fades-fx.veg`.
+
+### Раскладка `project_big--buck-bunny_576x1024-preview-and-fades`
+
+Проект **576×1024** (portrait ≈ **9:16**), **≈29.970 fps**, sample rate **48000**, VEGAS **22**.  
+Размер `.veg` ≈ **14.6 KB** (`md5 d2b0221d…`). Клип BBB ~**232.8 s** + fades; кадр проекта вертикальный.
+
+В бинарнике frame size **576×1024 @ 0x24C** (whitelist `scanFrameSize`). Event Pan/Crop — **Match Output Aspect** в media space: каждый Position KF = **1215×2160** @ center **1920×1080** (полный 4K source).
+
+**Эталон интерполяции Position KF** (`POSK` payload `+0x18` u32; Vegas codes: **0** Linear, **1** Fast, **2** Slow, **3** Smooth, **4** Sharp, **5** Hold):
+
+| # | time (s) | type code | Interpolation |
+|---|----------|-----------|---------------|
+| 1 | 0.000 | 0 | Linear |
+| 2 | 23.600 | 3 | Smooth |
+| 3 | 38.167 | 2 | Slow |
+| 4 | 68.233 | 4 | Sharp |
+| 5 | 90.867 | 5 | Hold |
+| 6 | 123.167 | 1 | Fast |
+| 7 | 155.500 | 0 | Linear |
+| 8 | 185.567 | 3 | Smooth |
+| 9 | 220.833 | 2 | Slow |
+
+| # | MediaType | Length | Fade in / out | CurveIn / Out |
+|---|-----------|--------|---------------|---------------|
+| 1 | VIDEO | **232.7833 s** | **22.7561** / **28.6127** s | **2** / **−2** |
+| 2 | AUDIO | то же | **36.5952** / **36.9098** s | **2** / **−2** |
+
+Sidecar: **`edl-text-file/…_576x1024-preview-and-fades.txt`**.
+
+Interchange (экспорт 2026-08-02):
+
+| Формат | Файл | Заметки |
+|--------|------|---------|
+| Vegas EDL | `edl-text-file/…_576x1024-preview-and-fades.txt` | VIDEO+AUDIO, fades как выше |
+| FCP7 / Resolve | `final-cut-pro-7_davinci-resolve/….xml` | sequence **576×1024** |
+| FCPX | `final-cut-pro-x/….fcpxml` | format `576×1024`; `adjust-transform` scale ≈ `1.333333` / `3.160494` |
+| Premiere / AE | `premiere_after-effect/….prproj` | + `.log` |
+
+Открыть: `build\OpenVegas.exe SAMPLES\veg_project\project_big--buck-bunny_576x1024-preview-and-fades.veg` → **576×1024**, **9** Position KF с разными кривыми; ПКМ по diamond → Cut/Copy/Paste/Delete + тип интерполяции.
 
 ### Раскладка `sample_for_project_pictures`
 

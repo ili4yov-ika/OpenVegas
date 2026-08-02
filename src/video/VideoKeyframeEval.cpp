@@ -86,6 +86,62 @@ double videoKeyframeEase(VideoKeyframeType type, double t)
     return fadeCurveAmplitude(mapVideoEase(type), t);
 }
 
+VideoKeyframeType videoKeyframeTypeFromVegasCode(int code)
+{
+    switch (code) {
+    case 1:
+        return VideoKeyframeType::Fast;
+    case 2:
+        return VideoKeyframeType::Slow;
+    case 3:
+        return VideoKeyframeType::Smooth;
+    case 4:
+        return VideoKeyframeType::Sharp;
+    case 5:
+        return VideoKeyframeType::Hold;
+    default:
+        return VideoKeyframeType::Linear;
+    }
+}
+
+int videoKeyframeTypeToVegasCode(VideoKeyframeType type)
+{
+    switch (type) {
+    case VideoKeyframeType::Fast:
+        return 1;
+    case VideoKeyframeType::Slow:
+        return 2;
+    case VideoKeyframeType::Smooth:
+        return 3;
+    case VideoKeyframeType::Sharp:
+        return 4;
+    case VideoKeyframeType::Hold:
+        return 5;
+    case VideoKeyframeType::Linear:
+    default:
+        return 0;
+    }
+}
+
+QString videoKeyframeTypeName(VideoKeyframeType type)
+{
+    switch (type) {
+    case VideoKeyframeType::Fast:
+        return QStringLiteral("Fast");
+    case VideoKeyframeType::Slow:
+        return QStringLiteral("Slow");
+    case VideoKeyframeType::Smooth:
+        return QStringLiteral("Smooth");
+    case VideoKeyframeType::Sharp:
+        return QStringLiteral("Sharp");
+    case VideoKeyframeType::Hold:
+        return QStringLiteral("Hold");
+    case VideoKeyframeType::Linear:
+    default:
+        return QStringLiteral("Linear");
+    }
+}
+
 PanCropKeyframe evaluatePanCrop(const EventPanCropState &state, double localTimeSec, int frameW,
                                 int frameH)
 {

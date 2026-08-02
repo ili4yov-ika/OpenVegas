@@ -6,34 +6,49 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>720</width>
-    <height>480</height>
+    <width>920</width>
+    <height>640</height>
    </rect>
   </property>
   <property name="windowTitle">
    <string>Render As</string>
   </property>
   <layout class="QVBoxLayout" name="verticalLayout">
+   <property name="spacing">
+    <number>8</number>
+   </property>
    <item>
-    <layout class="QHBoxLayout" name="pathRow">
+    <layout class="QHBoxLayout" name="toolbarRow">
      <item>
-      <widget class="QLabel" name="labelPath">
-       <property name="text">
-        <string>Output</string>
+      <widget class="QLineEdit" name="searchEdit">
+       <property name="placeholderText">
+        <string>Search render templates</string>
+       </property>
+       <property name="clearButtonEnabled">
+        <bool>true</bool>
        </property>
       </widget>
      </item>
      <item>
-      <widget class="QLineEdit" name="outputPath">
+      <widget class="QToolButton" name="filtersButton">
        <property name="text">
-        <string>C:/Render/output.mp4</string>
+        <string>Filters Off</string>
+       </property>
+       <property name="popupMode">
+        <enum>QToolButton::InstantPopup</enum>
+       </property>
+       <property name="toolButtonStyle">
+        <enum>Qt::ToolButtonTextOnly</enum>
        </property>
       </widget>
      </item>
      <item>
-      <widget class="QPushButton" name="browseButton">
+      <widget class="QToolButton" name="helpButton">
        <property name="text">
-        <string>Browse…</string>
+        <string>?</string>
+       </property>
+       <property name="toolTip">
+        <string>Help</string>
        </property>
       </widget>
      </item>
@@ -44,26 +59,26 @@
      <item>
       <widget class="QGroupBox" name="groupFormats">
        <property name="title">
-        <string>Output Format</string>
+        <string>Formats</string>
        </property>
        <layout class="QVBoxLayout" name="formatsLayout">
+        <property name="leftMargin">
+         <number>4</number>
+        </property>
+        <property name="topMargin">
+         <number>4</number>
+        </property>
+        <property name="rightMargin">
+         <number>4</number>
+        </property>
+        <property name="bottomMargin">
+         <number>4</number>
+        </property>
         <item>
          <widget class="QListWidget" name="formatList">
-          <item>
-           <property name="text">
-            <string>MAGIX AVC/AAC MP4</string>
-           </property>
-          </item>
-          <item>
-           <property name="text">
-            <string>Windows Media Video</string>
-           </property>
-          </item>
-          <item>
-           <property name="text">
-            <string>Wave (Microsoft)</string>
-           </property>
-          </item>
+          <property name="alternatingRowColors">
+           <bool>false</bool>
+          </property>
          </widget>
         </item>
        </layout>
@@ -72,26 +87,29 @@
      <item>
       <widget class="QGroupBox" name="groupTemplates">
        <property name="title">
-        <string>Template</string>
+        <string>Templates</string>
        </property>
        <layout class="QVBoxLayout" name="templatesLayout">
+        <property name="leftMargin">
+         <number>4</number>
+        </property>
+        <property name="topMargin">
+         <number>4</number>
+        </property>
+        <property name="rightMargin">
+         <number>4</number>
+        </property>
+        <property name="bottomMargin">
+         <number>4</number>
+        </property>
         <item>
          <widget class="QListWidget" name="templateList">
-          <item>
-           <property name="text">
-            <string>Internet HD 1080p</string>
-           </property>
-          </item>
-          <item>
-           <property name="text">
-            <string>Internet HD 720p</string>
-           </property>
-          </item>
-          <item>
-           <property name="text">
-            <string>Default Template</string>
-           </property>
-          </item>
+          <property name="alternatingRowColors">
+           <bool>false</bool>
+          </property>
+          <property name="uniformItemSizes">
+           <bool>true</bool>
+          </property>
          </widget>
         </item>
        </layout>
@@ -100,27 +118,148 @@
     </layout>
    </item>
    <item>
-    <widget class="QDialogButtonBox" name="buttonBox">
-     <property name="standardButtons">
-      <set>QDialogButtonBox::Cancel|QDialogButtonBox::Ok</set>
+    <widget class="QGroupBox" name="groupInfo">
+     <property name="title">
+      <string>Template Info:</string>
      </property>
+     <layout class="QVBoxLayout" name="infoLayout">
+      <item>
+       <widget class="QLabel" name="templateInfoLabel">
+        <property name="text">
+         <string/>
+        </property>
+        <property name="wordWrap">
+         <bool>true</bool>
+        </property>
+        <property name="minimumHeight">
+         <number>72</number>
+        </property>
+        <property name="alignment">
+         <set>Qt::AlignLeading|Qt::AlignTop</set>
+        </property>
+       </widget>
+      </item>
+     </layout>
     </widget>
+   </item>
+   <item>
+    <layout class="QGridLayout" name="pathGrid">
+     <item row="0" column="0">
+      <widget class="QToolButton" name="renderOptionsButton">
+       <property name="text">
+        <string>Render Options</string>
+       </property>
+       <property name="popupMode">
+        <enum>QToolButton::InstantPopup</enum>
+       </property>
+      </widget>
+     </item>
+     <item row="0" column="1">
+      <widget class="QLabel" name="labelFolder">
+       <property name="text">
+        <string>Folder:</string>
+       </property>
+      </widget>
+     </item>
+     <item row="0" column="2">
+      <widget class="QLineEdit" name="folderEdit"/>
+     </item>
+     <item row="0" column="3">
+      <widget class="QPushButton" name="browseButton">
+       <property name="text">
+        <string>Browse...</string>
+       </property>
+      </widget>
+     </item>
+     <item row="0" column="4">
+      <widget class="QPushButton" name="projectLocationButton">
+       <property name="text">
+        <string>Project Location</string>
+       </property>
+      </widget>
+     </item>
+     <item row="1" column="1">
+      <widget class="QLabel" name="labelName">
+       <property name="text">
+        <string>Name:</string>
+       </property>
+      </widget>
+     </item>
+     <item row="1" column="2" colspan="2">
+      <widget class="QLineEdit" name="nameEdit"/>
+     </item>
+     <item row="2" column="2">
+      <widget class="QLabel" name="freeSpaceLabel">
+       <property name="text">
+        <string>Free disk space: —</string>
+       </property>
+      </widget>
+     </item>
+     <item row="2" column="3" colspan="2">
+      <widget class="QLabel" name="estimatedSizeLabel">
+       <property name="text">
+        <string/>
+       </property>
+       <property name="alignment">
+        <set>Qt::AlignRight|Qt::AlignVCenter</set>
+       </property>
+      </widget>
+     </item>
+    </layout>
+   </item>
+   <item>
+    <layout class="QHBoxLayout" name="bottomRow">
+     <item>
+      <widget class="QPushButton" name="customizeButton">
+       <property name="text">
+        <string>Customize Template...</string>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QPushButton" name="aboutButton">
+       <property name="text">
+        <string>About...</string>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <spacer name="bottomSpacer">
+       <property name="orientation">
+        <enum>Qt::Horizontal</enum>
+       </property>
+       <property name="sizeHint" stdset="0">
+        <size>
+         <width>40</width>
+         <height>20</height>
+        </size>
+       </property>
+      </spacer>
+     </item>
+     <item>
+      <widget class="QPushButton" name="renderButton">
+       <property name="text">
+        <string>Render</string>
+       </property>
+       <property name="enabled">
+        <bool>false</bool>
+       </property>
+       <property name="default">
+        <bool>true</bool>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QPushButton" name="cancelButton">
+       <property name="text">
+        <string>Cancel</string>
+       </property>
+      </widget>
+     </item>
+    </layout>
    </item>
   </layout>
  </widget>
  <resources/>
- <connections>
-  <connection>
-   <sender>buttonBox</sender>
-   <signal>accepted()</signal>
-   <receiver>RenderAsDialog</receiver>
-   <slot>accept()</slot>
-  </connection>
-  <connection>
-   <sender>buttonBox</sender>
-   <signal>rejected()</signal>
-   <receiver>RenderAsDialog</receiver>
-   <slot>reject()</slot>
-  </connection>
- </connections>
+ <connections/>
 </ui>

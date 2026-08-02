@@ -1,0 +1,26 @@
+Archiving D:\Devs\C++\OpenVegas\SAMPLES\veg_project\project_big--buck-bunny_4x3-preview-reverse-fades-fx.veg
+	to D:\Devs\C++\OpenVegas\SAMPLES\veg_project\final-cut-pro-x\project_big--buck-bunny_4x3-preview-reverse-fades-fx.fcpxml
+Copied D:\Devs\C++\OpenVegas\SAMPLES\veg_project\big-buck-bunny_video-60fps-4k.mp4
+	to D:\Devs\C++\OpenVegas\SAMPLES\veg_project\final-cut-pro-x\big-buck-bunny_video-60fps-4k-16.mp4
+Copied D:\Devs\C++\OpenVegas\SAMPLES\veg_project\sample_for_project_audio.wav
+	to D:\Devs\C++\OpenVegas\SAMPLES\veg_project\final-cut-pro-x\sample_for_project_audio-4.wav
+Deinterlace method ignored.
+Motion blur type ignored.
+Video output FX ignored.
+Subclip "big-buck-bunny_video-60fps-4k.mp4 - subclip 1 (reversed)" ignored.
+Subclip "sample_for_project_audio.wav - subclip 1 (reversed)" ignored.
+Effects for track 2 ignored.
+Loop switch for event at 00:00:00,00 in track 2 ignored.
+Event group for event at 00:00:00,00 in track 2 ignored.
+Effects for event at 00:03:50,25 in track 2 ignored.
+Loop switch for event at 00:03:50,25 in track 2 ignored.
+Speed change/Reverse for event(00:03:50,25, track 2) results in either repetition of last frame or loop of event's media. Both are not available in FCP X. Please fix this otherwise import in FCP X will be faulty.
+Composite mode for track 1 ignored.
+Effects for track 1 ignored.
+Effects for event at 00:00:00,00 in track 1 ignored.
+Loop switch for event at 00:00:00,00 in track 1 ignored.
+Event group for event at 00:00:00,00 in track 1 ignored.
+Speed change/Reverse for event(00:00:00,00, track 1) results in either repetition of last frame or loop of event's media. Both are not available in FCP X. Please fix this otherwise import in FCP X will be faulty.
+Saved project D:\Devs\C++\OpenVegas\SAMPLES\veg_project\project_big--buck-bunny_4x3-preview-reverse-fades-fx.veg
+	to D:\Devs\C++\OpenVegas\SAMPLES\veg_project\final-cut-pro-x\project_big--buck-bunny_4x3-preview-reverse-fades-fx.fcpxml
+Archiving complete.

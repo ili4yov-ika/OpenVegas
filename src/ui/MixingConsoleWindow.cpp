@@ -608,8 +608,12 @@ void MixingConsoleWindow::buildUi()
 
     auto *viewBtn = addIconBtn(tr("View"), IconFactory::svgViews());
     auto *gearBtn = addIconBtn(tr("Mixing Console Properties"), IconFactory::svgGear());
-    addIconBtn(tr("Downmix Monitor Output"), IconFactory::svgDownmix());
-    addIconBtn(tr("Dim Output"), IconFactory::svgAudioDevice());
+    m_downmixBtn = addIconBtn(tr("Downmix Monitor Output"), IconFactory::svgDownmix());
+    m_downmixBtn->setCheckable(true);
+    connect(m_downmixBtn, &QToolButton::clicked, this, &MixingConsoleWindow::downmixOutputCycled);
+    m_dimBtn = addIconBtn(tr("Dim Output"), IconFactory::svgDimOutput());
+    m_dimBtn->setCheckable(true);
+    connect(m_dimBtn, &QToolButton::toggled, this, &MixingConsoleWindow::dimOutputChanged);
 
     auto addInsertBtn = [top, topLay](const QString &text, const QString &svg) {
         auto *b = new QToolButton(top);
@@ -664,10 +668,12 @@ void MixingConsoleWindow::buildUi()
     insertMenu->addAction(tr("Bus"), this, &MixingConsoleWindow::insertBus);
     insertMenu->addAction(tr("Input Bus"), this, &MixingConsoleWindow::insertInputBus);
     gearMenu->addSeparator();
-    auto *actDownmix = gearMenu->addAction(tr("Downmix Monitor Output"));
-    actDownmix->setCheckable(true);
-    auto *actDim = gearMenu->addAction(tr("Dim Output"));
-    actDim->setCheckable(true);
+    m_actDownmix = gearMenu->addAction(tr("Downmix Monitor Output"));
+    m_actDownmix->setCheckable(true);
+    connect(m_actDownmix, &QAction::triggered, this, &MixingConsoleWindow::downmixOutputCycled);
+    m_actDim = gearMenu->addAction(tr("Dim Output"));
+    m_actDim->setCheckable(true);
+    connect(m_actDim, &QAction::toggled, this, &MixingConsoleWindow::dimOutputChanged);
     gearMenu->addSeparator();
 
     auto *showChMenu = gearMenu->addMenu(tr("Show Channels"));
@@ -1394,6 +1400,52 @@ bool MixingConsoleWindow::eventFilter(QObject *watched, QEvent *event)
         }
     }
     return QWidget::eventFilter(watched, event);
+}
+
+void MixingConsoleWindow::syncMonitorButtons(int downmixMode, bool dimOutput)
+{
+    QString svg = IconFactory::svgDownmix();
+    QString tip = tr("Downmix Monitor Output");
+    bool latched = (downmixMode != 0);
+    switch (downmixMode) {
+    case 0:
+        svg = IconFactory::svgDownmixSurround();
+        tip = tr("Downmix Monitor Output (5.1 surround)");
+        break;
+    case 1:
+        svg = IconFactory::svgDownmix();
+        tip = tr("Downmix Monitor Output (Stereo)");
+        break;
+    case 2:
+        svg = IconFactory::svgDownmixMono();
+        tip = tr("Downmix Monitor Output (Mono)");
+        break;
+    default:
+        break;
+    }
+
+    if (m_downmixBtn) {
+        m_downmixBtn->blockSignals(true);
+        m_downmixBtn->setIcon(IconFactory::iconFromSvgBody(svg, 13));
+        m_downmixBtn->setToolTip(tip);
+        m_downmixBtn->setChecked(latched);
+        m_downmixBtn->blockSignals(false);
+    }
+    if (m_actDownmix) {
+        m_actDownmix->blockSignals(true);
+        m_actDownmix->setChecked(latched);
+        m_actDownmix->blockSignals(false);
+    }
+    if (m_dimBtn) {
+        m_dimBtn->blockSignals(true);
+        m_dimBtn->setChecked(dimOutput);
+        m_dimBtn->blockSignals(false);
+    }
+    if (m_actDim) {
+        m_actDim->blockSignals(true);
+        m_actDim->setChecked(dimOutput);
+        m_actDim->blockSignals(false);
+    }
 }
 
 } // namespace openvegas

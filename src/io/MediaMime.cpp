@@ -1,7 +1,9 @@
 #include "io/MediaMime.h"
+#include "io/MediaProbe.h"
 
 #include <QDir>
 #include <QFileInfo>
+#include <QHash>
 #include <QMimeData>
 #include <QUrl>
 
@@ -92,7 +94,8 @@ QMimeData *MediaMime::fromLocalPaths(const QStringList &paths)
     for (const QString &path : media) {
         const QString name = QFileInfo(path).fileName();
         const QString kind = guessKind(path);
-        blocks << QStringLiteral("%1\n%2\n%3\n%4").arg(kind, name, path).arg(0.0);
+        const double len = MediaProbe::lengthForInsert(path, kind);
+        blocks << QStringLiteral("%1\n%2\n%3\n%4").arg(kind, name, path).arg(len);
         names << name;
         urls << QUrl::fromLocalFile(path);
     }
@@ -193,6 +196,22 @@ void MediaMime::parse(const QMimeData *md, QStringList *names, QStringList *kind
         }
     }
 
+    // Preserve lengths from custom MIME blocks when path matches.
+    QHash<QString, double> lenByPath;
+    if (md->hasFormat(mimeType())) {
+        const QString payload = QString::fromUtf8(md->data(mimeType()));
+        for (const QString &block : payload.split(QStringLiteral("\n---\n"), Qt::SkipEmptyParts)) {
+            const QStringList parts = block.split(QLatin1Char('\n'));
+            if (parts.size() >= 4) {
+                const QString p = QDir::cleanPath(parts[2].trimmed());
+                const double len = parts[3].trimmed().toDouble();
+                if (!p.isEmpty() && len > 0.05) {
+                    lenByPath.insert(p, len);
+                }
+            }
+        }
+    }
+
     const QStringList media = expandToMediaFiles(rawPaths);
     for (const QString &path : media) {
         names->push_back(QFileInfo(path).fileName());
@@ -203,7 +222,7 @@ void MediaMime::parse(const QMimeData *md, QStringList *names, QStringList *kind
             paths->push_back(path);
         }
         if (lengths) {
-            lengths->push_back(0.0);
+            lengths->push_back(lenByPath.value(QDir::cleanPath(path), 0.0));
         }
     }
 }

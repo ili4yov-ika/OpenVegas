@@ -789,6 +789,8 @@ InterchangeResult ProjectInterchange::importVegasCsvEdl(const QString &path, QSt
     const int iRate = col(QStringLiteral("PlayRate"));
     const int iType = col(QStringLiteral("MediaType"));
     const int iFile = col(QStringLiteral("FileName"));
+    const int iStreamStart = col(QStringLiteral("StreamStart"));
+    const int iStreamLen = col(QStringLiteral("StreamLength"));
     const int iFadeIn = col(QStringLiteral("FadeTimeIn"));
     const int iFadeOut = col(QStringLiteral("FadeTimeOut"));
     const int iCurveIn = col(QStringLiteral("CurveIn"));
@@ -875,9 +877,26 @@ InterchangeResult ProjectInterchange::importVegasCsvEdl(const QString &path, QSt
                 ev.sustainGain = std::clamp(g, 0.0, 1.0);
             }
         }
-        if (iRate >= 0) {
-            const double rate = at(iRate).toDouble();
-            Q_UNUSED(rate); // timeline length already accounts for rate in Vegas CSV Length
+        if (iRate >= 0 && !at(iRate).isEmpty()) {
+            bool ok = false;
+            const double rate = at(iRate).toDouble(&ok);
+            if (ok && std::isfinite(rate) && std::abs(rate) > 1e-9) {
+                ev.playRate = rate;
+            }
+        }
+        if (iStreamStart >= 0 && !at(iStreamStart).isEmpty()) {
+            bool ok = false;
+            const double ms = at(iStreamStart).toDouble(&ok);
+            if (ok && std::isfinite(ms) && ms >= 0.0) {
+                ev.mediaStartSec = ms / 1000.0;
+            }
+        }
+        if (iStreamLen >= 0 && !at(iStreamLen).isEmpty()) {
+            bool ok = false;
+            const double ms = at(iStreamLen).toDouble(&ok);
+            if (ok && std::isfinite(ms) && ms > 0.0) {
+                ev.mediaLengthSec = ms / 1000.0;
+            }
         }
 
         const QString fileName = at(iFile);

@@ -114,6 +114,24 @@ inline FxSlot fxSlotFromVegName(const QString &raw)
             name = name.mid(colon + 1, end > colon ? end - colon - 1 : -1).trimmed();
         }
     }
+    // Vegas OFX Color Grading → OpenVegas builtin
+    if (name.contains(QLatin1String("colorgrading"), Qt::CaseInsensitive)
+        || name.compare(QLatin1String("com.vegascreativesoftware:colorgrading"),
+                        Qt::CaseInsensitive)
+               == 0) {
+        return makeFxSlot(QStringLiteral("Color Grading"), PluginFormat::Builtin,
+                          QStringLiteral("builtin:Color Grading"));
+    }
+    if (name.contains(QLatin1String("chromablur"), Qt::CaseInsensitive)) {
+        return makeFxSlot(QStringLiteral("Chroma Blur"), PluginFormat::Ofx, name);
+    }
+    if (name.contains(QLatin1String(":sepia"), Qt::CaseInsensitive)
+        || name.endsWith(QLatin1String("sepia"), Qt::CaseInsensitive)) {
+        return makeFxSlot(QStringLiteral("Sepia"), PluginFormat::Ofx, name);
+    }
+    if (name.contains(QLatin1String("autoframe"), Qt::CaseInsensitive)) {
+        return makeFxSlot(QStringLiteral("Auto Frame"), PluginFormat::Ofx, name);
+    }
     // "Fresh Air (VST2, 64 Bit)" / "Plug (VST, 64 Bit)" / "Auto-Key\t(VST3, 64 Bit)"
     {
         static const QRegularExpression vstSuffix(

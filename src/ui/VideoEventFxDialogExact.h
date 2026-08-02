@@ -22,6 +22,8 @@ class QComboBox;
 
 class QDoubleSpinBox;
 
+class QKeyEvent;
+
 class QHBoxLayout;
 
 class QLabel;
@@ -62,7 +64,8 @@ public:
 
     void setEvent(TrackEvent *ev, int frameW, int frameH, double playheadSec = 0.0);
 
-
+protected:
+    void keyPressEvent(QKeyEvent *event) override;
 
 private:
 
@@ -124,6 +127,13 @@ private:
 
     void onThumbnailReady(const QString &path);
 
+    void onPreviewFrameReady(const QString &path);
+
+    /** Resolve KF workspace size (media pixels when VEG stores Match Output Aspect in media space). */
+    void resolvePanCropSpace();
+
+    void pushCanvasSpaces();
+
     void flipHorizontal();
 
     void flipVertical();
@@ -140,7 +150,28 @@ private:
 
     void addKeyframeAtPlayhead();
 
+    void addKeyframeAtTime(double timeSec);
+
     void deleteSelectedKeyframe();
+
+    void movePositionKeyframe(int index, double timeSec, bool finalize);
+
+    void moveMaskKeyframe(int index, double timeSec, bool finalize);
+
+    /** Ensure a Position/Mask KF exists at playhead before writing props (Vegas-style). */
+    void ensureEditableKeyframeAtPlayhead();
+
+    void showPositionKeyframeMenu(int index, const QPoint &globalPos);
+
+    void showMaskKeyframeMenu(int index, const QPoint &globalPos);
+
+    void cutSelectedKeyframe();
+
+    void copySelectedKeyframe();
+
+    void pasteKeyframeAtPlayhead();
+
+    void setSelectedKeyframeType(VideoKeyframeType type);
 
     EventPanCropState &panCrop();
 
@@ -156,9 +187,27 @@ private:
 
     bool m_thumbHooked = false;
 
-    int m_frameW = 1920;
+    bool m_frameHooked = false;
+
+    bool m_hasPosClipboard = false;
+
+    bool m_hasMaskClipboard = false;
+
+    PanCropKeyframe m_posClipboard;
+
+    MaskKeyframe m_maskClipboard;
+
+    int m_frameW = 1920; // project frame
 
     int m_frameH = 1080;
+
+    int m_spaceW = 1920; // Pan/Crop KF coordinate space (media or project)
+
+    int m_spaceH = 1080;
+
+    int m_mediaW = 0;
+
+    int m_mediaH = 0;
 
     double m_durationSec = 10.0;
 

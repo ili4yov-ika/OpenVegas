@@ -1,4 +1,5 @@
 #include "MediaThumbCache.h"
+#include "MediaFilmstripCache.h"
 
 #include <QDateTime>
 #include <QFileInfo>
@@ -6,7 +7,9 @@
 #include <QImageReader>
 #include <QMetaObject>
 #include <QPainter>
+#include <QProcess>
 #include <QRunnable>
+#include <QTemporaryDir>
 #include <QThreadPool>
 
 #ifdef Q_OS_WIN
@@ -23,8 +26,9 @@ namespace {
 
 QString cacheKey(const QString &path, const QSize &size)
 {
+    // "|raw" — thumbs without baked sprockets (timeline reuses this cache as poster).
     return path + QLatin1Char('|') + QString::number(size.width()) + QLatin1Char('x')
-           + QString::number(size.height());
+           + QString::number(size.height()) + QStringLiteral("|raw");
 }
 
 bool isImageExt(const QString &ext)
@@ -41,6 +45,36 @@ bool isVideoExt(const QString &ext)
                                   QStringLiteral("avi"), QStringLiteral("m4v"), QStringLiteral("wmv"),
                                   QStringLiteral("webm"), QStringLiteral("mpg"), QStringLiteral("mpeg")};
     return k.contains(ext);
+}
+
+/** Vegas-style film sprocket "ladders" on left/right edges of a video thumb. */
+void drawFilmSprockets(QPainter &p, const QRect &r)
+{
+    if (r.width() < 16 || r.height() < 12) {
+        return;
+    }
+    p.save();
+    p.setRenderHint(QPainter::Antialiasing, true);
+
+    const int railW = qBound(3, r.width() / 22, 6);
+    const int holeH = qBound(2, r.height() / 14, 5);
+    const int gap = qMax(1, holeH * 2 / 3);
+    const int pitch = holeH + gap;
+    const int holeW = qMax(2, railW - 1);
+    const int insetX = 1;
+    const int topPad = qMax(1, (r.height() % pitch) / 2);
+
+    // Slightly darker film rails behind the perforations.
+    p.fillRect(QRect(r.left(), r.top(), railW + 1, r.height()), QColor(0, 0, 0, 55));
+    p.fillRect(QRect(r.right() - railW, r.top(), railW + 1, r.height()), QColor(0, 0, 0, 55));
+
+    p.setPen(Qt::NoPen);
+    p.setBrush(QColor(0xb8, 0xb8, 0xb8));
+    for (int y = r.top() + topPad; y + holeH <= r.bottom(); y += pitch) {
+        p.drawRoundedRect(QRect(r.left() + insetX, y, holeW, holeH), 1, 1);
+        p.drawRoundedRect(QRect(r.right() - insetX - holeW + 1, y, holeW, holeH), 1, 1);
+    }
+    p.restore();
 }
 
 QString kindFromPath(const QString &path, const QString &hint)
@@ -119,6 +153,14 @@ MediaThumbCache &MediaThumbCache::instance()
 MediaThumbCache::MediaThumbCache(QObject *parent)
     : QObject(parent)
 {
+}
+
+void MediaThumbCache::paintFilmSprockets(QPainter *painter, const QRect &rect)
+{
+    if (!painter || rect.isEmpty()) {
+        return;
+    }
+    drawFilmSprockets(*painter, rect);
 }
 
 void MediaThumbCache::invalidate(const QString &path)
@@ -266,9 +308,64 @@ QPixmap MediaThumbCache::loadSync(const QString &path, const QSize &size, const 
         if (!pm.isNull())
             return pm;
     }
-    QPixmap shell = loadShellThumbnail(path, size);
-    if (!shell.isNull())
-        return shell;
+
+    const bool video =
+        kind == QLatin1String("video") || isVideoExt(QFileInfo(path).suffix().toLower());
+    if (video) {
+        // Plain frame only — sprocket ladders are overlaid in Project Media / Explorer UI.
+        QPixmap frame = loadFfmpegVideoThumb(path, size);
+        if (frame.isNull()) {
+            frame = loadShellThumbnail(path, size);
+        }
+        return frame;
+    }
+
+    return loadShellThumbnail(path, size);
+}
+
+QPixmap MediaThumbCache::loadFfmpegVideoThumb(const QString &path, const QSize &size) const
+{
+    if (path.isEmpty() || size.width() < 2 || size.height() < 2 || !QFileInfo::exists(path)) {
+        return {};
+    }
+    const QString ffmpeg = MediaFilmstripCache::findFfmpeg();
+    if (ffmpeg.isEmpty()) {
+        return {};
+    }
+
+    // Representative poster: ~1s in (Vegas-like), then first frame.
+    const double times[] = {1.0, 0.0};
+    for (double t : times) {
+        QTemporaryDir tmp;
+        if (!tmp.isValid()) {
+            return {};
+        }
+        const QString out = tmp.path() + QStringLiteral("/poster.jpg");
+        QProcess proc;
+        QStringList args;
+        args << QStringLiteral("-hide_banner") << QStringLiteral("-loglevel")
+             << QStringLiteral("error");
+        if (t > 0.0) {
+            args << QStringLiteral("-ss") << QString::number(t, 'f', 3);
+        }
+        args << QStringLiteral("-i") << path << QStringLiteral("-frames:v") << QStringLiteral("1")
+             << QStringLiteral("-vf")
+             << QStringLiteral("scale=%1:%2:force_original_aspect_ratio=increase,crop=%1:%2")
+                    .arg(size.width())
+                    .arg(size.height())
+             << QStringLiteral("-q:v") << QStringLiteral("4") << QStringLiteral("-y") << out;
+        proc.start(ffmpeg, args);
+        if (proc.waitForFinished(20000) && proc.exitStatus() == QProcess::NormalExit
+            && proc.exitCode() == 0 && QFileInfo::exists(out)) {
+            QPixmap pm(out);
+            if (!pm.isNull()) {
+                if (pm.size() == size) {
+                    return pm;
+                }
+                return pm.scaled(size, Qt::IgnoreAspectRatio, Qt::SmoothTransformation);
+            }
+        }
+    }
     return {};
 }
 
@@ -375,6 +472,17 @@ QPixmap MediaThumbCache::placeholder(const QString &kind, const QSize &size, int
         p.setPen(QColor(160, 190, 255));
         p.setFont(QFont(QStringLiteral("Segoe UI"), qMax(8, size.height() / 5), QFont::DemiBold));
         p.drawText(r, Qt::AlignCenter, QStringLiteral("WAV"));
+        return pm;
+    }
+
+    if (kind == QLatin1String("video")) {
+        // Plain placeholder; sprocket ladders are painted by MediaThumbHoverScrub.
+        p.fillRect(r, QColor(0x2a, 0x30, 0x3a));
+        p.setPen(QPen(QColor(0x70, 0x78, 0x84), 1));
+        p.drawRoundedRect(r, 2, 2);
+        p.setPen(QColor(0xd0, 0xd4, 0xda));
+        p.setFont(QFont(QStringLiteral("Segoe UI"), qMax(10, size.height() / 3), QFont::Bold));
+        p.drawText(QRect(0, 0, size.width(), size.height()), Qt::AlignCenter, QStringLiteral("V"));
         return pm;
     }
 

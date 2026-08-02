@@ -30,12 +30,17 @@ set(OPENVGAS_VST3_SDK_PATH "" CACHE PATH "Path to Steinberg VST3 SDK (optional)"
     src/ui/IconFactory.cpp
     src/ui/WelcomeDialog.cpp
     src/ui/ProjectPropertiesDialog.cpp
+    src/ui/MatchMediaVideoSettingsDialog.cpp
+    src/ui/MissingFileDialog.cpp
+    src/ui/SearchMissingFilesDialog.cpp
+    src/ui/FindMissingFileDialog.cpp
     src/ui/RenderAsDialog.cpp
     src/ui/PreferencesDialog.cpp
     src/ui/EventPropertiesDialog.cpp
     src/ui/TrimmerWindow.cpp
     src/ui/PluginChooserDialog.cpp
     src/ui/AudioEventFxDialog.cpp
+    src/ui/ColorGradingEditor.cpp
     src/ui/ContextMenuBuilder.cpp
     src/ui/FadeCurvePopup.cpp
     src/ui/ExplorerPane.cpp
@@ -51,6 +56,7 @@ set(OPENVGAS_VST3_SDK_PATH "" CACHE PATH "Path to Steinberg VST3 SDK (optional)"
     src/ui/TrackMotionDialog.cpp
     src/ui/ConfirmWarningDialog.cpp
     src/ui/MediaBinListWidget.cpp
+    src/ui/MediaThumbHoverScrub.cpp
     src/ui/KeyboardMap.cpp
     src/ui/CustomizeKeyboardDialog.cpp
     src/timeline/TimelineView.cpp
@@ -65,7 +71,9 @@ set(OPENVGAS_VST3_SDK_PATH "" CACHE PATH "Path to Steinberg VST3 SDK (optional)"
     src/io/MediaThumbCache.cpp
     src/io/MediaWaveformCache.cpp
     src/io/MediaFilmstripCache.cpp
+    src/io/MediaProbe.cpp
     src/io/CdAudioReader.cpp
+    src/io/RenderTemplateCatalog.cpp
     src/plugins/PluginScanner.cpp
     src/plugins/BuiltinAudioCatalog.cpp
     src/plugins/AudioPluginScanner.cpp
@@ -94,12 +102,14 @@ set(OPENVGAS_HEADERS
     src/ui/IconFactory.h
     src/ui/WelcomeDialog.h
     src/ui/ProjectPropertiesDialog.h
+    src/ui/MatchMediaVideoSettingsDialog.h
     src/ui/RenderAsDialog.h
     src/ui/PreferencesDialog.h
     src/ui/EventPropertiesDialog.h
     src/ui/TrimmerWindow.h
     src/ui/PluginChooserDialog.h
     src/ui/AudioEventFxDialog.h
+    src/ui/ColorGradingEditor.h
     src/ui/ContextMenuBuilder.h
     src/ui/FadeCurvePopup.h
     src/ui/ExplorerPane.h
@@ -115,6 +125,7 @@ set(OPENVGAS_HEADERS
     src/ui/TrackMotionDialog.h
     src/ui/ConfirmWarningDialog.h
     src/ui/MediaBinListWidget.h
+    src/ui/MediaThumbHoverScrub.h
     src/ui/KeyboardMap.h
     src/ui/CustomizeKeyboardDialog.h
     src/timeline/TimelineView.h
@@ -129,7 +140,9 @@ set(OPENVGAS_HEADERS
     src/io/MediaThumbCache.h
     src/io/MediaWaveformCache.h
     src/io/MediaFilmstripCache.h
+    src/io/MediaProbe.h
     src/io/CdAudioReader.h
+    src/io/RenderTemplateCatalog.h
     src/plugins/PluginScanner.h
     src/plugins/AudioPluginTypes.h
     src/plugins/BuiltinAudioCatalog.h

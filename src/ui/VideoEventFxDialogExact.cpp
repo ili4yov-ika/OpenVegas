@@ -1,11 +1,15 @@
 #include "ui/VideoEventFxDialogExact.h"
 
+#include "io/MediaProbe.h"
 #include "io/MediaThumbCache.h"
 #include "plugins/AudioPluginTypes.h"
+#include "video/VideoFrameCache.h"
+#include "video/VideoKeyframeEval.h"
 #include "ui/AudioEventFxDialog.h"
 #include "ui/PluginChooserDialog.h"
 
 #include <QAbstractSpinBox>
+#include <QActionGroup>
 #include <QCheckBox>
 #include <QComboBox>
 #include <QContextMenuEvent>
@@ -13,6 +17,8 @@
 #include <QEvent>
 #include <QFrame>
 #include <QHBoxLayout>
+#include <QKeyEvent>
+#include <QKeySequence>
 #include <QLabel>
 #include <QLineF>
 #include <QMenu>
@@ -63,8 +69,9 @@ QDoubleSpinBox *makeSpin(QWidget *parent, double minV, double maxV, int decimals
     s->setSingleStep(step);
     s->setButtonSymbols(QAbstractSpinBox::NoButtons);
     s->setAlignment(Qt::AlignRight);
-    s->setFixedWidth(88);
-    s->setFixedHeight(18);
+    s->setFixedWidth(96);
+    s->setFixedHeight(20);
+    s->setKeyboardTracking(false);
     return s;
 }
 
@@ -122,21 +129,56 @@ public:
         setObjectName(QStringLiteral("pcKfLane"));
         setMinimumHeight(28);
         setMouseTracking(true);
+        setFocusPolicy(Qt::ClickFocus);
     }
 
-    void setTimes(const QVector<double> &times, double duration, int selected, double playhead)
+    void setTimes(const QVector<double> &times, const QVector<int> &types, double duration,
+                  int selected, double playhead)
     {
-        m_times = times;
+        if (!m_dragging) {
+            m_times = times;
+            m_types = types;
+            m_selected = selected;
+        }
         m_duration = std::max(0.001, duration);
-        m_selected = selected;
         m_playhead = playhead;
         update();
     }
 
     void setOnSelect(const std::function<void(int)> &fn) { m_onSelect = fn; }
     void setOnScrub(const std::function<void(double)> &fn) { m_onScrub = fn; }
+    /** Drag keyframe: (index, timeSec, finalize). Live moves pass finalize=false; release=true. */
+    void setOnMove(const std::function<void(int, double, bool)> &fn) { m_onMove = fn; }
+    /** Double-click empty lane → create keyframe at time. */
+    void setOnCreateAt(const std::function<void(double)> &fn) { m_onCreateAt = fn; }
+    void setOnDeleteSelected(const std::function<void()> &fn) { m_onDelete = fn; }
+    /** Right-click context menu on a keyframe (index, globalPos). */
+    void setOnContextMenu(const std::function<void(int, const QPoint &)> &fn)
+    {
+        m_onContextMenu = fn;
+    }
 
 protected:
+    static QColor colorForType(int vegasOrInternalType)
+    {
+        // Match Vegas-ish diamond tint by interpolation kind.
+        switch (static_cast<VideoKeyframeType>(vegasOrInternalType)) {
+        case VideoKeyframeType::Fast:
+            return QColor(0x60, 0xd0, 0x60);
+        case VideoKeyframeType::Slow:
+            return QColor(0x50, 0xb0, 0xff);
+        case VideoKeyframeType::Smooth:
+            return QColor(0xc0, 0x80, 0xff);
+        case VideoKeyframeType::Sharp:
+            return QColor(0xff, 0x90, 0x40);
+        case VideoKeyframeType::Hold:
+            return QColor(0xff, 0x55, 0x55);
+        case VideoKeyframeType::Linear:
+        default:
+            return QColor(0xf0, 0xf0, 0xf0);
+        }
+    }
+
     void paintEvent(QPaintEvent *) override
     {
         QPainter p(this);
@@ -146,24 +188,142 @@ protected:
         p.setPen(QPen(QColor(0xf0, 0x90, 0x20), 1));
         p.drawLine(QPointF(phX, 0), QPointF(phX, height()));
         for (int i = 0; i < m_times.size(); ++i) {
-            const double x = (m_times[i] / m_duration) * width();
-            const bool sel = (i == m_selected);
-            const double s = sel ? 6.0 : 5.0;
+            const double t = (m_dragging && i == m_dragIndex) ? m_dragTime : m_times[i];
+            const double x = (t / m_duration) * width();
+            const bool sel = (i == m_selected) || (m_dragging && i == m_dragIndex);
+            const double s = sel ? 6.5 : 5.0;
             QPolygonF dia;
             dia << QPointF(x, midY - s) << QPointF(x + s, midY) << QPointF(x, midY + s)
                 << QPointF(x - s, midY);
-            p.setBrush(sel ? QColor(0x40, 0xa0, 0xff) : QColor(0xf0, 0xf0, 0xf0));
-            p.setPen(QPen(Qt::black, 1));
+            const int typeCode = (i < m_types.size()) ? m_types[i] : 0;
+            QColor fill = colorForType(typeCode);
+            if (sel) {
+                fill = fill.lighter(130);
+            }
+            p.setBrush(fill);
+            p.setPen(QPen(sel ? QColor(0x40, 0xa0, 0xff) : Qt::black, sel ? 2 : 1));
             p.drawPolygon(dia);
         }
     }
 
     void mousePressEvent(QMouseEvent *event) override
     {
+        if (event->button() == Qt::RightButton) {
+            setFocus(Qt::MouseFocusReason);
+            const int hit = hitTest(event->position().x());
+            if (hit >= 0) {
+                if (m_onSelect) {
+                    m_onSelect(hit);
+                }
+                if (m_onContextMenu) {
+                    m_onContextMenu(hit, event->globalPosition().toPoint());
+                }
+            }
+            return;
+        }
         if (event->button() != Qt::LeftButton) {
             return;
         }
+        setFocus(Qt::MouseFocusReason);
         const double mx = event->position().x();
+        const int hit = hitTest(mx);
+        if (hit >= 0) {
+            m_dragging = true;
+            m_dragIndex = hit;
+            m_dragTime = m_times[hit];
+            m_pressX = mx;
+            m_moved = false;
+            if (m_onSelect) {
+                m_onSelect(hit);
+            }
+            setCursor(Qt::SizeHorCursor);
+            return;
+        }
+        if (m_onScrub) {
+            m_scrubbing = true;
+            m_onScrub(xToTime(mx));
+        }
+    }
+
+    void mouseMoveEvent(QMouseEvent *event) override
+    {
+        const double mx = event->position().x();
+        if (m_dragging && m_dragIndex >= 0) {
+            if (!m_moved && std::abs(mx - m_pressX) < 3.0) {
+                return;
+            }
+            m_moved = true;
+            m_dragTime = xToTime(mx);
+            // Live preview of diamond position.
+            if (m_dragIndex >= 0 && m_dragIndex < m_times.size()) {
+                m_times[m_dragIndex] = m_dragTime;
+            }
+            if (m_onMove) {
+                m_onMove(m_dragIndex, m_dragTime, false);
+            }
+            update();
+            return;
+        }
+        if (m_scrubbing && m_onScrub) {
+            m_onScrub(xToTime(mx));
+            return;
+        }
+        setCursor(hitTest(mx) >= 0 ? Qt::SizeHorCursor : Qt::ArrowCursor);
+    }
+
+    void mouseReleaseEvent(QMouseEvent *event) override
+    {
+        if (event->button() != Qt::LeftButton) {
+            return;
+        }
+        const int idx = m_dragIndex;
+        const double t = m_dragTime;
+        const bool didMove = m_dragging && m_moved && idx >= 0;
+        m_dragging = false;
+        m_scrubbing = false;
+        m_dragIndex = -1;
+        m_moved = false;
+        setCursor(Qt::ArrowCursor);
+        if (didMove && m_onMove) {
+            m_onMove(idx, t, true);
+        }
+        update();
+    }
+
+    void mouseDoubleClickEvent(QMouseEvent *event) override
+    {
+        if (event->button() != Qt::LeftButton) {
+            return;
+        }
+        const double t = xToTime(event->position().x());
+        if (hitTest(event->position().x()) >= 0) {
+            return;
+        }
+        if (m_onCreateAt) {
+            m_onCreateAt(t);
+        }
+    }
+
+    void keyPressEvent(QKeyEvent *event) override
+    {
+        if (event->key() == Qt::Key_Delete || event->key() == Qt::Key_Backspace) {
+            if (m_onDelete) {
+                m_onDelete();
+            }
+            event->accept();
+            return;
+        }
+        QWidget::keyPressEvent(event);
+    }
+
+private:
+    double xToTime(double x) const
+    {
+        return std::clamp(x / std::max(1.0, double(width())), 0.0, 1.0) * m_duration;
+    }
+
+    int hitTest(double mx) const
+    {
         int best = -1;
         double bestD = 1e9;
         for (int i = 0; i < m_times.size(); ++i) {
@@ -174,22 +334,26 @@ protected:
                 best = i;
             }
         }
-        if (best >= 0 && bestD < 12.0 && m_onSelect) {
-            m_onSelect(best);
-            return;
-        }
-        if (m_onScrub) {
-            m_onScrub(std::clamp(mx / std::max(1.0, double(width())), 0.0, 1.0) * m_duration);
-        }
+        return (best >= 0 && bestD < 12.0) ? best : -1;
     }
 
-private:
     QVector<double> m_times;
+    QVector<int> m_types;
     double m_duration = 10.0;
     int m_selected = 0;
     double m_playhead = 0.0;
+    bool m_dragging = false;
+    bool m_scrubbing = false;
+    bool m_moved = false;
+    int m_dragIndex = -1;
+    double m_dragTime = 0.0;
+    double m_pressX = 0.0;
     std::function<void(int)> m_onSelect;
     std::function<void(double)> m_onScrub;
+    std::function<void(int, double, bool)> m_onMove;
+    std::function<void(double)> m_onCreateAt;
+    std::function<void()> m_onDelete;
+    std::function<void(int, const QPoint &)> m_onContextMenu;
 };
 
 class RowClickFilter : public QObject {
@@ -330,20 +494,30 @@ public:
         update();
     }
 
-    void setKeyframe(const PanCropKeyframe &kf, int frameW, int frameH)
+    /** Coordinate space for KF (media pixels when Match Output Aspect stores media-space values). */
+    void setSpaces(int spaceW, int spaceH, int projectW, int projectH)
     {
-        m_kf = kf;
-        m_frameW = std::max(1, frameW);
-        m_frameH = std::max(1, frameH);
+        m_frameW = std::max(1, spaceW);
+        m_frameH = std::max(1, spaceH);
+        m_projectW = std::max(1, projectW);
+        m_projectH = std::max(1, projectH);
         update();
     }
 
-    void setMaskKeyframe(const MaskKeyframe &mk, bool enabled, int frameW, int frameH)
+    void setKeyframe(const PanCropKeyframe &kf, int spaceW, int spaceH)
+    {
+        m_kf = kf;
+        m_frameW = std::max(1, spaceW);
+        m_frameH = std::max(1, spaceH);
+        update();
+    }
+
+    void setMaskKeyframe(const MaskKeyframe &mk, bool enabled, int spaceW, int spaceH)
     {
         m_maskKf = mk;
         m_maskEnabled = enabled;
-        m_frameW = std::max(1, frameW);
-        m_frameH = std::max(1, frameH);
+        m_frameW = std::max(1, spaceW);
+        m_frameH = std::max(1, spaceH);
         update();
     }
 
@@ -426,7 +600,9 @@ protected:
 
         const QRectF frame = frameRect();
         if (!m_media.isNull()) {
-            p.drawPixmap(frame.toRect(), m_media);
+            p.setRenderHint(QPainter::SmoothPixmapTransform, true);
+            // Source fills the media-aspect workspace (Vegas Event Pan/Crop).
+            p.drawPixmap(frame, m_media, QRectF(m_media.rect()));
         } else {
             p.fillRect(frame, QColor(0x1a, 0x1a, 0x1a));
             p.setPen(QPen(QColor(0x2e, 0x2e, 0x2e), 1));
@@ -658,13 +834,31 @@ protected:
             event->accept();
             return;
         } else if (chosen == matchOutAct) {
-            matchAspect(double(m_frameW) / double(m_frameH));
-        } else if (chosen == matchSrcAct) {
-            double aspect = double(m_frameW) / double(m_frameH);
-            if (!m_media.isNull() && m_media.height() > 0) {
-                aspect = double(m_media.width()) / double(m_media.height());
+            // Largest crop with project AR that fits in workspace (media) — Vegas Match Output Aspect.
+            const double aspect = double(m_projectW) / double(m_projectH);
+            const double signW = m_kf.width < 0 ? -1.0 : 1.0;
+            const double signH = m_kf.height < 0 ? -1.0 : 1.0;
+            double w = double(m_frameH) * aspect;
+            double h = double(m_frameH);
+            if (w > double(m_frameW)) {
+                w = double(m_frameW);
+                h = w / aspect;
             }
-            matchAspect(aspect);
+            m_kf.width = std::max(8.0, w) * signW;
+            m_kf.height = std::max(8.0, h) * signH;
+            m_kf.xCenter = m_frameW * 0.5;
+            m_kf.yCenter = m_frameH * 0.5;
+            m_kf.rotationXCenter = m_kf.xCenter;
+            m_kf.rotationYCenter = m_kf.yCenter;
+        } else if (chosen == matchSrcAct) {
+            const double signW = m_kf.width < 0 ? -1.0 : 1.0;
+            const double signH = m_kf.height < 0 ? -1.0 : 1.0;
+            m_kf.width = double(m_frameW) * signW;
+            m_kf.height = double(m_frameH) * signH;
+            m_kf.xCenter = m_frameW * 0.5;
+            m_kf.yCenter = m_frameH * 0.5;
+            m_kf.rotationXCenter = m_kf.xCenter;
+            m_kf.rotationYCenter = m_kf.yCenter;
         }
 
         update();
@@ -1256,8 +1450,10 @@ private:
     MaskKeyframe m_maskKf;
     Channel m_channel = Channel::Position;
     MaskTool m_maskTool = MaskTool::NormalEdit;
-    int m_frameW = 1920;
+    int m_frameW = 1920; // workspace / KF space (media or project)
     int m_frameH = 1080;
+    int m_projectW = 1920;
+    int m_projectH = 1080;
     double m_zoom = 15.4;
     double m_wsX = 0.0;
     double m_wsY = 0.0;
@@ -1305,6 +1501,10 @@ void VideoEventFxDialogExact::setEvent(TrackEvent *ev, int frameW, int frameH, d
     m_event = ev;
     m_frameW = std::max(1, frameW);
     m_frameH = std::max(1, frameH);
+    m_mediaW = 0;
+    m_mediaH = 0;
+    m_spaceW = m_frameW;
+    m_spaceH = m_frameH;
     m_durationSec = ev ? std::max(1.0, ev->lengthSec) : 10.0;
     m_playheadSec = std::clamp(playheadSec, 0.0, m_durationSec);
     ensurePanCropFirst();
@@ -1325,9 +1525,60 @@ void VideoEventFxDialogExact::setEvent(TrackEvent *ev, int frameW, int frameH, d
             m_subtitle->setText(tr("Event Pan/Crop: "));
         }
     }
+    resolvePanCropSpace();
     loadMediaPreview();
+    pushCanvasSpaces();
     rebuildChain();
     selectPlugin(0);
+}
+
+void VideoEventFxDialogExact::resolvePanCropSpace()
+{
+    m_spaceW = m_frameW;
+    m_spaceH = m_frameH;
+    if (!m_event) {
+        return;
+    }
+    if (m_mediaW < 1 || m_mediaH < 1) {
+        if (!m_event->mediaPath.isEmpty()) {
+            const MediaProbeInfo info = MediaProbe::probe(m_event->mediaPath);
+            if (info.ok && info.width > 0 && info.height > 0) {
+                m_mediaW = info.width;
+                m_mediaH = info.height;
+            }
+        }
+    }
+    // VEG Match Output Aspect: KF in media pixels — infer source size if probe failed.
+    bool mediaSpace = false;
+    double inferW = 0.0;
+    double inferH = 0.0;
+    for (const PanCropKeyframe &kf : panCrop().positionKeyframes) {
+        if (std::abs(kf.width) > m_frameW * 1.25 || std::abs(kf.height) > m_frameH * 1.25) {
+            mediaSpace = true;
+        }
+        inferW = std::max(inferW, std::max(std::abs(kf.width), kf.xCenter * 2.0));
+        inferH = std::max(inferH, std::max(std::abs(kf.height), kf.yCenter * 2.0));
+    }
+    if (m_mediaW < 1 || m_mediaH < 1) {
+        if (mediaSpace && inferW >= 2.0 && inferH >= 2.0) {
+            m_mediaW = int(std::lround(inferW));
+            m_mediaH = int(std::lround(inferH));
+        } else {
+            return;
+        }
+    }
+    if (mediaSpace) {
+        m_spaceW = m_mediaW;
+        m_spaceH = m_mediaH;
+    }
+}
+
+void VideoEventFxDialogExact::pushCanvasSpaces()
+{
+    if (!m_canvas) {
+        return;
+    }
+    m_canvas->setSpaces(m_spaceW, m_spaceH, m_frameW, m_frameH);
 }
 
 void VideoEventFxDialogExact::loadMediaPreview()
@@ -1336,23 +1587,48 @@ void VideoEventFxDialogExact::loadMediaPreview()
         return;
     }
     QPixmap pm;
-    if (!m_event->mediaPath.isEmpty()) {
-        pm = MediaThumbCache::instance().pixmapIfReady(m_event->mediaPath, QSize(960, 540),
-                                                       QStringLiteral("video"));
-        if (pm.isNull()) {
-            MediaThumbCache::instance().iconFor(m_event->mediaPath, QSize(960, 540),
-                                                QStringLiteral("video"));
-            if (!m_thumbHooked) {
-                connect(&MediaThumbCache::instance(), &MediaThumbCache::thumbnailReady, this,
-                        &VideoEventFxDialogExact::onThumbnailReady);
-                m_thumbHooked = true;
+    const QString path = m_event->mediaPath;
+    if (!path.isEmpty()) {
+        const bool still = m_event->mediaKind == EventMediaKind::Still
+                           || m_event->mediaKind == EventMediaKind::Title;
+        // Prefer a real decoded frame at the Pan/Crop playhead (Vegas workspace preview).
+        const QSize decodeSz = VideoFrameCache::cappedSize(
+            QSize(m_spaceW > 1 ? m_spaceW : 960, m_spaceH > 1 ? m_spaceH : 540));
+        const QImage frame =
+            VideoFrameCache::instance().frameIfReady(path, m_playheadSec, decodeSz, still, true);
+        if (!frame.isNull()) {
+            pm = QPixmap::fromImage(frame);
+        } else {
+            if (!m_frameHooked) {
+                connect(&VideoFrameCache::instance(), &VideoFrameCache::frameReady, this,
+                        &VideoEventFxDialogExact::onPreviewFrameReady);
+                m_frameHooked = true;
+            }
+            // Fallback shell/thumb while ffmpeg seeks.
+            pm = MediaThumbCache::instance().pixmapIfReady(path, QSize(960, 540),
+                                                           QStringLiteral("video"));
+            if (pm.isNull()) {
+                MediaThumbCache::instance().iconFor(path, QSize(960, 540), QStringLiteral("video"));
+                if (!m_thumbHooked) {
+                    connect(&MediaThumbCache::instance(), &MediaThumbCache::thumbnailReady, this,
+                            &VideoEventFxDialogExact::onThumbnailReady);
+                    m_thumbHooked = true;
+                }
             }
         }
     }
     m_canvas->setMediaPixmap(pm);
+    pushCanvasSpaces();
 }
 
 void VideoEventFxDialogExact::onThumbnailReady(const QString &path)
+{
+    if (m_event && path == m_event->mediaPath) {
+        loadMediaPreview();
+    }
+}
+
+void VideoEventFxDialogExact::onPreviewFrameReady(const QString &path)
 {
     if (m_event && path == m_event->mediaPath) {
         loadMediaPreview();
@@ -1526,7 +1802,11 @@ void VideoEventFxDialogExact::setPlayheadSec(double sec, bool selectNearestKf)
         m_maskIndex = panCrop().maskIndexAt(m_playheadSec);
         syncUiFromSelected();
     }
+    loadMediaPreview();
     refreshKeyframeLanes();
+    if (m_tc) {
+        m_tc->setText(formatTc(m_playheadSec));
+    }
 }
 
 void VideoEventFxDialogExact::buildUi()
@@ -1792,8 +2072,11 @@ QWidget *VideoEventFxDialogExact::buildPanCropView()
     cwLay->setContentsMargins(0, 0, 0, 0);
     m_canvas = new PanCropCanvas(canvasWrap);
     m_canvas->setOnEdited([this](const PanCropKeyframe &kf) {
+        ensureEditableKeyframeAtPlayhead();
         if (PanCropKeyframe *cur = selectedKf()) {
+            const double t = cur->timeSec;
             *cur = kf;
+            cur->timeSec = t;
             m_block = true;
             m_w->setValue(kf.width);
             m_h->setValue(kf.height);
@@ -1804,11 +2087,16 @@ QWidget *VideoEventFxDialogExact::buildPanCropView()
             m_rotY->setValue(kf.rotationYCenter);
             m_block = false;
             syncFlipButtons();
+            refreshKeyframeLanes();
         }
     });
     m_canvas->setOnMaskEdited([this](const MaskKeyframe &mk) {
+        ensureEditableKeyframeAtPlayhead();
         if (MaskKeyframe *cur = selectedMaskKf()) {
+            const double t = cur->timeSec;
             *cur = mk;
+            cur->timeSec = t;
+            refreshKeyframeLanes();
         }
     });
     m_canvas->setOnMaskSelection([this](int pathIndex, int anchorIndex) {
@@ -2048,6 +2336,19 @@ QWidget *VideoEventFxDialogExact::buildKeyframePanel()
         selectPositionIndex(i);
     });
     lane->setOnScrub([this](double t) { setPlayheadSec(t, true); });
+    lane->setOnMove([this](int i, double t, bool fin) { movePositionKeyframe(i, t, fin); });
+    lane->setOnCreateAt([this](double t) {
+        setChannel(PanCropChannel::Position);
+        addKeyframeAtTime(t);
+    });
+    lane->setOnDeleteSelected([this]() {
+        setChannel(PanCropChannel::Position);
+        deleteSelectedKeyframe();
+    });
+    lane->setOnContextMenu([this](int i, const QPoint &gp) {
+        setChannel(PanCropChannel::Position);
+        showPositionKeyframeMenu(i, gp);
+    });
     rowLay->addWidget(lane, 1);
     root->addWidget(row);
     connect(posCb, &QCheckBox::clicked, this, [this]() { setChannel(PanCropChannel::Position); });
@@ -2077,6 +2378,19 @@ QWidget *VideoEventFxDialogExact::buildKeyframePanel()
         selectMaskIndex(i);
     });
     maskLane->setOnScrub([this](double t) { setPlayheadSec(t, true); });
+    maskLane->setOnMove([this](int i, double t, bool fin) { moveMaskKeyframe(i, t, fin); });
+    maskLane->setOnCreateAt([this](double t) {
+        setChannel(PanCropChannel::Mask);
+        addKeyframeAtTime(t);
+    });
+    maskLane->setOnDeleteSelected([this]() {
+        setChannel(PanCropChannel::Mask);
+        deleteSelectedKeyframe();
+    });
+    maskLane->setOnContextMenu([this](int i, const QPoint &gp) {
+        setChannel(PanCropChannel::Mask);
+        showMaskKeyframeMenu(i, gp);
+    });
     maskLay->addWidget(maskLane, 1);
     root->addWidget(maskRow);
     connect(maskCb, &QCheckBox::toggled, this, [this](bool on) {
@@ -2286,18 +2600,22 @@ void VideoEventFxDialogExact::refreshKeyframeLanes()
         return;
     }
     QVector<double> posTimes;
+    QVector<int> posTypes;
     for (const PanCropKeyframe &k : panCrop().positionKeyframes) {
         posTimes.push_back(k.timeSec);
+        posTypes.push_back(int(k.type));
     }
     if (auto *lane = static_cast<KeyframeLane *>(m_posLane)) {
-        lane->setTimes(posTimes, m_durationSec, m_posIndex, m_playheadSec);
+        lane->setTimes(posTimes, posTypes, m_durationSec, m_posIndex, m_playheadSec);
     }
     QVector<double> maskTimes;
+    QVector<int> maskTypes;
     for (const MaskKeyframe &k : panCrop().maskKeyframes) {
         maskTimes.push_back(k.timeSec);
+        maskTypes.push_back(int(k.type));
     }
     if (auto *lane = static_cast<KeyframeLane *>(m_maskLane)) {
-        lane->setTimes(maskTimes, m_durationSec, m_maskIndex, m_playheadSec);
+        lane->setTimes(maskTimes, maskTypes, m_durationSec, m_maskIndex, m_playheadSec);
     }
     if (m_ruler) {
         m_ruler->setRange(m_durationSec, m_playheadSec);
@@ -2348,43 +2666,59 @@ void VideoEventFxDialogExact::navigateKeyframeLast()
 
 void VideoEventFxDialogExact::addKeyframeAtPlayhead()
 {
+    addKeyframeAtTime(m_playheadSec);
+}
+
+void VideoEventFxDialogExact::addKeyframeAtTime(double timeSec)
+{
     if (!m_event) {
         return;
     }
+    timeSec = std::clamp(timeSec, 0.0, m_durationSec);
+    m_playheadSec = timeSec;
+
     if (m_channel == PanCropChannel::Mask) {
         MaskKeyframe k;
         if (MaskKeyframe *cur = selectedMaskKf()) {
             k = *cur;
         }
-        k.timeSec = m_playheadSec;
+        k.timeSec = timeSec;
         auto &kfs = panCrop().maskKeyframes;
-        int insertAt = 0;
-        while (insertAt < kfs.size() && kfs[insertAt].timeSec <= k.timeSec + 1e-9) {
-            ++insertAt;
+        for (int i = 0; i < kfs.size(); ++i) {
+            if (std::abs(kfs[i].timeSec - timeSec) < 1e-3) {
+                kfs[i] = k;
+                selectMaskIndex(i);
+                return;
+            }
         }
-        if (insertAt > 0 && std::abs(kfs[insertAt - 1].timeSec - k.timeSec) < 1e-4) {
-            kfs[insertAt - 1] = k;
-            selectMaskIndex(insertAt - 1);
-            return;
+        int insertAt = 0;
+        while (insertAt < kfs.size() && kfs[insertAt].timeSec <= timeSec + 1e-9) {
+            ++insertAt;
         }
         kfs.insert(insertAt, k);
         selectMaskIndex(insertAt);
         return;
     }
-    PanCropKeyframe k = EventPanCropState::identityKeyframe(m_frameW, m_frameH);
-    if (PanCropKeyframe *cur = selectedKf()) {
-        k = *cur;
-    }
-    k.timeSec = m_playheadSec;
+
+    // Capture interpolated state at this time (Vegas: new KF inherits current animated values).
+    PanCropKeyframe k = evaluatePanCrop(panCrop(), timeSec, m_spaceW, m_spaceH);
+    k.timeSec = timeSec;
     auto &kfs = panCrop().positionKeyframes;
-    int insertAt = 0;
-    while (insertAt < kfs.size() && kfs[insertAt].timeSec <= k.timeSec + 1e-9) {
-        ++insertAt;
+    for (int i = 0; i < kfs.size(); ++i) {
+        if (std::abs(kfs[i].timeSec - timeSec) < 1e-3) {
+            // Refresh values from current props/canvas if selected was being edited.
+            if (PanCropKeyframe *cur = selectedKf()) {
+                k = *cur;
+                k.timeSec = timeSec;
+            }
+            kfs[i] = k;
+            selectPositionIndex(i);
+            return;
+        }
     }
-    if (insertAt > 0 && std::abs(kfs[insertAt - 1].timeSec - k.timeSec) < 1e-4) {
-        kfs[insertAt - 1] = k;
-        selectPositionIndex(insertAt - 1);
-        return;
+    int insertAt = 0;
+    while (insertAt < kfs.size() && kfs[insertAt].timeSec <= timeSec + 1e-9) {
+        ++insertAt;
     }
     kfs.insert(insertAt, k);
     selectPositionIndex(insertAt);
@@ -2399,15 +2733,294 @@ void VideoEventFxDialogExact::deleteSelectedKeyframe()
         if (panCrop().maskKeyframes.size() <= 1) {
             return;
         }
-        panCrop().maskKeyframes.removeAt(m_maskIndex);
-        selectMaskIndex(std::min(m_maskIndex, int(panCrop().maskKeyframes.size()) - 1));
+        const int removeAt = std::clamp(m_maskIndex, 0, int(panCrop().maskKeyframes.size()) - 1);
+        panCrop().maskKeyframes.removeAt(removeAt);
+        selectMaskIndex(std::min(removeAt, int(panCrop().maskKeyframes.size()) - 1));
+        loadMediaPreview();
         return;
     }
     if (panCrop().positionKeyframes.size() <= 1) {
         return;
     }
-    panCrop().positionKeyframes.removeAt(m_posIndex);
-    selectPositionIndex(std::min(m_posIndex, int(panCrop().positionKeyframes.size()) - 1));
+    const int removeAt = std::clamp(m_posIndex, 0, int(panCrop().positionKeyframes.size()) - 1);
+    panCrop().positionKeyframes.removeAt(removeAt);
+    selectPositionIndex(std::min(removeAt, int(panCrop().positionKeyframes.size()) - 1));
+    loadMediaPreview();
+}
+
+void VideoEventFxDialogExact::movePositionKeyframe(int index, double timeSec, bool finalize)
+{
+    if (!m_event || index < 0 || index >= panCrop().positionKeyframes.size()) {
+        return;
+    }
+    timeSec = std::clamp(timeSec, 0.0, m_durationSec);
+    auto &kfs = panCrop().positionKeyframes;
+    if (!finalize) {
+        kfs[index].timeSec = timeSec;
+        m_posIndex = index;
+        m_playheadSec = timeSec;
+        if (m_tc) {
+            m_tc->setText(formatTc(m_playheadSec));
+        }
+        if (m_ruler) {
+            m_ruler->setRange(m_durationSec, m_playheadSec);
+        }
+        return;
+    }
+    PanCropKeyframe moved = kfs[index];
+    moved.timeSec = timeSec;
+    kfs.removeAt(index);
+    int insertAt = 0;
+    while (insertAt < kfs.size() && kfs[insertAt].timeSec <= timeSec + 1e-9) {
+        ++insertAt;
+    }
+    kfs.insert(insertAt, moved);
+    m_posIndex = insertAt;
+    m_playheadSec = moved.timeSec;
+    syncUiFromSelected();
+    refreshKeyframeLanes();
+    loadMediaPreview();
+}
+
+void VideoEventFxDialogExact::moveMaskKeyframe(int index, double timeSec, bool finalize)
+{
+    if (!m_event || index < 0 || index >= panCrop().maskKeyframes.size()) {
+        return;
+    }
+    timeSec = std::clamp(timeSec, 0.0, m_durationSec);
+    auto &kfs = panCrop().maskKeyframes;
+    if (!finalize) {
+        kfs[index].timeSec = timeSec;
+        m_maskIndex = index;
+        m_playheadSec = timeSec;
+        if (m_tc) {
+            m_tc->setText(formatTc(m_playheadSec));
+        }
+        if (m_ruler) {
+            m_ruler->setRange(m_durationSec, m_playheadSec);
+        }
+        return;
+    }
+    MaskKeyframe moved = kfs[index];
+    moved.timeSec = timeSec;
+    kfs.removeAt(index);
+    int insertAt = 0;
+    while (insertAt < kfs.size() && kfs[insertAt].timeSec <= timeSec + 1e-9) {
+        ++insertAt;
+    }
+    kfs.insert(insertAt, moved);
+    m_maskIndex = insertAt;
+    m_playheadSec = moved.timeSec;
+    syncUiFromSelected();
+    refreshKeyframeLanes();
+}
+
+void VideoEventFxDialogExact::ensureEditableKeyframeAtPlayhead()
+{
+    if (!m_event) {
+        return;
+    }
+    constexpr double kEps = 1e-3;
+    if (m_channel == PanCropChannel::Mask) {
+        for (int i = 0; i < panCrop().maskKeyframes.size(); ++i) {
+            if (std::abs(panCrop().maskKeyframes[i].timeSec - m_playheadSec) < kEps) {
+                m_maskIndex = i;
+                return;
+            }
+        }
+        addKeyframeAtTime(m_playheadSec);
+        return;
+    }
+    for (int i = 0; i < panCrop().positionKeyframes.size(); ++i) {
+        if (std::abs(panCrop().positionKeyframes[i].timeSec - m_playheadSec) < kEps) {
+            m_posIndex = i;
+            return;
+        }
+    }
+    addKeyframeAtTime(m_playheadSec);
+}
+
+void VideoEventFxDialogExact::cutSelectedKeyframe()
+{
+    copySelectedKeyframe();
+    deleteSelectedKeyframe();
+}
+
+void VideoEventFxDialogExact::copySelectedKeyframe()
+{
+    if (!m_event) {
+        return;
+    }
+    if (m_channel == PanCropChannel::Mask) {
+        if (MaskKeyframe *mk = selectedMaskKf()) {
+            m_maskClipboard = *mk;
+            m_hasMaskClipboard = true;
+            refreshKeyframeLanes();
+        }
+        return;
+    }
+    if (PanCropKeyframe *kf = selectedKf()) {
+        m_posClipboard = *kf;
+        m_hasPosClipboard = true;
+        refreshKeyframeLanes();
+    }
+}
+
+void VideoEventFxDialogExact::pasteKeyframeAtPlayhead()
+{
+    if (!m_event) {
+        return;
+    }
+    if (m_channel == PanCropChannel::Mask) {
+        if (!m_hasMaskClipboard) {
+            return;
+        }
+        MaskKeyframe k = m_maskClipboard;
+        k.timeSec = m_playheadSec;
+        auto &kfs = panCrop().maskKeyframes;
+        for (int i = 0; i < kfs.size(); ++i) {
+            if (std::abs(kfs[i].timeSec - m_playheadSec) < 1e-3) {
+                kfs[i] = k;
+                selectMaskIndex(i);
+                return;
+            }
+        }
+        int insertAt = 0;
+        while (insertAt < kfs.size() && kfs[insertAt].timeSec <= m_playheadSec + 1e-9) {
+            ++insertAt;
+        }
+        kfs.insert(insertAt, k);
+        selectMaskIndex(insertAt);
+        return;
+    }
+    if (!m_hasPosClipboard) {
+        return;
+    }
+    PanCropKeyframe k = m_posClipboard;
+    k.timeSec = m_playheadSec;
+    auto &kfs = panCrop().positionKeyframes;
+    for (int i = 0; i < kfs.size(); ++i) {
+        if (std::abs(kfs[i].timeSec - m_playheadSec) < 1e-3) {
+            kfs[i] = k;
+            selectPositionIndex(i);
+            return;
+        }
+    }
+    int insertAt = 0;
+    while (insertAt < kfs.size() && kfs[insertAt].timeSec <= m_playheadSec + 1e-9) {
+        ++insertAt;
+    }
+    kfs.insert(insertAt, k);
+    selectPositionIndex(insertAt);
+}
+
+void VideoEventFxDialogExact::setSelectedKeyframeType(VideoKeyframeType type)
+{
+    if (!m_event) {
+        return;
+    }
+    if (m_channel == PanCropChannel::Mask) {
+        if (MaskKeyframe *mk = selectedMaskKf()) {
+            mk->type = type;
+            refreshKeyframeLanes();
+        }
+        return;
+    }
+    if (PanCropKeyframe *kf = selectedKf()) {
+        kf->type = type;
+        refreshKeyframeLanes();
+        syncUiFromSelected();
+    }
+}
+
+namespace {
+
+void addInterpolationActions(QMenu *menu, VideoKeyframeType current,
+                             const std::function<void(VideoKeyframeType)> &onPick)
+{
+    auto *group = new QActionGroup(menu);
+    group->setExclusive(true);
+    const VideoKeyframeType order[] = {
+        VideoKeyframeType::Linear, VideoKeyframeType::Fast,   VideoKeyframeType::Slow,
+        VideoKeyframeType::Smooth, VideoKeyframeType::Sharp,  VideoKeyframeType::Hold,
+    };
+    for (VideoKeyframeType t : order) {
+        QAction *a = menu->addAction(videoKeyframeTypeName(t));
+        a->setCheckable(true);
+        a->setChecked(t == current);
+        group->addAction(a);
+        QObject::connect(a, &QAction::triggered, menu, [onPick, t]() { onPick(t); });
+    }
+}
+
+} // namespace
+
+void VideoEventFxDialogExact::showPositionKeyframeMenu(int index, const QPoint &globalPos)
+{
+    if (!m_event || index < 0 || index >= panCrop().positionKeyframes.size()) {
+        return;
+    }
+    selectPositionIndex(index);
+    const VideoKeyframeType cur = panCrop().positionKeyframes[m_posIndex].type;
+
+    QMenu menu(this);
+    QAction *cutAct = menu.addAction(tr("Cut"));
+    QAction *copyAct = menu.addAction(tr("Copy"));
+    QAction *pasteAct = menu.addAction(tr("Paste"));
+    pasteAct->setEnabled(m_hasPosClipboard);
+    menu.addSeparator();
+    QAction *delAct = menu.addAction(tr("Delete"));
+    delAct->setEnabled(panCrop().positionKeyframes.size() > 1);
+    menu.addSeparator();
+    addInterpolationActions(&menu, cur, [this](VideoKeyframeType t) { setSelectedKeyframeType(t); });
+
+    QAction *chosen = menu.exec(globalPos);
+    if (!chosen) {
+        return;
+    }
+    if (chosen == cutAct) {
+        cutSelectedKeyframe();
+    } else if (chosen == copyAct) {
+        copySelectedKeyframe();
+    } else if (chosen == pasteAct) {
+        pasteKeyframeAtPlayhead();
+    } else if (chosen == delAct) {
+        deleteSelectedKeyframe();
+    }
+}
+
+void VideoEventFxDialogExact::showMaskKeyframeMenu(int index, const QPoint &globalPos)
+{
+    if (!m_event || index < 0 || index >= panCrop().maskKeyframes.size()) {
+        return;
+    }
+    selectMaskIndex(index);
+    const VideoKeyframeType cur = panCrop().maskKeyframes[m_maskIndex].type;
+
+    QMenu menu(this);
+    QAction *cutAct = menu.addAction(tr("Cut"));
+    QAction *copyAct = menu.addAction(tr("Copy"));
+    QAction *pasteAct = menu.addAction(tr("Paste"));
+    pasteAct->setEnabled(m_hasMaskClipboard);
+    menu.addSeparator();
+    QAction *delAct = menu.addAction(tr("Delete"));
+    delAct->setEnabled(panCrop().maskKeyframes.size() > 1);
+    menu.addSeparator();
+    addInterpolationActions(&menu, cur, [this](VideoKeyframeType t) { setSelectedKeyframeType(t); });
+
+    QAction *chosen = menu.exec(globalPos);
+    if (!chosen) {
+        return;
+    }
+    if (chosen == cutAct) {
+        cutSelectedKeyframe();
+    } else if (chosen == copyAct) {
+        copySelectedKeyframe();
+    } else if (chosen == pasteAct) {
+        pasteKeyframeAtPlayhead();
+    } else if (chosen == delAct) {
+        deleteSelectedKeyframe();
+    }
 }
 
 void VideoEventFxDialogExact::syncMaskFromUi()
@@ -2434,7 +3047,7 @@ void VideoEventFxDialogExact::syncMaskFromUi()
     }
     if (m_canvas) {
         if (MaskKeyframe *mk = selectedMaskKf()) {
-            m_canvas->setMaskKeyframe(*mk, panCrop().maskEnabled, m_frameW, m_frameH);
+            m_canvas->setMaskKeyframe(*mk, panCrop().maskEnabled, m_spaceW, m_spaceH);
             m_canvas->setMaskSelection(m_selMaskPath, m_selMaskAnchor);
         }
         m_canvas->setWorkspace(panCrop().workspaceZoom, panCrop().workspaceX, panCrop().workspaceY,
@@ -2480,7 +3093,8 @@ void VideoEventFxDialogExact::syncUiFromSelected()
                 m_maskAnchorY->setValue(0);
             }
             if (m_canvas) {
-                m_canvas->setMaskKeyframe(*mk, panCrop().maskEnabled, m_frameW, m_frameH);
+                pushCanvasSpaces();
+                m_canvas->setMaskKeyframe(*mk, panCrop().maskEnabled, m_spaceW, m_spaceH);
                 m_canvas->setMaskSelection(m_selMaskPath, m_selMaskAnchor);
                 m_canvas->setWorkspace(panCrop().workspaceZoom, panCrop().workspaceX,
                                        panCrop().workspaceY, panCrop().gridSpacing);
@@ -2513,9 +3127,10 @@ void VideoEventFxDialogExact::syncUiFromSelected()
     m_block = false;
     syncFlipButtons();
     if (m_canvas) {
-        m_canvas->setKeyframe(*kf, m_frameW, m_frameH);
+        pushCanvasSpaces();
+        m_canvas->setKeyframe(*kf, m_spaceW, m_spaceH);
         if (MaskKeyframe *mk = selectedMaskKf()) {
-            m_canvas->setMaskKeyframe(*mk, panCrop().maskEnabled, m_frameW, m_frameH);
+            m_canvas->setMaskKeyframe(*mk, panCrop().maskEnabled, m_spaceW, m_spaceH);
         }
         m_canvas->setWorkspace(panCrop().workspaceZoom, panCrop().workspaceX, panCrop().workspaceY,
                                panCrop().gridSpacing);
@@ -2530,9 +3145,12 @@ void VideoEventFxDialogExact::syncSelectedFromUi()
         return;
     }
     if (m_channel == PanCropChannel::Mask) {
+        ensureEditableKeyframeAtPlayhead();
         syncMaskFromUi();
+        refreshKeyframeLanes();
         return;
     }
+    ensureEditableKeyframeAtPlayhead();
     PanCropKeyframe *kf = selectedKf();
     if (!kf) {
         return;
@@ -2553,10 +3171,33 @@ void VideoEventFxDialogExact::syncSelectedFromUi()
     panCrop().stretchToFillFrame = (m_stretch->currentIndex() == 0);
     syncFlipButtons();
     if (m_canvas) {
-        m_canvas->setKeyframe(*kf, m_frameW, m_frameH);
+        m_canvas->setKeyframe(*kf, m_spaceW, m_spaceH);
         m_canvas->setWorkspace(panCrop().workspaceZoom, panCrop().workspaceX, panCrop().workspaceY,
                                panCrop().gridSpacing);
     }
+    refreshKeyframeLanes();
+}
+
+void VideoEventFxDialogExact::keyPressEvent(QKeyEvent *event)
+{
+    if (event->key() == Qt::Key_Delete || event->key() == Qt::Key_Backspace) {
+        // Don't steal Backspace from spinboxes / line edits.
+        if (qobject_cast<QAbstractSpinBox *>(focusWidget())
+            || qobject_cast<QComboBox *>(focusWidget())) {
+            QDialog::keyPressEvent(event);
+            return;
+        }
+        deleteSelectedKeyframe();
+        event->accept();
+        return;
+    }
+    if (event->matches(QKeySequence::New)
+        || ((event->modifiers() & Qt::ControlModifier) && event->key() == Qt::Key_K)) {
+        addKeyframeAtPlayhead();
+        event->accept();
+        return;
+    }
+    QDialog::keyPressEvent(event);
 }
 
 } // namespace openvegas

@@ -181,7 +181,8 @@ QString MediaFilmstripCache::frameKey(const QString &path, qint64 timeBucket, co
 
 QString MediaFilmstripCache::posterKey(const QString &path, const QSize &size)
 {
-    return path + QLatin1Char('|') + QStringLiteral("poster|") + QString::number(size.width())
+    // "poster2" — plain frames (no Project Media sprocket ladders baked in).
+    return path + QLatin1Char('|') + QStringLiteral("poster2|") + QString::number(size.width())
            + QLatin1Char('x') + QString::number(size.height());
 }
 

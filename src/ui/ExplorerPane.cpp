@@ -1,5 +1,7 @@
 #include "ui/ExplorerPane.h"
 #include "ui/IconFactory.h"
+#include "ui/MediaThumbHoverScrub.h"
+#include "io/MediaFilmstripCache.h"
 #include "io/MediaMime.h"
 #include "io/MediaThumbCache.h"
 
@@ -24,6 +26,7 @@
 #include <QMenu>
 #include <QMessageBox>
 #include <QMimeData>
+#include <QEvent>
 #include <QMouseEvent>
 #include <QPainter>
 #include <QPixmap>
@@ -471,58 +474,58 @@ private:
     }
 };
 
-class ExplorerGridDelegate : public QStyledItemDelegate {
-public:
-    using QStyledItemDelegate::QStyledItemDelegate;
-
-    QSize sizeHint(const QStyleOptionViewItem &, const QModelIndex &) const override
-    {
-        return QSize(104, 92);
-    }
-
-    void paint(QPainter *painter, const QStyleOptionViewItem &option,
-               const QModelIndex &index) const override
-    {
-        painter->save();
-        const QRect r = option.rect.adjusted(2, 2, -2, -2);
-        if (option.state & QStyle::State_Selected) {
-            painter->fillRect(option.rect.adjusted(1, 1, -1, -1), QColor(0x00, 0x78, 0xd7, 60));
-            painter->setPen(QColor(0x00, 0x78, 0xd7));
-            painter->drawRect(option.rect.adjusted(1, 1, -1, -1));
-        } else if (option.state & QStyle::State_MouseOver) {
-            painter->fillRect(option.rect.adjusted(1, 1, -1, -1), QColor(0xff, 0xff, 0xff, 12));
-        }
-
-        const QString path = index.data(QFileSystemModel::FilePathRole).toString();
-        const QFileInfo fi(path);
-        QRect thumb(r.left() + (r.width() - 88) / 2, r.top() + 2, 88, 50);
-        if (fi.isDir()) {
-            const QIcon ico = makeFolderIcon();
-            ico.paint(painter, QRect(r.center().x() - 24, r.top() + 8, 48, 40));
-        } else if (isMediaFile(path)) {
-            const QString kind = MediaMime::guessKind(path);
-            MediaThumbCache::instance().iconFor(path, QSize(88, 50), kind).paint(painter, thumb);
-        } else {
-            const QIcon ico = qvariant_cast<QIcon>(index.data(Qt::DecorationRole));
-            ico.paint(painter, thumb);
-        }
-
-        QRect textR(r.left(), thumb.bottom() + 4, r.width(), r.height() - thumb.height() - 6);
-        painter->setPen(QColor(0xc0, 0xc0, 0xc0));
-        QFont f = option.font;
-        f.setPixelSize(10);
-        painter->setFont(f);
-        const QString name = index.data(Qt::DisplayRole).toString();
-        painter->drawText(textR, Qt::AlignHCenter | Qt::AlignTop | Qt::TextWordWrap, name);
-        painter->restore();
-    }
-};
+static QRect explorerThumbRect(const QRect &itemRect)
+{
+    const QRect r = itemRect.adjusted(2, 2, -2, -2);
+    return QRect(r.left() + (r.width() - 88) / 2, r.top() + 2, 88, 50);
+}
 
 class ExplorerFileList : public QListView {
 public:
     using QListView::QListView;
 
+    QString scrubPath() const { return m_scrubPath; }
+    int scrubMouseX() const { return m_scrubMouseX; }
+    bool isScrubbing(const QString &path) const
+    {
+        return !m_scrubPath.isEmpty() && m_scrubPath == path && m_scrubMouseX >= 0;
+    }
+
+    void clearScrub()
+    {
+        if (m_scrubPath.isEmpty() && m_scrubMouseX < 0) {
+            return;
+        }
+        m_scrubPath.clear();
+        m_scrubMouseX = -1;
+        viewport()->update();
+    }
+
 protected:
+    bool viewportEvent(QEvent *event) override
+    {
+        switch (event->type()) {
+        case QEvent::MouseMove: {
+            const auto *me = static_cast<QMouseEvent *>(event);
+            updateScrubAt(me->pos());
+            break;
+        }
+        case QEvent::Leave:
+        case QEvent::HoverLeave:
+            clearScrub();
+            break;
+        default:
+            break;
+        }
+        return QListView::viewportEvent(event);
+    }
+
+    void leaveEvent(QEvent *event) override
+    {
+        clearScrub();
+        QListView::leaveEvent(event);
+    }
+
     void startDrag(Qt::DropActions supportedActions) override
     {
         const QModelIndexList indexes = selectedIndexes();
@@ -555,7 +558,94 @@ protected:
         }
         drag->exec(supportedActions, Qt::CopyAction);
     }
+
+private:
+    void updateScrubAt(const QPoint &pos)
+    {
+        const QModelIndex idx = indexAt(pos);
+        if (!idx.isValid()) {
+            clearScrub();
+            return;
+        }
+        const QString path = idx.data(QFileSystemModel::FilePathRole).toString();
+        if (!MediaThumbHoverScrub::isVideoPath(path)) {
+            clearScrub();
+            return;
+        }
+        const QRect thumb = explorerThumbRect(visualRect(idx));
+        if (!thumb.contains(pos)) {
+            clearScrub();
+            return;
+        }
+        if (m_scrubPath != path || m_scrubMouseX != pos.x()) {
+            m_scrubPath = path;
+            m_scrubMouseX = pos.x();
+            viewport()->update(visualRect(idx));
+        }
+    }
+
+    QString m_scrubPath;
+    int m_scrubMouseX = -1;
 };
+
+class ExplorerGridDelegate : public QStyledItemDelegate {
+public:
+    explicit ExplorerGridDelegate(ExplorerFileList *view)
+        : QStyledItemDelegate(view)
+        , m_view(view)
+    {
+    }
+
+    QSize sizeHint(const QStyleOptionViewItem &, const QModelIndex &) const override
+    {
+        return QSize(104, 92);
+    }
+
+    void paint(QPainter *painter, const QStyleOptionViewItem &option,
+               const QModelIndex &index) const override;
+
+private:
+    ExplorerFileList *m_view = nullptr;
+};
+
+void ExplorerGridDelegate::paint(QPainter *painter, const QStyleOptionViewItem &option,
+                                 const QModelIndex &index) const
+{
+    painter->save();
+    const QRect r = option.rect.adjusted(2, 2, -2, -2);
+    if (option.state & QStyle::State_Selected) {
+        painter->fillRect(option.rect.adjusted(1, 1, -1, -1), QColor(0x00, 0x78, 0xd7, 60));
+        painter->setPen(QColor(0x00, 0x78, 0xd7));
+        painter->drawRect(option.rect.adjusted(1, 1, -1, -1));
+    } else if (option.state & QStyle::State_MouseOver) {
+        painter->fillRect(option.rect.adjusted(1, 1, -1, -1), QColor(0xff, 0xff, 0xff, 12));
+    }
+
+    const QString path = index.data(QFileSystemModel::FilePathRole).toString();
+    const QFileInfo fi(path);
+    const QRect thumb = explorerThumbRect(option.rect);
+    if (fi.isDir()) {
+        const QIcon ico = makeFolderIcon();
+        ico.paint(painter, QRect(r.center().x() - 24, r.top() + 8, 48, 40));
+    } else if (isMediaFile(path)) {
+        const QString kind = MediaMime::guessKind(path);
+        const bool scrub = m_view && m_view->isScrubbing(path);
+        const int mx = scrub ? m_view->scrubMouseX() : -1;
+        MediaThumbHoverScrub::paintThumb(painter, thumb, path, kind, scrub, mx);
+    } else {
+        const QIcon ico = qvariant_cast<QIcon>(index.data(Qt::DecorationRole));
+        ico.paint(painter, thumb);
+    }
+
+    QRect textR(r.left(), thumb.bottom() + 4, r.width(), r.height() - thumb.height() - 6);
+    painter->setPen(QColor(0xc0, 0xc0, 0xc0));
+    QFont f = option.font;
+    f.setPixelSize(10);
+    painter->setFont(f);
+    const QString name = index.data(Qt::DisplayRole).toString();
+    painter->drawText(textR, Qt::AlignHCenter | Qt::AlignTop | Qt::TextWordWrap, name);
+    painter->restore();
+}
 
 ExplorerPane::ExplorerPane(QWidget *parent)
     : QWidget(parent)
@@ -668,7 +758,9 @@ void ExplorerPane::buildUi()
     m_list->setDragEnabled(true);
     m_list->setDragDropMode(QAbstractItemView::DragOnly);
     m_list->setDefaultDropAction(Qt::CopyAction);
-    m_list->setItemDelegate(new ExplorerGridDelegate(m_list));
+    m_list->setItemDelegate(new ExplorerGridDelegate(static_cast<ExplorerFileList *>(m_list)));
+    m_list->setMouseTracking(true);
+    m_list->viewport()->setMouseTracking(true);
     m_list->setContextMenuPolicy(Qt::CustomContextMenu);
     m_tree->setContextMenuPolicy(Qt::CustomContextMenu);
     connect(m_list, &QListView::activated, this, &ExplorerPane::onListActivated);
@@ -676,6 +768,8 @@ void ExplorerPane::buildUi()
     connect(m_list, &QWidget::customContextMenuRequested, this, &ExplorerPane::onListContextMenu);
     connect(m_tree, &QWidget::customContextMenuRequested, this, &ExplorerPane::onTreeContextMenu);
     connect(&MediaThumbCache::instance(), &MediaThumbCache::thumbnailReady, this,
+            &ExplorerPane::onThumbnailReady);
+    connect(&MediaFilmstripCache::instance(), &MediaFilmstripCache::frameReady, this,
             &ExplorerPane::onThumbnailReady);
 
     m_splitter->addWidget(m_tree);

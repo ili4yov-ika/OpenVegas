@@ -124,7 +124,7 @@
       '<button type="button" class="pp-ico pp-ico--danger" title="Delete Template" aria-label="Delete Template">' +
       ICO.del +
       "</button>" +
-      '<button type="button" class="pp-ico" title="Match Media Settings" aria-label="Match Media Settings">' +
+      '<button type="button" class="pp-ico" title="Match Media Video Settings" aria-label="Match Media Video Settings">' +
       ICO.match +
       "</button>" +
       "</div></div>" +
@@ -192,7 +192,7 @@
       ak("Override project settings when prerendering video", "v") +
       "</span></label>" +
       '<div class="pp-hint" style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px">' +
-      "<div>Format: MAGIX AVC/AAC MP4<br />Template: Internet 1920x1080 59,940 fps progressive (NVEnc)</div>" +
+      "<div>Format: AVC/AAC MP4<br />Template: Internet 1920x1080 59,940 fps progressive (NVEnc)</div>" +
       '<button type="button" class="pp-btn" data-pp-select disabled>Select...</button>' +
       "</div>" +
       "<div class=\"pp-label\" style=\"margin-top:8px\">" +

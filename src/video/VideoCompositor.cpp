@@ -131,7 +131,8 @@ QImage VideoCompositor::compose(const ProjectModel &model, double t, const QSize
             if (path.isEmpty()) {
                 continue;
             }
-            const double mediaTime = std::max(0.0, t - ev.startSec); // inPoint v1 = 0
+            const double eventLocal = std::max(0.0, ev.eventLocalSec(t));
+            const double mediaTime = ev.sourceTimeSec(t);
             const bool still = ev.mediaKind == EventMediaKind::Still
                                || ev.mediaKind == EventMediaKind::Title;
             QImage src = VideoFrameCache::instance().frameIfReady(path, mediaTime, sz, still,
@@ -142,9 +143,10 @@ QImage VideoCompositor::compose(const ProjectModel &model, double t, const QSize
 
             EventPanCropState pan = ev.panCrop;
             pan.ensureDefault(fw, fh);
-            const PanCropKeyframe pkf = evaluatePanCrop(pan, mediaTime, fw, fh);
+            // Pan/Crop KF are event-local (not reversed source time).
+            const PanCropKeyframe pkf = evaluatePanCrop(pan, eventLocal, fw, fh);
             const MaskKeyframe *mask =
-                pan.maskEnabled ? maskHoldAt(pan, mediaTime) : nullptr;
+                pan.maskEnabled ? maskHoldAt(pan, eventLocal) : nullptr;
 
             QImage layer = applyPanCrop(src, pkf, fw, fh, sz.width(), sz.height(),
                                         pan.stretchToFillFrame, mask);
@@ -183,7 +185,7 @@ void VideoCompositor::prefetchAround(const ProjectModel &model, double t, const 
             }
             const bool still = ev.mediaKind == EventMediaKind::Still
                                || ev.mediaKind == EventMediaKind::Title;
-            const double mediaTime = std::max(0.0, t - ev.startSec);
+            const double mediaTime = ev.sourceTimeSec(t);
             VideoFrameCache::instance().prefetch(path, mediaTime, sz, still, behindSec,
                                                  aheadSec);
         }

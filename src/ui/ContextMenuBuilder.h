@@ -29,7 +29,7 @@ public:
     static void showPreviewMenu(MainWindow *window, const QPoint &globalPos);
     static void showTimeDisplayMenu(MainWindow *window, const QPoint &globalPos);
     static void showSplitScreenMenu(QWidget *parent, const QPoint &globalPos);
-    static void showQualityMenu(QToolButton *chip, const QPoint &globalPos);
+    static void showQualityMenu(MainWindow *window, QToolButton *chip, const QPoint &globalPos);
     static void showZoomMenu(QToolButton *chip, const QPoint &globalPos);
     static void showOverlaysMenu(MainWindow *window, QToolButton *btn, const QPoint &globalPos);
 };

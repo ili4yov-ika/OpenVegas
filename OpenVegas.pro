@@ -35,12 +35,17 @@ HEADERS += \
     src/ui/IconFactory.h \
     src/ui/WelcomeDialog.h \
     src/ui/ProjectPropertiesDialog.h \
+    src/ui/MatchMediaVideoSettingsDialog.h \
+    src/ui/MissingFileDialog.h \
+    src/ui/SearchMissingFilesDialog.h \
+    src/ui/FindMissingFileDialog.h \
     src/ui/RenderAsDialog.h \
     src/ui/PreferencesDialog.h \
     src/ui/EventPropertiesDialog.h \
     src/ui/TrimmerWindow.h \
     src/ui/PluginChooserDialog.h \
     src/ui/AudioEventFxDialog.h \
+    src/ui/ColorGradingEditor.h \
     src/ui/ContextMenuBuilder.h \
     src/ui/FadeCurvePopup.h \
     src/ui/ExplorerPane.h \
@@ -53,6 +58,7 @@ HEADERS += \
     src/ui/VideoEventFxDialog.h \
     src/ui/VideoEventFxDialogExact.h \
     src/ui/MediaBinListWidget.h \
+    src/ui/MediaThumbHoverScrub.h \
     src/timeline/TimelineView.h \
     src/timeline/TimelineScrollHost.h \
     src/model/ProjectModel.h \
@@ -63,6 +69,8 @@ HEADERS += \
     src/io/MediaThumbCache.h \
     src/io/MediaWaveformCache.h \
     src/io/MediaFilmstripCache.h \
+    src/io/MediaProbe.h \
+    src/io/RenderTemplateCatalog.h \
     src/plugins/PluginScanner.h \
     src/plugins/AudioPluginTypes.h \
     src/plugins/BuiltinAudioCatalog.h \
@@ -84,6 +92,7 @@ SOURCES += \
     src/ui/TrimmerWindow.cpp \
     src/ui/PluginChooserDialog.cpp \
     src/ui/AudioEventFxDialog.cpp \
+    src/ui/ColorGradingEditor.cpp \
     src/ui/ContextMenuBuilder.cpp \
     src/ui/FadeCurvePopup.cpp \
     src/ui/ExplorerPane.cpp \
@@ -96,6 +105,7 @@ SOURCES += \
     src/ui/VideoEventFxDialog.cpp \
     src/ui/VideoEventFxDialogExact.cpp \
     src/ui/MediaBinListWidget.cpp \
+    src/ui/MediaThumbHoverScrub.cpp \
     src/timeline/TimelineView.cpp \
     src/timeline/TimelineScrollHost.cpp \
     src/model/ProjectModel.cpp \
@@ -106,6 +116,12 @@ SOURCES += \
     src/io/MediaThumbCache.cpp \
     src/io/MediaWaveformCache.cpp \
     src/io/MediaFilmstripCache.cpp \
+    src/io/MediaProbe.cpp \
+    src/ui/MatchMediaVideoSettingsDialog.cpp \
+    src/ui/MissingFileDialog.cpp \
+    src/ui/SearchMissingFilesDialog.cpp \
+    src/ui/FindMissingFileDialog.cpp \
+    src/io/RenderTemplateCatalog.cpp \
     src/plugins/PluginScanner.cpp \
     src/plugins/BuiltinAudioCatalog.cpp \
     src/plugins/AudioPluginScanner.cpp \

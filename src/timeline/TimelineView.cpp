@@ -1,6 +1,7 @@
 #include "timeline/TimelineView.h"
 #include "ui/FadeCurvePopup.h"
 #include "io/MediaMime.h"
+#include "io/MediaProbe.h"
 #include "io/MediaThumbCache.h"
 #include "io/MediaWaveformCache.h"
 #include "io/MediaFilmstripCache.h"
@@ -36,16 +37,17 @@ namespace openvegas {
 
 namespace {
 
-QColor videoEvent() { return QColor(0x4a, 0x3c, 0x58); }
-QColor videoTitle() { return QColor(0x6a, 0x58, 0x7c); }
-QColor videoRail() { return QColor(0x5a, 0x3a, 0x78); }
-QColor audioEvent() { return QColor(0x6e, 0x58, 0x52); }
-QColor audioTitle() { return QColor(0xd4, 0xb0, 0xbc); }
-QColor audioRail() { return QColor(0x8a, 0x4a, 0x68); }
+QColor videoEvent() { return QColor(0x5a, 0x4a, 0x68); }
+QColor videoRail() { return QColor(0x6a, 0x50, 0x80); }
+QColor audioEvent() { return QColor(0xe0, 0xb8, 0xa8); }
+QColor audioTitle() { return QColor(0xd0, 0xa4, 0x90); }
+QColor audioRail() { return QColor(0xc4, 0x88, 0x70); }
+QColor audioWave() { return QColor(0x3a, 0x2a, 0x24); }
+QColor audioWaveStroke() { return QColor(0x2a, 0x1c, 0x18, 220); }
 QColor eventSel() { return QColor(0xf0, 0xd0, 0x40); }
 QColor crossfadeStroke() { return QColor(110, 176, 255, 250); }
 QColor fadeLineVideo() { return QColor(255, 255, 255, 230); }
-QColor fadeLineAudio() { return QColor(230, 240, 255, 230); }
+QColor fadeLineAudio() { return QColor(0x40, 0x30, 0x28, 220); }
 QColor levelLine() { return QColor(220, 230, 245, 200); }
 QColor levelHandle() { return QColor(70, 150, 255); }
 QColor levelHandleBorder() { return QColor(30, 90, 200); }
@@ -54,10 +56,14 @@ QColor markerGuide() { return QColor(0xe0, 0x90, 0x18); }
 QColor loopBar() { return QColor(0x12, 0x4a, 0x96); }
 QColor loopBarTop() { return QColor(0xf0, 0xc0, 0x20); }
 QColor loopHandle() { return QColor(0xf0, 0xc0, 0x20); }
-QColor loopBand() { return QColor(20, 80, 170, 40); }
-QColor loopBandEdge() { return QColor(60, 140, 220, 160); }
+QColor loopBand() { return QColor(40, 120, 210, 72); }
+QColor loopBandEdge() { return QColor(90, 170, 255, 200); }
+QColor trackGridMajor() { return QColor(0x2a, 0x2a, 0x2a); }
+QColor trackGridMinor() { return QColor(0x1e, 0x1e, 0x1e); }
 
 constexpr int kEventTitleH = 13;
+/** Video: name is overlaid on filmstrip (Vegas); no reserved title chrome. */
+constexpr int kVideoNameOverlayH = 14;
 constexpr int kEventBtn = 16;
 constexpr int kEventBtnGap = 2;
 /** Vegas-style event gain: top = 0 dB (amp 1), bottom = −Inf.
@@ -81,8 +87,9 @@ void paintFadeRegion(QPainter &p, const QRectF &fadeRect, bool fadeIn, bool isAu
     const QPainterPath line = fadeCurveLinePath(fadeRect, curve, fadeIn);
 
     if (isAudio) {
-        p.fillPath(fill, QColor(0, 0, 0, 70));
-        p.setBrush(QBrush(QColor(20, 20, 28, 180), Qt::Dense5Pattern));
+        // Darken peach under the fade curve (Vegas-like)
+        p.fillPath(fill, QColor(0x40, 0x28, 0x20, 90));
+        p.setBrush(QBrush(QColor(0x30, 0x20, 0x18, 160), Qt::Dense5Pattern));
         p.setPen(Qt::NoPen);
         p.drawPath(fill);
     } else {
@@ -1569,7 +1576,7 @@ void TimelineView::paintTrackHeader(QPainter &p, const Track &track, int index, 
 
 void TimelineView::paintVideoThumbs(QPainter &p, const QRect &body, const TrackEvent &ev)
 {
-    p.fillRect(body, QColor(0x18, 0x14, 0x1c));
+    p.fillRect(body, QColor(0x1c, 0x16, 0x22));
     if (body.width() < 2 || body.height() < 2) {
         return;
     }
@@ -1614,7 +1621,8 @@ void TimelineView::paintVideoThumbs(QPainter &p, const QRect &body, const TrackE
             p.fillRect(cell, QColor::fromHsv(hue, 60, 40));
         }
 
-        p.setPen(QColor(0, 0, 0, 180));
+        // Thin Vegas-style tile separators
+        p.setPen(QColor(0, 0, 0, 140));
         p.drawLine(cell.right(), cell.top(), cell.right(), cell.bottom());
         x += cellW;
         ++i;
@@ -1649,7 +1657,8 @@ void TimelineView::paintStillImage(QPainter &p, const QRect &body, const TrackEv
 
 void TimelineView::paintAudioWave(QPainter &p, const QRect &body, const TrackEvent &ev)
 {
-    p.fillRect(body, QColor(0x5c, 0x4a, 0x44));
+    // Vegas peach/salmon lane under dark waveform
+    p.fillRect(body, audioEvent());
     if (body.width() < 2 || body.height() < 4) {
         return;
     }
@@ -1660,14 +1669,14 @@ void TimelineView::paintAudioWave(QPainter &p, const QRect &body, const TrackEve
     const int firstCh = std::max(0, ev.firstChannel);
     const bool stereoUi = eventCh >= 2;
 
-    p.setPen(QColor(0, 0, 0, 90));
+    p.setPen(QColor(0x80, 0x58, 0x48, 160));
     if (stereoUi) {
         p.drawLine(body.left(), mid, body.right(), mid);
-        p.setPen(QColor(255, 255, 255, 28));
+        p.setPen(QColor(0x90, 0x68, 0x58, 80));
         p.drawLine(body.left(), body.top() + chH / 2, body.right(), body.top() + chH / 2);
         p.drawLine(body.left(), mid + chH / 2, body.right(), mid + chH / 2);
     } else {
-        p.setPen(QColor(255, 255, 255, 28));
+        p.setPen(QColor(0x90, 0x68, 0x58, 80));
         p.drawLine(body.left(), mid, body.right(), mid);
     }
 
@@ -1706,8 +1715,8 @@ void TimelineView::paintAudioWave(QPainter &p, const QRect &body, const TrackEve
                 path.lineTo(x, cy + sampleAmp(x, phase + 17) * ampMax * 0.92);
             }
             path.closeSubpath();
-            p.setBrush(QColor(0x9a, 0xb0, 0x6a, 200));
-            p.setPen(QPen(QColor(0x7a, 0x90, 0x50, 220), 1));
+            p.setBrush(audioWave());
+            p.setPen(QPen(audioWaveStroke(), 1));
             p.drawPath(path);
         };
         p.setRenderHint(QPainter::Antialiasing, true);
@@ -1727,7 +1736,7 @@ void TimelineView::paintAudioWave(QPainter &p, const QRect &body, const TrackEve
     const double t1 = std::min(ev.lengthSec, dur);
 
     p.setRenderHint(QPainter::Antialiasing, false);
-    p.setPen(QPen(QColor(0x9a, 0xb0, 0x6a, 220), 1));
+    p.setPen(QPen(audioWave(), 1));
     for (int uiCh = 0; uiCh < drawCh; ++uiCh) {
         const int srcCh = firstCh + uiCh;
         if (srcCh >= peaks.channels) {
@@ -1767,6 +1776,11 @@ QString TimelineView::eventMediaPath(const TrackEvent &ev) const
 void TimelineView::paintEventBlock(QPainter &p, const Track &track, const TrackEvent &ev, const QRect &r)
 {
     const bool isVideo = isVideoFamily(ev.mediaKind);
+    const bool isStill = ev.mediaKind == EventMediaKind::Still || ev.mediaKind == EventMediaKind::Title;
+    // Video/still: filmstrip fills the block; audio keeps a small title strip.
+    const int titleH = isVideo ? 0 : kEventTitleH;
+    const int nameOverlayH = isVideo ? kVideoNameOverlayH : 0;
+
     p.fillRect(r, isVideo ? videoEvent() : audioEvent());
 
     // Left color rail
@@ -1774,29 +1788,21 @@ void TimelineView::paintEventBlock(QPainter &p, const Track &track, const TrackE
 
     const QRect content = eventContentRect(track, ev, r);
 
-    // Title bar (shifts right when incoming crossfade covers left edge)
-    const int titleH = kEventTitleH;
-    const QRect title(content.left(), content.top(), content.width(), titleH);
-    QLinearGradient tg(0, title.top(), 0, title.bottom());
-    if (isVideo) {
-        tg.setColorAt(0.0, QColor(0x7a, 0x62, 0x8e));
-        tg.setColorAt(1.0, videoTitle());
-    } else {
-        tg.setColorAt(0.0, QColor(0xdf, 0xb8, 0xc4));
-        tg.setColorAt(1.0, audioTitle());
-    }
-    // Full-width title strip, but text uses content rect
-    p.fillRect(QRect(r.left(), r.top(), r.width(), titleH), tg);
-    p.setPen(QColor(0, 0, 0, 70));
-    p.drawLine(r.left(), r.top() + titleH, r.right(), r.top() + titleH);
-
-    p.setPen(isVideo ? QColor(255, 255, 255, 240) : QColor(0x2a, 0x18, 0x20));
-    QFont tf = p.font();
-    tf.setPointSize(8);
-    tf.setBold(true);
-    p.setFont(tf);
-    QString titleText = ev.name;
     if (!isVideo) {
+        // Audio title strip (slightly darker peach for contrast)
+        QLinearGradient tg(0, r.top(), 0, r.top() + titleH);
+        tg.setColorAt(0.0, QColor(0xec, 0xc8, 0xb8));
+        tg.setColorAt(1.0, audioTitle());
+        p.fillRect(QRect(r.left(), r.top(), r.width(), titleH), tg);
+        p.setPen(QColor(0x80, 0x58, 0x48, 100));
+        p.drawLine(r.left(), r.top() + titleH, r.right(), r.top() + titleH);
+
+        p.setPen(QColor(0x2a, 0x18, 0x20));
+        QFont tf = p.font();
+        tf.setPointSize(8);
+        tf.setBold(true);
+        p.setFont(tf);
+        QString titleText = ev.name;
         const int n = ev.channelCount > 0 ? ev.channelCount : 2;
         const int a = ev.firstChannel + 1;
         if (n <= 1) {
@@ -1806,10 +1812,11 @@ void TimelineView::paintEventBlock(QPainter &p, const Track &track, const TrackE
         } else {
             titleText += QStringLiteral("  [Channels %1–%2]").arg(a).arg(a + n - 1);
         }
+        const QRect title(content.left(), content.top(), content.width(), titleH);
+        const QString elided =
+            QFontMetrics(tf).elidedText(titleText, Qt::ElideRight, std::max(8, title.width() - 10));
+        p.drawText(title.adjusted(5, 0, -4, 0), Qt::AlignVCenter | Qt::AlignLeft, elided);
     }
-    const QString elided =
-        QFontMetrics(tf).elidedText(titleText, Qt::ElideRight, std::max(8, title.width() - 10));
-    p.drawText(title.adjusted(5, 0, -4, 0), Qt::AlignVCenter | Qt::AlignLeft, elided);
 
     // Group badge (Vegas-style linked A/V indicator)
     if (ev.groupId > 0 && m_model && !m_model->ignoreEventGrouping()) {
@@ -1827,23 +1834,35 @@ void TimelineView::paintEventBlock(QPainter &p, const Track &track, const TrackE
     }
 
     const QRect body(r.left(), r.top() + titleH, r.width(), r.height() - titleH);
-    if (ev.mediaKind == EventMediaKind::Still || ev.mediaKind == EventMediaKind::Title) {
+    if (isStill) {
         paintStillImage(p, body, ev);
     } else if (isVideo) {
         paintVideoThumbs(p, body, ev);
+        // Filename overlay on filmstrip (Vegas)
+        if (body.width() > 8 && nameOverlayH > 0) {
+            const QRect nameBand(body.left(), body.top(), body.width(),
+                                 std::min(nameOverlayH, body.height()));
+            p.fillRect(nameBand, QColor(0x14, 0x10, 0x1a, 170));
+            p.setPen(QColor(255, 255, 255, 235));
+            QFont tf = p.font();
+            tf.setPointSize(8);
+            tf.setBold(true);
+            p.setFont(tf);
+            const QString elided = QFontMetrics(tf).elidedText(
+                ev.name, Qt::ElideRight, std::max(8, nameBand.width() - 12));
+            p.drawText(nameBand.adjusted(6, 0, -4, 0), Qt::AlignVCenter | Qt::AlignLeft, elided);
+        }
     } else {
         paintAudioWave(p, body, ev);
     }
 
-    // Selection / border
+    // Selection / border (single Vegas-like amber outline)
     if (ev.selected) {
         p.setPen(QPen(eventSel(), 1));
         p.setBrush(Qt::NoBrush);
         p.drawRect(r.adjusted(0, 0, -1, -1));
-        p.setPen(QPen(QColor(240, 208, 64, 60), 1));
-        p.drawRect(r.adjusted(1, 1, -2, -2));
     } else {
-        p.setPen(QColor(0, 0, 0, 140));
+        p.setPen(QColor(0, 0, 0, 150));
         p.setBrush(Qt::NoBrush);
         p.drawRect(r.adjusted(0, 0, -1, -1));
     }
@@ -1852,11 +1871,11 @@ void TimelineView::paintEventBlock(QPainter &p, const Track &track, const TrackE
     if (ev.selected && r.width() > 12) {
         p.fillRect(QRect(r.left(), r.top(), 4, r.height()), QColor(255, 255, 255, 140));
         p.fillRect(QRect(r.right() - 4, r.top(), 4, r.height()), QColor(255, 255, 255, 140));
-        // Top-corner fade grips (create affordance)
+        const int gripTop = r.top() + (isVideo ? 1 : titleH + 1);
         p.setBrush(QColor(120, 170, 240));
         p.setPen(Qt::NoPen);
-        p.drawRoundedRect(QRect(r.left() + 1, r.top() + titleH + 1, 7, 5), 1, 1);
-        p.drawRoundedRect(QRect(r.right() - 8, r.top() + titleH + 1, 7, 5), 1, 1);
+        p.drawRoundedRect(QRect(r.left() + 1, gripTop, 7, 5), 1, 1);
+        p.drawRoundedRect(QRect(r.right() - 8, gripTop, 7, 5), 1, 1);
     }
 
     paintEventFades(p, track, ev, r);
@@ -2003,7 +2022,8 @@ double TimelineView::outgoingCrossfadeSec(const Track &track, const TrackEvent &
 void TimelineView::paintEventFades(QPainter &p, const Track &track, const TrackEvent &ev, const QRect &r)
 {
     const bool isAudio = isAudioFamily(ev.mediaKind);
-    const int titleH = 13;
+    // Video fades span the full filmstrip (name is only an overlay).
+    const int titleH = isVideoFamily(ev.mediaKind) ? 0 : kEventTitleH;
     const QRectF body(r.left(), r.top() + titleH, r.width(), std::max(1, r.height() - titleH));
     const double pps = m_model ? m_model->pixelsPerSecond() : 40.0;
     const double cfIn = incomingCrossfadeSec(track, ev);
@@ -2038,7 +2058,8 @@ void TimelineView::paintCrossfades(QPainter &p, const Track &track, int trackTop
     std::sort(sorted.begin(), sorted.end(),
               [](const TrackEvent *a, const TrackEvent *b) { return a->startSec < b->startSec; });
 
-    const int titleH = 13;
+    const bool videoTrack = track.kind == TrackKind::Video;
+    const int titleH = videoTrack ? 0 : kEventTitleH;
     const double pps = m_model ? m_model->pixelsPerSecond() : 40.0;
 
     for (int i = 0; i + 1 < sorted.size(); ++i) {
@@ -2057,8 +2078,9 @@ void TimelineView::paintCrossfades(QPainter &p, const Track &track, int trackTop
             continue;
         }
 
-        const QRectF body(zone.left(), zone.top() + titleH - 2, zone.width(),
-                          std::max(2.0, double(zone.height() - (titleH - 2))));
+        const int bodyTopInset = titleH > 0 ? titleH - 2 : 0;
+        const QRectF body(zone.left(), zone.top() + bodyTopInset, zone.width(),
+                          std::max(2.0, double(zone.height() - bodyTopInset)));
 
         // Optional stipple behind X on audio
         if (track.kind == TrackKind::Audio) {
@@ -2184,20 +2206,21 @@ void TimelineView::paintLoopRegion(QPainter &p)
             // Thin amber accent on top edge only
             p.fillRect(drawBar.left(), drawBar.top(), drawBar.width(), 1, loopBarTop());
 
-            // Yellow ▶ / ◀ handles sit slightly above the bar corners (Vegas CSS top:-3px)
-            auto drawHandle = [&](int tipX, bool pointRight) {
-                const int top = drawBar.top() - 3;
+            // Yellow corner triangles (Vegas): right-angle at outer top, hypotenuse inward.
+            // Start at 0: vertical on LEFT, flat top, diagonal down-right.
+            auto drawHandle = [&](int tipX, bool isStart) {
+                const int top = drawBar.top() - 2;
+                constexpr int w = 8;
+                constexpr int h = 9;
                 QPainterPath tri;
-                if (pointRight) {
-                    // ▶ tip at left edge
-                    tri.moveTo(tipX, top + 5);
-                    tri.lineTo(tipX + 7, top);
-                    tri.lineTo(tipX + 7, top + 10);
+                if (isStart) {
+                    tri.moveTo(tipX, top);
+                    tri.lineTo(tipX + w, top);
+                    tri.lineTo(tipX, top + h);
                 } else {
-                    // ◀ tip at right edge
-                    tri.moveTo(tipX, top + 5);
-                    tri.lineTo(tipX - 7, top);
-                    tri.lineTo(tipX - 7, top + 10);
+                    tri.moveTo(tipX, top);
+                    tri.lineTo(tipX - w, top);
+                    tri.lineTo(tipX, top + h);
                 }
                 tri.closeSubpath();
                 p.setPen(Qt::NoPen);
@@ -2221,15 +2244,15 @@ void TimelineView::paintLoopRegion(QPainter &p)
             p.drawLine(x1, bar.bottom() + 1, x1, height());
         }
     } else {
-        // Collapsed seed ▶ at start
+        // Collapsed seed at loop origin (Vegas right-triangle, vertical flush left)
         const QRect seed = loopSeedRect();
         if (seed.right() >= headerWidth() && seed.left() <= width()) {
             const int x = timeToX(m_model->loopRegion().startSec);
             const int top = markerLaneHeight() - 11;
             QPainterPath tri;
-            tri.moveTo(x, top + 5);
-            tri.lineTo(x + 7, top);
-            tri.lineTo(x + 7, top + 10);
+            tri.moveTo(x, top);
+            tri.lineTo(x + 8, top);
+            tri.lineTo(x, top + 9);
             tri.closeSubpath();
             p.setPen(Qt::NoPen);
             p.setBrush(loopHandle());
@@ -2341,48 +2364,74 @@ void TimelineView::paintTracks(QPainter &p)
         return;
     }
 
-    int y = bodyTop - m_scrollY;
-    int index = 0;
-    for (const Track &track : m_model->tracks()) {
-        const bool audible = m_model->isTrackAudible(index);
-        // Lane background
-        p.fillRect(headerWidth(), y, width() - headerWidth(), track.height,
-                   audible ? QColor(0x12, 0x12, 0x12) : QColor(0x0c, 0x0c, 0x0c));
-        p.setPen(QColor(0x0a, 0x0a, 0x0a));
-        p.drawLine(headerWidth(), y + track.height - 1, width(), y + track.height - 1);
-
-        // Vegas-style height resize cue on bottom edge
-        if (index == m_hoverResizeTrack || index == m_resizingTrackIndex) {
-            p.fillRect(0, y + track.height - 3, width(), 3, QColor(0x00, 0x78, 0xd7, 140));
+    // Pass 1: lane backgrounds + headers
+    {
+        int y = bodyTop - m_scrollY;
+        int index = 0;
+        for (const Track &track : m_model->tracks()) {
+            const bool audible = m_model->isTrackAudible(index);
+            p.fillRect(headerWidth(), y, width() - headerWidth(), track.height,
+                       audible ? QColor(0x12, 0x12, 0x12) : QColor(0x0c, 0x0c, 0x0c));
+            p.setPen(QColor(0x0a, 0x0a, 0x0a));
+            p.drawLine(headerWidth(), y + track.height - 1, width(), y + track.height - 1);
+            if (index == m_hoverResizeTrack || index == m_resizingTrackIndex) {
+                p.fillRect(0, y + track.height - 3, width(), 3, QColor(0x00, 0x78, 0xd7, 140));
+            }
+            paintTrackHeader(p, track, index, y);
+            y += track.height;
+            ++index;
         }
+    }
 
-        paintTrackHeader(p, track, index, y);
-
-        for (const TrackEvent &ev : track.events) {
-            const QRect r = eventRect(track, ev, y);
-            if (r.right() < headerWidth() || r.left() > width()) {
+    // Vegas-style vertical grid through empty lane areas (under events).
+    {
+        const double pps = m_model->pixelsPerSecond() > 1.0 ? m_model->pixelsPerSecond() : 40.0;
+        const int maxSec = static_cast<int>((width() - headerWidth() + m_scrollX) / pps) + 2;
+        const bool drawMinor = pps >= 28.0;
+        p.setClipRect(headerWidth(), bodyTop, width() - headerWidth(), height() - bodyTop);
+        for (int sec = 0; sec <= std::max(120, maxSec); ++sec) {
+            const int x = timeToX(sec);
+            if (x < headerWidth() || x > width()) {
                 continue;
             }
+            const bool major = (sec % 5) == 0;
+            if (!major && !drawMinor) {
+                continue;
+            }
+            p.setPen(major ? trackGridMajor() : trackGridMinor());
+            p.drawLine(x, bodyTop, x, height());
+        }
+    }
+
+    // Pass 2: events + crossfades + mute dim
+    {
+        int y = bodyTop - m_scrollY;
+        int index = 0;
+        for (const Track &track : m_model->tracks()) {
+            for (const TrackEvent &ev : track.events) {
+                const QRect r = eventRect(track, ev, y);
+                if (r.right() < headerWidth() || r.left() > width()) {
+                    continue;
+                }
+                p.save();
+                p.setClipRect(QRect(headerWidth(), std::max(y, bodyTop), width() - headerWidth(),
+                                    track.height));
+                paintEventBlock(p, track, ev, r);
+                p.restore();
+            }
             p.save();
-            p.setClipRect(QRect(headerWidth(), std::max(y, bodyTop), width() - headerWidth(),
-                                track.height));
-            paintEventBlock(p, track, ev, r);
+            p.setClipRect(QRect(headerWidth(), bodyTop, width() - headerWidth(), height() - bodyTop));
+            paintCrossfades(p, track, y);
             p.restore();
-        }
-        // Crossfade X zones above events
-        p.save();
-        p.setClipRect(QRect(headerWidth(), bodyTop, width() - headerWidth(), height() - bodyTop));
-        paintCrossfades(p, track, y);
-        p.restore();
 
-        // Mute / solo-off: dim the whole lane (Vegas grayed waveforms)
-        if (!audible) {
-            p.fillRect(headerWidth(), y, width() - headerWidth(), track.height,
-                       QColor(0, 0, 0, 110));
-        }
+            if (!m_model->isTrackAudible(index)) {
+                p.fillRect(headerWidth(), y, width() - headerWidth(), track.height,
+                           QColor(0, 0, 0, 110));
+            }
 
-        y += track.height;
-        ++index;
+            y += track.height;
+            ++index;
+        }
     }
     p.restore();
 }
@@ -2615,6 +2664,20 @@ void TimelineView::mousePressEvent(QMouseEvent *event)
             m_dragOriginLevel = eventLevelNormalized(*ev);
             m_dragOriginX = event->pos().x();
             m_dragOriginY = event->pos().y();
+            m_dragGroupOrigins.clear();
+            m_dragGroupLengths.clear();
+            if (!m_model->ignoreEventGrouping() && ev->groupId > 0
+                && (edgeMode == EventEditMode::TrimStart || edgeMode == EventEditMode::TrimEnd)) {
+                for (int id : m_model->eventIdsInGroup(ev->groupId)) {
+                    if (const TrackEvent *m = m_model->findEvent(id)) {
+                        m_dragGroupOrigins.insert(id, m->startSec);
+                        m_dragGroupLengths.insert(id, m->lengthSec);
+                    }
+                }
+            } else {
+                m_dragGroupOrigins.insert(ev->id, ev->startSec);
+                m_dragGroupLengths.insert(ev->id, ev->lengthSec);
+            }
             m_dragging = false;
             switch (edgeMode) {
             case EventEditMode::TrimStart:
@@ -2766,24 +2829,41 @@ void TimelineView::mouseMoveEvent(QMouseEvent *event)
             break;
         }
         case EventEditMode::TrimStart: {
-            double newStart = m_dragOriginStart + deltaSec;
-            double newLen = m_dragOriginLength - deltaSec;
-            if (newLen < minEventLengthSec()) {
-                newLen = minEventLengthSec();
-                newStart = m_dragOriginStart + m_dragOriginLength - newLen;
+            // Same time delta for every member of the group (Vegas-like).
+            for (auto it = m_dragGroupOrigins.constBegin(); it != m_dragGroupOrigins.constEnd();
+                 ++it) {
+                TrackEvent *m = m_model->findEvent(it.key());
+                if (!m) {
+                    continue;
+                }
+                const double originStart = it.value();
+                const double originLen = m_dragGroupLengths.value(it.key(), m->lengthSec);
+                double newStart = originStart + deltaSec;
+                double newLen = originLen - deltaSec;
+                if (newLen < minEventLengthSec()) {
+                    newLen = minEventLengthSec();
+                    newStart = originStart + originLen - newLen;
+                }
+                if (newStart < 0.0) {
+                    newLen += newStart;
+                    newStart = 0.0;
+                }
+                m->startSec = newStart;
+                m->lengthSec = std::max(minEventLengthSec(), newLen);
+                clampEventFades(*m);
             }
-            if (newStart < 0.0) {
-                newLen += newStart;
-                newStart = 0.0;
-            }
-            ev->startSec = newStart;
-            ev->lengthSec = std::max(minEventLengthSec(), newLen);
-            clampEventFades(*ev);
             break;
         }
         case EventEditMode::TrimEnd: {
-            ev->lengthSec = std::max(minEventLengthSec(), m_dragOriginLength + deltaSec);
-            clampEventFades(*ev);
+            for (auto it = m_dragGroupLengths.constBegin(); it != m_dragGroupLengths.constEnd();
+                 ++it) {
+                TrackEvent *m = m_model->findEvent(it.key());
+                if (!m) {
+                    continue;
+                }
+                m->lengthSec = std::max(minEventLengthSec(), it.value() + deltaSec);
+                clampEventFades(*m);
+            }
             break;
         }
         case EventEditMode::FadeIn: {
@@ -3243,10 +3323,7 @@ void TimelineView::dropEvent(QDropEvent *event)
         const QString kind = i < kinds.size() ? kinds[i] : QString();
         const QString path = i < paths.size() ? paths[i] : QString();
         double len = (i < lengths.size()) ? lengths[i] : 0.0;
-        if (len < 0.05) {
-            const QString k = kind.toLower();
-            len = defaultLengthForMediaKind(k);
-        }
+        len = MediaProbe::lengthForInsert(path, kind, len);
         emit mediaDropRequested(names[i], kind, t, trackIndex, len, path);
     }
     event->acceptProposedAction();
@@ -3276,22 +3353,22 @@ void TimelineView::updateDropGhost(const QPoint &pos, const QMimeData *md)
 {
     QStringList names;
     QStringList kinds;
+    QStringList paths;
     QVector<double> lengths;
-    MediaMime::parse(md, &names, &kinds, nullptr, &lengths);
+    MediaMime::parse(md, &names, &kinds, &paths, &lengths);
     if (names.isEmpty() || (pos.y() < rulerHeight() && !isTrackHeaderDropZone(pos))) {
         clearDropGhost();
         return;
     }
 
     QString kind = kinds.isEmpty() ? QString() : kinds.first();
-    if (kind.isEmpty() && !names.isEmpty()) {
-        kind = MediaMime::guessKind(names.first());
+    const QString path = paths.isEmpty() ? QString() : paths.first();
+    if (kind.isEmpty()) {
+        kind = MediaMime::guessKind(path.isEmpty() ? names.first() : path);
     }
 
     double len = lengths.isEmpty() ? 0.0 : lengths.first();
-    if (len < 0.05) {
-        len = defaultLengthForMediaKind(kind);
-    }
+    len = MediaProbe::lengthForInsert(path, kind, len);
 
     m_dropGhostActive = true;
     m_dropGhostStartSec = dropTargetTimeSec(pos);

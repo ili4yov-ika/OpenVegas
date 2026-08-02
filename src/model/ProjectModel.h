@@ -7,6 +7,8 @@
 #include <QString>
 #include <QStringList>
 
+#include <algorithm>
+
 namespace openvegas {
 
 enum class TrackKind {
@@ -322,6 +324,13 @@ struct TrackEvent {
     QString mediaPath;
     double startSec = 0.0;
     double lengthSec = 1.0;
+    /**
+     * Offset into source media at event start (Vegas EDL StreamStart), seconds.
+     * For reversed subclips with META start=0, kept at 0 so playback maps length→0.
+     */
+    double mediaStartSec = 0.0;
+    /** Play source backwards over the event (Vegas SubClip reverse / “(reversed)”). */
+    bool reversed = false;
     bool selected = false;
     /** Solo fade-in / fade-out duration (seconds). Crossfade from overlap is drawn separately. */
     double fadeInSec = 0.0;
@@ -351,7 +360,8 @@ struct TrackEvent {
     bool operator==(const TrackEvent &o) const
     {
         return id == o.id && name == o.name && mediaPath == o.mediaPath && startSec == o.startSec
-               && lengthSec == o.lengthSec && selected == o.selected && fadeInSec == o.fadeInSec
+               && lengthSec == o.lengthSec && mediaStartSec == o.mediaStartSec
+               && reversed == o.reversed && selected == o.selected && fadeInSec == o.fadeInSec
                && fadeOutSec == o.fadeOutSec && fadeInCurve == o.fadeInCurve
                && fadeOutCurve == o.fadeOutCurve && opacity == o.opacity && gainDb == o.gainDb
                && mediaKind == o.mediaKind && groupId == o.groupId && firstChannel == o.firstChannel
@@ -359,6 +369,19 @@ struct TrackEvent {
                && automationLanes == o.automationLanes;
     }
     bool operator!=(const TrackEvent &o) const { return !(*this == o); }
+
+    /** Local time on the event (0…lengthSec) for envelopes / Pan-Crop KF. */
+    double eventLocalSec(double timelineSec) const { return timelineSec - startSec; }
+
+    /** Source media time for decode (handles mediaStartSec + reverse). */
+    double sourceTimeSec(double timelineSec) const
+    {
+        const double local = eventLocalSec(timelineSec);
+        if (reversed) {
+            return std::max(0.0, mediaStartSec + lengthSec - local);
+        }
+        return std::max(0.0, mediaStartSec + local);
+    }
 };
 
 /** One Vegas Track Motion / Shadow / Glow keyframe (height-normalized units). */
@@ -806,6 +829,15 @@ public:
     /** Resolve filesystem path for an event (explicit mediaPath or media-pool match by name). */
     QString mediaPathForEvent(const TrackEvent &ev) const;
 
+    /**
+     * Relink offline/missing media: update media pool + all events that used oldPath
+     * (exact path or same file name).
+     */
+    int relinkMedia(const QString &oldPath, const QString &newPath);
+
+    /** Paths currently marked missing in the media pool. */
+    QStringList missingMediaPaths() const;
+
 private:
     static QString guessKindFromPath(const QString &path);
     static QString resolveMediaPath(const QString &storedPath, const QString &vegPath);
@@ -817,6 +849,8 @@ private:
     void applyTrackMotionFromVeg(const VegOpenResult &veg);
     /** Attach binary Event Pan/Crop (POSK KF) onto first video event. */
     void applyPanCropFromVeg(const VegOpenResult &veg);
+    /** Attach Color Grading OFX from .veg onto first video track FX chain. */
+    void applyColorGradingFromVeg(const VegOpenResult &veg);
     /** Attach UTF-16 Audio Event FX names onto audio clip events (if chain empty). */
     void applyAudioEventFxFromVeg(const VegOpenResult &veg);
 
