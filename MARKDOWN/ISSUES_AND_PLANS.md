@@ -49,7 +49,7 @@
 | P2 Fades/CF | Done | `FadeCurves` shared UI/DSP; clip fade in/out; overlap via per-clip fades; micro equal-power edges |
 | P3 Mixer | Done | Fader/pan/mute/solo → model; **Track→Bus→Master**; live mixer sync; meters |
 | P4 Builtin DSP | Done | Gate / EQ / Comp / Chorus in `BuiltinDsp`; Event→Track→Bus→Assignable→Master |
-| P5 VST3 | Partial | VST3 stub (SDK path); **VST2/VST1 LoadLibrary + process** via VeSTige (`thirdparty/lmms/include/aeffectx.h`) |
+| P5 VST3 | Partial | VST3 stub (SDK path); **VST2/VST1 LoadLibrary + process** via VeSTige (`thirdparty/vestige/aeffectx.h`) |
 | P6 Automation | Done | Lanes + menus + runtime; FX slot `fx:N:gainDb` |
 | P7 Bounce | Done | File → Bounce Audio Mixdown (offline WAV via same graph) |
 | P8 Tests | Done | Catch2 incl. graph mute/fade/live mixer |

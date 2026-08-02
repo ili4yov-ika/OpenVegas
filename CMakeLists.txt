@@ -187,7 +187,7 @@ add_executable(OpenVegas
 target_include_directories(OpenVegas PRIVATE
     ${CMAKE_SOURCE_DIR}/src
     ${CMAKE_SOURCE_DIR}/thirdparty
-    ${CMAKE_SOURCE_DIR}/thirdparty/lmms/include
+    ${CMAKE_SOURCE_DIR}/thirdparty/vestige
     ${CMAKE_CURRENT_BINARY_DIR}
 )
 

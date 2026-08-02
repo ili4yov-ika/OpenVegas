@@ -40,7 +40,7 @@ private:
 };
 
 /**
- * VST2 / VST1 host via VeSTige ABI (thirdparty/lmms/include/aeffectx.h) + LoadLibrary.
+ * VST2 / VST1 host via VeSTige ABI (thirdparty/vestige/aeffectx.h) + LoadLibrary.
  */
 class Vst2Host : public AudioPluginHost {
 public:

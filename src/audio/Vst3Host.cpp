@@ -16,7 +16,7 @@
 #include <windows.h>
 #endif
 
-// VeSTige VST2 ABI (from LMMS) — GPL-compatible substitute for Steinberg aeffect.h
+// VeSTige VST2 ABI (LMMS aeffectx.h) — GPL-compatible substitute for Steinberg SDK
 #include "aeffectx.h"
 
 #ifdef OPENVGAS_HAS_VST3_SDK
