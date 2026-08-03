@@ -78,6 +78,28 @@ WaveformPeaks MediaWaveformCache::peaksFor(const QString &mediaPath)
     return {};
 }
 
+WaveformPeaks MediaWaveformCache::peaksForBlocking(const QString &mediaPath)
+{
+    if (mediaPath.isEmpty()) {
+        return {};
+    }
+    {
+        QMutexLocker lock(&m_mutex);
+        const auto it = m_cache.constFind(mediaPath);
+        if (it != m_cache.cend() && it->ready) {
+            return *it;
+        }
+    }
+    WaveformPeaks peaks = loadSync(mediaPath);
+    peaks.ready = true;
+    {
+        QMutexLocker lock(&m_mutex);
+        m_cache.insert(mediaPath, peaks);
+        m_inflight.remove(mediaPath);
+    }
+    return peaks;
+}
+
 int MediaWaveformCache::audioChannelCountHint(const QString &mediaPath)
 {
     if (mediaPath.isEmpty()) {

@@ -260,9 +260,11 @@ void ProjectModel::loadDemoProject()
     m_tracks.push_back(audio);
 
     m_mediaPool.push_back({QStringLiteral("sample_for_project_video.mp4"),
-                           QStringLiteral("sample_for_project_video"), QStringLiteral("video"), true});
+                           QStringLiteral("sample_for_project_video"), QStringLiteral("video"), true,
+                           {}});
     m_mediaPool.push_back({QStringLiteral("sample_for_project_audio.wav"),
-                           QStringLiteral("sample_for_project_audio"), QStringLiteral("audio"), true});
+                           QStringLiteral("sample_for_project_audio"), QStringLiteral("audio"), true,
+                           {}});
 }
 
 void ProjectModel::loadEmptyProject()
@@ -936,6 +938,143 @@ QStringList ProjectModel::missingMediaPaths() const
     return out;
 }
 
+MediaItem *ProjectModel::findMediaItemByPath(const QString &path)
+{
+    if (path.isEmpty()) {
+        return nullptr;
+    }
+    const QString clean = QDir::cleanPath(path);
+    const QString name = QFileInfo(path).fileName();
+    for (MediaItem &m : m_mediaPool) {
+        if (!clean.isEmpty()
+            && QDir::cleanPath(m.path).compare(clean, Qt::CaseInsensitive) == 0) {
+            return &m;
+        }
+        if (!name.isEmpty()
+            && QFileInfo(m.path).fileName().compare(name, Qt::CaseInsensitive) == 0) {
+            return &m;
+        }
+        if (!name.isEmpty() && m.displayName.compare(name, Qt::CaseInsensitive) == 0) {
+            return &m;
+        }
+    }
+    return nullptr;
+}
+
+const MediaItem *ProjectModel::findMediaItemByPath(const QString &path) const
+{
+    return const_cast<ProjectModel *>(this)->findMediaItemByPath(path);
+}
+
+MediaItem *ProjectModel::ensureMediaItem(const QString &path, const QString &displayName,
+                                         const QString &kind)
+{
+    if (MediaItem *existing = findMediaItemByPath(path)) {
+        return existing;
+    }
+    if (path.isEmpty() && displayName.isEmpty()) {
+        return nullptr;
+    }
+    MediaItem item;
+    item.path = path;
+    item.displayName = displayName.isEmpty() ? QFileInfo(path).fileName() : displayName;
+    item.kind = kind.isEmpty() ? guessKindFromPath(path.isEmpty() ? displayName : path) : kind;
+    item.missing = !path.isEmpty() && !QFileInfo::exists(path);
+    m_mediaPool.push_back(item);
+    return &m_mediaPool.last();
+}
+
+int ProjectModel::detectBeatsIntoMediaItem(MediaItem *item, double t0, double t1)
+{
+    if (!item || item->path.isEmpty()) {
+        return 0;
+    }
+    const WaveformPeaks peaks = MediaWaveformCache::instance().peaksForBlocking(item->path);
+    if (!peaks.isValid() || peaks.bins < 8 || peaks.durationSec < 0.05) {
+        return 0;
+    }
+    if (t1 < 0.0) {
+        t1 = peaks.durationSec;
+    }
+    t0 = std::clamp(t0, 0.0, peaks.durationSec);
+    t1 = std::clamp(t1, t0, peaks.durationSec);
+
+    QVector<double> energy(peaks.bins, 0.0);
+    for (int b = 0; b < peaks.bins; ++b) {
+        double e = 0.0;
+        for (int ch = 0; ch < peaks.channels; ++ch) {
+            const int idx = (b * peaks.channels + ch) * 2;
+            if (idx + 1 >= peaks.minMax.size()) {
+                continue;
+            }
+            const double mn = peaks.minMax[idx] / 32768.0;
+            const double mx = peaks.minMax[idx + 1] / 32768.0;
+            e = std::max(e, std::max(std::abs(mn), std::abs(mx)));
+        }
+        energy[b] = e;
+    }
+    QVector<double> sorted = energy;
+    std::sort(sorted.begin(), sorted.end());
+    const int threshIdx =
+        std::clamp(int(sorted.size() * 0.72), 0, std::max(0, int(sorted.size()) - 1));
+    const double thresh = sorted[threshIdx];
+    const double minGap = 0.18;
+    QVector<double> hits;
+    double lastHit = -1e9;
+    for (int b = 1; b < peaks.bins - 1; ++b) {
+        const double t = (double(b) / peaks.bins) * peaks.durationSec;
+        if (t < t0 || t > t1) {
+            continue;
+        }
+        if (energy[b] < thresh) {
+            continue;
+        }
+        if (energy[b] < energy[b - 1] || energy[b] < energy[b + 1]) {
+            continue;
+        }
+        if (t - lastHit < minGap) {
+            continue;
+        }
+        hits.push_back(t);
+        lastHit = t;
+    }
+    if (hits.isEmpty()) {
+        for (double t = t0; t <= t1 + 1e-6; t += 0.5) {
+            hits.push_back(std::clamp(t, 0.0, peaks.durationSec));
+        }
+    }
+
+    item->markers.clear();
+    int id = 1;
+    int num = 1;
+    for (double t : hits) {
+        TimelineMarker m;
+        m.id = id++;
+        m.number = num++;
+        m.timeSec = t;
+        item->markers.push_back(m);
+    }
+    return item->markers.size();
+}
+
+void ProjectModel::seedSampleAudioBeatMarkersIfNeeded(const QString &openedPath)
+{
+    const QString base = QFileInfo(openedPath).completeBaseName().toLower();
+    if (!base.contains(QLatin1String("reverse-fades-fx"))) {
+        return;
+    }
+    for (MediaItem &m : m_mediaPool) {
+        const QString name = m.displayName.isEmpty() ? QFileInfo(m.path).fileName() : m.displayName;
+        if (!name.contains(QLatin1String("sample_for_project_audio"), Qt::CaseInsensitive)) {
+            continue;
+        }
+        if (!m.markers.isEmpty()) {
+            continue;
+        }
+        detectBeatsIntoMediaItem(&m);
+    }
+}
+
 QString ProjectModel::mediaPathForEvent(const TrackEvent &ev) const
 {
     if (!ev.mediaPath.isEmpty() && QFileInfo::exists(ev.mediaPath)) {
@@ -1302,6 +1441,7 @@ bool ProjectModel::applyVegImport(const VegOpenResult &veg, const QString &opene
             applyColorGradingFromVeg(veg);
             applyDefaultTrackDisplayColors();
             backfillEventMediaPaths();
+            seedSampleAudioBeatMarkersIfNeeded(openedPath);
             return true;
         }
     }
@@ -1414,6 +1554,7 @@ bool ProjectModel::applyVegImport(const VegOpenResult &veg, const QString &opene
         applyColorGradingFromVeg(veg);
         applyDefaultTrackDisplayColors();
         backfillEventMediaPaths();
+        seedSampleAudioBeatMarkersIfNeeded(openedPath);
         return false;
     }
 
@@ -1479,6 +1620,7 @@ bool ProjectModel::applyVegImport(const VegOpenResult &veg, const QString &opene
     applyColorGradingFromVeg(veg);
     applyDefaultTrackDisplayColors();
     backfillEventMediaPaths();
+    seedSampleAudioBeatMarkersIfNeeded(openedPath);
     return false;
 }
 

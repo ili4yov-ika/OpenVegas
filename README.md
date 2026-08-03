@@ -102,7 +102,7 @@ OpenVegas/
 | [`MARKDOWN/VEG_READER_V0.md`](MARKDOWN/VEG_READER_V0.md) | Открытие `.veg` (подробно) |
 | [`docs/VEG_OPEN.md`](docs/VEG_OPEN.md) | Открытие `.veg` (кратко) |
 | [`MARKDOWN/QT68_PORT_AND_VEG_OPEN.md`](MARKDOWN/QT68_PORT_AND_VEG_OPEN.md) | Перенос на Qt и план парсера |
-| [`SAMPLES/`](SAMPLES/README.md) | Эталонные `.veg`, медиа и Vegas 22 |
+| [`SAMPLES/`](SAMPLES/README.md) | Эталонные `.veg`, медиа и Vegas Pro 22 |
 
 ---
 
@@ -110,7 +110,7 @@ OpenVegas/
 
 1. Проекты и медиа — [`SAMPLES/veg_project/README.md`](SAMPLES/veg_project/README.md)
 2. Разбор `.veg` — [`SAMPLES/veg_analyzators/README.md`](SAMPLES/veg_analyzators/README.md)
-3. Runtime Vegas 22 — [`SAMPLES/VEGAS-PRO-22-PROGRAM-FILES/README.md`](SAMPLES/VEGAS-PRO-22-PROGRAM-FILES/README.md)
+3. Runtime Vegas Pro 22 — [`SAMPLES/VEGAS-PRO-22-PROGRAM-FILES/README.md`](SAMPLES/VEGAS-PRO-22-PROGRAM-FILES/README.md)
 
 ---
 
@@ -123,7 +123,7 @@ OpenVegas/
 5. **Открытие `.veg` (развёрнуто)** — [`MARKDOWN/VEG_READER_V0.md`](MARKDOWN/VEG_READER_V0.md)
 6. **Перенос на Qt + план парсера** — [`MARKDOWN/QT68_PORT_AND_VEG_OPEN.md`](MARKDOWN/QT68_PORT_AND_VEG_OPEN.md)
 7. **Формат `.veg`** — [`SAMPLES/docs_veg/00_format_overview.md`](SAMPLES/docs_veg/00_format_overview.md)
-8. **Program Files Vegas 22** — [`SAMPLES/VEGAS-PRO-22-PROGRAM-FILES/README.md`](SAMPLES/VEGAS-PRO-22-PROGRAM-FILES/README.md)
+8. **Program Files Vegas Pro 22** — [`SAMPLES/VEGAS-PRO-22-PROGRAM-FILES/README.md`](SAMPLES/VEGAS-PRO-22-PROGRAM-FILES/README.md)
 
 ---
 

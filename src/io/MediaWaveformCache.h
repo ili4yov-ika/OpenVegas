@@ -27,6 +27,8 @@ public:
 
     /** Sync lookup; may return empty and queue async load. */
     WaveformPeaks peaksFor(const QString &mediaPath);
+    /** Blocking load (WAV/.sfk); caches result. */
+    WaveformPeaks peaksForBlocking(const QString &mediaPath);
 
     /**
      * Fast channel-count hint for timeline placement (SFK header or WAV fmt).

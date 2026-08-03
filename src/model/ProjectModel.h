@@ -464,6 +464,56 @@ struct TrackEvent {
         }
         return std::max(0.0, mediaStartSec + local);
     }
+
+    /**
+     * Event-local times (0…lengthSec) where a media-source marker is visible
+     * (accounts for reverse SubClip + loop wraps).
+     */
+    QVector<double> eventLocalsForMediaTime(double mediaSec) const
+    {
+        QVector<double> out;
+        const double cycle = sourceCycleSec();
+        if (cycle < 1e-9 || lengthSec < 1e-9) {
+            return out;
+        }
+        double M = std::clamp(mediaSec, 0.0, cycle);
+        if (reversed) {
+            const double target = (M <= 1e-9) ? 0.0 : (cycle - M);
+            for (int k = -2; k < 128; ++k) {
+                const double local = target - mediaStartSec + double(k) * cycle;
+                if (local >= -1e-6 && local <= lengthSec + 1e-6) {
+                    out.push_back(std::clamp(local, 0.0, lengthSec));
+                }
+            }
+        } else if (looped && mediaLengthSec > 1e-6 && lengthSec > mediaLengthSec + 1e-6) {
+            double rem = M - mediaStartSec;
+            while (rem < 0.0) {
+                rem += cycle;
+            }
+            while (rem >= cycle) {
+                rem -= cycle;
+            }
+            for (int k = 0; k < 128; ++k) {
+                const double local = rem + double(k) * cycle;
+                if (local > lengthSec + 1e-6) {
+                    break;
+                }
+                if (local >= -1e-6) {
+                    out.push_back(std::clamp(local, 0.0, lengthSec));
+                }
+            }
+        } else {
+            const double local = M - mediaStartSec;
+            if (local >= -1e-6 && local <= lengthSec + 1e-6) {
+                out.push_back(std::clamp(local, 0.0, lengthSec));
+            }
+        }
+        std::sort(out.begin(), out.end());
+        out.erase(std::unique(out.begin(), out.end(),
+                              [](double a, double b) { return std::abs(a - b) < 1e-5; }),
+                  out.end());
+        return out;
+    }
 };
 
 /** One Vegas Track Motion / Shadow / Glow keyframe (height-normalized units). */
@@ -671,21 +721,7 @@ struct MixerStripRef {
     bool operator!=(const MixerStripRef &o) const { return !(*this == o); }
 };
 
-struct MediaItem {
-    QString path;
-    QString displayName;
-    QString kind; // video | audio | still
-    bool missing = false;
-
-    bool operator==(const MediaItem &o) const
-    {
-        return path == o.path && displayName == o.displayName && kind == o.kind
-               && missing == o.missing;
-    }
-    bool operator!=(const MediaItem &o) const { return !(*this == o); }
-};
-
-/** Point marker on the timeline ruler (Vegas-style numbered flag). */
+/** Point marker: timeline ruler or Event Media Markers (Trimmer / Beat Detection). */
 struct TimelineMarker {
     int id = 0;
     int number = 0;
@@ -699,6 +735,22 @@ struct TimelineMarker {
                && selected == o.selected;
     }
     bool operator!=(const TimelineMarker &o) const { return !(*this == o); }
+};
+
+struct MediaItem {
+    QString path;
+    QString displayName;
+    QString kind; // video | audio | still
+    bool missing = false;
+    /** Event Media Markers (Vegas Trimmer); not the project timeline ruler. */
+    QVector<TimelineMarker> markers;
+
+    bool operator==(const MediaItem &o) const
+    {
+        return path == o.path && displayName == o.displayName && kind == o.kind
+               && missing == o.missing && markers == o.markers;
+    }
+    bool operator!=(const MediaItem &o) const { return !(*this == o); }
 };
 
 /** Loop / time-selection region on the marker lane. When inactive, UI shows a seed handle. */
@@ -783,6 +835,15 @@ public:
 
     QVector<MediaItem> &mediaPool() { return m_mediaPool; }
     const QVector<MediaItem> &mediaPool() const { return m_mediaPool; }
+    MediaItem *findMediaItemByPath(const QString &path);
+    const MediaItem *findMediaItemByPath(const QString &path) const;
+    /** Ensure a pool entry for path; returns pointer into m_mediaPool. */
+    MediaItem *ensureMediaItem(const QString &path, const QString &displayName = QString(),
+                               const QString &kind = QString());
+    /** Fill MediaItem::markers from waveform peaks (Beat Detection). Returns count added. */
+    int detectBeatsIntoMediaItem(MediaItem *item, double t0 = 0.0, double t1 = -1.0);
+    /** For reverse-fades-fx sample: seed beats on sample_for_project_audio if empty. */
+    void seedSampleAudioBeatMarkersIfNeeded(const QString &openedPath);
 
     QVector<TimelineMarker> &markers() { return m_markers; }
     const QVector<TimelineMarker> &markers() const { return m_markers; }
@@ -835,6 +896,8 @@ public:
     void setSnapToGrid(bool on) { m_snapToGrid = on; }
     bool snapToMarkers() const { return m_snapToMarkers; }
     void setSnapToMarkers(bool on) { m_snapToMarkers = on; }
+    bool showEventMediaMarkers() const { return m_showEventMediaMarkers; }
+    void setShowEventMediaMarkers(bool on) { m_showEventMediaMarkers = on; }
     bool snapToAllEvents() const { return m_snapToAllEvents; }
     void setSnapToAllEvents(bool on) { m_snapToAllEvents = on; }
     bool quantizeToFrames() const { return m_quantizeToFrames; }
@@ -992,6 +1055,7 @@ private:
     bool m_snappingEnabled = true;
     bool m_snapToGrid = false;
     bool m_snapToMarkers = true;
+    bool m_showEventMediaMarkers = true;
     bool m_snapToAllEvents = true;
     bool m_quantizeToFrames = true;
     TimelineGridSpacing m_gridSpacing = TimelineGridSpacing::RulerMarks;

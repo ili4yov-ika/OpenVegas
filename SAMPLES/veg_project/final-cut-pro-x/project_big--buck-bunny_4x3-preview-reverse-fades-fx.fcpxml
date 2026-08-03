@@ -5,8 +5,8 @@
 			<format id="r1" name="FFVideoFormat640x480p2997" frameDuration="1001/30000s" width="640" height="480" />
 			<projectRef id="r2" name="Untitled Project 1" />
 			<format id="r3" frameDuration="100/6000s" width="3840" height="2160" />
-			<asset id="r4" name="big-buck-bunny_video-60fps-4k-16" projectRef="r2" src="file://localhost/D:/Devs/C++/OpenVegas/SAMPLES/veg_project/final-cut-pro-x/big-buck-bunny_video-60fps-4k-16.mp4" start="0/30000s" hasVideo="1" hasAudio="1" />
-			<asset id="r5" name="sample_for_project_audio-4" projectRef="r2" src="file://localhost/D:/Devs/C++/OpenVegas/SAMPLES/veg_project/final-cut-pro-x/sample_for_project_audio-4.wav" start="0/30000s" hasAudio="1" />
+			<asset id="r4" name="big-buck-bunny_video-60fps-4k-18" projectRef="r2" src="file://localhost/D:/Devs/C++/OpenVegas/SAMPLES/veg_project/final-cut-pro-x/big-buck-bunny_video-60fps-4k-18.mp4" start="0/30000s" hasVideo="1" hasAudio="1" />
+			<asset id="r5" name="sample_for_project_audio-6" projectRef="r2" src="file://localhost/D:/Devs/C++/OpenVegas/SAMPLES/veg_project/final-cut-pro-x/sample_for_project_audio-6.wav" start="0/30000s" hasAudio="1" />
 			<effect id="r6" name="Cross Dissolve" uid="FxPlug:4731E73A-8DAC-4113-9A30-AE85B1761265" />
 		</resources>
 		<sequence duration="7647640/30000s" format="r1" tcFormat="NDF" audioLayout="stereo" audioRate="48k">

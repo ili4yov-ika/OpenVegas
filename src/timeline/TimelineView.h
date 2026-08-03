@@ -199,6 +199,7 @@ private:
     void paintVideoThumbs(QPainter &p, const QRect &body, const TrackEvent &ev);
     void paintStillImage(QPainter &p, const QRect &body, const TrackEvent &ev);
     void paintAudioWave(QPainter &p, const QRect &body, const TrackEvent &ev);
+    void paintEventMediaMarkers(QPainter &p, const TrackEvent &ev, const QRect &body);
     QString eventMediaPath(const TrackEvent &ev) const;
     double overlapSec(const TrackEvent &a, const TrackEvent &b) const;
     double incomingCrossfadeSec(const Track &track, const TrackEvent &ev) const;

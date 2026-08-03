@@ -1919,6 +1919,45 @@ QString TimelineView::eventMediaPath(const TrackEvent &ev) const
     return m_model->mediaPathForEvent(ev);
 }
 
+void TimelineView::paintEventMediaMarkers(QPainter &p, const TrackEvent &ev, const QRect &body)
+{
+    if (!m_model || !m_model->showEventMediaMarkers() || body.width() < 4) {
+        return;
+    }
+    const QString path = eventMediaPath(ev);
+    const MediaItem *item = m_model->findMediaItemByPath(path);
+    if (!item || item->markers.isEmpty()) {
+        for (const MediaItem &m : m_model->mediaPool()) {
+            if (m.markers.isEmpty()) {
+                continue;
+            }
+            const QString bn = QFileInfo(m.path).completeBaseName();
+            if (!bn.isEmpty()
+                && (ev.name.contains(bn, Qt::CaseInsensitive)
+                    || QFileInfo(ev.name).completeBaseName().compare(bn, Qt::CaseInsensitive)
+                           == 0)) {
+                item = &m;
+                break;
+            }
+        }
+    }
+    if (!item || item->markers.isEmpty()) {
+        return;
+    }
+
+    const QColor line(0xe0, 0xa0, 0x20, 210);
+    p.setPen(QPen(line, 1));
+    for (const TimelineMarker &mk : item->markers) {
+        for (double local : ev.eventLocalsForMediaTime(mk.timeSec)) {
+            const int x = timeToX(ev.startSec + local);
+            if (x < body.left() - 1 || x > body.right() + 1) {
+                continue;
+            }
+            p.drawLine(x, body.top(), x, body.bottom());
+        }
+    }
+}
+
 void TimelineView::paintEventBlock(QPainter &p, const Track &track, const TrackEvent &ev, const QRect &r)
 {
     const bool isVideo = isVideoFamily(ev.mediaKind);
@@ -2022,9 +2061,11 @@ void TimelineView::paintEventBlock(QPainter &p, const Track &track, const TrackE
                 ev.name, Qt::ElideRight, std::max(8, nameBand.width() - 12));
             p.drawText(nameBand.adjusted(6, 0, -4, 0), Qt::AlignVCenter | Qt::AlignLeft, elided);
         }
+        paintEventMediaMarkers(p, ev, body);
     } else {
         paintAudioWave(p, body, ev);
         paintEventLoopNotches(p, ev, r, body);
+        paintEventMediaMarkers(p, ev, body);
     }
 
     // Selection / border (single Vegas-like amber outline)

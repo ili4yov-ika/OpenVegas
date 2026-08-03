@@ -44,6 +44,7 @@
 #include "io/MediaMime.h"
 #include "io/MediaProbe.h"
 #include "io/MediaThumbCache.h"
+#include "io/MediaWaveformCache.h"
 #include "media/MediaEngine.h"
 #include "ui/MediaBinListWidget.h"
 #include "model/SnapshotCommand.h"
@@ -3266,6 +3267,7 @@ void MainWindow::applyKeyboardMap()
         QStringLiteral("Edit.Split"),
         QStringLiteral("Help.CustomizeKeyboard"),
         QStringLiteral("View.MixingConsole"),
+        QStringLiteral("View.EventMediaMarkers"),
     };
 
     QSet<QString> boundSeqs;
@@ -3497,6 +3499,16 @@ void MainWindow::invokeKeyboardCommand(const QString &commandId)
                 m_audioEngine->syncMixerLive();
             }
             refreshTimeline();
+        }
+        return;
+    }
+    if (commandId == QLatin1String("View.EventMediaMarkers")) {
+        m_project.setShowEventMediaMarkers(!m_project.showEventMediaMarkers());
+        if (m_trimmer) {
+            m_trimmer->setMarkersVisible(m_project.showEventMediaMarkers());
+        }
+        if (m_timeline) {
+            m_timeline->update();
         }
         return;
     }
@@ -3826,8 +3838,40 @@ void MainWindow::openTrimmer(int eventId)
     }
     if (!m_trimmer) {
         m_trimmer = new TrimmerWindow(this);
+        m_trimmer->onMarkersChanged = [this](const QString &mediaPath,
+                                             const QVector<TimelineMarker> &markers) {
+            MediaItem *item = m_project.ensureMediaItem(mediaPath);
+            if (!item && !mediaPath.isEmpty()) {
+                item = m_project.ensureMediaItem(mediaPath, QFileInfo(mediaPath).fileName());
+            }
+            if (item) {
+                item->markers = markers;
+            }
+            if (m_timeline) {
+                m_timeline->update();
+            }
+        };
     }
-    m_trimmer->setMedia(ev->name, ev->mediaKind, std::max(0.5, ev->lengthSec));
+    const QString path = m_project.mediaPathForEvent(*ev);
+    MediaItem *item = m_project.ensureMediaItem(
+        path, ev->name,
+        isAudioFamily(ev->mediaKind) ? QStringLiteral("audio") : QStringLiteral("video"));
+    const QVector<TimelineMarker> markers = item ? item->markers : QVector<TimelineMarker>{};
+    double dur = ev->mediaLengthSec > 1e-6 ? ev->mediaLengthSec : ev->lengthSec;
+    if (dur < 0.5) {
+        dur = 0.5;
+    }
+    if (isAudioFamily(ev->mediaKind) && !path.isEmpty()) {
+        const WaveformPeaks peaks = MediaWaveformCache::instance().peaksFor(path);
+        if (peaks.isValid() && peaks.durationSec > 0.5) {
+            dur = peaks.durationSec;
+        }
+    }
+    QString title = ev->name;
+    if (title.isEmpty()) {
+        title = QFileInfo(path).fileName();
+    }
+    m_trimmer->setMedia(title, ev->mediaKind, dur, path, markers, ev->reversed);
     m_trimmer->show();
     m_trimmer->raise();
     m_trimmer->activateWindow();
