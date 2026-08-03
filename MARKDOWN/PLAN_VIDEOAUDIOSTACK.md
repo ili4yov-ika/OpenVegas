@@ -2,9 +2,9 @@
 
 Поэтапный roadmap поверх MVP. Kdenlive (`thirdparty/kdenlive`, gitignore) — **референс** тайминга/архитектуры, не форк. Vegas Pro runtime (`SAMPLES/VEGAS-PRO-22-PROGRAM-FILES`) — **справочник** OFX/иконок для отладки, не LoadLibrary proprietary hosts.
 
-См. также: [`ISSUES_AND_PLANS.md`](ISSUES_AND_PLANS.md).
+См. также: [`ISSUES_AND_PLANS.md`](ISSUES_AND_PLANS.md), `SAMPLES/veg_project/README.md` (эталоны VEG + interchange).
 
-**Обновлено:** 2026-08-03.
+**Обновлено:** 2026-08-03 (transport clock, live gain, NLE interchange import/export).
 
 ---
 
@@ -17,6 +17,7 @@
 - Порт MLT/Kdenlive без зависимости
 - Загрузка DLL внутренних FX Vegas как «своих»
 - Полный realtime 4K multi-layer GPU compositor в фазах 1–6
+- Native `.prproj` write (Premiere/AE) — пока stub; импорт путей best-effort
 
 ---
 
@@ -30,12 +31,16 @@
 | VST3 | **Stub** | `Vst3Host`: pass-through без Steinberg SDK; scan/tests есть |
 | Video preview compositor | **Done** | soft CPU: Pan/Crop, Track Motion KF, opacity/fades, Color Corrector |
 | Continuous video decode | **Done** | `FFmpegStreamDecoder` raw pipe; optional linked libav |
+| A/V transport clock | **Done** | AudioEngine master; `wireTransportButtons` после device; stop at timeline end; click-seek + `m_seekEpoch` |
+| Event Gain / Level live | **Done** | `applyLiveMixer` + `liveAudioParamsChanged` (раньше только на rebuild) |
 | OFX | **Discover + stub host** | `PluginScanner` + `OfxHost` (без LoadLibrary / process) |
 | Video Color Corrector / Grading | **Done (MVP)** | `ColorCorrectorApply` в `VideoCompositor` |
 | Render Wave PCM | **Done** | `AudioEngine::renderToWav` |
 | Render AAC/MP4/… | **Done** | `MediaEngine` + FFmpeg CLI; HW prefer |
 | HW decode/encode | **Done** | `-hwaccel auto`; NVENC/QSV/AMF → libx264 |
 | Reverse / Loop SubClip (EDL) | **Done** | `sourceTimeSec` + `AudioGraph` + waveform notches; см. samples README |
+| NLE interchange import | **Done (MVP)** | Vegas CSV EDL, FCP7/Resolve XML, FCPX, Premiere path scrape; `applyInterchangeEvents` |
+| NLE interchange export | **Done (MVP)** | Vegas CSV, FCP7+pathurl/fades, FCPXML assets; CMX `.edl`; Premiere write — stub |
 | Render progress UI | **Done** | `RenderingProgressDialog` (elapsed / ETA / cancel) |
 | Timeline ruler zoom UX | **Done** | Fit / Zoom In-Out; Ctrl+колёсико; sync `m_pxPerSec` |
 | Build: CMake MinGW path | **Done** | `build/Windows_MinGW-x64` (preset `windows-mingw-debug`) |
@@ -43,6 +48,7 @@
 | OFX process / GPU compositor | **Not started** | следующий крупный блок |
 | Shadow / Glow, blend modes, mask interpolate | **Not started** | video polish |
 | VEG VST state restore | **Not started** | имена/формат есть, chunk не восстанавливается |
+| Premiere `.prproj` write | **Not started** | UI stub → использовать FCP7 XML / EDL |
 
 ---
 
@@ -63,6 +69,7 @@ Timeline / ProjectModel
 - Offline render: temp WAV (+ optional PNG sequence) → ffmpeg → output; UI — `RenderingProgressDialog`.
 - Audio FX graph ≠ video FX graph (OFX отдельно).
 - Reverse SubClip: `source = cycle - fmod(StreamStart + local, cycle)` при `reversed`; `mediaLengthSec` = META Length; loop notches: первый = `cycle - mediaStart`.
+- Interchange: `ProjectInterchange` ↔ File→Import/Export; полный mapping клипов через `ProjectModel::applyInterchangeEvents` (не только `addMediaAt`).
 
 ---
 
@@ -95,7 +102,7 @@ Timeline / ProjectModel
 |--------|----------|
 | `openvegas_audio_tests` | DSP / fades / graph / mute / mixer |
 | `openvegas_video_tests` | compositor / Color Corrector / fixtures |
-| `openvegas_media_tests` | FFmpegEncoder smoke, PluginScanner, OfxHost, Vst3Host, stream decoder |
+| `openvegas_media_tests` | FFmpegEncoder smoke, PluginScanner, OfxHost, Vst3Host, stream decoder, **`[interchange]`** |
 
 ---
 
@@ -107,11 +114,14 @@ Timeline / ProjectModel
 | **7b** | Render progress + cancel + ETA | High | **Done** |
 | **7c** | Timeline zoom / Fit / ruler sync | Med | **Done** |
 | **7d** | Tooling: единый Windows MinGW build dir + qmake `.pro` sync | Med | **Done** |
+| **7e** | Transport clock polish (seek race, click-seek, stop at end, live event gain) | High | **Done** (2026-08-03) |
+| **7f** | NLE interchange MVP (Vegas CSV / FCP7 / FCPX / Premiere scrape + export) | High | **Done** (2026-08-03) |
 | **8** | Real **VST3** (Steinberg SDK): instantiate, process, state, `IPlugView` editor | High | **Not started** (API stub есть) |
 | **9** | Real **OFX** host: LoadLibrary/dlopen, process frame, params UI | High | **Not started** (discover only) |
 | **10** | Video polish: mask path interpolate; Shadow/Glow; blend modes; in/out point edge cases | Med | **Not started** |
 | **11** | VEG: восстановление VST/OFX state chunks; полный round-trip FX | Med | **Not started** |
 | **12** | Linked encode path / ProRes quality / GPU compositor (опционально) | Low | **Not started** |
+| **13** | Native Premiere `.prproj` write (опционально) | Low | **Not started** |
 
 ### Фаза 7a — детали (сделано)
 
@@ -119,6 +129,28 @@ Timeline / ProjectModel
 2. `ClipEvent::sourceTimeSec` / `AudioGraph` — одна формула reverse SubClip + loop.
 3. Waveform + loop notches: первый notch при reverse = `cycle - mediaStart`.
 4. Samples: `project_big--buck-bunny_4x3-preview-reverse-fades-fx.veg` (looped) и `…-fx1.veg` (split); sidecars EDL/FCPX/interchange; см. `SAMPLES/veg_project/README.md`.
+
+### Фаза 7e — transport / live mix (сделано)
+
+1. `wireTransportButtons` **после** создания `AudioEngine` (иначе нет `positionChanged` → залипание playhead/video).
+2. Stop на `timelineEndSec` (кроме loop region); UI `playingChanged(false)`.
+3. Click-seek во время Play: не эмитить `playheadChanged` из play-timer при external clock; `m_seekEpoch` в `processBlock`.
+4. Event Level/Gain + fades: `AudioGraph::applyLiveMixer` копирует clip gain/fades; Timeline `liveAudioParamsChanged` → `syncMixerLive`.
+
+### Фаза 7f — NLE interchange (сделано)
+
+| Формат | Import | Export |
+|--------|--------|--------|
+| Vegas EDL Text (`;` CSV) | File→Import EDL автодетект + Open `.veg` sidecar; `applyInterchangeEvents` | `.txt` по умолчанию (`exportVegasCsvEdl`) |
+| CMX3600 EDL | `importEdl` fallback | `.edl` |
+| FCP7 / Resolve xmeml | sequence clipitems, transitions→fades, `pathurl` | clipitems + `pathurl` + fade transitions |
+| FCPX | `<video>`/`<audio>`, offset/mediaStart, timeMap reverse, fades; не ломать kind audio на mp4 | assets + video/audio (не gap) |
+| Premiere `.prproj` | path scrape (в т.ч. пробелы в имени); без timeline | stub → FCP7/EDL |
+
+Эталоны: `SAMPLES/veg_project/{edl-text-file,final-cut-pro-7_davinci-resolve,final-cut-pro-x,premiere_after-effect}/`.  
+Тесты: `tests/test_project_interchange.cpp` (`[interchange]`).
+
+**Ограничения MVP:** Mixing Console / Track Motion / Pan-Crop KF / Color Grading / Event FX из interchange **не** восстанавливаются (как в Vegas export logs) — канон: Open `.veg`.
 
 ### Фаза 8 — VST3 real (нужно)
 
@@ -134,11 +166,12 @@ Timeline / ProjectModel
 3. Params UI + VEG `{Svfx:}` / `OFX:` → живой slot.
 4. Тесты на open-source OFX sample (не Vegas DLL).
 
-### Фаза 10–12 — polish / optional
+### Фаза 10–13 — polish / optional
 
 - Mask interpolate между KF; Track Motion Shadow/Glow; blend modes.
 - VEG state для VST2/3 и OFX.
 - Дальнейший encode quality / linked mux / GPU — по необходимости, не блокер MVP.
+- Native `.prproj` write — только если понадобится поверх FCP7/EDL.
 
 ---
 
@@ -194,6 +227,6 @@ Timeline / ProjectModel
 
 **Базовый video/audio stack (фазы 0–6) готов:** playback, builtins, VST2, continuous decode, HW, MediaEngine render, Color Corrector MVP, OFX/VST3 stubs.
 
-**Сделано поверх плана:** reverse/loop SubClip, render progress UI, timeline zoom, Windows MinGW path + qmake sync.
+**Сделано поверх плана:** reverse/loop SubClip; render progress; timeline zoom; MinGW path + qmake; **A/V clock + click-seek + live event gain**; **NLE interchange MVP** (import/export + Catch2).
 
-**Дальше по смыслу:** VST3 SDK host → OFX process → video polish / VEG state. Не путать discover/stub с реальным hosting.
+**Дальше по смыслу:** VST3 SDK host → OFX process → video polish / VEG state → (опц.) Premiere write. Не путать discover/stub с реальным hosting.
