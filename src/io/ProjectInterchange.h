@@ -38,6 +38,8 @@ struct InterchangeEvent {
     double mediaStartSec = 0.0;
     double mediaLengthSec = 0.0;
     double playRate = 1.0;
+    /** Vegas EDL Looped column (default true when missing). */
+    bool looped = true;
 };
 
 struct InterchangeResult {

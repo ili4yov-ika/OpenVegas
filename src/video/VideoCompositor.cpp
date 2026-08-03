@@ -1,6 +1,7 @@
 #include "video/VideoCompositor.h"
 
 #include "audio/FadeCurves.h"
+#include "video/ColorCorrectorApply.h"
 #include "video/PanCropApply.h"
 #include "video/TrackMotionApply.h"
 #include "video/VideoFrameCache.h"
@@ -150,6 +151,9 @@ QImage VideoCompositor::compose(const ProjectModel &model, double t, const QSize
 
             QImage layer = applyPanCrop(src, pkf, fw, fh, sz.width(), sz.height(),
                                         pan.stretchToFillFrame, mask);
+            // Event FX color (Color Corrector / …) then track Color Grading.
+            applyVideoColorFxChain(&layer, ev.fxChain);
+            applyVideoColorFxChain(&layer, track.fxChain);
             applyTrackMotion(&painter, layer, motionKf, fw, fh, sz.width(), sz.height(), opacity);
             ++paintedCount;
         }

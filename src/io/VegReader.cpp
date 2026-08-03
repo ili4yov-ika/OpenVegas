@@ -311,6 +311,13 @@ void VegReader::parseUtf16Metadata(const QByteArray &data, VegOpenResult *result
                 if (!base.isEmpty() && !result->reversedMediaBasenames.contains(base)) {
                     result->reversedMediaBasenames.push_back(base);
                 }
+                if (!base.isEmpty()) {
+                    constexpr double kTicks = 10000000.0;
+                    result->reversedSubclipStartSec.insert(
+                        base, double(m.captured(2).toLongLong()) / kTicks);
+                    result->reversedSubclipLengthSec.insert(
+                        base, double(m.captured(3).toLongLong()) / kTicks);
+                }
             }
         }
         // "file.mp4 - subclip 1 (reversed)"

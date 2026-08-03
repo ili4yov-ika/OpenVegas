@@ -1,6 +1,7 @@
 #include "io/MediaProbe.h"
 #include "io/MediaFilmstripCache.h"
 
+#include <QCoreApplication>
 #include <QDir>
 #include <QFileInfo>
 #include <QHash>
@@ -282,16 +283,34 @@ QString MediaProbe::findFfprobe()
         return cached;
     }
 
+#ifdef Q_OS_WIN
+    const QString exeName = QStringLiteral("ffprobe.exe");
+#else
+    const QString exeName = QStringLiteral("ffprobe");
+#endif
+
+    const QString appDir = QCoreApplication::applicationDirPath();
+    if (!appDir.isEmpty()) {
+        const QStringList besideApp = {
+            QDir(appDir).filePath(exeName),
+            QDir(appDir).filePath(QStringLiteral("ffmpeg/") + exeName),
+            QDir(appDir).filePath(QStringLiteral("ffmpeg/bin/") + exeName),
+            QDir(appDir).filePath(QStringLiteral("bin/") + exeName),
+            QDir(appDir).filePath(QStringLiteral("tools/") + exeName),
+            QDir(appDir).filePath(QStringLiteral("tools/ffmpeg/bin/") + exeName),
+        };
+        for (const QString &p : besideApp) {
+            if (QFileInfo::exists(p)) {
+                cached = QFileInfo(p).absoluteFilePath();
+                return cached;
+            }
+        }
+    }
+
     const QString ffmpeg = MediaFilmstripCache::findFfmpeg();
     if (!ffmpeg.isEmpty()) {
         QFileInfo fi(ffmpeg);
-        const QString name =
-#ifdef Q_OS_WIN
-            QStringLiteral("ffprobe.exe");
-#else
-            QStringLiteral("ffprobe");
-#endif
-        const QString cand = fi.absoluteDir().filePath(name);
+        const QString cand = fi.absoluteDir().filePath(exeName);
         if (QFileInfo::exists(cand)) {
             cached = cand;
             return cached;
@@ -299,8 +318,13 @@ QString MediaProbe::findFfprobe()
     }
 
     const QStringList extras = {
+#ifdef Q_OS_WIN
         QStringLiteral("C:/ffmpeg/bin/ffprobe.exe"),
         QStringLiteral("C:/ProgramData/chocolatey/bin/ffprobe.exe"),
+#else
+        QStringLiteral("/usr/bin/ffprobe"),
+        QStringLiteral("/usr/local/bin/ffprobe"),
+#endif
     };
     for (const QString &p : extras) {
         if (QFileInfo::exists(p)) {

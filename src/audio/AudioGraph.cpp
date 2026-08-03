@@ -65,6 +65,10 @@ void AudioGraph::rebuild(const ProjectModel &model, AudioPluginHost *host)
             clip.mediaPath = ev.mediaPath;
             clip.startSec = ev.startSec;
             clip.lengthSec = ev.lengthSec;
+            clip.inPointSec = std::max(0.0, ev.mediaStartSec);
+            clip.mediaLengthSec = std::max(0.0, ev.mediaLengthSec);
+            clip.looped = ev.looped;
+            clip.reversed = ev.reversed;
             clip.gainDb = ev.gainDb;
             clip.fadeInSec = ev.fadeInSec;
             clip.fadeOutSec = ev.fadeOutSec;
@@ -309,7 +313,23 @@ void AudioGraph::processClip(const AudioGraphClip &clip, double startSec, float 
             fade *= float(fromEnd / micro);
         }
 
-        const double srcTime = clip.inPointSec + local;
+        // Match TrackEvent::sourceTimeSec (reverse + loop past media edge).
+        double cycle = clip.mediaLengthSec > 1e-6 ? clip.mediaLengthSec : 0.0;
+        if (cycle < 1e-6) {
+            cycle = double(buf->frameCount()) / double(std::max(1, buf->sampleRate));
+            cycle = std::max(0.05, cycle - clip.inPointSec);
+        }
+        double loc = local;
+        if (clip.looped && clip.lengthSec > cycle + 1e-6) {
+            loc = std::fmod(loc, cycle);
+            if (loc < 0.0) {
+                loc += cycle;
+            }
+        } else if (loc > cycle) {
+            loc = cycle;
+        }
+        const double srcTime = clip.reversed ? std::max(0.0, clip.inPointSec + cycle - loc)
+                                             : std::max(0.0, clip.inPointSec + loc);
         const double srcFrame = srcTime * double(buf->sampleRate);
         const qint64 i0 = qint64(srcFrame);
         if (i0 < 0 || i0 >= buf->frameCount()) {

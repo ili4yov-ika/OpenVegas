@@ -27,6 +27,23 @@ source ~/.openvegas_wsl_env.sh
 
 Шаблон env без установки: `tools/wsl_debian_env.sh`.
 
+## FFmpeg (Windows portable)
+
+Если `ffmpeg` нет в PATH, OpenVegas ищет его рядом с exe:
+
+- `OpenVegas.exe` + `ffmpeg.exe` (та же папка)
+- `ffmpeg/bin/ffmpeg.exe`, `bin/ffmpeg.exe`, `tools/ffmpeg/bin/ffmpeg.exe`
+
+То же для `ffprobe.exe`. Удобно положить Gyan/BtbN full build в `ffmpeg/bin/` в каталоге сборки или инсталлятора.
+
+```text
+build/Windows-MinGW-x64/
+  OpenVegas.exe
+  ffmpeg.exe          # или
+  ffmpeg/bin/ffmpeg.exe
+  ffmpeg/bin/ffprobe.exe
+```
+
 ## Структура (установщики)
 
 - `build_windows_installer.bat` — Release-сборка + `windeployqt` + NSIS

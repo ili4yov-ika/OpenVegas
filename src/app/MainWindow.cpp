@@ -8,6 +8,7 @@
 #include "ui/WelcomeDialog.h"
 #include "ui/ProjectPropertiesDialog.h"
 #include "ui/RenderAsDialog.h"
+#include "ui/RenderingProgressDialog.h"
 #include "ui/PreferencesDialog.h"
 #include "ui/EventPropertiesDialog.h"
 #include "ui/TrimmerWindow.h"
@@ -43,11 +44,14 @@
 #include "io/MediaMime.h"
 #include "io/MediaProbe.h"
 #include "io/MediaThumbCache.h"
+#include "media/MediaEngine.h"
 #include "ui/MediaBinListWidget.h"
 #include "model/SnapshotCommand.h"
 
 #include <QMessageBox>
 #include <QFileDialog>
+#include <QCoreApplication>
+#include <QEventLoop>
 #include <QFileInfo>
 #include <QListWidget>
 #include <QMenu>
@@ -310,6 +314,10 @@ MainWindow::MainWindow(QWidget *parent)
 
     QSettings settings(QStringLiteral("OpenVegas"), QStringLiteral("OpenVegas"));
     m_pluginScanner.setPreferredPath(settings.value(QStringLiteral("plugins/ofxPath")).toString());
+    m_pluginScanner.setVegasProPath(settings.value(QStringLiteral("plugins/vegasProPath")).toString());
+    if (m_pluginScanner.vegasProPath().isEmpty()) {
+        m_pluginScanner.setVegasProPath(PluginScanner::sampleVegasProPath());
+    }
 
     restoreUiSettings();
 
@@ -3028,31 +3036,132 @@ void MainWindow::onRenderAs()
     if (path.isEmpty()) {
         return;
     }
-    if (dlg.isWaveMicrosoft()) {
-        if (!m_audioEngine) {
-            statusBar()->showMessage(tr("Audio engine unavailable"), 5000);
-            return;
-        }
-        m_audioEngine->syncGraphFromProject();
-        double start = 0.0;
-        double len = std::max(1.0, m_project.timelineEndSec());
-        if (dlg.optionLoopRegionOnly() && m_project.hasLoopRegion()) {
-            start = m_project.loopRegion().startSec;
-            len = std::max(0.05, m_project.loopRegion().endSec - m_project.loopRegion().startSec);
-        }
-        const bool ok = m_audioEngine->renderToWav(path, start, len);
-        statusBar()->showMessage(ok ? tr("Rendered to %1").arg(path)
-                                    : tr("Render failed: %1").arg(path),
-                                 8000);
+    if (!m_audioEngine) {
+        statusBar()->showMessage(tr("Audio engine unavailable"), 5000);
         return;
     }
-    QMessageBox::information(
-        this, tr("Render As"),
-        tr("Template \"%1\" / \"%2\" is selected.\n"
-           "Output: %3\n\n"
-           "Encoding for this format is not implemented yet "
-           "(Wave/PCM export works).")
-            .arg(dlg.selectedFormat(), dlg.selectedTemplate(), path));
+    if (m_timeline && m_timeline->isPlaying()) {
+        m_timeline->stopPlayback();
+    }
+    if (m_audioEngine) {
+        m_audioEngine->stop();
+    }
+    m_audioEngine->syncGraphFromProject();
+    double start = 0.0;
+    double len = std::max(1.0, m_project.timelineEndSec());
+    if (dlg.optionLoopRegionOnly() && m_project.hasLoopRegion()) {
+        start = m_project.loopRegion().startSec;
+        len = std::max(0.05, m_project.loopRegion().endSec - m_project.loopRegion().startSec);
+    }
+
+    MediaRenderRequest req;
+    req.outputPath = path;
+    req.formatName = dlg.selectedFormat();
+    req.templateName = dlg.selectedTemplate();
+    req.startSec = start;
+    req.lengthSec = len;
+
+    // Rough size estimate for progress UI
+    qint64 estBytes = 0;
+    RenderFormat fmt;
+    RenderTemplate tpl;
+    if (MediaEngine::resolveTemplate(req.formatName, req.templateName, &fmt, &tpl)) {
+        const bool video = !(fmt.audioOnly || tpl.audioOnly);
+        const int br = tpl.bitrateKbps > 0 ? tpl.bitrateKbps : (video ? 8000 : 192);
+        estBytes = qint64((br + (video ? 192 : 0)) * 1000.0 / 8.0 * len) + 65536;
+    }
+
+    RenderingProgressDialog progress(path, this);
+    progress.beginRender(len, estBytes);
+    progress.show();
+    QCoreApplication::processEvents();
+
+    req.onProgress = [&](const MediaRenderProgress &p) {
+        progress.applyProgress(p);
+        QCoreApplication::processEvents(QEventLoop::AllEvents, 20);
+        return !progress.wasCanceled();
+    };
+    req.onPreviewFrame = [&](const QImage &frame, double t) {
+        if (!progress.showVideoInPreview()) {
+            return;
+        }
+        showRenderPreviewFrame(frame, t);
+        if (!m_syncingPlayheadFromEngine) {
+            m_syncingPlayheadFromEngine = true;
+            m_project.setPlayheadSec(t);
+            if (m_timeline) {
+                m_timeline->update();
+            }
+            updateTimecodeLabels(t);
+            m_syncingPlayheadFromEngine = false;
+        }
+        QCoreApplication::processEvents(QEventLoop::ExcludeUserInputEvents, 5);
+    };
+
+    statusBar()->showMessage(tr("Rendering…"));
+    const MediaRenderResult r = MediaEngine::renderProject(m_project, m_audioEngine.get(), req);
+
+    if (r.canceled || progress.wasCanceled()) {
+        progress.finishFailure(tr("Canceled"));
+        statusBar()->showMessage(tr("Render canceled"), 5000);
+        if (!progress.closeWhenDone()) {
+            progress.exec();
+        }
+        return;
+    }
+    if (r.ok) {
+        progress.finishSuccess(r.message.isEmpty() ? tr("Rendered to %1").arg(path) : r.message);
+        statusBar()->showMessage(r.message.isEmpty() ? tr("Rendered to %1").arg(path) : r.message,
+                                 8000);
+        if (!progress.closeWhenDone()) {
+            progress.exec();
+        }
+    } else {
+        progress.finishFailure(r.error.isEmpty() ? path : r.error);
+        statusBar()->showMessage(tr("Render failed"), 5000);
+        QMessageBox::warning(this, tr("Render As"),
+                             tr("Render failed:\n%1").arg(r.error.isEmpty() ? path : r.error));
+        progress.exec();
+    }
+}
+
+void MainWindow::showRenderPreviewFrame(const QImage &frame, double sec)
+{
+    if (!ui->previewLabel || frame.isNull()) {
+        return;
+    }
+
+    const QSize vp = ui->previewViewport ? ui->previewViewport->size() : QSize(640, 360);
+    const int w = std::max(160, vp.width());
+    const int h = std::max(90, vp.height() - 4);
+
+    m_lastPreviewFrame = frame;
+
+    QPixmap px(w, h);
+    px.fill(QColor(0x1e, 0x1e, 0x1e));
+    QPainter p(&px);
+    p.setRenderHint(QPainter::SmoothPixmapTransform, true);
+
+    const double ar = m_project.frameHeight() > 0
+                          ? double(m_project.frameWidth()) / double(m_project.frameHeight())
+                          : 16.0 / 9.0;
+    int contentW = w;
+    int contentH = h;
+    const double viewAr = double(w) / double(std::max(1, h));
+    if (viewAr > ar) {
+        contentW = int(h * ar);
+    } else {
+        contentH = int(w / ar);
+    }
+    const int ox = (w - contentW) / 2;
+    const int oy = (h - contentH) / 2;
+    p.drawImage(QRect(ox, oy, contentW, contentH), frame);
+    p.end();
+
+    ui->previewLabel->setPixmap(px);
+    ui->previewLabel->setScaledContents(false);
+    ui->previewLabel->setAlignment(Qt::AlignCenter);
+    Q_UNUSED(sec);
 }
 
 void MainWindow::onBounceAudioMixdown()
@@ -3114,6 +3223,7 @@ void MainWindow::onPreferences()
     PreferencesDialog dlg(this);
     if (dlg.exec() == QDialog::Accepted) {
         m_pluginScanner.setPreferredPath(dlg.ofxPath());
+        m_pluginScanner.setVegasProPath(dlg.vegasProPath());
         AudioPluginRegistry::instance().refresh();
     }
 }

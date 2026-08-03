@@ -69,9 +69,30 @@
       </attribute>
       <layout class="QVBoxLayout" name="pluginsLayout">
        <item>
+        <widget class="QLabel" name="vegasPathLabel">
+         <property name="text">
+          <string>Vegas Pro Program Files folder</string>
+         </property>
+        </widget>
+       </item>
+       <item>
+        <layout class="QHBoxLayout" name="vegasPathRow">
+         <item>
+          <widget class="QLineEdit" name="vegasPathEdit"/>
+         </item>
+         <item>
+          <widget class="QPushButton" name="browseVegasButton">
+           <property name="text">
+            <string>Browse…</string>
+           </property>
+          </widget>
+         </item>
+        </layout>
+       </item>
+       <item>
         <widget class="QLabel" name="ofxPathLabel">
          <property name="text">
-          <string>OFX / Vegas Pro 22 folder</string>
+          <string>OFX folder (optional override)</string>
          </property>
         </widget>
        </item>
@@ -92,7 +113,7 @@
        <item>
         <widget class="QCheckBox" name="checkUseVegasOfx">
          <property name="text">
-          <string>Scan OFX from Vegas Pro 22 install (Windows)</string>
+          <string>Scan OFX from Vegas Pro install / sample folder</string>
          </property>
          <property name="checked">
           <bool>true</bool>
@@ -102,7 +123,7 @@
        <item>
         <widget class="QLabel" name="pluginsWarning">
          <property name="text">
-          <string>Do not commit build/vegas-runtime or copied Program Files into git.</string>
+          <string>Do not commit build/vegas-runtime or copied Program Files into git. Debug default: SAMPLES/VEGAS-PRO-22-PROGRAM-FILES.</string>
          </property>
          <property name="wordWrap">
           <bool>true</bool>

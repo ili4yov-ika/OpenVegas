@@ -19,6 +19,9 @@ struct AudioGraphClip {
     double startSec = 0.0;
     double lengthSec = 0.0;
     double inPointSec = 0.0;
+    double mediaLengthSec = 0.0;
+    bool looped = true;
+    bool reversed = false;
     double gainDb = 0.0;
     double fadeInSec = 0.0;
     double fadeOutSec = 0.0;

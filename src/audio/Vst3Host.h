@@ -15,6 +15,9 @@ class Vst3Host : public AudioPluginHost {
 public:
     static Vst3Host &instance();
 
+    /** True when built with OPENVGAS_HAS_VST3_SDK (Steinberg SDK path set). */
+    static bool hasSdk();
+
     bool createInstance(const AudioPluginDesc &desc, FxSlot *slot) override;
     void releaseInstance(FxSlot *slot) override;
     void prepare(FxSlot *slot, double sampleRate, int blockSize) override;

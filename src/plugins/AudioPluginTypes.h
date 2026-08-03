@@ -114,13 +114,22 @@ inline FxSlot fxSlotFromVegName(const QString &raw)
             name = name.mid(colon + 1, end > colon ? end - colon - 1 : -1).trimmed();
         }
     }
-    // Vegas OFX Color Grading → OpenVegas builtin
+    // Vegas OFX Color Grading / Color Corrector → OpenVegas builtins
     if (name.contains(QLatin1String("colorgrading"), Qt::CaseInsensitive)
         || name.compare(QLatin1String("com.vegascreativesoftware:colorgrading"),
                         Qt::CaseInsensitive)
                == 0) {
         return makeFxSlot(QStringLiteral("Color Grading"), PluginFormat::Builtin,
                           QStringLiteral("builtin:Color Grading"));
+    }
+    if (name.contains(QLatin1String("colorcorrector"), Qt::CaseInsensitive)
+        || name.compare(QLatin1String("Color Corrector"), Qt::CaseInsensitive) == 0) {
+        return makeFxSlot(QStringLiteral("Color Corrector"), PluginFormat::Builtin,
+                          QStringLiteral("builtin:Color Corrector"));
+    }
+    if (name.compare(QLatin1String("Brightness and Contrast"), Qt::CaseInsensitive) == 0) {
+        return makeFxSlot(QStringLiteral("Brightness and Contrast"), PluginFormat::Builtin,
+                          QStringLiteral("builtin:Brightness and Contrast"));
     }
     if (name.contains(QLatin1String("chromablur"), Qt::CaseInsensitive)) {
         return makeFxSlot(QStringLiteral("Chroma Blur"), PluginFormat::Ofx, name);
@@ -142,6 +151,34 @@ inline FxSlot fxSlotFromVegName(const QString &raw)
     }
     // "VEGAS Track Compressor" → keep full display name
     return makeFxSlot(name, pluginFormatFromVegName(raw), name);
+}
+
+/** Map Video FX pane / chooser name to FxSlot (builtins vs OFX placeholder). */
+inline FxSlot videoFxSlotFromName(const QString &rawName)
+{
+    const QString name = rawName.trimmed();
+    if (name.isEmpty()) {
+        return {};
+    }
+    if (name.compare(QLatin1String("Pan/Crop"), Qt::CaseInsensitive) == 0) {
+        return makeFxSlot(QStringLiteral("Pan/Crop"), PluginFormat::Builtin,
+                          QStringLiteral("builtin:Pan/Crop"));
+    }
+    if (name.compare(QLatin1String("Color Corrector"), Qt::CaseInsensitive) == 0
+        || name.contains(QLatin1String("colorcorrector"), Qt::CaseInsensitive)) {
+        return makeFxSlot(QStringLiteral("Color Corrector"), PluginFormat::Builtin,
+                          QStringLiteral("builtin:Color Corrector"));
+    }
+    if (name.compare(QLatin1String("Brightness and Contrast"), Qt::CaseInsensitive) == 0) {
+        return makeFxSlot(QStringLiteral("Brightness and Contrast"), PluginFormat::Builtin,
+                          QStringLiteral("builtin:Brightness and Contrast"));
+    }
+    if (name.compare(QLatin1String("Color Grading"), Qt::CaseInsensitive) == 0
+        || name.contains(QLatin1String("colorgrading"), Qt::CaseInsensitive)) {
+        return makeFxSlot(QStringLiteral("Color Grading"), PluginFormat::Builtin,
+                          QStringLiteral("builtin:Color Grading"));
+    }
+    return makeFxSlot(name, PluginFormat::Ofx, name);
 }
 
 /** Descriptor for discovery / Plug-In Chooser (not an instance). */

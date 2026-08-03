@@ -3,6 +3,7 @@
 #include "model/ProjectModel.h"
 
 #include <QByteArray>
+#include <QMap>
 #include <QString>
 #include <QStringList>
 #include <QVariantMap>
@@ -80,6 +81,10 @@ struct VegOpenResult {
      * labels containing “(reversed)”.
      */
     QStringList reversedMediaBasenames;
+    /** META SubClip start (sec) per reversed basename (lower). */
+    QMap<QString, double> reversedSubclipStartSec;
+    /** META SubClip length (sec) per reversed basename (lower). */
+    QMap<QString, double> reversedSubclipLengthSec;
     QString projectPathHint;
     QStringList warnings;
     QString sourcePath;

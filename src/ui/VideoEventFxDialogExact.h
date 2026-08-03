@@ -89,6 +89,8 @@ private:
 
     QWidget *buildGenericFxPage();
 
+    QWidget *buildColorCorrectorPage();
+
     void rebuildChain();
 
     void selectPlugin(int index);
@@ -106,6 +108,10 @@ private:
     void syncUiFromSelected();
 
     void syncSelectedFromUi();
+
+    void syncColorCorrectorFromUi();
+
+    void syncColorCorrectorToUi();
 
     void syncMaskFromUi();
 
@@ -181,6 +187,8 @@ private:
 
     bool isPanCropSlot(int index) const;
 
+    bool isColorCorrectorSlot(int index) const;
+
 
 
     TrackEvent *m_event = nullptr;
@@ -246,6 +254,16 @@ private:
     QLabel *m_tc = nullptr;
 
     QLabel *m_genericTitle = nullptr;
+
+    QLabel *m_ccTitle = nullptr;
+
+    QDoubleSpinBox *m_ccBrightness = nullptr;
+
+    QDoubleSpinBox *m_ccContrast = nullptr;
+
+    QDoubleSpinBox *m_ccSaturation = nullptr;
+
+    QDoubleSpinBox *m_ccGamma = nullptr;
 
     PanCropCanvas *m_canvas = nullptr;
 

@@ -14,6 +14,12 @@
 /vegas-runtime/
 **/vegas-runtime/
 
+# Generated peak / interchange media copies (keep canonical sources in veg_project)
+SAMPLES/veg_project/**/*-0-*-1.sfk
+SAMPLES/veg_project/premiere_after-effect/*.wav
+SAMPLES/veg_project/final-cut-pro-x/*.wav
+SAMPLES/**/node_modules/
+
 # CMake / compile
 CMakeCache.txt
 CMakeFiles/

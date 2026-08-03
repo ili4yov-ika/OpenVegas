@@ -56,6 +56,10 @@ private:
     int m_dragScrollOrigin = 0;
     double m_dragPpsOrigin = 40.0;
     int m_dragThumbOrigin = 0;
+    int m_dragThumbWidthOrigin = 0;
+    int m_dragTrackW = 1;
+    int m_dragViewBodyW = 1;
+    double m_dragContentSpanSec = 60.0;
 };
 
 } // namespace openvegas

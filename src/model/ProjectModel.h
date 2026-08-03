@@ -8,6 +8,7 @@
 #include <QStringList>
 
 #include <algorithm>
+#include <cmath>
 
 namespace openvegas {
 
@@ -346,6 +347,14 @@ struct TrackEvent {
      * For reversed subclips with META start=0, kept at 0 so playback maps length→0.
      */
     double mediaStartSec = 0.0;
+    /**
+     * Length of the source take window (Vegas EDL StreamLength), seconds.
+     * 0 = unknown (fall back to event length / probed file duration).
+     * When looped and event length exceeds this, media wraps (Vegas “drag past edge”).
+     */
+    double mediaLengthSec = 0.0;
+    /** Vegas event switch “Loop” (EDL Looped); default true. */
+    bool looped = true;
     /** Play source backwards over the event (Vegas SubClip reverse / “(reversed)”). */
     bool reversed = false;
     bool selected = false;
@@ -378,7 +387,8 @@ struct TrackEvent {
     {
         return id == o.id && name == o.name && mediaPath == o.mediaPath && startSec == o.startSec
                && lengthSec == o.lengthSec && mediaStartSec == o.mediaStartSec
-               && reversed == o.reversed && selected == o.selected && fadeInSec == o.fadeInSec
+               && mediaLengthSec == o.mediaLengthSec && looped == o.looped && reversed == o.reversed
+               && selected == o.selected && fadeInSec == o.fadeInSec
                && fadeOutSec == o.fadeOutSec && fadeInCurve == o.fadeInCurve
                && fadeOutCurve == o.fadeOutCurve && opacity == o.opacity && gainDb == o.gainDb
                && mediaKind == o.mediaKind && groupId == o.groupId && firstChannel == o.firstChannel
@@ -390,12 +400,36 @@ struct TrackEvent {
     /** Local time on the event (0…lengthSec) for envelopes / Pan-Crop KF. */
     double eventLocalSec(double timelineSec) const { return timelineSec - startSec; }
 
-    /** Source media time for decode (handles mediaStartSec + reverse). */
+    /**
+     * One loop cycle of source media (seconds). Prefer StreamLength; else event length.
+     * Callers may substitute probed file duration when this returns lengthSec as a fallback.
+     */
+    double sourceCycleSec() const
+    {
+        if (mediaLengthSec > 1e-6) {
+            return mediaLengthSec;
+        }
+        return std::max(0.05, lengthSec);
+    }
+
+    /** Source media time for decode (mediaStart + reverse + optional loop wrap). */
     double sourceTimeSec(double timelineSec) const
     {
-        const double local = eventLocalSec(timelineSec);
+        double local = eventLocalSec(timelineSec);
+        if (local < 0.0) {
+            local = 0.0;
+        }
+        const double cycle = sourceCycleSec();
+        if (looped && mediaLengthSec > 1e-6 && lengthSec > mediaLengthSec + 1e-6) {
+            local = std::fmod(local, cycle);
+            if (local < 0.0) {
+                local += cycle;
+            }
+        } else if (local > cycle) {
+            local = cycle;
+        }
         if (reversed) {
-            return std::max(0.0, mediaStartSec + lengthSec - local);
+            return std::max(0.0, mediaStartSec + cycle - local);
         }
         return std::max(0.0, mediaStartSec + local);
     }
@@ -520,6 +554,11 @@ struct Track {
     QVector<AutomationLane> automationLanes;
     /** Vegas Track Motion (video tracks). */
     TrackMotionState motion;
+    /**
+     * Vegas Track Display Color. Invalid → derived from TrackColors::palette by track index.
+     * Applied to header rail and event chrome.
+     */
+    QColor displayColor;
     QVector<TrackEvent> events;
 
     bool operator==(const Track &o) const
@@ -527,7 +566,8 @@ struct Track {
         return id == o.id && name == o.name && kind == o.kind && height == o.height
                && muted == o.muted && solo == o.solo && volumeDb == o.volumeDb && pan == o.pan
                && busId == o.busId && automationMode == o.automationMode && fxChain == o.fxChain
-               && automationLanes == o.automationLanes && motion == o.motion && events == o.events;
+               && automationLanes == o.automationLanes && motion == o.motion
+               && displayColor == o.displayColor && events == o.events;
     }
     bool operator!=(const Track &o) const { return !(*this == o); }
 };
@@ -884,6 +924,11 @@ private:
     void applyColorGradingFromVeg(const VegOpenResult &veg);
     /** Attach UTF-16 Audio Event FX names onto audio clip events (if chain empty). */
     void applyAudioEventFxFromVeg(const VegOpenResult &veg);
+    /**
+     * Assign TrackColors::palette by timeline index when displayColor is unset.
+     * .veg binary color indices are not yet reverse-engineered; cycling matches Vegas defaults.
+     */
+    void applyDefaultTrackDisplayColors();
 
     QVector<Track> m_tracks;
     QVector<AssignableFxBus> m_assignableFx;

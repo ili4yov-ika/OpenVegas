@@ -2,10 +2,11 @@
 #include "ui_PreferencesDialog.h"
 #include "plugins/AudioPluginScanner.h"
 #include "plugins/AudioPluginRegistry.h"
+#include "plugins/PluginScanner.h"
 
 #include <QFileDialog>
-#include <QSettings>
 #include <QPlainTextEdit>
+#include <QSettings>
 
 namespace openvegas {
 namespace {
@@ -41,8 +42,16 @@ PreferencesDialog::PreferencesDialog(QWidget *parent)
 {
     ui->setupUi(this);
     loadSettings();
+    connect(ui->browseVegasButton, &QPushButton::clicked, this, [this]() {
+        const QString path =
+            QFileDialog::getExistingDirectory(this, tr("Vegas Pro Program Files"),
+                                              ui->vegasPathEdit->text());
+        if (!path.isEmpty()) {
+            ui->vegasPathEdit->setText(path);
+        }
+    });
     connect(ui->browseOfxButton, &QPushButton::clicked, this, [this]() {
-        const QString path = QFileDialog::getExistingDirectory(this, tr("Vegas / OFX folder"),
+        const QString path = QFileDialog::getExistingDirectory(this, tr("OFX folder"),
                                                                ui->ofxPathEdit->text());
         if (!path.isEmpty()) {
             ui->ofxPathEdit->setText(path);
@@ -75,11 +84,22 @@ QString PreferencesDialog::ofxPath() const
     return ui->ofxPathEdit->text().trimmed();
 }
 
+QString PreferencesDialog::vegasProPath() const
+{
+    return ui->vegasPathEdit->text().trimmed();
+}
+
 void PreferencesDialog::loadSettings()
 {
     QSettings settings(QStringLiteral("OpenVegas"), QStringLiteral("OpenVegas"));
+    QString vegas = settings.value(QStringLiteral("plugins/vegasProPath")).toString();
+    if (vegas.isEmpty()) {
+        vegas = PluginScanner::sampleVegasProPath();
+    }
+    ui->vegasPathEdit->setText(vegas);
     ui->ofxPathEdit->setText(settings.value(QStringLiteral("plugins/ofxPath")).toString());
-    ui->checkUseVegasOfx->setChecked(settings.value(QStringLiteral("plugins/useVegasOfx"), true).toBool());
+    ui->checkUseVegasOfx->setChecked(
+        settings.value(QStringLiteral("plugins/useVegasOfx"), true).toBool());
     ui->checkAutoSave->setChecked(settings.value(QStringLiteral("general/autosave"), true).toBool());
 
     QStringList v1;
@@ -96,6 +116,7 @@ void PreferencesDialog::loadSettings()
 void PreferencesDialog::saveSettings()
 {
     QSettings settings(QStringLiteral("OpenVegas"), QStringLiteral("OpenVegas"));
+    settings.setValue(QStringLiteral("plugins/vegasProPath"), ui->vegasPathEdit->text().trimmed());
     settings.setValue(QStringLiteral("plugins/ofxPath"), ui->ofxPathEdit->text().trimmed());
     settings.setValue(QStringLiteral("plugins/useVegasOfx"), ui->checkUseVegasOfx->isChecked());
     settings.setValue(QStringLiteral("general/autosave"), ui->checkAutoSave->isChecked());

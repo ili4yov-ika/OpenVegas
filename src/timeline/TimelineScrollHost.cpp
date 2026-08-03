@@ -273,17 +273,21 @@ bool TimelineScrollHost::eventFilter(QObject *watched, QEvent *event)
             updateThumbs();
             return true;
         }
-        if (w->objectName() == QLatin1String("tlScrollHGripL")) {
-            m_drag = DragKind::HGripL;
+        if (w->objectName() == QLatin1String("tlScrollHGripL")
+            || w->objectName() == QLatin1String("tlScrollHGripR")) {
+            m_drag = (w->objectName() == QLatin1String("tlScrollHGripL")) ? DragKind::HGripL
+                                                                           : DragKind::HGripR;
             m_dragOrigin = me->globalPosition().toPoint().x();
             m_dragPpsOrigin = m_model ? m_model->pixelsPerSecond() : 40.0;
-            w->grabMouse();
-            return true;
-        }
-        if (w->objectName() == QLatin1String("tlScrollHGripR")) {
-            m_drag = DragKind::HGripR;
-            m_dragOrigin = me->globalPosition().toPoint().x();
-            m_dragPpsOrigin = m_model ? m_model->pixelsPerSecond() : 40.0;
+            m_dragScrollOrigin = m_timeline->scrollX();
+            m_dragThumbWidthOrigin = m_hThumb->width();
+            m_dragTrackW = std::max(1, m_hTrack->width());
+            m_dragViewBodyW = std::max(1, m_timeline->width() - m_timeline->headerWidth());
+            // contentBody = maxEnd*pps + 80  →  span used to invert thumb ratio → pps
+            const int contentBody =
+                std::max(1, m_timeline->contentWidthPx() - m_timeline->headerWidth());
+            m_dragContentSpanSec =
+                std::max(1.0, (double(contentBody) - 80.0) / std::max(0.5, m_dragPpsOrigin));
             w->grabMouse();
             return true;
         }
@@ -318,12 +322,30 @@ bool TimelineScrollHost::eventFilter(QObject *watched, QEvent *event)
             return true;
         }
         if (m_drag == DragKind::HGripL || m_drag == DragKind::HGripR) {
+            // Vegas: resize carriage thumb → zoom. Inward = zoom in, outward = zoom out.
+            // Right grip keeps left view time fixed; left grip keeps right view time fixed.
             const int dx = me->globalPosition().toPoint().x() - m_dragOrigin;
-            const double sens = (m_drag == DragKind::HGripR) ? 1.0 : -1.0;
-            const double factor = std::pow(1.003, sens * dx);
-            const double pps = std::clamp(m_dragPpsOrigin * factor, 0.5, 400.0);
+            const int minThumb = 28;
+            int newThumbW = (m_drag == DragKind::HGripR)
+                                ? (m_dragThumbWidthOrigin + dx)
+                                : (m_dragThumbWidthOrigin - dx);
+            newThumbW = std::clamp(newThumbW, minThumb, m_dragTrackW);
+            const double ratio =
+                std::clamp(double(newThumbW) / double(m_dragTrackW), 0.02, 1.0);
+            const double contentBody = double(m_dragViewBodyW) / ratio;
+            const double pps = std::clamp(
+                (contentBody - 80.0) / m_dragContentSpanSec, 0.5, 400.0);
             if (m_model) {
                 m_model->setPixelsPerSecond(pps);
+                if (m_drag == DragKind::HGripR) {
+                    const double tLeft = double(m_dragScrollOrigin) / m_dragPpsOrigin;
+                    m_timeline->setScrollX(int(std::lround(tLeft * pps)));
+                } else {
+                    const double tRight =
+                        (double(m_dragScrollOrigin) + double(m_dragViewBodyW)) / m_dragPpsOrigin;
+                    m_timeline->setScrollX(
+                        int(std::lround(tRight * pps - double(m_dragViewBodyW))));
+                }
                 m_timeline->refreshLayout();
                 updateThumbs();
             }

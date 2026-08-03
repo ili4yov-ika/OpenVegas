@@ -1,5 +1,6 @@
 #include "timeline/TimelineView.h"
 #include "ui/FadeCurvePopup.h"
+#include "model/TrackColors.h"
 #include "io/MediaMime.h"
 #include "io/MediaProbe.h"
 #include "io/MediaThumbCache.h"
@@ -37,17 +38,12 @@ namespace openvegas {
 
 namespace {
 
-QColor videoEvent() { return QColor(0x5a, 0x4a, 0x68); }
-QColor videoRail() { return QColor(0x6a, 0x50, 0x80); }
-QColor audioEvent() { return QColor(0xe0, 0xb8, 0xa8); }
-QColor audioTitle() { return QColor(0xd0, 0xa4, 0x90); }
-QColor audioRail() { return QColor(0xc4, 0x88, 0x70); }
-QColor audioWave() { return QColor(0x3a, 0x2a, 0x24); }
-QColor audioWaveStroke() { return QColor(0x2a, 0x1c, 0x18, 220); }
+QColor audioWave() { return QColor(0xe8, 0xec, 0xf0); }
+QColor audioWaveStroke() { return QColor(0xf5, 0xf8, 0xfa, 220); }
 QColor eventSel() { return QColor(0xf0, 0xd0, 0x40); }
 QColor crossfadeStroke() { return QColor(110, 176, 255, 250); }
 QColor fadeLineVideo() { return QColor(255, 255, 255, 230); }
-QColor fadeLineAudio() { return QColor(0x40, 0x30, 0x28, 220); }
+QColor fadeLineAudio() { return QColor(0xf0, 0xf4, 0xf8, 220); }
 QColor levelLine() { return QColor(220, 230, 245, 200); }
 QColor levelHandle() { return QColor(70, 150, 255); }
 QColor levelHandleBorder() { return QColor(30, 90, 200); }
@@ -60,6 +56,63 @@ QColor loopBand() { return QColor(40, 120, 210, 72); }
 QColor loopBandEdge() { return QColor(90, 170, 255, 200); }
 QColor trackGridMajor() { return QColor(0x2a, 0x2a, 0x2a); }
 QColor trackGridMinor() { return QColor(0x1e, 0x1e, 0x1e); }
+
+/** Vegas-style adaptive ruler: major labels ~90–120 px apart, hierarchical ticks. */
+struct RulerTickPlan {
+    double majorSec = 1.0;
+    double minorSec = 0.2;
+    int parts = 5; // minor ticks per major (including major endpoints)
+};
+
+RulerTickPlan chooseRulerTickPlan(double pps, double frameRate)
+{
+    const double fps = std::max(1.0, frameRate);
+    const double frame = 1.0 / fps;
+    const double targetMajorPx = 100.0;
+
+    const double cands[] = {
+        frame, 2.0 * frame, 5.0 * frame, 10.0 * frame, 15.0 * frame, 30.0 * frame,
+        0.1, 0.2, 0.25, 0.5, 1.0, 2.0, 5.0, 10.0, 15.0, 30.0,
+        60.0, 120.0, 300.0, 600.0, 900.0, 1800.0, 3600.0};
+
+    double major = cands[std::size(cands) - 1];
+    for (double c : cands) {
+        if (c * pps >= targetMajorPx * 0.72) {
+            major = c;
+            break;
+        }
+        major = c;
+    }
+
+    int parts = 5;
+    if (major <= frame * 1.001) {
+        parts = 1;
+    } else if (major <= 2.0 * frame * 1.001) {
+        parts = 2;
+    } else {
+        const int prefer[] = {10, 5, 4, 2};
+        parts = 2;
+        for (int p : prefer) {
+            if ((major / double(p)) * pps >= 3.5) {
+                parts = p;
+                break;
+            }
+        }
+    }
+
+    while (parts > 2 && (major / double(parts)) * pps < 3.5) {
+        parts = (parts == 10) ? 5 : (parts == 5 ? 4 : 2);
+    }
+    if (parts <= 0) {
+        parts = 1;
+    }
+
+    RulerTickPlan plan;
+    plan.majorSec = major;
+    plan.parts = parts;
+    plan.minorSec = major / double(parts);
+    return plan;
+}
 
 constexpr int kEventTitleH = 13;
 /** Video: name is overlaid on filmstrip (Vegas); no reserved title chrome. */
@@ -1438,22 +1491,18 @@ void TimelineView::paintTrackHeader(QPainter &p, const Track &track, int index, 
     p.drawLine(0, y + track.height - 1, headerWidth(), y + track.height - 1);
 
     const bool isVideo = track.kind == TrackKind::Video;
+    const QColor trackColor = TrackColors::effective(track.displayColor, index);
     const QRect rail(0, y, railWidth(), track.height);
     QLinearGradient railGrad(0, y, 0, y + track.height);
-    if (isVideo) {
-        railGrad.setColorAt(0.0, QColor(0x7a, 0x5a, 0xa0));
-        railGrad.setColorAt(1.0, videoRail());
-    } else {
-        railGrad.setColorAt(0.0, QColor(0xb4, 0x5a, 0x88));
-        railGrad.setColorAt(1.0, audioRail());
-    }
+    railGrad.setColorAt(0.0, trackColor.lighter(118));
+    railGrad.setColorAt(1.0, TrackColors::rail(trackColor));
     p.fillRect(rail, railGrad);
     p.setPen(QColor(0, 0, 0, 115));
     p.drawLine(rail.right(), y, rail.right(), y + track.height);
 
-    // Track number badge
+    // Track number badge (tinted with track color)
     const QRect num(rail.center().x() - 8, y + 6, 16, 16);
-    p.setBrush(QColor(0, 0, 0, 90));
+    p.setBrush(QColor(trackColor.red(), trackColor.green(), trackColor.blue(), 160));
     p.setPen(QColor(255, 255, 255, 50));
     p.drawRect(num);
     p.setPen(Qt::white);
@@ -1493,7 +1542,7 @@ void TimelineView::paintTrackHeader(QPainter &p, const Track &track, int index, 
             p.drawEllipse(QPoint(cx, cy + dy), 1, 1);
         }
     }
-    // Compact "fx" chip → Track FX
+    // Compact "fx" chip → Track FX (Vegas: track display color)
     {
         const QRect r = ctrls.chipFx;
         bool hasFx = false;
@@ -1508,10 +1557,10 @@ void TimelineView::paintTrackHeader(QPainter &p, const Track &track, int index, 
         } else {
             hasFx = !track.fxChain.isEmpty();
         }
-        p.setPen(QColor(0x3a, 0x3a, 0x3a));
-        p.setBrush(hasFx ? QColor(0x3a, 0x28, 0x48) : QColor(0x1f, 0x1f, 0x1f));
+        p.setPen(QColor(0, 0, 0, 140));
+        p.setBrush(TrackColors::fxChip(trackColor, hasFx));
         p.drawRoundedRect(r, 2, 2);
-        p.setPen(hasFx ? QColor(0xd0, 0xb0, 0xff) : QColor(0xb8, 0xb8, 0xb8));
+        p.setPen(QColor(255, 255, 255, hasFx ? 235 : 200));
         QFont cf = p.font();
         cf.setPointSize(6);
         cf.setBold(true);
@@ -1657,26 +1706,32 @@ void TimelineView::paintStillImage(QPainter &p, const QRect &body, const TrackEv
 
 void TimelineView::paintAudioWave(QPainter &p, const QRect &body, const TrackEvent &ev)
 {
-    // Vegas peach/salmon lane under dark waveform
-    p.fillRect(body, audioEvent());
+    // Background already painted by paintEventBlock (track display color).
     if (body.width() < 2 || body.height() < 4) {
         return;
     }
 
     const int mid = body.center().y();
     const int chH = body.height() / 2;
-    const int eventCh = ev.channelCount > 0 ? ev.channelCount : 2;
+    const QString path = eventMediaPath(ev);
+    WaveformPeaks peaks;
+    if (!path.isEmpty()) {
+        peaks = MediaWaveformCache::instance().peaksFor(path);
+    }
+    const int eventCh = ev.channelCount > 0
+                            ? ev.channelCount
+                            : (peaks.isValid() ? std::max(1, peaks.channels) : 2);
     const int firstCh = std::max(0, ev.firstChannel);
     const bool stereoUi = eventCh >= 2;
 
-    p.setPen(QColor(0x80, 0x58, 0x48, 160));
+    p.setPen(QColor(255, 255, 255, 50));
     if (stereoUi) {
         p.drawLine(body.left(), mid, body.right(), mid);
-        p.setPen(QColor(0x90, 0x68, 0x58, 80));
+        p.setPen(QColor(255, 255, 255, 28));
         p.drawLine(body.left(), body.top() + chH / 2, body.right(), body.top() + chH / 2);
         p.drawLine(body.left(), mid + chH / 2, body.right(), mid + chH / 2);
     } else {
-        p.setPen(QColor(0x90, 0x68, 0x58, 80));
+        p.setPen(QColor(255, 255, 255, 28));
         p.drawLine(body.left(), mid, body.right(), mid);
     }
 
@@ -1686,12 +1741,6 @@ void TimelineView::paintAudioWave(QPainter &p, const QRect &body, const TrackEve
     }
     if (scale < 0.008) {
         return;
-    }
-
-    const QString path = eventMediaPath(ev);
-    WaveformPeaks peaks;
-    if (!path.isEmpty()) {
-        peaks = MediaWaveformCache::instance().peaksFor(path);
     }
 
     if (!peaks.isValid()) {
@@ -1731,9 +1780,15 @@ void TimelineView::paintAudioWave(QPainter &p, const QRect &body, const TrackEve
     }
 
     const int drawCh = stereoUi ? 2 : 1;
-    const double dur = peaks.durationSec > 0.05 ? peaks.durationSec : std::max(0.05, ev.lengthSec);
-    const double t0 = 0.0;
-    const double t1 = std::min(ev.lengthSec, dur);
+    const double fileDur =
+        peaks.durationSec > 0.05 ? peaks.durationSec : std::max(0.05, ev.lengthSec);
+    double cycle = ev.mediaLengthSec > 1e-6 ? ev.mediaLengthSec : 0.0;
+    if (cycle < 1e-6) {
+        cycle = std::max(0.05, fileDur - ev.mediaStartSec);
+    }
+    const bool doLoop =
+        ev.looped && cycle > 1e-6 && ev.lengthSec > cycle + 1e-3;
+    const double media0 = std::max(0.0, ev.mediaStartSec);
 
     p.setRenderHint(QPainter::Antialiasing, false);
     p.setPen(QPen(audioWave(), 1));
@@ -1750,8 +1805,20 @@ void TimelineView::paintAudioWave(QPainter &p, const QRect &body, const TrackEve
             const double u = (body.width() <= 1)
                                  ? 0.0
                                  : double(x - body.left()) / double(body.width() - 1);
-            const double t = t0 + u * (t1 - t0);
-            const int bin = std::clamp(int(std::floor((t / dur) * peaks.bins)), 0, peaks.bins - 1);
+            double local = u * ev.lengthSec;
+            if (doLoop) {
+                local = std::fmod(local, cycle);
+                if (local < 0.0) {
+                    local += cycle;
+                }
+            } else {
+                local = std::min(local, cycle);
+            }
+            const double srcTRaw =
+                ev.reversed ? (media0 + cycle - local) : (media0 + local);
+            const double srcT = std::clamp(srcTRaw, 0.0, std::max(0.0, fileDur - 1e-9));
+            const int bin =
+                std::clamp(int(std::floor((srcT / fileDur) * peaks.bins)), 0, peaks.bins - 1);
             const int idx = (bin * peaks.channels + srcCh) * 2;
             if (idx + 1 >= peaks.minMax.size()) {
                 continue;
@@ -1762,6 +1829,50 @@ void TimelineView::paintAudioWave(QPainter &p, const QRect &body, const TrackEve
             const int y1 = cy - int(std::lround(mn * ampMax));
             p.drawLine(x, y0, x, y1);
         }
+    }
+}
+
+/** Vegas-style loop points: top-edge V cutouts + faint dividers (drag past media edge). */
+void paintEventLoopNotches(QPainter &p, const TrackEvent &ev, const QRect &eventRect,
+                           const QRect &waveBody)
+{
+    double cycle = ev.mediaLengthSec > 1e-6 ? ev.mediaLengthSec : 0.0;
+    if (cycle < 1e-6) {
+        return;
+    }
+    if (!ev.looped || ev.lengthSec <= cycle + 1e-3) {
+        return;
+    }
+    if (eventRect.width() < 10) {
+        return;
+    }
+
+    const QColor bg(0x14, 0x14, 0x14);
+    for (double t = cycle; t < ev.lengthSec - 1e-4; t += cycle) {
+        const int x = eventRect.left()
+                      + int(std::lround((t / ev.lengthSec) * double(eventRect.width() - 1)));
+        if (x <= eventRect.left() + 2 || x >= eventRect.right() - 2) {
+            continue;
+        }
+        // Faint vertical seam through the waveform body
+        if (!waveBody.isEmpty()) {
+            p.setPen(QPen(QColor(0x48, 0x48, 0x48), 1));
+            p.drawLine(x, waveBody.top(), x, waveBody.bottom());
+        }
+        // V cutout into the top edge of the event (Vegas)
+        constexpr int halfW = 5;
+        constexpr int depth = 6;
+        QPainterPath cut;
+        cut.moveTo(x - halfW, eventRect.top());
+        cut.lineTo(x, eventRect.top() + depth);
+        cut.lineTo(x + halfW, eventRect.top());
+        cut.closeSubpath();
+        p.setPen(Qt::NoPen);
+        p.setBrush(bg);
+        p.drawPath(cut);
+        p.setPen(QPen(QColor(0x88, 0x88, 0x88), 1));
+        p.drawLine(x - halfW, eventRect.top(), x, eventRect.top() + depth);
+        p.drawLine(x + halfW, eventRect.top(), x, eventRect.top() + depth);
     }
 }
 
@@ -1781,18 +1892,26 @@ void TimelineView::paintEventBlock(QPainter &p, const Track &track, const TrackE
     const int titleH = isVideo ? 0 : kEventTitleH;
     const int nameOverlayH = isVideo ? kVideoNameOverlayH : 0;
 
-    p.fillRect(r, isVideo ? videoEvent() : audioEvent());
+    const QColor trackColor =
+        track.displayColor.isValid() ? track.displayColor : TrackColors::at(0);
+    const QColor fill = TrackColors::eventFill(trackColor, isVideo);
+    p.fillRect(r, fill);
 
-    // Left color rail
-    p.fillRect(QRect(r.left(), r.top(), 3, r.height()), isVideo ? videoRail() : audioRail());
+    // Left edge: audio gets track-color rail; video stays dark (color lives on header + fx chip).
+    if (!isVideo) {
+        p.fillRect(QRect(r.left(), r.top(), 3, r.height()), TrackColors::rail(trackColor));
+    } else {
+        p.fillRect(QRect(r.left(), r.top(), 2, r.height()), QColor(0, 0, 0, 140));
+    }
 
     const QRect content = eventContentRect(track, ev, r);
 
     if (!isVideo) {
-        // Audio title strip (slightly darker peach for contrast)
+        // Audio title strip (slightly darker shade of track color)
         QLinearGradient tg(0, r.top(), 0, r.top() + titleH);
-        tg.setColorAt(0.0, QColor(0xec, 0xc8, 0xb8));
-        tg.setColorAt(1.0, audioTitle());
+        const QColor titleC = TrackColors::eventTitle(trackColor);
+        tg.setColorAt(0.0, titleC.lighter(110));
+        tg.setColorAt(1.0, titleC);
         p.fillRect(QRect(r.left(), r.top(), r.width(), titleH), tg);
         p.setPen(QColor(0x80, 0x58, 0x48, 100));
         p.drawLine(r.left(), r.top() + titleH, r.right(), r.top() + titleH);
@@ -1833,6 +1952,22 @@ void TimelineView::paintEventBlock(QPainter &p, const Track &track, const TrackE
                    QStringLiteral("G"));
     }
 
+    // Vegas reverse switch: small blue chip with left arrow
+    if (ev.reversed && content.width() > 36) {
+        const int bx = content.left() + (isVideo ? 4 : 5);
+        const int by = content.top() + (isVideo ? 2 : 2);
+        const QRect badge(bx, by, 14, 12);
+        p.setPen(QPen(QColor(0x1a, 0x4a, 0x8a), 1));
+        p.setBrush(QColor(0x2a, 0x6a, 0xb8));
+        p.drawRoundedRect(badge, 2, 2);
+        p.setPen(QPen(QColor(0xf0, 0xf4, 0xff), 1.6));
+        const int cx = badge.center().x();
+        const int cy = badge.center().y();
+        p.drawLine(cx + 3, cy, cx - 2, cy);
+        p.drawLine(cx - 2, cy, cx, cy - 3);
+        p.drawLine(cx - 2, cy, cx, cy + 3);
+    }
+
     const QRect body(r.left(), r.top() + titleH, r.width(), r.height() - titleH);
     if (isStill) {
         paintStillImage(p, body, ev);
@@ -1854,6 +1989,7 @@ void TimelineView::paintEventBlock(QPainter &p, const Track &track, const TrackE
         }
     } else {
         paintAudioWave(p, body, ev);
+        paintEventLoopNotches(p, ev, r, body);
     }
 
     // Selection / border (single Vegas-like amber outline)
@@ -1916,12 +2052,19 @@ void TimelineView::paintEventChrome(QPainter &p, const Track &track, const Track
 
     // Button strip (bottom-right of usable content)
     const bool isVideo = isVideoFamily(ev.mediaKind);
-    auto paintBtnBg = [&](const QRect &br, bool hot) {
+    const QColor trackColor =
+        track.displayColor.isValid() ? track.displayColor : TrackColors::at(0);
+    auto paintBtnBg = [&](const QRect &br, bool hot, bool useTrackColor) {
         if (br.isEmpty()) {
             return;
         }
-        p.setPen(QColor(0, 0, 0, 120));
-        p.setBrush(hot ? QColor(40, 40, 50, 220) : QColor(20, 20, 28, 180));
+        if (useTrackColor) {
+            p.setPen(QColor(0, 0, 0, 140));
+            p.setBrush(TrackColors::fxChip(trackColor, hot));
+        } else {
+            p.setPen(QColor(0, 0, 0, 120));
+            p.setBrush(hot ? QColor(40, 40, 50, 220) : QColor(20, 20, 28, 180));
+        }
         p.drawRoundedRect(br, 2, 2);
     };
 
@@ -1937,11 +2080,12 @@ void TimelineView::paintEventChrome(QPainter &p, const Track &track, const Track
         }
         const bool hot = (m_hoverButton == b && m_hoverLevelEventId == ev.id)
                          || (m_hoverButton == b && m_dragEventId == ev.id);
-        paintBtnBg(br, hot || (m_hoverButton == b));
+        // Vegas: event "fx" chip is filled with Track Display Color.
+        paintBtnBg(br, hot || (m_hoverButton == b), b == EventChromeButton::Fx);
         if (b == EventChromeButton::PanCrop) {
             paintCropGlyph(p, br);
         } else if (b == EventChromeButton::Fx) {
-            p.setPen(QColor(240, 240, 245));
+            p.setPen(QColor(255, 255, 255, 235));
             QFont f = p.font();
             f.setPointSize(8);
             f.setBold(true);
@@ -2124,6 +2268,7 @@ void TimelineView::paintRuler(QPainter &p)
 {
     const int laneH = markerLaneHeight();
     const int ticksTop = laneH;
+    const int ticksH = ticksHeight();
     const QRect rulerRect(0, 0, width(), rulerHeight());
     p.fillRect(rulerRect, QColor(0x1a, 0x1a, 0x1a));
     // Marker lane
@@ -2131,7 +2276,7 @@ void TimelineView::paintRuler(QPainter &p)
     p.setPen(QColor(0x0a, 0x0a, 0x0a));
     p.drawLine(headerWidth(), laneH - 1, width(), laneH - 1);
     // Ticks band
-    p.fillRect(headerWidth(), ticksTop, width() - headerWidth(), ticksHeight(), QColor(0x26, 0x26, 0x26));
+    p.fillRect(headerWidth(), ticksTop, width() - headerWidth(), ticksH, QColor(0x26, 0x26, 0x26));
     p.fillRect(0, 0, headerWidth(), rulerHeight(), QColor(0x2a, 0x2a, 0x2a));
     p.setPen(QColor(0x11, 0x11, 0x11));
     p.drawLine(headerWidth(), 0, headerWidth(), rulerHeight());
@@ -2150,26 +2295,63 @@ void TimelineView::paintRuler(QPainter &p)
     p.drawText(QRect(6, 0, headerWidth() - 10, rulerHeight()), Qt::AlignVCenter | Qt::AlignLeft,
                cornerLabel);
 
-    p.setPen(QColor(0x88, 0x88, 0x88));
-    f.setPointSize(8);
-    f.setBold(false);
-    p.setFont(f);
-    const double pps = m_model ? m_model->pixelsPerSecond() : 40.0;
-    const int maxSec = static_cast<int>((width() - headerWidth() + m_scrollX) / pps) + 2;
-    for (int sec = 0; sec <= std::max(120, maxSec); ++sec) {
-        const int x = timeToX(sec);
-        if (x < headerWidth() || x > width()) {
+    const double pps = m_model ? std::max(0.5, m_model->pixelsPerSecond()) : 40.0;
+    const double fps = m_model ? m_model->frameRate() : 25.0;
+    const RulerTickPlan plan = chooseRulerTickPlan(pps, fps);
+
+    const double viewStart = std::max(0.0, xToTime(headerWidth()) - plan.minorSec);
+    const double viewEnd = xToTime(width()) + plan.minorSec;
+    const qint64 i0 = static_cast<qint64>(std::floor(viewStart / plan.minorSec));
+    const qint64 i1 = static_cast<qint64>(std::ceil(viewEnd / plan.minorSec));
+
+    QFont labelFont = f;
+    labelFont.setPointSize(8);
+    labelFont.setBold(false);
+    p.setFont(labelFont);
+    const QFontMetrics fm(labelFont);
+
+    const int tickBottom = rulerHeight() - 1;
+    const int majorH = std::min(ticksH - 2, 12);
+    const int midH = std::min(ticksH - 4, 8);
+    const int minorH = std::min(ticksH - 6, 4);
+    int lastLabelRight = headerWidth() - 4;
+
+    for (qint64 i = i0; i <= i1; ++i) {
+        const double t = double(i) * plan.minorSec;
+        if (t < -1e-9) {
             continue;
         }
-        const bool major = (sec % 5) == 0;
-        p.setPen(QColor(0x66, 0x66, 0x66));
-        p.drawLine(x, rulerHeight() - (major ? 14 : 7), x, rulerHeight() - 1);
-        if (major) {
-            p.setPen(QColor(0xb0, 0xb0, 0xb0));
+        const int x = timeToX(t);
+        if (x < headerWidth() - 1 || x > width() + 1) {
+            continue;
+        }
+
+        const bool isMajor = (plan.parts <= 1) || ((i % plan.parts) == 0);
+        const bool isMid = !isMajor && (plan.parts % 2 == 0) && ((i % (plan.parts / 2)) == 0);
+
+        int h = minorH;
+        QColor tickColor(0x4a, 0x4a, 0x4a);
+        if (isMajor) {
+            h = majorH;
+            tickColor = QColor(0x9a, 0x9a, 0x9a);
+        } else if (isMid) {
+            h = midH;
+            tickColor = QColor(0x6e, 0x6e, 0x6e);
+        }
+
+        p.setPen(QPen(tickColor, 1));
+        p.drawLine(x, tickBottom - h, x, tickBottom);
+
+        if (isMajor) {
             const QString label =
-                m_model ? m_model->formatRulerTime(static_cast<double>(sec))
-                        : QStringLiteral("%1").arg(sec);
-            p.drawText(x + 3, rulerHeight() - 16, label);
+                m_model ? m_model->formatRulerTime(t) : QString::number(t, 'f', 1);
+            const int textW = fm.horizontalAdvance(label);
+            const int textX = x + 3;
+            if (textX > lastLabelRight + 6 && textX + textW < width() - 2) {
+                p.setPen(QColor(0xc4, 0xc4, 0xc4));
+                p.drawText(textX, ticksTop + fm.ascent() + 1, label);
+                lastLabelRight = textX + textW;
+            }
         }
     }
 }
@@ -2385,17 +2567,24 @@ void TimelineView::paintTracks(QPainter &p)
 
     // Vegas-style vertical grid through empty lane areas (under events).
     {
-        const double pps = m_model->pixelsPerSecond() > 1.0 ? m_model->pixelsPerSecond() : 40.0;
-        const int maxSec = static_cast<int>((width() - headerWidth() + m_scrollX) / pps) + 2;
-        const bool drawMinor = pps >= 28.0;
+        const double pps = m_model->pixelsPerSecond() > 0.5 ? m_model->pixelsPerSecond() : 40.0;
+        const RulerTickPlan plan = chooseRulerTickPlan(pps, m_model->frameRate());
+        const double viewStart = std::max(0.0, xToTime(headerWidth()) - plan.minorSec);
+        const double viewEnd = xToTime(width()) + plan.minorSec;
+        const qint64 i0 = static_cast<qint64>(std::floor(viewStart / plan.minorSec));
+        const qint64 i1 = static_cast<qint64>(std::ceil(viewEnd / plan.minorSec));
         p.setClipRect(headerWidth(), bodyTop, width() - headerWidth(), height() - bodyTop);
-        for (int sec = 0; sec <= std::max(120, maxSec); ++sec) {
-            const int x = timeToX(sec);
+        for (qint64 i = i0; i <= i1; ++i) {
+            const double t = double(i) * plan.minorSec;
+            if (t < -1e-9) {
+                continue;
+            }
+            const int x = timeToX(t);
             if (x < headerWidth() || x > width()) {
                 continue;
             }
-            const bool major = (sec % 5) == 0;
-            if (!major && !drawMinor) {
+            const bool major = (plan.parts <= 1) || ((i % plan.parts) == 0);
+            if (!major && plan.minorSec * pps < 8.0) {
                 continue;
             }
             p.setPen(major ? trackGridMajor() : trackGridMinor());

@@ -78,7 +78,7 @@ OpenVegas/
 ## Qt / UI
 
 ### Макеты и fidelity
-1. Сначала смотреть **статический HTML** (`SAMPLES/pages/*_static.html`) и/или **скриншот** Vegas.
+1. Сначала смотреть **эталонный `.veg`** (`SAMPLES/veg_project/`) и/или **скриншот** Vegas.
 2. Потом править `.ui` / `MainWindow` / QSS / `IconFactory`.
 3. Не выдумывать chrome, которого нет в эталоне, без записи в ISSUES.
 
@@ -216,7 +216,7 @@ TODO в коде без записи в ISSUES — не оставлять.
   ```text
   build\OpenVegas.exe SAMPLES\example_project_with_video_and_audio.veg
   ```
-- Регресс UI: сравнить с `SAMPLES/pages/*_static.html` и `SAMPLES/screenshots/`
+- Регресс UI: сравнить с `SAMPLES/veg_project/` и `SAMPLES/screenshots/` (если есть)
 - Скрипты анализа `.veg`: `SAMPLES/docs_veg/_analyze_*.py`
 
 ---

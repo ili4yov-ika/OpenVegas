@@ -791,6 +791,7 @@ InterchangeResult ProjectInterchange::importVegasCsvEdl(const QString &path, QSt
     const int iFile = col(QStringLiteral("FileName"));
     const int iStreamStart = col(QStringLiteral("StreamStart"));
     const int iStreamLen = col(QStringLiteral("StreamLength"));
+    const int iLooped = col(QStringLiteral("Looped"));
     const int iFadeIn = col(QStringLiteral("FadeTimeIn"));
     const int iFadeOut = col(QStringLiteral("FadeTimeOut"));
     const int iCurveIn = col(QStringLiteral("CurveIn"));
@@ -897,6 +898,11 @@ InterchangeResult ProjectInterchange::importVegasCsvEdl(const QString &path, QSt
             if (ok && std::isfinite(ms) && ms > 0.0) {
                 ev.mediaLengthSec = ms / 1000.0;
             }
+        }
+        if (iLooped >= 0 && !at(iLooped).isEmpty()) {
+            const QString v = at(iLooped).trimmed();
+            ev.looped = !(v.compare(QStringLiteral("FALSE"), Qt::CaseInsensitive) == 0
+                          || v == QLatin1String("0"));
         }
 
         const QString fileName = at(iFile);

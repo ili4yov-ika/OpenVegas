@@ -1,4 +1,5 @@
 #include "model/ProjectModel.h"
+#include "model/TrackColors.h"
 #include "io/VegReader.h"
 #include "io/ProjectInterchange.h"
 #include "io/SamplePaths.h"
@@ -252,6 +253,9 @@ void ProjectModel::loadDemoProject()
     }
     assignPairedGroups(video, audio);
 
+    video.displayColor = TrackColors::at(0);
+    audio.displayColor = TrackColors::at(1);
+
     m_tracks.push_back(video);
     m_tracks.push_back(audio);
 
@@ -325,6 +329,7 @@ int ProjectModel::addTrack(TrackKind kind)
     Track t;
     t.id = m_nextTrackId++;
     t.kind = kind;
+    t.displayColor = TrackColors::at(m_tracks.size());
     if (kind == TrackKind::Video) {
         t.name = QStringLiteral("Video %1").arg(sameKind + 1);
         t.height = 96;
@@ -1144,6 +1149,8 @@ bool ProjectModel::applyVegImport(const VegOpenResult &veg, const QString &opene
                 te.startSec = ev.startSec;
                 te.lengthSec = std::max(0.05, ev.lengthSec);
                 te.mediaStartSec = std::max(0.0, ev.mediaStartSec);
+                te.mediaLengthSec = std::max(0.0, ev.mediaLengthSec);
+                te.looped = ev.looped;
                 te.fadeInSec = std::max(0.0, ev.fadeInSec);
                 te.fadeOutSec = std::max(0.0, ev.fadeOutSec);
                 if (te.fadeInSec + te.fadeOutSec > te.lengthSec) {
@@ -1171,10 +1178,25 @@ bool ProjectModel::applyVegImport(const VegOpenResult &veg, const QString &opene
                         && !(isAudio && videoContainer);
                     if (reverseOk || ev.playRate < 0.0) {
                         te.reversed = true;
-                        // Full reverse SubClip (META start=0): EDL StreamStart sits at the
-                        // far edge of the reversed window — map decode as length→0 from 0.
-                        te.mediaStartSec = 0.0;
+                        const double metaStart = veg.reversedSubclipStartSec.value(base, -1.0);
+                        const double metaLen = veg.reversedSubclipLengthSec.value(base, 0.0);
+                        // META start=0: full reverse-subclip from head of media.
+                        // StreamStart in EDL is often a quirk (parked at far edge).
+                        if (metaStart >= 0.0 && metaStart < 1e-6) {
+                            te.mediaStartSec = 0.0;
+                            // Event longer than StreamLength + Looped → loop the META window
+                            // (wav sample: StreamLength≈2.1s but META length≈10.3s).
+                            // Event ≈ StreamLength → use StreamLength (video BBB 232s take).
+                            if (te.looped && te.mediaLengthSec > 1e-6
+                                && te.lengthSec > te.mediaLengthSec * 1.5 && metaLen > 1e-6
+                                && metaLen > te.mediaLengthSec + 1e-3) {
+                                te.mediaLengthSec = metaLen;
+                            } else if (te.mediaLengthSec < 1e-6 && metaLen > 1e-6) {
+                                te.mediaLengthSec = metaLen;
+                            }
+                        }
                     }
+                    // If StreamLength missing, leave mediaLengthSec=0 until probe/paint fills it.
                 }
                 if (isAudio) {
                     te.firstChannel = ev.firstChannel;
@@ -1270,6 +1292,7 @@ bool ProjectModel::applyVegImport(const VegOpenResult &veg, const QString &opene
             applyTrackMotionFromVeg(veg);
             applyPanCropFromVeg(veg);
             applyColorGradingFromVeg(veg);
+            applyDefaultTrackDisplayColors();
             backfillEventMediaPaths();
             return true;
         }
@@ -1381,6 +1404,7 @@ bool ProjectModel::applyVegImport(const VegOpenResult &veg, const QString &opene
         applyTrackMotionFromVeg(veg);
         applyPanCropFromVeg(veg);
         applyColorGradingFromVeg(veg);
+        applyDefaultTrackDisplayColors();
         backfillEventMediaPaths();
         return false;
     }
@@ -1445,8 +1469,18 @@ bool ProjectModel::applyVegImport(const VegOpenResult &veg, const QString &opene
     applyTrackMotionFromVeg(veg);
     applyPanCropFromVeg(veg);
     applyColorGradingFromVeg(veg);
+    applyDefaultTrackDisplayColors();
     backfillEventMediaPaths();
     return false;
+}
+
+void ProjectModel::applyDefaultTrackDisplayColors()
+{
+    for (int i = 0; i < m_tracks.size(); ++i) {
+        if (!m_tracks[i].displayColor.isValid()) {
+            m_tracks[i].displayColor = TrackColors::at(i);
+        }
+    }
 }
 
 void ProjectModel::applyTrackMotionFromVeg(const VegOpenResult &veg)

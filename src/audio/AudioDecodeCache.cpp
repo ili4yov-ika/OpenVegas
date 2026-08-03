@@ -1,10 +1,10 @@
 #include "audio/AudioDecodeCache.h"
+#include "io/MediaFilmstripCache.h"
 
 #include <QDir>
 #include <QFile>
 #include <QFileInfo>
 #include <QProcess>
-#include <QStandardPaths>
 #include <QTemporaryFile>
 #include <QThreadPool>
 #include <QtEndian>
@@ -17,25 +17,7 @@ namespace {
 
 QString findFfmpeg()
 {
-    static QString cached;
-    if (!cached.isEmpty()) {
-        return cached;
-    }
-    cached = QStandardPaths::findExecutable(QStringLiteral("ffmpeg"));
-    if (!cached.isEmpty()) {
-        return cached;
-    }
-    const QStringList candidates = {
-        QStringLiteral("C:/ffmpeg/bin/ffmpeg.exe"),
-        QStringLiteral("C:/ProgramData/chocolatey/bin/ffmpeg.exe"),
-    };
-    for (const QString &c : candidates) {
-        if (QFileInfo::exists(c)) {
-            cached = c;
-            return cached;
-        }
-    }
-    return {};
+    return MediaFilmstripCache::findFfmpeg();
 }
 
 class DecodeJob : public QRunnable {

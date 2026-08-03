@@ -16,14 +16,14 @@
 
 | Фаза | Статус | Содержание |
 |------|--------|------------|
-| V0 Decode | Done | `VideoFrameCache` — ffmpeg CLI seek + stills `QImageReader`; bucket ~1/30s; cap long side 1280; async/prefetch |
+| V0 Decode | Done | `VideoFrameCache` + `FFmpegStreamDecoder` continuous raw pipe (optional libav); stills `QImageReader` |
 | V1 Compositor | Done | `VideoCompositor` bottom-up SourceOver; opacity × fades (`fadeCurveAmplitude`); mute/solo video |
 | V2 KF eval | Done | `VideoKeyframeEval` lerp Pan/Crop + Track Motion (Hold/Linear/Smooth/Sharp/Slow/Fast) |
 | V3 Transforms | Done | `PanCropApply` (crop/rotate/flip + mask hold); `TrackMotionApply` (height-normalized) |
 | V4 UI wire | Done | `MainWindow::refreshPreviewFrame` + audio-clock frame ticks + last-frame hold + prefetch |
 | V4b A/V sync | Done | Audio master clock (как MLT consumer); soft nearest-frame; burst prefetch вперёд |
 | V5 Tests | Done | Catch2 `openvegas_video_tests` + `tests/fixtures/video/` |
-| V6+ | Planned | inPoint/outPoint; mask path interpolate; Shadow/Glow; blend modes; continuous decode / linked FFmpeg; OFX |
+| V6+ | Partial | continuous decode **Done**; HW encode/decode **Done**; inPoint/outPoint; mask path interpolate; Shadow/Glow; blend modes; OFX process |
 
 **Стек:** software CPU (`QImage`/`QPainter`); **часы = AudioEngine** (как Kdenlive/MLT consumer); видео показывает кадр по `positionChanged` + quantize to fps. Не realtime 4K multi-layer.
 
@@ -36,9 +36,13 @@
 | UI Vegas parity | Done | Formats/Templates, search, filters, favorites, Folder/Name, free space, Render Options, About/Help |
 | Catalog | Done | `RenderTemplateCatalog` (Vegas-style names; AAC LC/HE-AAC templates) |
 | Wave export | Done | `Wave (Microsoft)` → `AudioEngine::renderToWav` (+ optional loop region) |
-| FFmpeg AAC/MP4/ProRes | Planned | Encode pipeline for non-Wave templates; Customize Template editor |
+| FFmpeg AAC/MP4/ProRes | Done | MediaEngine + CLI; HW prefer (NVENC/QSV/AMF → libx264); см. [`PLAN_VIDEOAUDIOSTACK.md`](PLAN_VIDEOAUDIOSTACK.md) |
 
 ---
+
+## Video / Audio Stack roadmap
+
+Полный поэтапный план (MediaEngine, OFX, VST3, HW): [`PLAN_VIDEOAUDIOSTACK.md`](PLAN_VIDEOAUDIOSTACK.md).
 
 ## Audio roadmap phases (2026-08-01)
 
@@ -72,8 +76,8 @@
 | Builtin DSP | `src/audio/BuiltinDsp.*` | Gate / EQ / Comp / Chorus process |
 | VST scan | `AudioPluginScanner.*` | VST1/VST2 `*.dll`, VST3 `*.vst3` |
 | Registry | `AudioPluginRegistry.*` | Builtin + scanned VST |
-| Host | `CompositePluginHost` / `Vst3Host` / `NullAudioPluginHost` | Builtin process; VST3 stub (+ SDK path) |
-| OFX list | `PluginScanner.*` | Список папок OFX |
+| Host | `CompositePluginHost` / `Vst3Host` / `NullAudioPluginHost` | Builtin process; VST3 stub (+ `OPENVGAS_VST3_SDK_PATH`) |
+| OFX list | `PluginScanner.*` / `OfxHost` | Discover + stub load |
 | VEG | `VegReader.*` | Имена `{Svfx:}`, `OFX:`, `(VST2/3)`; бинарь Pan/Crop / Track Motion |
 | UI | `PluginChooserDialog`, `AudioEventFxDialog`, … | Chooser + редакторы |
 
@@ -84,7 +88,9 @@
 | Event Pan/Crop (+ Mask) | Редактор + VEG; **preview: Pan/Crop KF + mask hold** (`VideoCompositor`) |
 | Track Motion | Редактор + VEG; **preview: motion KF** (Shadow/Glow FX — не в v1) |
 | Audio builtins (Chorus, Track EQ/Gate/Comp, …) | Каталог + UI; **DSP в playback** (Gate/EQ/Comp/Chorus) |
-| Прочие video FX (Color Corrector, Titles, …) | Имена / stubs — **косметика** |
+| Color Corrector / Brightness and Contrast | **preview + UI MVP** (`ColorCorrectorApply`) |
+| Color Grading (track) | UI + **preview** (lift/gamma/gain/offset) |
+| Прочие video FX (Titles, Blur, …) | Имена / stubs — **косметика** |
 
 ### VST1 / VST2 / VST3
 
@@ -163,4 +169,4 @@
 
 ---
 
-*При сомнении — сверяться с `SAMPLES/pages/*_static.html` и `SAMPLES/screenshots/`.*
+*При сомнении — сверяться с `SAMPLES/veg_project/`, скриншотами Vegas и `SAMPLES/screenshots/` (если есть).*

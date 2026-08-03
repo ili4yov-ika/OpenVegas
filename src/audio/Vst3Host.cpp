@@ -130,6 +130,15 @@ Vst3Host &Vst3Host::instance()
     return h;
 }
 
+bool Vst3Host::hasSdk()
+{
+#ifdef OPENVGAS_HAS_VST3_SDK
+    return true;
+#else
+    return false;
+#endif
+}
+
 bool Vst3Host::createInstance(const AudioPluginDesc &desc, FxSlot *slot)
 {
     if (!slot) {
@@ -138,13 +147,15 @@ bool Vst3Host::createInstance(const AudioPluginDesc &desc, FxSlot *slot)
     *slot = fxSlotFromDesc(desc);
     if (!desc.path.isEmpty()) {
         slot->pluginId = QStringLiteral("vst3:") + desc.path;
+    } else if (slot->pluginId.isEmpty()) {
+        slot->pluginId = QStringLiteral("vst3:") + slot->displayName;
     }
     auto inst = std::make_shared<Instance>();
     inst->path = desc.path.isEmpty() ? pathFromPluginId(slot->pluginId) : desc.path;
+    // Real module load only with Steinberg SDK; stub keeps bookkeeping for the graph.
+    inst->loaded = false;
 #ifdef OPENVGAS_HAS_VST3_SDK
-    inst->loaded = false;
-#else
-    inst->loaded = false;
+    // TODO: ModuleEntry / IPluginFactory → IComponent when SDK is linked.
 #endif
     m_instances.insert(slot, inst);
     return true;

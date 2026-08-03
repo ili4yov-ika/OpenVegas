@@ -102,20 +102,15 @@ OpenVegas/
 | [`MARKDOWN/VEG_READER_V0.md`](MARKDOWN/VEG_READER_V0.md) | Открытие `.veg` (подробно) |
 | [`docs/VEG_OPEN.md`](docs/VEG_OPEN.md) | Открытие `.veg` (кратко) |
 | [`MARKDOWN/QT68_PORT_AND_VEG_OPEN.md`](MARKDOWN/QT68_PORT_AND_VEG_OPEN.md) | Перенос на Qt и план парсера |
-| [`SAMPLES/`](SAMPLES/README.md) | Эталоны UI и Vegas 22 |
+| [`SAMPLES/`](SAMPLES/README.md) | Эталонные `.veg`, медиа и Vegas 22 |
 
 ---
 
-## Макеты UI (браузер)
+## Эталоны Vegas
 
-1. [`SAMPLES/index.html`](SAMPLES/index.html)
-2. Разбор `.veg` — [`SAMPLES/docs_veg/README.md`](SAMPLES/docs_veg/README.md)
+1. Проекты и медиа — [`SAMPLES/veg_project/README.md`](SAMPLES/veg_project/README.md)
+2. Разбор `.veg` — [`SAMPLES/veg_analyzators/README.md`](SAMPLES/veg_analyzators/README.md)
 3. Runtime Vegas 22 — [`SAMPLES/VEGAS-PRO-22-PROGRAM-FILES/README.md`](SAMPLES/VEGAS-PRO-22-PROGRAM-FILES/README.md)
-
-```bash
-cd SAMPLES
-python -m http.server 8080
-```
 
 ---
 

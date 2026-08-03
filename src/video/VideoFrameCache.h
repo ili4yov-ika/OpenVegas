@@ -11,7 +11,7 @@ namespace openvegas {
 
 /**
  * Full-ish preview frame decode for Video Preview (ARGB32).
- * FFmpeg CLI seek for video; QImageReader for stills. Async + prefetch.
+ * Continuous decode via FFmpegStreamDecoder (raw pipe / optional libav); stills via QImageReader.
  *
  * Soft realtime (Kdenlive/MLT-like): audio is the clock; video presents the nearest
  * ready frame for that time rather than blocking on exact seeks.

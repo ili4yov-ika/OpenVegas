@@ -15,6 +15,7 @@ public:
     ~PreferencesDialog() override;
 
     QString ofxPath() const;
+    QString vegasProPath() const;
 
 protected:
     void accept() override;

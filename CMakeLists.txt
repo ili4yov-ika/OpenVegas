@@ -50,6 +50,7 @@ set(OPENVGAS_VST3_SDK_PATH "" CACHE PATH "Path to Steinberg VST3 SDK (optional)"
     src/ui/ProjectNotesPane.cpp
     src/ui/MixingConsoleWindow.cpp
     src/ui/ExtractAudioFromCdDialog.cpp
+    src/ui/RenderingProgressDialog.cpp
     src/ui/RateSlider.cpp
     src/ui/VideoEventFxDialog.cpp
     src/ui/VideoEventFxDialogExact.cpp
@@ -74,7 +75,11 @@ set(OPENVGAS_VST3_SDK_PATH "" CACHE PATH "Path to Steinberg VST3 SDK (optional)"
     src/io/MediaProbe.cpp
     src/io/CdAudioReader.cpp
     src/io/RenderTemplateCatalog.cpp
+    src/io/FFmpegEncoder.cpp
+    src/io/FFmpegStreamDecoder.cpp
+    src/media/MediaEngine.cpp
     src/plugins/PluginScanner.cpp
+    src/plugins/OfxHost.cpp
     src/plugins/BuiltinAudioCatalog.cpp
     src/plugins/AudioPluginScanner.cpp
     src/plugins/AudioPluginRegistry.cpp
@@ -91,6 +96,7 @@ set(OPENVGAS_VST3_SDK_PATH "" CACHE PATH "Path to Steinberg VST3 SDK (optional)"
     src/video/VideoKeyframeEval.cpp
     src/video/PanCropApply.cpp
     src/video/TrackMotionApply.cpp
+    src/video/ColorCorrectorApply.cpp
     src/video/VideoCompositor.cpp
     resources/resources.qrc
 )
@@ -122,6 +128,7 @@ set(OPENVGAS_HEADERS
     src/ui/ProjectNotesPane.h
     src/ui/MixingConsoleWindow.h
     src/ui/ExtractAudioFromCdDialog.h
+    src/ui/RenderingProgressDialog.h
     src/ui/RateSlider.h
     src/ui/VideoEventFxDialog.h
     src/ui/VideoEventFxDialogExact.h
@@ -134,6 +141,7 @@ set(OPENVGAS_HEADERS
     src/timeline/TimelineView.h
     src/timeline/TimelineScrollHost.h
     src/model/ProjectModel.h
+    src/model/TrackColors.h
     src/model/ProjectSnapshot.h
     src/model/SnapshotCommand.h
     src/io/VegReader.h
@@ -146,7 +154,11 @@ set(OPENVGAS_HEADERS
     src/io/MediaProbe.h
     src/io/CdAudioReader.h
     src/io/RenderTemplateCatalog.h
+    src/io/FFmpegEncoder.h
+    src/io/FFmpegStreamDecoder.h
+    src/media/MediaEngine.h
     src/plugins/PluginScanner.h
+    src/plugins/OfxHost.h
     src/plugins/AudioPluginTypes.h
     src/plugins/BuiltinAudioCatalog.h
     src/plugins/AudioPluginScanner.h
@@ -164,6 +176,7 @@ set(OPENVGAS_HEADERS
     src/video/VideoKeyframeEval.h
     src/video/PanCropApply.h
     src/video/TrackMotionApply.h
+    src/video/ColorCorrectorApply.h
     src/video/VideoCompositor.h
 )
 
@@ -203,18 +216,24 @@ if(OPENVGAS_VST3_SDK_PATH AND EXISTS "${OPENVGAS_VST3_SDK_PATH}")
         "${OPENVGAS_VST3_SDK_PATH}/pluginterfaces"
     )
     message(STATUS "VST3 SDK: ${OPENVGAS_VST3_SDK_PATH}")
+else()
+    message(STATUS "VST3 SDK: not set — Vst3Host stub (pass-through). Set OPENVGAS_VST3_SDK_PATH for real host.")
 endif()
 
-# Optional linked FFmpeg (decode path still falls back to ffmpeg CLI)
+# Optional linked FFmpeg (continuous decode prefers libav; CLI raw pipe is always fallback)
 find_package(PkgConfig QUIET)
 if(PkgConfig_FOUND)
-    pkg_check_modules(FFMPEG QUIET libavformat libavcodec libswresample libavutil)
+    pkg_check_modules(FFMPEG QUIET libavformat libavcodec libswscale libswresample libavutil)
     if(FFMPEG_FOUND)
         target_compile_definitions(OpenVegas PRIVATE OPENVGAS_FFMPEG=1)
         target_include_directories(OpenVegas PRIVATE ${FFMPEG_INCLUDE_DIRS})
         target_link_libraries(OpenVegas PRIVATE ${FFMPEG_LIBRARIES})
-        message(STATUS "FFmpeg libs found — OPENVGAS_FFMPEG enabled")
+        message(STATUS "FFmpeg libs found — OPENVGAS_FFMPEG enabled (linked decode)")
+    else()
+        message(STATUS "FFmpeg libs: not found — continuous decode via CLI rawvideo pipe")
     endif()
+else()
+    message(STATUS "FFmpeg libs: pkg-config unavailable — continuous decode via CLI rawvideo pipe")
 endif()
 
 if(WIN32)
@@ -343,8 +362,10 @@ if(OPENVGAS_BUILD_TESTS)
         src/video/VideoKeyframeEval.cpp
         src/video/PanCropApply.cpp
         src/video/TrackMotionApply.cpp
+        src/video/ColorCorrectorApply.cpp
         src/video/VideoCompositor.cpp
         src/video/VideoFrameCache.cpp
+        src/io/FFmpegStreamDecoder.cpp
         src/io/MediaFilmstripCache.cpp
         src/io/MediaThumbCache.cpp
     )
@@ -370,4 +391,39 @@ if(OPENVGAS_BUILD_TESTS)
         target_link_libraries(openvegas_video_tests PRIVATE ole32 shell32 uuid gdi32)
     endif()
     add_test(NAME openvegas_video_tests COMMAND openvegas_video_tests)
+
+    add_executable(openvegas_media_tests
+        tests/test_ffmpeg_encoder.cpp
+        tests/test_ffmpeg_stream_decoder.cpp
+        tests/test_plugin_scanner_paths.cpp
+        tests/test_ofx_host.cpp
+        tests/test_vst3_host.cpp
+        src/io/FFmpegEncoder.cpp
+        src/io/FFmpegStreamDecoder.cpp
+        src/io/MediaFilmstripCache.cpp
+        src/io/MediaThumbCache.cpp
+        src/plugins/PluginScanner.cpp
+        src/plugins/OfxHost.cpp
+        src/plugins/AudioPluginScanner.cpp
+        src/audio/Vst3Host.cpp
+        src/io/RenderTemplateCatalog.cpp
+    )
+    target_include_directories(openvegas_media_tests PRIVATE
+        ${CMAKE_SOURCE_DIR}/src
+        ${CMAKE_SOURCE_DIR}/thirdparty
+        ${CMAKE_SOURCE_DIR}/thirdparty/vestige
+    )
+    target_link_libraries(openvegas_media_tests PRIVATE
+        Catch2::Catch2WithMain
+        Qt6::Core
+        Qt6::Gui
+        Qt6::Widgets
+    )
+    if(MSVC)
+        target_compile_options(openvegas_media_tests PRIVATE /W4 /permissive-)
+    endif()
+    if(WIN32)
+        target_link_libraries(openvegas_media_tests PRIVATE ole32 shell32 uuid gdi32)
+    endif()
+    add_test(NAME openvegas_media_tests COMMAND openvegas_media_tests)
 endif()

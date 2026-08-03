@@ -186,6 +186,8 @@ private:
     QString formatPreviewFps() const;
     int previewResolutionDivisor() const;
     void refreshPreviewFrame(double sec);
+    /** Show an already-composed render frame in Video Preview (letterboxed). */
+    void showRenderPreviewFrame(const QImage &frame, double sec);
     void syncTransportUi(bool playing);
     void syncPreviewOverlays();
     void updateOverlaysButton();

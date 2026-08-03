@@ -176,7 +176,7 @@ bool readSfk(const QString& path, SfkInfo* out);
 
 ### Для OpenVegas
 
-1. UI/поведение — макеты `SAMPLES/pages` + этот runtime как справочник.  
+1. UI/поведение — `SAMPLES/veg_project/` + этот runtime как справочник.  
 2. Импорт `.veg` — `docs_veg/` (не зависит от `.sfk`).  
 3. Waveform — опционально читать SFPK v1 или строить свой кэш.  
 4. Не тащить в репозиторий `models\` / полные FileIO бинарники как runtime зависимости.

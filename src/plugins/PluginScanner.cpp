@@ -1,39 +1,60 @@
 #include "plugins/PluginScanner.h"
+#include "plugins/OfxHost.h"
 
+#include <QCoreApplication>
 #include <QDir>
 #include <QFileInfo>
-#include <QCoreApplication>
 #include <QSettings>
 
 namespace openvegas {
 
+QString PluginScanner::sampleVegasProPath()
+{
+    const QString appDir = QCoreApplication::applicationDirPath();
+    const QStringList guesses = {
+        QDir(appDir).absoluteFilePath(QStringLiteral("../../SAMPLES/VEGAS-PRO-22-PROGRAM-FILES")),
+        QDir(appDir).absoluteFilePath(QStringLiteral("../../../SAMPLES/VEGAS-PRO-22-PROGRAM-FILES")),
+        QDir(appDir).absoluteFilePath(QStringLiteral("../SAMPLES/VEGAS-PRO-22-PROGRAM-FILES")),
+    };
+    for (const QString &g : guesses) {
+        if (QDir(g).exists()) {
+            return QDir(g).absolutePath();
+        }
+    }
+    return {};
+}
+
 QStringList PluginScanner::candidateRoots() const
 {
     QStringList roots;
-    if (!m_preferredPath.isEmpty()) {
-        roots << m_preferredPath;
-    }
+
+    auto add = [&](const QString &p) {
+        const QString t = p.trimmed();
+        if (!t.isEmpty()) {
+            roots << t;
+        }
+    };
+
+    add(m_vegasProPath);
 
     QSettings settings(QStringLiteral("OpenVegas"), QStringLiteral("OpenVegas"));
-    const QString fromSettings = settings.value(QStringLiteral("plugins/ofxPath")).toString();
-    if (!fromSettings.isEmpty()) {
-        roots << fromSettings;
-    }
+    add(settings.value(QStringLiteral("plugins/vegasProPath")).toString());
+
+    add(m_preferredPath);
+    add(settings.value(QStringLiteral("plugins/ofxPath")).toString());
 
     const QString appDir = QCoreApplication::applicationDirPath();
-    roots << QDir(appDir).absoluteFilePath(QStringLiteral("vegas-runtime"));
-    roots << QDir(appDir).absoluteFilePath(QStringLiteral("../vegas-runtime"));
+    add(QDir(appDir).absoluteFilePath(QStringLiteral("vegas-runtime")));
+    add(QDir(appDir).absoluteFilePath(QStringLiteral("../vegas-runtime")));
 
-    const QString sourceRoot = QDir(QCoreApplication::applicationDirPath())
-                                   .absoluteFilePath(QStringLiteral("../../SAMPLES/VEGAS-PRO-22-PROGRAM-FILES"));
-    roots << sourceRoot;
+    add(sampleVegasProPath());
 
 #ifdef Q_OS_WIN
-    const QStringList steamGuesses = {
-        QStringLiteral("C:/Program Files (x86)/Steam/steamapps/common/VEGAS Pro 22 Steam Edition/VEGAS Pro 22 Steam Edition"),
-        QStringLiteral("C:/Program Files/VEGAS/VEGAS Pro 22"),
-    };
-    roots << steamGuesses;
+    if (settings.value(QStringLiteral("plugins/useVegasOfx"), true).toBool()) {
+        add(QStringLiteral(
+            "C:/Program Files (x86)/Steam/steamapps/common/VEGAS Pro 22 Steam Edition/VEGAS Pro 22 Steam Edition"));
+        add(QStringLiteral("C:/Program Files/VEGAS/VEGAS Pro 22"));
+    }
 #endif
 
     roots.removeDuplicates();
@@ -43,21 +64,12 @@ QStringList PluginScanner::candidateRoots() const
 QVector<PluginInfo> PluginScanner::scanDirectory(const QString &root) const
 {
     QVector<PluginInfo> out;
-    QDir ofx(QDir(root).filePath(QStringLiteral("OFX Video Plug-Ins")));
-    if (!ofx.exists()) {
-        // root itself may already be OFX folder
-        ofx = QDir(root);
-    }
-    if (!ofx.exists()) {
-        return out;
-    }
-
-    const QFileInfoList entries = ofx.entryInfoList(QDir::Dirs | QDir::Files | QDir::NoDotAndDotDot,
-                                                    QDir::Name);
-    for (const QFileInfo &fi : entries) {
+    const QVector<OfxPluginDesc> found = OfxHost::discoverInRoot(root);
+    out.reserve(found.size());
+    for (const OfxPluginDesc &d : found) {
         PluginInfo info;
-        info.name = fi.completeBaseName().isEmpty() ? fi.fileName() : fi.completeBaseName();
-        info.path = fi.absoluteFilePath();
+        info.name = d.name;
+        info.path = d.hasBinary ? d.path : (d.bundlePath.isEmpty() ? d.path : d.bundlePath);
         out.push_back(info);
     }
     return out;
@@ -67,7 +79,8 @@ QVector<PluginInfo> PluginScanner::scanOfx() const
 {
     m_lastSource.clear();
     for (const QString &root : candidateRoots()) {
-        if (!QDir(root).exists() && !QDir(QDir(root).filePath(QStringLiteral("OFX Video Plug-Ins"))).exists()) {
+        if (!QDir(root).exists()
+            && !QDir(QDir(root).filePath(QStringLiteral("OFX Video Plug-Ins"))).exists()) {
             continue;
         }
         QVector<PluginInfo> found = scanDirectory(root);
@@ -75,7 +88,6 @@ QVector<PluginInfo> PluginScanner::scanOfx() const
             m_lastSource = root;
             return found;
         }
-        // Also try nested OFX folder existence with empty listing fallback label
         const QString ofxPath = QDir(root).filePath(QStringLiteral("OFX Video Plug-Ins"));
         if (QDir(ofxPath).exists()) {
             m_lastSource = ofxPath;

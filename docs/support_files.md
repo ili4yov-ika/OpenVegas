@@ -35,7 +35,8 @@
 - File → Import Media… — укороченный фильтр диалога: `mp4 mov mkv wav mp3 aif` (+ All).
 - Relink / Find Missing — расширенные фильтры (в т.ч. `.ts` `.wave` и т.п. в UI).
 
-Декод: WAV (+ BWF) нативно; прочее видео/аудио — через внешний ffmpeg CLI (если доступен в PATH). Превью still — Qt image IO.
+Декод: WAV (+ BWF) нативно; прочее видео/аудио — через внешний ffmpeg CLI.  
+Поиск бинарника: **PATH** → рядом с `OpenVegas.exe` (`ffmpeg.exe`, `ffmpeg/bin/`, `bin/`, `tools/…`) → типичные install-пути. Превью still — Qt image IO.
 
 ---
 
@@ -69,10 +70,13 @@
 
 | Что реально кодируется | Файл | Код |
 |------------------------|------|-----|
-| Wave (Microsoft) PCM | `.wav` | `AudioEngine::renderToWav` |
-| Bounce Audio Mixdown | `.wav` | то же |
+| Wave (Microsoft) PCM | `.wav` | `AudioEngine::renderToWav` / `MediaEngine` |
+| AAC / MP3 / FLAC | `.m4a` `.mp3` `.flac` … | temp WAV → `FFmpegEncoder` |
+| Video (Phase 1) | `.mp4` и др. | PNG seq + WAV → ffmpeg `libx264` |
+| Bounce Audio Mixdown | `.wav` | `renderToWav` |
 
-Остальные форматы Render As — **UI only** до FFmpeg-encode (см. [`MARKDOWN/ISSUES_AND_PLANS.md`](../MARKDOWN/ISSUES_AND_PLANS.md)).
+Нужен **ffmpeg**: в PATH или скопированный рядом с программой (`ffmpeg.exe` / `ffmpeg/bin/ffmpeg.exe`).  
+ProRes/HEVC/AV1 native codecs — ещё stub (UI). См. [`MARKDOWN/PLAN_VIDEOAUDIOSTACK.md`](../MARKDOWN/PLAN_VIDEOAUDIOSTACK.md).
 
 ---
 
@@ -108,4 +112,5 @@
 | Interchange | `src/io/ProjectInterchange.*` |
 | Диалоги фильтров | `src/app/MainWindow.cpp` |
 | Render templates | `src/io/RenderTemplateCatalog.*`, `src/ui/RenderAsDialog.*` |
+| MediaEngine / FFmpeg encode | `src/media/MediaEngine.*`, `src/io/FFmpegEncoder.*` |
 | Peaks | `src/io/MediaWaveformCache.*` |

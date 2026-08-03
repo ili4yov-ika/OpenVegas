@@ -67,6 +67,16 @@ build\OpenVegas.exe SAMPLES\veg_project\project_big--buck-bunny_576x1024-preview
 
 Открыть `.veg` → ПКМ по видеодорожке → **Color Grading** / **Track FX**. Параметры в этом сэмпле — **identity** (Lift/Offset 0, Gamma/Gain 1, curves 2 точки 0→1); эталон наличия плагина и импорта в `FxSlot`. EDL/FCP/Premiere Color Grading **не** переносят (в FCP7 логе: `Effects for track … ignored`).
 
+### Track Display Color sample
+
+| Файл | Содержание |
+|------|------------|
+| `project_big--buck-bunny_colors-tracks.veg` | **8 video + 4 audio** дорожек; у каждой свой **Track Display Color** (радуга в header rail + tint event) |
+
+**Анализ `.veg`:** RGB/COLORREF палитры в бинарнике **не найдены** (FCP7 XML тоже без label colors — пустые `<label2/>`). В Vegas цвет дорожки — индекс в Preferences → Display → Track Colors; точный layout поля в VEG22 пока не reverse-engineered. OpenVegas при открытии назначает `TrackColors::palette()` по индексу дорожки (цикл из **8** swatches Vegas Pro: purple → rose → coral → orange → yellow → green → sky → steel). ПКМ по header → **Track Display Color**. EDL/FCP/Premiere цвета дорожек **не** переносят.
+
+Открыть: `build\OpenVegas.exe SAMPLES\veg_project\project_big--buck-bunny_colors-tracks.veg`
+
 ### Reverse + Event FX sample
 
 | Файл | Содержание |
@@ -102,6 +112,7 @@ veg_project/
 ├── project_big--buck-bunny_pan-crop_mask.veg  # Event Pan/Crop Mask: 7 Mask KF
 ├── project_big--buck-bunny_4x3-preview-and-fades.veg  # 640×480 4:3 + event fades
 ├── project_big--buck-bunny_4x3-preview-and-fades_color-grading.veg  # 4:3 + fades + Color Grading
+├── project_big--buck-bunny_colors-tracks.veg  # Track Display Color (8V+4A rainbow)
 ├── project_big--buck-bunny_4x3-preview-reverse-fades-fx.veg  # 4:3 reverse + fades + event FX
 ├── project_big--buck-bunny_576x1024-preview-and-fades.veg  # 576×1024 portrait + fades
 ├── project_sample_for_project_audio.veg

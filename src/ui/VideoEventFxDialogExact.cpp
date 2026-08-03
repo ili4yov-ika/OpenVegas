@@ -3,6 +3,7 @@
 #include "io/MediaProbe.h"
 #include "io/MediaThumbCache.h"
 #include "plugins/AudioPluginTypes.h"
+#include "video/ColorCorrectorApply.h"
 #include "video/VideoFrameCache.h"
 #include "video/VideoKeyframeEval.h"
 #include "ui/AudioEventFxDialog.h"
@@ -1641,8 +1642,16 @@ bool VideoEventFxDialogExact::isPanCropSlot(int index) const
         return false;
     }
     return m_event->fxChain[index].displayName.compare(QStringLiteral("Pan/Crop"),
-                                                        Qt::CaseInsensitive)
+                                                       Qt::CaseInsensitive)
            == 0;
+}
+
+bool VideoEventFxDialogExact::isColorCorrectorSlot(int index) const
+{
+    if (!m_event || index < 0 || index >= m_event->fxChain.size()) {
+        return false;
+    }
+    return isColorCorrectorName(m_event->fxChain[index].displayName);
 }
 
 EventPanCropState &VideoEventFxDialogExact::panCrop()
@@ -1874,6 +1883,7 @@ void VideoEventFxDialogExact::buildUi()
 
     m_stack = new QStackedWidget(this);
     m_stack->addWidget(buildPanCropView());
+    m_stack->addWidget(buildColorCorrectorPage());
     m_stack->addWidget(buildGenericFxPage());
     root->addWidget(m_stack, 1);
 
@@ -1900,6 +1910,46 @@ QWidget *VideoEventFxDialogExact::buildGenericFxPage()
     lay->addWidget(m_genericTitle);
     lay->addSpacing(8);
     lay->addWidget(hint);
+    lay->addStretch(1);
+    return page;
+}
+
+QWidget *VideoEventFxDialogExact::buildColorCorrectorPage()
+{
+    auto *page = new QWidget(this);
+    auto *lay = new QVBoxLayout(page);
+    lay->setContentsMargins(16, 16, 16, 16);
+    m_ccTitle = new QLabel(tr("Color Corrector"), page);
+    m_ccTitle->setObjectName(QStringLiteral("pcFxName"));
+    QFont f = m_ccTitle->font();
+    f.setPointSize(f.pointSize() + 2);
+    f.setBold(true);
+    m_ccTitle->setFont(f);
+    lay->addWidget(m_ccTitle);
+    lay->addSpacing(12);
+
+    auto addSpin = [&](const QString &label, double minV, double maxV, double step,
+                       QDoubleSpinBox **out) {
+        auto *row = new QHBoxLayout;
+        row->addWidget(new QLabel(label, page));
+        auto *spin = new QDoubleSpinBox(page);
+        spin->setObjectName(QStringLiteral("aefxSpin"));
+        spin->setRange(minV, maxV);
+        spin->setSingleStep(step);
+        spin->setDecimals(3);
+        spin->setMinimumWidth(100);
+        row->addWidget(spin);
+        row->addStretch(1);
+        lay->addLayout(row);
+        *out = spin;
+        connect(spin, QOverload<double>::of(&QDoubleSpinBox::valueChanged), this,
+                &VideoEventFxDialogExact::syncColorCorrectorFromUi);
+    };
+
+    addSpin(tr("Brightness"), -1.0, 1.0, 0.01, &m_ccBrightness);
+    addSpin(tr("Contrast"), 0.0, 2.0, 0.01, &m_ccContrast);
+    addSpin(tr("Saturation"), 0.0, 2.0, 0.01, &m_ccSaturation);
+    addSpin(tr("Gamma"), 0.1, 3.0, 0.01, &m_ccGamma);
     lay->addStretch(1);
     return page;
 }
@@ -2522,12 +2572,53 @@ void VideoEventFxDialogExact::refreshViewport()
         m_stack->setCurrentIndex(0);
         syncUiFromSelected();
         refreshKeyframeLanes();
-    } else {
+    } else if (isColorCorrectorSlot(m_selectedFx)) {
         m_stack->setCurrentIndex(1);
+        syncColorCorrectorToUi();
+    } else {
+        m_stack->setCurrentIndex(2);
         if (m_genericTitle && m_event && m_selectedFx >= 0 && m_selectedFx < m_event->fxChain.size()) {
             m_genericTitle->setText(m_event->fxChain[m_selectedFx].displayName);
         }
     }
+}
+
+void VideoEventFxDialogExact::syncColorCorrectorToUi()
+{
+    if (!m_event || !isColorCorrectorSlot(m_selectedFx)) {
+        return;
+    }
+    const ColorCorrectorParams p = colorCorrectorFromSlot(m_event->fxChain[m_selectedFx]);
+    m_block = true;
+    if (m_ccTitle) {
+        m_ccTitle->setText(m_event->fxChain[m_selectedFx].displayName);
+    }
+    if (m_ccBrightness) {
+        m_ccBrightness->setValue(p.brightness);
+    }
+    if (m_ccContrast) {
+        m_ccContrast->setValue(p.contrast);
+    }
+    if (m_ccSaturation) {
+        m_ccSaturation->setValue(p.saturation);
+    }
+    if (m_ccGamma) {
+        m_ccGamma->setValue(p.gamma);
+    }
+    m_block = false;
+}
+
+void VideoEventFxDialogExact::syncColorCorrectorFromUi()
+{
+    if (m_block || !m_event || !isColorCorrectorSlot(m_selectedFx)) {
+        return;
+    }
+    ColorCorrectorParams p;
+    p.brightness = m_ccBrightness ? m_ccBrightness->value() : 0.0;
+    p.contrast = m_ccContrast ? m_ccContrast->value() : 1.0;
+    p.saturation = m_ccSaturation ? m_ccSaturation->value() : 1.0;
+    p.gamma = m_ccGamma ? m_ccGamma->value() : 1.0;
+    colorCorrectorSaveToSlot(&m_event->fxChain[m_selectedFx], p);
 }
 
 void VideoEventFxDialogExact::setBypass(int index, bool bypass)
@@ -2571,7 +2662,7 @@ void VideoEventFxDialogExact::addPlugins()
     if (name.isEmpty()) {
         return;
     }
-    m_event->fxChain.push_back(makeFxSlot(name, PluginFormat::Ofx));
+    m_event->fxChain.push_back(videoFxSlotFromName(name));
     rebuildChain();
     selectPlugin(m_event->fxChain.size() - 1);
 }

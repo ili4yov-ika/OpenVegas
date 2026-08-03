@@ -1457,9 +1457,15 @@ QFrame#tlScrollVThumb:hover {
 
 QFrame#tlScrollHGripL,
 QFrame#tlScrollHGripR {
-  background: repeating-linear-gradient(90deg, #1c1c1c 0px, #1c1c1c 1px, transparent 1px, transparent 2px);
+  /* Vegas-style edge notches: three short vertical ridges */
+  background: repeating-linear-gradient(
+      90deg,
+      transparent 0px,
+      transparent 2px,
+      #a8a8a8 2px,
+      #a8a8a8 3px);
   border: none;
-  background-color: rgba(0, 0, 0, 35);
+  background-color: transparent;
 }
 
 QToolButton#tlScrollZoomBtn {
@@ -2208,3 +2214,78 @@ QPushButton#confirmWarningNo:pressed {
   background-color: #444444;
 }
 
+
+/* Vegas-style Rendering progress dialog */
+QDialog#RenderingProgressDialog {
+  background-color: #1e1e1e;
+  color: #e8e8e8;
+}
+
+QLabel#renderProgPath {
+  color: #d8d8d8;
+  font-size: 11px;
+}
+
+QProgressBar#renderProgBar {
+  background-color: #2a2a2a;
+  border: 1px solid #3a3a3a;
+  border-radius: 0;
+  max-height: 8px;
+}
+
+QProgressBar#renderProgBar::chunk {
+  background-color: #2f6fbf;
+  border: none;
+}
+
+QLabel#renderProgStat,
+QLabel#renderProgKey {
+  color: #c8c8c8;
+  font-size: 11px;
+}
+
+QLabel#renderProgValue {
+  color: #f0f0f0;
+  font-size: 11px;
+}
+
+QLabel#renderProgSectionTitle {
+  color: #f2f2f2;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+QToolButton#renderProgSectionArrow {
+  background: transparent;
+  border: none;
+  color: #dddddd;
+}
+
+QFrame#renderProgSep {
+  background-color: #333333;
+  border: none;
+  max-height: 1px;
+}
+
+QDialog#RenderingProgressDialog QCheckBox {
+  color: #e0e0e0;
+  spacing: 6px;
+}
+
+QDialog#RenderingProgressDialog QPushButton {
+  background-color: #2b2b2b;
+  border: 1px solid #555555;
+  color: #ffffff;
+  min-width: 88px;
+  min-height: 22px;
+  padding: 3px 12px;
+}
+
+QDialog#RenderingProgressDialog QPushButton:hover {
+  background-color: #383838;
+}
+
+QDialog#RenderingProgressDialog QPushButton:disabled {
+  color: #777777;
+  border-color: #3a3a3a;
+}

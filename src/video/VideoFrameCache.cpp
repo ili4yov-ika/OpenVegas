@@ -1,14 +1,12 @@
 #include "video/VideoFrameCache.h"
 
-#include "io/MediaFilmstripCache.h"
+#include "io/FFmpegStreamDecoder.h"
 
 #include <QDir>
 #include <QFileInfo>
 #include <QImageReader>
 #include <QMetaObject>
-#include <QProcess>
 #include <QRunnable>
-#include <QTemporaryDir>
 #include <QThreadPool>
 #include <QVector>
 
@@ -62,34 +60,9 @@ public:
                 }
             }
         } else {
-            const QString ffmpeg = MediaFilmstripCache::findFfmpeg();
-            if (!ffmpeg.isEmpty()) {
-                const double step = VideoFrameCache::bucketSec();
-                const double t = double(m_bucket) * step;
-                QTemporaryDir tmp;
-                if (tmp.isValid()) {
-                    const QString out =
-                        tmp.path() + QStringLiteral("/vf_%1.png").arg(m_bucket);
-                    QProcess proc;
-                    QStringList args;
-                    // -ss before -i: fast seek (preview soft-realtime, like MLT drop-frame)
-                    args << QStringLiteral("-hide_banner") << QStringLiteral("-loglevel")
-                         << QStringLiteral("error") << QStringLiteral("-ss")
-                         << QString::number(t, 'f', 3) << QStringLiteral("-i") << m_path
-                         << QStringLiteral("-frames:v") << QStringLiteral("1")
-                         << QStringLiteral("-vf")
-                         << QStringLiteral(
-                                "scale=%1:%2:force_original_aspect_ratio=increase,crop=%1:%2")
-                                .arg(m_size.width())
-                                .arg(m_size.height())
-                         << QStringLiteral("-y") << out;
-                    proc.start(ffmpeg, args);
-                    if (proc.waitForFinished(25000) && proc.exitStatus() == QProcess::NormalExit
-                        && proc.exitCode() == 0 && QFileInfo::exists(out)) {
-                        img = QImage(out).convertToFormat(QImage::Format_ARGB32_Premultiplied);
-                    }
-                }
-            }
+            // Continuous decode: one seek + raw pipe (no PNG / no seek-per-frame).
+            img = FFmpegStreamDecoder::decodeFrame(m_path, double(m_bucket) * VideoFrameCache::bucketSec(),
+                                                   m_size);
         }
 
         if (m_cache) {
@@ -122,8 +95,7 @@ public:
     {
         QVector<QImage> frames;
         frames.resize(m_count);
-        const QString ffmpeg = MediaFilmstripCache::findFfmpeg();
-        if (ffmpeg.isEmpty() || !QFileInfo::exists(m_path) || m_count < 1) {
+        if (!QFileInfo::exists(m_path) || m_count < 1 || m_size.width() < 2) {
             if (m_cache) {
                 m_cache->finishBurstJob(m_path, m_start, m_size, frames);
             }
@@ -132,39 +104,9 @@ public:
 
         const double step = VideoFrameCache::bucketSec();
         const double t0 = double(m_start) * step;
-        const double dur = double(m_count) * step + step * 0.5;
-        QTemporaryDir tmp;
-        if (!tmp.isValid()) {
-            if (m_cache) {
-                m_cache->finishBurstJob(m_path, m_start, m_size, frames);
-            }
-            return;
-        }
-
-        const QString pattern = tmp.path() + QStringLiteral("/b_%05d.png");
-        QProcess proc;
-        QStringList args;
-        args << QStringLiteral("-hide_banner") << QStringLiteral("-loglevel")
-             << QStringLiteral("error") << QStringLiteral("-ss") << QString::number(t0, 'f', 3)
-             << QStringLiteral("-i") << m_path << QStringLiteral("-t")
-             << QString::number(dur, 'f', 3) << QStringLiteral("-vf")
-             << QStringLiteral("fps=%1,scale=%2:%3:force_original_aspect_ratio=increase,crop=%2:%3")
-                    .arg(1.0 / step, 0, 'f', 4)
-                    .arg(m_size.width())
-                    .arg(m_size.height())
-             << QStringLiteral("-y") << pattern;
-        proc.start(ffmpeg, args);
-        if (proc.waitForFinished(60000) && proc.exitStatus() == QProcess::NormalExit
-            && proc.exitCode() == 0) {
-            for (int i = 0; i < m_count; ++i) {
-                // ffmpeg image2 is 1-based by default
-                const QString file =
-                    tmp.path() + QStringLiteral("/b_%1.png").arg(i + 1, 5, 10, QLatin1Char('0'));
-                if (QFileInfo::exists(file)) {
-                    frames[i] = QImage(file).convertToFormat(QImage::Format_ARGB32_Premultiplied);
-                }
-            }
-        }
+        const double fps = 1.0 / step;
+        // One process: continuous raw RGB sequence (Phase 5 — no per-frame CLI seek).
+        FFmpegStreamDecoder::decodeSequence(m_path, t0, fps, m_count, m_size, &frames);
 
         if (m_cache) {
             m_cache->finishBurstJob(m_path, m_start, m_size, frames);

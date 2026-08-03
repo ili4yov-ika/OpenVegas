@@ -1,6 +1,7 @@
 #include "ui/ContextMenuBuilder.h"
 #include "app/MainWindow.h"
 #include "model/ProjectModel.h"
+#include "model/TrackColors.h"
 #include "timeline/TimelineView.h"
 #include "ui/ConfirmWarningDialog.h"
 #include "ui/PluginChooserDialog.h"
@@ -250,6 +251,7 @@ void insertTrack(MainWindow *window, TrackKind kind, const QString &namePrefix, 
         t.name = QObject::tr("%1 %2").arg(namePrefix).arg(window->projectModel().tracks().size() + 1);
         t.kind = kind;
         t.height = height;
+        t.displayColor = TrackColors::at(window->projectModel().tracks().size());
         auto &tracks = window->projectModel().tracks();
         if (atIndex < 0 || atIndex > tracks.size()) {
             tracks.push_back(t);
@@ -412,24 +414,34 @@ void addTrackGroupSubmenu(QMenu *parent)
     addItem(grp, QObject::tr("Solo Track Group"), QKeySequence(QStringLiteral("Ctrl+Alt+X")), false);
 }
 
-void addTrackDisplayColorSubmenu(QMenu *parent, int selectedIndex = 0)
+void addTrackDisplayColorSubmenu(QMenu *parent, MainWindow *window, int trackIndex)
 {
     auto *colors = parent->addMenu(QObject::tr("Track Display Color"));
-    static const QColor kSwatches[] = {
-        QColor(0x6b, 0x4a, 0x8a), QColor(0x9a, 0x6a, 0x7a), QColor(0xc9, 0x8a, 0x8a),
-        QColor(0xd0, 0x7a, 0x40), QColor(0xc8, 0xa0, 0x30), QColor(0xd8, 0xd0, 0x70),
-        QColor(0x7a, 0xc0, 0x60), QColor(0x60, 0xc0, 0xa0), QColor(0x50, 0xa0, 0xd0),
-        QColor(0x40, 0x70, 0xc0),
-    };
+    const auto &swatches = TrackColors::palette();
+    int selectedIndex = 0;
+    if (window && trackIndex >= 0 && trackIndex < window->projectModel().tracks().size()) {
+        selectedIndex =
+            TrackColors::nearestIndex(window->projectModel().tracks()[trackIndex].displayColor);
+    }
     auto *g = new QActionGroup(colors);
     g->setExclusive(true);
-    for (int i = 0; i < int(sizeof(kSwatches) / sizeof(kSwatches[0])); ++i) {
+    for (int i = 0; i < swatches.size(); ++i) {
         auto *a = colors->addAction(QString());
-        a->setIcon(colorSwatchIcon(kSwatches[i], i == selectedIndex));
+        a->setIcon(colorSwatchIcon(swatches[i], i == selectedIndex));
         a->setCheckable(true);
         a->setChecked(i == selectedIndex);
-        a->setData(kSwatches[i]);
+        a->setData(i);
         g->addAction(a);
+        QObject::connect(a, &QAction::triggered, window, [window, trackIndex, i]() {
+            if (!window || trackIndex < 0
+                || trackIndex >= window->projectModel().tracks().size()) {
+                return;
+            }
+            window->runDocumentEdit(QObject::tr("Track Display Color"), [window, trackIndex, i]() {
+                window->projectModel().tracks()[trackIndex].displayColor = TrackColors::at(i);
+            });
+            window->refreshTimeline();
+        });
     }
 }
 
@@ -558,7 +570,7 @@ void buildVideoTrackHeaderMenu(QMenu *menu, MainWindow *window, int trackIndex)
     addItem(menu, QObject::tr("Set Default Track Properties…"));
     menu->addSeparator();
     addTrackGroupSubmenu(menu);
-    addTrackDisplayColorSubmenu(menu);
+    addTrackDisplayColorSubmenu(menu, window, trackIndex);
 }
 
 void buildAudioTrackMoreMenu(QMenu *more, MainWindow *window, int trackIndex)
@@ -698,7 +710,7 @@ void buildAudioTrackHeaderMenu(QMenu *menu, MainWindow *window, int trackIndex)
     addItem(menu, QObject::tr("Set Default Track Properties…"));
     menu->addSeparator();
     addTrackGroupSubmenu(menu);
-    addTrackDisplayColorSubmenu(menu, 1);
+    addTrackDisplayColorSubmenu(menu, window, trackIndex);
     menu->addSeparator();
 
     {
@@ -778,7 +790,33 @@ void ContextMenuBuilder::showEventMenu(MainWindow *window, int eventId, const QP
         menu.addSeparator();
         addItem(&menu, QObject::tr("Add Missing Stream for Selected Event"), {}, false);
         addItem(&menu, QObject::tr("Create Subclip"));
-        addItem(&menu, QObject::tr("Reverse"));
+        {
+            auto *rev = menu.addAction(QObject::tr("Reverse"));
+            rev->setCheckable(true);
+            rev->setChecked(ev->reversed);
+            QObject::connect(rev, &QAction::triggered, window, [window, eventId]() {
+                window->runDocumentEdit(QObject::tr("Reverse Event"), [window, eventId]() {
+                    TrackEvent *e = window->projectModel().findEvent(eventId);
+                    if (!e) {
+                        return;
+                    }
+                    const bool next = !e->reversed;
+                    const int gid = e->groupId;
+                    if (gid > 0) {
+                        for (Track &tr : window->projectModel().tracks()) {
+                            for (TrackEvent &ev2 : tr.events) {
+                                if (ev2.groupId == gid) {
+                                    ev2.reversed = next;
+                                }
+                            }
+                        }
+                    } else {
+                        e->reversed = next;
+                    }
+                });
+                window->refreshTimeline();
+            });
+        }
         addItem(&menu, QObject::tr("Pair as Stereoscopic 3D Subclip"), {}, false);
         menu.addSeparator();
         addItem(&menu, QObject::tr("Select Events to End"));
@@ -840,7 +878,33 @@ void ContextMenuBuilder::showEventMenu(MainWindow *window, int eventId, const QP
     menu.addSeparator();
     addItem(&menu, QObject::tr("Add Missing Stream for Selected Event"), {}, false);
     addItem(&menu, QObject::tr("Create Subclip"));
-    addItem(&menu, QObject::tr("Reverse"));
+    {
+        auto *rev = menu.addAction(QObject::tr("Reverse"));
+        rev->setCheckable(true);
+        rev->setChecked(ev->reversed);
+        QObject::connect(rev, &QAction::triggered, window, [window, eventId]() {
+            window->runDocumentEdit(QObject::tr("Reverse Event"), [window, eventId]() {
+                TrackEvent *e = window->projectModel().findEvent(eventId);
+                if (!e) {
+                    return;
+                }
+                const bool next = !e->reversed;
+                const int gid = e->groupId;
+                if (gid > 0) {
+                    for (Track &tr : window->projectModel().tracks()) {
+                        for (TrackEvent &ev2 : tr.events) {
+                            if (ev2.groupId == gid) {
+                                ev2.reversed = next;
+                            }
+                        }
+                    }
+                } else {
+                    e->reversed = next;
+                }
+            });
+            window->refreshTimeline();
+        });
+    }
     menu.addSeparator();
     addItem(&menu, QObject::tr("Select Events to End"));
     addItem(&menu, QObject::tr("Select All After Cursor"));
@@ -1019,7 +1083,7 @@ void ContextMenuBuilder::showEventFxMenu(MainWindow *window, int eventId, const 
                 if (name.compare(QStringLiteral("Pan/Crop"), Qt::CaseInsensitive) == 0) {
                     ensureFxFirst(e->fxChain, QStringLiteral("Pan/Crop"), PluginFormat::Builtin);
                 } else {
-                    e->fxChain.push_back(makeFxSlot(name, PluginFormat::Ofx));
+                    e->fxChain.push_back(videoFxSlotFromName(name));
                 }
                 added = true;
             }

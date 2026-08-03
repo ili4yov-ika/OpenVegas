@@ -2,6 +2,7 @@
 #include <catch2/catch_approx.hpp>
 
 #include "audio/FadeCurves.h"
+#include "video/ColorCorrectorApply.h"
 #include "video/PanCropApply.h"
 #include "video/TrackMotionApply.h"
 #include "video/VideoCompositor.h"
@@ -166,3 +167,41 @@ TEST_CASE("fixtures still PNGs load", "[video][fixtures]")
     REQUIRE(qRed(px) > 200);
     REQUIRE(qBlue(px) < 40);
 }
+
+TEST_CASE("color corrector desaturates and brightens", "[video][color]")
+{
+    QImage img(8, 8, QImage::Format_ARGB32);
+    img.fill(qRgba(200, 40, 40, 255));
+    ColorCorrectorParams p;
+    p.saturation = 0.0;
+    p.brightness = 0.2;
+    applyColorCorrector(&img, p);
+    const QRgb c = img.pixel(2, 2);
+    REQUIRE(qRed(c) == qGreen(c));
+    REQUIRE(qGreen(c) == qBlue(c));
+    REQUIRE(qRed(c) > 50);
+}
+
+TEST_CASE("color corrector identity is no-op", "[video][color]")
+{
+    QImage img(4, 4, QImage::Format_ARGB32);
+    img.fill(qRgba(10, 20, 30, 255));
+    const QRgb before = img.pixel(0, 0);
+    applyColorCorrector(&img, ColorCorrectorParams{});
+    REQUIRE(img.pixel(0, 0) == before);
+}
+
+TEST_CASE("fx chain applies Color Corrector slot", "[video][color]")
+{
+    QImage img(4, 4, QImage::Format_ARGB32);
+    img.fill(qRgba(0, 255, 0, 255));
+    FxSlot slot = makeFxSlot(QStringLiteral("Color Corrector"), PluginFormat::Builtin);
+    ColorCorrectorParams p;
+    p.saturation = 0.0;
+    colorCorrectorSaveToSlot(&slot, p);
+    applyVideoColorFxChain(&img, {slot});
+    const QRgb c = img.pixel(1, 1);
+    REQUIRE(qRed(c) == qGreen(c));
+    REQUIRE(qGreen(c) == qBlue(c));
+}
+
