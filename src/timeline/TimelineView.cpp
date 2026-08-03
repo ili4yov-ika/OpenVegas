@@ -2764,7 +2764,7 @@ void TimelineView::mousePressEvent(QMouseEvent *event)
                 const HeaderControls ctrls =
                     headerControls(track, headerWidth(), railWidth(), trackY(ti));
                 if (ctrls.chipMenu.isValid() && ctrls.chipMenu.contains(event->pos())) {
-                    emit trackMoreMenuRequested(ti, event->globalPos());
+                    emit trackMoreMenuRequested(ti, event->globalPosition().toPoint());
                     return;
                 }
                 if (ctrls.chipFx.isValid() && ctrls.chipFx.contains(event->pos())) {
@@ -3749,6 +3749,7 @@ void TimelineView::visibleTimeRange(double *startSec, double *endSec) const
 
 void TimelineView::contextMenuEvent(QContextMenuEvent *event)
 {
+    // QContextMenuEvent still uses globalPos() (no globalPosition() API).
     if (event->pos().y() < rulerHeight() && event->pos().x() >= headerWidth()) {
         if (event->pos().y() < markerLaneHeight()) {
             const int mid = markerAtPos(event->pos());

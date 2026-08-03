@@ -186,7 +186,8 @@ public:
 
 class VstEvent
 {
-	char dump[sizeof(VstMidiEvent)];
+	// Opaque storage sized like VstMidiEvent (VeSTige ABI placeholder).
+	[[maybe_unused]] char dump[sizeof(VstMidiEvent)];
 };
 
 class VstEvents

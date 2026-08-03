@@ -376,7 +376,7 @@ void VideoFxPane::buildUi()
                 showPlugin(idx);
             });
 
-    connect(m_pluginList, &QListWidget::itemClicked, this, [this](QListWidgetItem *item) {
+    connect(m_pluginList, &QListWidget::itemClicked, this, [](QListWidgetItem *item) {
         if (!item) {
             return;
         }

@@ -216,16 +216,16 @@ void SearchMissingFilesDialog::startSearch()
     m_selectedPath.clear();
 
     QStringList roots;
-    const QString data = m_lookIn->currentData().toString();
-    if (data.contains(QLatin1Char('|'))) {
-        for (QString d : data.split(QLatin1Char('|'))) {
+    const QString lookInData = m_lookIn->currentData().toString();
+    if (lookInData.contains(QLatin1Char('|'))) {
+        for (QString d : lookInData.split(QLatin1Char('|'))) {
             if (!d.endsWith(QLatin1Char('/')) && !d.endsWith(QLatin1Char('\\'))) {
                 d += QLatin1Char('/');
             }
             roots << d;
         }
     } else {
-        QString d = data;
+        QString d = lookInData;
         if (!d.endsWith(QLatin1Char('/')) && !d.endsWith(QLatin1Char('\\'))) {
             d += QLatin1Char('/');
         }

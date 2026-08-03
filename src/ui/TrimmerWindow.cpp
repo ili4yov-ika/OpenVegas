@@ -54,7 +54,6 @@ class TrimmerCanvas : public QWidget {
 public:
     explicit TrimmerCanvas(TrimmerWindow *owner)
         : QWidget(owner)
-        , m_owner(owner)
     {
         setMinimumHeight(160);
         setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
@@ -284,7 +283,6 @@ private:
         p.fillRect(QRect(x - 4, body.top(), 8, 8), QColor(0xe8, 0xe8, 0xe8));
     }
 
-    TrimmerWindow *m_owner = nullptr;
     EventMediaKind m_kind = EventMediaKind::Video;
     double m_duration = 10.0;
     double m_current = 0.0;

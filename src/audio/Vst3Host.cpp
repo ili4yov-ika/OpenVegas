@@ -6,6 +6,7 @@
 #include <QWidget>
 #include <QWindow>
 
+#include <cstdio>
 #include <cstring>
 #include <vector>
 
@@ -80,12 +81,12 @@ intptr_t VST_CALL_CONV hostCallback(AEffect *effect, int32_t opcode, int32_t ind
         return 0;
     case audioMasterGetVendorString:
         if (ptr) {
-            std::strncpy(static_cast<char *>(ptr), "OpenVegas", 63);
+            std::snprintf(static_cast<char *>(ptr), 64, "OpenVegas");
         }
         return 1;
     case audioMasterGetProductString:
         if (ptr) {
-            std::strncpy(static_cast<char *>(ptr), "OpenVegas", 63);
+            std::snprintf(static_cast<char *>(ptr), 64, "OpenVegas");
         }
         return 1;
     case audioMasterGetVendorVersion:
