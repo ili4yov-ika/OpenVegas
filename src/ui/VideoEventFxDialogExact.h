@@ -26,6 +26,8 @@ class QKeyEvent;
 
 class QHBoxLayout;
 
+class QVBoxLayout;
+
 class QLabel;
 
 class QScrollArea;
@@ -104,6 +106,8 @@ private:
     void removeSelected();
 
     void refreshViewport();
+
+    void rebuildOfxParamsUi();
 
     void syncUiFromSelected();
 
@@ -254,6 +258,9 @@ private:
     QLabel *m_tc = nullptr;
 
     QLabel *m_genericTitle = nullptr;
+    QLabel *m_genericHint = nullptr;
+    QWidget *m_ofxParamsHost = nullptr;
+    QVBoxLayout *m_ofxParamsLay = nullptr;
 
     QLabel *m_ccTitle = nullptr;
 

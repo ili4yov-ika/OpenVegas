@@ -14,6 +14,25 @@ namespace openvegas {
 QVariantMap unpackFxParams(const QByteArray &state);
 QByteArray packFxParams(const QVariantMap &params);
 
+/** Store/load opaque plugin blob under FxSlot.state via params key "chunk". */
+inline void setFxStateChunk(FxSlot *slot, const QByteArray &chunk)
+{
+    if (!slot) {
+        return;
+    }
+    QVariantMap m = unpackFxParams(slot->state);
+    if (chunk.isEmpty()) {
+        m.remove(QStringLiteral("chunk"));
+    } else {
+        m.insert(QStringLiteral("chunk"), chunk);
+    }
+    slot->state = packFxParams(m);
+}
+inline QByteArray fxStateChunk(const FxSlot &slot)
+{
+    return unpackFxParams(slot.state).value(QStringLiteral("chunk")).toByteArray();
+}
+
 /** Per-instance realtime state for builtin processors. */
 struct BuiltinDspState {
     QString pluginId;
@@ -38,6 +57,21 @@ struct BuiltinDspState {
     std::vector<float> chorusDelayR;
     int chorusWrite = 0;
     float chorusPhase = 0.f;
+    // Delay (up to ~2 s)
+    std::vector<float> delayL;
+    std::vector<float> delayR;
+    int delayWrite = 0;
+    // Simple Schroeder-ish reverb
+    static constexpr int kReverbCombs = 4;
+    static constexpr int kReverbAllpass = 2;
+    std::vector<float> revCombL[kReverbCombs];
+    std::vector<float> revCombR[kReverbCombs];
+    int revCombIdx[kReverbCombs] = {};
+    float revCombFilterL[kReverbCombs] = {};
+    float revCombFilterR[kReverbCombs] = {};
+    std::vector<float> revApL[kReverbAllpass];
+    std::vector<float> revApR[kReverbAllpass];
+    int revApIdx[kReverbAllpass] = {};
 
     void prepare(double sr);
     void reset();
@@ -50,5 +84,7 @@ bool isBuiltinGate(const QString &nameOrId);
 bool isBuiltinEq(const QString &nameOrId);
 bool isBuiltinComp(const QString &nameOrId);
 bool isBuiltinChorus(const QString &nameOrId);
+bool isBuiltinDelay(const QString &nameOrId);
+bool isBuiltinReverb(const QString &nameOrId);
 
 } // namespace openvegas

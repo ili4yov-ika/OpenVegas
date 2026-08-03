@@ -56,6 +56,14 @@ bool isBuiltinChorus(const QString &n)
 {
     return nameHas(n, "Chorus");
 }
+bool isBuiltinDelay(const QString &n)
+{
+    return nameHas(n, "Delay") && !nameHas(n, "Chorus");
+}
+bool isBuiltinReverb(const QString &n)
+{
+    return nameHas(n, "Reverb");
+}
 
 void BuiltinDspState::Biquad::process(float *L, float *R, int n)
 {
@@ -123,11 +131,33 @@ void BuiltinDspState::Biquad::setShelf(double sr, double freq, double gainDb, bo
 void BuiltinDspState::prepare(double sr)
 {
     sampleRate = sr;
-    const int maxDelay = int(sr * 0.05) + 8;
-    chorusDelayL.assign(size_t(maxDelay), 0.f);
-    chorusDelayR.assign(size_t(maxDelay), 0.f);
+    const int maxChorus = int(sr * 0.05) + 8;
+    chorusDelayL.assign(size_t(maxChorus), 0.f);
+    chorusDelayR.assign(size_t(maxChorus), 0.f);
     chorusWrite = 0;
     chorusPhase = 0.f;
+    const int maxDelay = int(sr * 2.0) + 8;
+    delayL.assign(size_t(maxDelay), 0.f);
+    delayR.assign(size_t(maxDelay), 0.f);
+    delayWrite = 0;
+    // Tunings ~ Freeverb-ish (samples @ 44.1k), scaled to SR
+    static const int combTunings[kReverbCombs] = {1116, 1188, 1277, 1356};
+    static const int apTunings[kReverbAllpass] = {556, 441};
+    const double scale = sr / 44100.0;
+    for (int i = 0; i < kReverbCombs; ++i) {
+        const int n = std::max(16, int(combTunings[i] * scale));
+        revCombL[i].assign(size_t(n), 0.f);
+        revCombR[i].assign(size_t(n), 0.f);
+        revCombIdx[i] = 0;
+        revCombFilterL[i] = 0.f;
+        revCombFilterR[i] = 0.f;
+    }
+    for (int i = 0; i < kReverbAllpass; ++i) {
+        const int n = std::max(16, int(apTunings[i] * scale));
+        revApL[i].assign(size_t(n), 0.f);
+        revApR[i].assign(size_t(n), 0.f);
+        revApIdx[i] = 0;
+    }
     gateEnv = 0.f;
     compEnv = 0.f;
     eqReady = false;
@@ -144,6 +174,21 @@ void BuiltinDspState::reset()
     std::fill(chorusDelayR.begin(), chorusDelayR.end(), 0.f);
     chorusWrite = 0;
     chorusPhase = 0.f;
+    std::fill(delayL.begin(), delayL.end(), 0.f);
+    std::fill(delayR.begin(), delayR.end(), 0.f);
+    delayWrite = 0;
+    for (int i = 0; i < kReverbCombs; ++i) {
+        std::fill(revCombL[i].begin(), revCombL[i].end(), 0.f);
+        std::fill(revCombR[i].begin(), revCombR[i].end(), 0.f);
+        revCombIdx[i] = 0;
+        revCombFilterL[i] = 0.f;
+        revCombFilterR[i] = 0.f;
+    }
+    for (int i = 0; i < kReverbAllpass; ++i) {
+        std::fill(revApL[i].begin(), revApL[i].end(), 0.f);
+        std::fill(revApR[i].begin(), revApR[i].end(), 0.f);
+        revApIdx[i] = 0;
+    }
 }
 
 void processGate(BuiltinDspState *st, const QVariantMap &p, float *L, float *R, int n)
@@ -271,6 +316,85 @@ void processChorus(BuiltinDspState *st, const QVariantMap &p, float *L, float *R
     }
 }
 
+void processDelay(BuiltinDspState *st, const QVariantMap &p, float *L, float *R, int n)
+{
+    if (st->delayL.empty()) {
+        st->prepare(st->sampleRate);
+    }
+    const float delayMs = float(std::clamp(p.value(QStringLiteral("delayMs"), 250.0).toDouble(), 1.0, 2000.0));
+    const float feedback = float(std::clamp(p.value(QStringLiteral("feedback"), 0.35).toDouble(), 0.0, 0.95));
+    const float mix = float(std::clamp(
+        p.value(QStringLiteral("mix"), p.value(QStringLiteral("wet"), 0.4).toDouble()).toDouble(), 0.0,
+        1.0));
+    const int maxD = int(st->delayL.size());
+    const int delaySamp =
+        std::clamp(int(delayMs * 0.001f * float(st->sampleRate) + 0.5f), 1, maxD - 1);
+    for (int i = 0; i < n; ++i) {
+        const int read = (st->delayWrite - delaySamp + maxD) % maxD;
+        const float dL = st->delayL[size_t(read)];
+        const float dR = st->delayR[size_t(read)];
+        st->delayL[size_t(st->delayWrite)] = L[i] + dL * feedback;
+        st->delayR[size_t(st->delayWrite)] = R[i] + dR * feedback;
+        st->delayWrite = (st->delayWrite + 1) % maxD;
+        L[i] = L[i] * (1.f - mix) + dL * mix;
+        R[i] = R[i] * (1.f - mix) + dR * mix;
+    }
+}
+
+void processReverb(BuiltinDspState *st, const QVariantMap &p, float *L, float *R, int n)
+{
+    if (st->revCombL[0].empty()) {
+        st->prepare(st->sampleRate);
+    }
+    const float room =
+        float(std::clamp(p.value(QStringLiteral("roomSize"), 0.55).toDouble(), 0.0, 1.0));
+    const float damp =
+        float(std::clamp(p.value(QStringLiteral("damp"), 0.45).toDouble(), 0.0, 1.0));
+    const float mix = float(std::clamp(
+        p.value(QStringLiteral("mix"), p.value(QStringLiteral("wet"), 0.35).toDouble()).toDouble(),
+        0.0, 1.0));
+    const float feedback = 0.28f + room * 0.60f;
+    constexpr float kApFeedback = 0.5f;
+    for (int i = 0; i < n; ++i) {
+        const float inL = L[i];
+        const float inR = R[i];
+        float accL = 0.f;
+        float accR = 0.f;
+        for (int c = 0; c < BuiltinDspState::kReverbCombs; ++c) {
+            const int len = int(st->revCombL[c].size());
+            float &bufL = st->revCombL[c][size_t(st->revCombIdx[c])];
+            float &bufR = st->revCombR[c][size_t(st->revCombIdx[c])];
+            const float outL = bufL;
+            const float outR = bufR;
+            st->revCombFilterL[c] = outL * (1.f - damp) + st->revCombFilterL[c] * damp;
+            st->revCombFilterR[c] = outR * (1.f - damp) + st->revCombFilterR[c] * damp;
+            bufL = inL + st->revCombFilterL[c] * feedback;
+            bufR = inR + st->revCombFilterR[c] * feedback;
+            st->revCombIdx[c] = (st->revCombIdx[c] + 1) % len;
+            accL += outL;
+            accR += outR;
+        }
+        accL *= 0.25f;
+        accR *= 0.25f;
+        for (int a = 0; a < BuiltinDspState::kReverbAllpass; ++a) {
+            const int len = int(st->revApL[a].size());
+            float &bufL = st->revApL[a][size_t(st->revApIdx[a])];
+            float &bufR = st->revApR[a][size_t(st->revApIdx[a])];
+            const float bufOutL = bufL;
+            const float bufOutR = bufR;
+            const float yL = -accL + bufOutL;
+            const float yR = -accR + bufOutR;
+            bufL = accL + bufOutL * kApFeedback;
+            bufR = accR + bufOutR * kApFeedback;
+            st->revApIdx[a] = (st->revApIdx[a] + 1) % len;
+            accL = yL;
+            accR = yR;
+        }
+        L[i] = inL * (1.f - mix) + accL * mix;
+        R[i] = inR * (1.f - mix) + accR * mix;
+    }
+}
+
 void processBuiltinFx(FxSlot *slot, BuiltinDspState *st, float *left, float *right, int frames)
 {
     if (!slot || !st || !left || !right || frames <= 0 || slot->bypass) {
@@ -292,6 +416,10 @@ void processBuiltinFx(FxSlot *slot, BuiltinDspState *st, float *left, float *rig
         processComp(st, p, left, right, frames);
     } else if (isBuiltinChorus(key)) {
         processChorus(st, p, left, right, frames);
+    } else if (isBuiltinDelay(key)) {
+        processDelay(st, p, left, right, frames);
+    } else if (isBuiltinReverb(key)) {
+        processReverb(st, p, left, right, frames);
     } else {
         // Generic gain / dry-wet from state if present
         const float g = dbToLinear(p.value(QStringLiteral("gainDb"), 0.0).toDouble());

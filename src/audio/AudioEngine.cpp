@@ -1,6 +1,7 @@
 #include "audio/AudioEngine.h"
 
 #include "audio/AudioUtil.h"
+#include "audio/CompositePluginHost.h"
 
 #include <QFile>
 #include <QTimer>
@@ -103,6 +104,24 @@ void AudioEngine::syncGraphFromProject()
 {
     if (!m_model) {
         return;
+    }
+    // Load VST/VST3 modules against project FxSlot hostKeys *before* graph snapshot,
+    // so process() finds instances after fxChain is copied into AudioGraph.
+    if (auto *host = dynamic_cast<CompositePluginHost *>(m_host ? m_host
+                                                                : &CompositePluginHost::instance())) {
+        for (Track &tr : m_model->tracks()) {
+            if (tr.kind == TrackKind::Audio) {
+                host->ensureChainLoaded(&tr.fxChain);
+            }
+            for (TrackEvent &ev : tr.events) {
+                if (isAudioFamily(ev.mediaKind)) {
+                    host->ensureChainLoaded(&ev.fxChain);
+                }
+            }
+        }
+        for (AssignableFxBus &bus : m_model->assignableFxBuses()) {
+            host->ensureChainLoaded(&bus.fxChain);
+        }
     }
     QMutexLocker lock(&m_graphMutex);
     m_graph.rebuild(*m_model, m_host);

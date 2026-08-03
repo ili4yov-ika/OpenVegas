@@ -2,15 +2,15 @@
 
 Поэтапный roadmap поверх MVP. Kdenlive (`thirdparty/kdenlive`, gitignore) — **референс** тайминга/архитектуры, не форк. Vegas Pro runtime (`SAMPLES/VEGAS-PRO-22-PROGRAM-FILES`) — **справочник** OFX/иконок для отладки, не LoadLibrary proprietary hosts.
 
-См. также: [`ISSUES_AND_PLANS.md`](ISSUES_AND_PLANS.md), `SAMPLES/veg_project/README.md` (эталоны VEG + interchange).
+См. также: [`ISSUES_AND_PLANS.md`](ISSUES_AND_PLANS.md), [`PLAN_VIDEO-AUDIO-PLUGINS-STACK.md`](PLAN_VIDEO-AUDIO-PLUGINS-STACK.md) (VST/OFX/Builtin), `SAMPLES/veg_project/README.md` (эталоны VEG + interchange).
 
-**Обновлено:** 2026-08-03 (transport clock, live gain, NLE interchange import/export).
+**Обновлено:** 2026-08-03 (transport clock, interchange, plugins MVP + VST3 IPlugView / Event FX UX / VEG Glint).
 
 ---
 
 ## Цель
 
-Единый **MediaEngine**-фасад: playback (часы = audio), offline render, пути плагинов (VST / OFX / Vegas folder), unit-тесты. Дальше — OFX process host, полный VST3 (Steinberg SDK), расширенные video FX, polish timeline/render.
+Единый **MediaEngine**-фасад: playback (часы = audio), offline render, пути плагинов (VST / OFX / Vegas folder), unit-тесты. Плагины: Builtin Delay/Reverb, VST3 lean host, OFX process + video FX chain — см. [`PLAN_VIDEO-AUDIO-PLUGINS-STACK.md`](PLAN_VIDEO-AUDIO-PLUGINS-STACK.md).
 
 ## Non-goals
 
@@ -26,14 +26,14 @@
 | Область | Статус | Где / заметки |
 |---------|--------|---------------|
 | Audio playback / graph / mixer | **Done** | `src/audio/*`; Track→Bus→Master; meters |
-| Builtin audio DSP | **Done** | Gate / EQ / Comp / Chorus |
-| VST2 / VST1 process + editor | **Done (Partial UI)** | VeSTige `LoadLibrary` + `processReplacing` + HWND editor |
-| VST3 | **Stub** | `Vst3Host`: pass-through без Steinberg SDK; scan/tests есть |
-| Video preview compositor | **Done** | soft CPU: Pan/Crop, Track Motion KF, opacity/fades, Color Corrector |
+| Builtin audio DSP | **Done** | Gate / EQ / Comp / Chorus / **Delay / Reverb** |
+| VST2 / VST1 process + editor | **Done** | VeSTige + HWND editor + stretch (child HWND fill) |
+| VST3 | **Done lean + IPlugView** | SDK `thirdparty/vst3sdk`; process/state/editor; CI `.vst3` fixture backlog |
+| OFX | **Done MVP** | load+process + emulated Soften/Invert/Sepia; `Gain.ofx` fixture |
+| Video preview compositor | **Done** | soft CPU: Pan/Crop, Track Motion, Color + `applyVideoFxChain` |
 | Continuous video decode | **Done** | `FFmpegStreamDecoder` raw pipe; optional linked libav |
 | A/V transport clock | **Done** | AudioEngine master; `wireTransportButtons` после device; stop at timeline end; click-seek + `m_seekEpoch` |
 | Event Gain / Level live | **Done** | `applyLiveMixer` + `liveAudioParamsChanged` (раньше только на rebuild) |
-| OFX | **Discover + stub host** | `PluginScanner` + `OfxHost` (без LoadLibrary / process) |
 | Video Color Corrector / Grading | **Done (MVP)** | `ColorCorrectorApply` в `VideoCompositor` |
 | Render Wave PCM | **Done** | `AudioEngine::renderToWav` |
 | Render AAC/MP4/… | **Done** | `MediaEngine` + FFmpeg CLI; HW prefer |
@@ -45,9 +45,8 @@
 | Timeline ruler zoom UX | **Done** | Fit / Zoom In-Out; Ctrl+колёсико; sync `m_pxPerSec` |
 | Build: CMake MinGW path | **Done** | `build/Windows_MinGW-x64` (preset `windows-mingw-debug`) |
 | Build: Qt Creator qmake | **Done** | `OpenVegas.pro` синхронизирован с CMake; `user32` / `winmm` |
-| OFX process / GPU compositor | **Not started** | следующий крупный блок |
 | Shadow / Glow, blend modes, mask interpolate | **Not started** | video polish |
-| VEG VST state restore | **Not started** | имена/формат есть, chunk не восстанавливается |
+| VEG VST/OFX full state restore | **Partial** | `CcnK` → chunk; Event FX: Glint XML + skip Magix AutoFrame; полный blob backlog |
 | Premiere `.prproj` write | **Not started** | UI stub → использовать FCP7 XML / EDL |
 
 ---
@@ -116,10 +115,10 @@ Timeline / ProjectModel
 | **7d** | Tooling: единый Windows MinGW build dir + qmake `.pro` sync | Med | **Done** |
 | **7e** | Transport clock polish (seek race, click-seek, stop at end, live event gain) | High | **Done** (2026-08-03) |
 | **7f** | NLE interchange MVP (Vegas CSV / FCP7 / FCPX / Premiere scrape + export) | High | **Done** (2026-08-03) |
-| **8** | Real **VST3** (Steinberg SDK): instantiate, process, state, `IPlugView` editor | High | **Not started** (API stub есть) |
-| **9** | Real **OFX** host: LoadLibrary/dlopen, process frame, params UI | High | **Not started** (discover only) |
-| **10** | Video polish: mask path interpolate; Shadow/Glow; blend modes; in/out point edge cases | Med | **Not started** |
-| **11** | VEG: восстановление VST/OFX state chunks; полный round-trip FX | Med | **Not started** |
+| **8** | Real **VST3** (Steinberg SDK): instantiate, process, state, `IPlugView` editor | High | **Done** (CI fixture backlog) |
+| **9** | Real **OFX** host: LoadLibrary/dlopen, process frame, params UI | High | **Done MVP** (+ emulated Soften/Invert) |
+| **10** | Video polish: Soften/Shadow/Glow, blend modes, mask interpolate | Med | Soften emulated; rest **Not started** |
+| **11** | VEG: восстановление VST/OFX state chunks; Event FX chain truth | Med | **Partial** (`CcnK` + Glint/AutoFrame recovery) |
 | **12** | Linked encode path / ProRes quality / GPU compositor (опционально) | Low | **Not started** |
 | **13** | Native Premiere `.prproj` write (опционально) | Low | **Not started** |
 
@@ -152,26 +151,25 @@ Timeline / ProjectModel
 
 **Ограничения MVP:** Mixing Console / Track Motion / Pan-Crop KF / Color Grading / Event FX из interchange **не** восстанавливаются (как в Vegas export logs) — канон: Open `.veg`.
 
-### Фаза 8 — VST3 real (нужно)
+### Фаза 8 — VST3 real (сделано)
 
-1. CMake `OPENVGAS_VST3_SDK_PATH` → полная сборка host (сейчас только `#ifdef` stub path).
-2. Instantiate / `process` / state ↔ `FxSlot.state`.
-3. Embed editor (`IPlugView` → Qt widget / HWND).
-4. Сопоставление VEG `(VST3, 64 Bit)` + восстановление chunk.
+1. CMake / auto `thirdparty/vst3sdk` → `OPENVGAS_HAS_VST3_SDK` lean host.
+2. Instantiate / `process` / state ↔ `FxSlot.state` / chunk.
+3. Embed editor: `IPlugView` → HWND Qt parent; stretch при `canResize()`.
+4. Backlog: open-source `.vst3` CI fixture; полный `Module`/`PlugProvider` stack.
 
-### Фаза 9 — OFX real (нужно)
+### Фаза 9 — OFX real (сделано MVP)
 
-1. Заменить stub `OfxHost::load` на реальный host (не proprietary Vegas internals).
-2. Process в `VideoCompositor` pipeline (после builtins / вместо stub chain).
-3. Params UI + VEG `{Svfx:}` / `OFX:` → живой slot.
-4. Тесты на open-source OFX sample (не Vegas DLL).
+1. `OfxHost` load + process + emulated Soften/Invert/Sepia.
+2. `applyVideoFxChain` в `VideoCompositor`.
+3. Params UI (generic) + VEG `{Svfx:}` / XML Glint recovery.
+4. Fixture `Gain.ofx` в tests.
 
 ### Фаза 10–13 — polish / optional
 
-- Mask interpolate между KF; Track Motion Shadow/Glow; blend modes.
-- VEG state для VST2/3 и OFX.
-- Дальнейший encode quality / linked mux / GPU — по необходимости, не блокер MVP.
-- Native `.prproj` write — только если понадобится поверх FCP7/EDL.
+- Mask interpolate; Track Motion Shadow/Glow; blend modes.
+- Полный VEG OFX/VST3 proprietary blob reverse.
+- Encode quality / GPU compositor / native `.prproj` write — по необходимости.
 
 ---
 
@@ -225,8 +223,8 @@ Timeline / ProjectModel
 
 ## Краткий вердикт
 
-**Базовый video/audio stack (фазы 0–6) готов:** playback, builtins, VST2, continuous decode, HW, MediaEngine render, Color Corrector MVP, OFX/VST3 stubs.
+**Базовый video/audio stack (фазы 0–6) готов:** playback, builtins (+Delay/Reverb), VST2, VST3+IPlugView, OFX process, continuous decode, HW, MediaEngine render, Color Corrector + video FX chain.
 
-**Сделано поверх плана:** reverse/loop SubClip; render progress; timeline zoom; MinGW path + qmake; **A/V clock + click-seek + live event gain**; **NLE interchange MVP** (import/export + Catch2).
+**Сделано поверх плана:** reverse/loop SubClip; render progress; timeline zoom; MinGW path + qmake; **A/V clock + click-seek + live event gain**; **NLE interchange MVP**; **plugins MVP** (Delay/Reverb, VST3 editor, OFX chain, VEG Glint/Event FX UX) — см. `PLAN_VIDEO-AUDIO-PLUGINS-STACK.md`.
 
-**Дальше по смыслу:** VST3 SDK host → OFX process → video polish / VEG state → (опц.) Premiere write. Не путать discover/stub с реальным hosting.
+**Дальше по смыслу:** CI `.vst3` fixture → video polish (Shadow/Glow) → полный VEG blob reverse → (опц.) Premiere write.

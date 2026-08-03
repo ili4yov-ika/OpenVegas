@@ -4,37 +4,46 @@
 
 Краткая пользовательская документация — в `docs/`. Технические разборы и планы — в `MARKDOWN/`.
 
+**Актуальность стека (2026-08-03):** audio/video playback, Builtin DSP (+Delay/Reverb), VST1–3 (`IPlugView`), OFX MVP, Video compositor, VEG v1 + Event FX recovery, Render As / interchange MVP. Детали — `PLAN_VIDEOAUDIOSTACK.md`, `PLAN_VIDEO-AUDIO-PLUGINS-STACK.md`, `ISSUES_AND_PLANS.md`.
+
 ---
 
 ## Общие принципы
 
 ### Продукт
 - **OpenVegas** — GPL open-source NLE, UI и поведение ориентированы на **VEGAS Pro 22**.
-- Эталоны: HTML/CSS/JS в `SAMPLES/`, скриншоты, `example_project_*.veg`, реверс в `SAMPLES/docs_veg/`.
+- Эталоны: Qt UI + `SAMPLES/veg_project/`, скриншоты, `example_project_*.veg`, реверс в `SAMPLES/docs_veg/`.
 - Runtime Vegas (`SAMPLES/VEGAS-PRO-22-PROGRAM-FILES/`, `build/vegas-runtime/`) — **только справочник**, не GPL, **не коммитить** копии в git.
 
 ### Архитектура
 - **Язык**: C++17+
 - **UI**: Qt 6.8+ Widgets, `.ui` в `ui/`, тема через `resources/openvegas.qss`
-- **Сборка**: CMake (предпочтительно) и `OpenVegas.pro` (qmake / Qt Creator) — **синхронизировать** оба
-- **Домен**: `ProjectModel` (tracks / events / media pool) отдельно от chrome UI
-- **I/O**: `VegReader` для `.veg`; запись `.veg` / `.ovp` — позже
+- **Сборка**: CMake (предпочтительно `build/Windows_MinGW-x64`) и `OpenVegas.pro` (qmake) — **синхронизировать** оба
+- **Домен**: `ProjectModel` (tracks / events / media pool / FX slots) отдельно от chrome UI
+- **I/O**: `VegReader` для `.veg` (v1 timings + Event FX recovery); запись `.veg` / `.ovp` — позже
+- **Audio / Video / Media**: `src/audio/*`, `src/video/*`, `src/media/*`
+- **Plugins**: Builtin DSP, VST1–3 host, OFX host, Event FX dialogs
 
 ### Структура директорий
 ```
 OpenVegas/
 ├── src/
 │   ├── app/           # main, MainWindow
-│   ├── ui/            # диалоги, Theme, MenuBuilder, IconFactory
+│   ├── ui/            # диалоги (Event FX, Chooser, Theme, MenuBuilder, …)
 │   ├── timeline/      # TimelineView
 │   ├── model/         # ProjectModel
-│   ├── io/            # VegReader
-│   └── plugins/       # OFX scanner + audio VST/builtin registry (host stub)
+│   ├── io/            # VegReader, filmstrip, interchange
+│   ├── audio/         # AudioEngine, BuiltinDsp, Vst2/Vst3Host, graph/mixer
+│   ├── video/         # VideoCompositor, decode/cache, color/FX apply
+│   ├── media/         # MediaEngine, FFmpeg encode/render
+│   └── plugins/       # types, registry, OFX, CompositePluginHost
 ├── ui/                # Qt Designer .ui
 ├── resources/         # openvegas.qss, resources.qrc
-├── docs/              # краткая документация для пользователей / README-ссылки
-├── MARKDOWN/          # развёрнутые планы, INIT, ISSUES, реверс-заметки
-├── SAMPLES/           # макеты UI, .veg, docs_veg, скриншоты (эталоны)
+├── tests/             # Catch2: audio / video / media / plugin state
+├── docs/              # краткая документация для пользователей
+├── MARKDOWN/          # INIT, ISSUES, PLAN_*, VEG_READER, QT68
+├── SAMPLES/           # .veg, docs_veg, veg_project, скриншоты (эталоны)
+├── thirdparty/        # vst3sdk (и пр.)
 ├── CMakeLists.txt
 ├── OpenVegas.pro
 ├── LICENSE            # GPL-3.0-or-later
@@ -83,11 +92,12 @@ OpenVegas/
 3. Не выдумывать chrome, которого нет в эталоне, без записи в ISSUES.
 
 ### Компоненты
-- **MainWindow** — shell: меню, toolbars, splitters, media/preview/master/timeline
-- **TimelineView** — custom paint: ruler, tracks, events, playhead
+- **MainWindow** — shell: меню, toolbars, splitters, media/preview/master/timeline, transport
+- **TimelineView** — custom paint: ruler, tracks, events, playhead, FX chrome
 - **WelcomeDialog** — стартовый экран (New / Open / Getting Started)
 - **Диалоги** — Project Properties, Render As, Preferences, Event Properties, Trimmer, Plugin Chooser
-- **IconFactory** — SVG из макетов `SAMPLES/js/chrome.js`
+- **Event FX** — `VideoEventFxDialogExact`, `AudioEventFxDialog` (**немодальные**); клик FX на клипе → Event FX, не Chooser
+- **IconFactory** — SVG icons
 - **Theme** — загрузка `:/openvegas.qss`
 
 ### Ресурсы
@@ -114,33 +124,37 @@ OpenVegas/
 ## Домен и I/O
 
 ### ProjectModel
-- Tracks: `Video` / `Audio`, events: `startSec`, `lengthSec`, `name`, `selected`
+- Tracks: `Video` / `Audio`, events: `startSec`, `lengthSec`, `name`, `selected`, FX chains
 - Media pool: `MediaItem` (path, kind, missing)
-- `loadEmptyProject` / `loadDemoProject` / `applyVegImport`
+- `loadEmptyProject` / `loadDemoProject` / `applyVegImport` / interchange apply
 
-### VegReader (v0)
+### VegReader
 - Подробно: [`VEG_READER_V0.md`](VEG_READER_V0.md)
 - Кратко: [`../docs/VEG_OPEN.md`](../docs/VEG_OPEN.md)
 - Открытие: File → Open, Welcome, CLI `OpenVegas.exe file.veg`
-- v0: header + media paths + labels + эвристический timeline  
-- Не v0: точные in/out, fades/CF, groups, rate, запись `.veg`
+- **v1:** binary `start/length/rate`, A/V pairing, overlap fades
+- **Event FX:** `recoverVideoEventFxNames` (Glint XML, skip Magix AutoFrame / Softlight-sepia)
+- Не цель: полный OFX/VST3 param blob, запись `.veg`
 
 ### Plugins
-- Полный статус: [`ISSUES_AND_PLANS.md`](ISSUES_AND_PLANS.md) → «Поддержка плагинов Vegas / VST / OFX»
-- `PluginScanner` — stub OFX path (Preferences); реального OFX host нет
-- **Audio plugins scaffold:** `AudioPluginRegistry` + VST1/VST2/VST3 path scan (без `LoadLibrary`) + builtin Vegas/MAGIX catalog; `FxSlot` chains on events/tracks; `NullAudioPluginHost` (pass-through / no editor)
-- **Pan/Crop** (+ Mask) и **Track Motion** — полноценные редакторы + VEG binary import; preview/compositor пока не применяет
-- Builtin audio (Chorus/EQ/Gate/Comp и др.) — UI параметров в `AudioEventFxDialog`; **DSP нет**
-- Real VST3/VST2/VST1/OFX host + audio engine — P3/P4 (не тащить IP Vegas DLL)
+- Полный статус: [`PLAN_VIDEO-AUDIO-PLUGINS-STACK.md`](PLAN_VIDEO-AUDIO-PLUGINS-STACK.md), [`ISSUES_AND_PLANS.md`](ISSUES_AND_PLANS.md)
+- **Builtin audio DSP** — Gate / EQ / Comp / Chorus / Delay / Reverb (+ UI без бренда «VEGAS »)
+- **VST1/VST2** — process + HWND editor + stretch
+- **VST3** — lean host + `IPlugView` / `IPlugFrame` / stretch (`thirdparty/vst3sdk`)
+- **OFX** — discover + process + emulated Soften/Invert/Sepia; video chain в compositor
+- **Hosts:** `CompositePluginHost`, `Vst3Host`, `OfxHost`
+- Backlog: CI `.vst3` fixture, soft bypass fade, полный VEG blob reverse
 
 ---
 
 ## Сборка
 
 ### CMake
-- Минимум 3.16, C++17, Qt6 Widgets + Svg
+- Минимум 3.16, C++17, Qt6 Widgets + Svg (+ зависимости audio/video)
 - `AUTOUIC` / `AUTOMOC` / `AUTORCC`
+- Предпочтительный out-of-tree: `build/Windows_MinGW-x64` (preset `windows-mingw-debug`)
 - Опция `OPENVGAS_COPY_VEGAS_RUNTIME` → только в `build/vegas-runtime/` (gitignore)
+- Перед rebuild закрывать `OpenVegas.exe`, если линковка падает из‑за занятого файла
 
 ### qmake
 - `OpenVegas.pro` должен содержать те же sources/headers, что и CMake
@@ -183,7 +197,9 @@ OpenVegas/
 | Файл | Содержание |
 |------|------------|
 | [`INIT.MD`](INIT.MD) / [`.cursor/commands/init.md`](../.cursor/commands/init.md) | Правила разработки (синхронная копия) |
-| [`ISSUES_AND_PLANS.md`](ISSUES_AND_PLANS.md) | Баги, отключённое, планы (создавать/обновлять) |
+| [`ISSUES_AND_PLANS.md`](ISSUES_AND_PLANS.md) | Баги, stub, планы, журнал исправлений |
+| [`PLAN_VIDEOAUDIOSTACK.md`](PLAN_VIDEOAUDIOSTACK.md) | Video/Audio MediaEngine roadmap |
+| [`PLAN_VIDEO-AUDIO-PLUGINS-STACK.md`](PLAN_VIDEO-AUDIO-PLUGINS-STACK.md) | VST / OFX / Builtin / Event FX |
 | [`VEG_READER_V0.md`](VEG_READER_V0.md) | Импорт `.veg` подробно |
 | [`QT68_PORT_AND_VEG_OPEN.md`](QT68_PORT_AND_VEG_OPEN.md) | Порт UI + уровни парсера |
 | [`../docs/VEG_OPEN.md`](../docs/VEG_OPEN.md) | Open `.veg` кратко |
@@ -208,7 +224,7 @@ TODO в коде без записи в ISSUES — не оставлять.
 
 - Organization: `OpenVegas`
 - Application: `OpenVegas`
-- Примеры ключей: `welcome/showOnStartup`, `plugins/ofxPath`
+- Примеры ключей: `welcome/showOnStartup`, `plugins/ofxPath`, пути VST / Vegas Pro
 
 Не хранить абсолютные пути Vegas Program Files как обязательные; только опциональные подсказки.
 
@@ -216,11 +232,13 @@ TODO в коде без записи в ISSUES — не оставлять.
 
 ## Тестирование
 
-- Пока нет полноценного `tests/` — при добавлении: всё тестовое → `tests/`
+- Unit-тесты Catch2 в `tests/` → targets `openvegas_audio_tests` / `openvegas_video_tests` / `openvegas_media_tests`
+- Теги плагинов: `[plugins]`, `[vst3]`, `[ofx]`, `[builtin-dsp]`, `[video-fx]`, `[state]`, `[perf]`
 - Ручная проверка Open `.veg`:
   ```text
-  build\OpenVegas.exe SAMPLES\example_project_with_video_and_audio.veg
+  build\Windows_MinGW-x64\OpenVegas.exe SAMPLES\example_project_with_video_and_audio.veg
   ```
+- FX sample: `SAMPLES/veg_project/project_big--buck-bunny_4x3-preview-reverse-fades-fx.veg`
 - Регресс UI: сравнить с `SAMPLES/veg_project/` и `SAMPLES/screenshots/` (если есть)
 - Скрипты анализа `.veg`: `SAMPLES/docs_veg/_analyze_*.py`
 
@@ -238,9 +256,10 @@ TODO в коде без записи в ISSUES — не оставлять.
 ## Безопасность и IP
 
 - Не встраивать и не распространять код/ассеты MAGIX Vegas под GPL
-- OFX/плагины Vegas — чужая IP; только путь сканирования stub
+- Внутренние FX Vegas — чужая IP; не LoadLibrary proprietary hosts
+- OFX/VST — чужие плагины по пользовательским путям; fail soft при crash
 - Валидировать пути при Open; missing media — warning, не crash
-- Не выполнять произвольный код из `.veg` (файл data-only)
+- Не выполнять произвольный код из `.veg` (файл data-only; VST/OFX — отдельные DLL пользователя)
 
 ---
 
@@ -248,20 +267,22 @@ TODO в коде без записи в ISSUES — не оставлять.
 
 - Рисовать только видимую область по мере роста сцен
 - `pixelsPerSecond` clamp (сейчас ~8…400)
-- Тяжёлый decode медиа / waveform / preview — асинхронно (когда появится FFmpeg/Qt Multimedia)
+- Тяжёлый decode медиа / waveform / preview — асинхронно / кэш (`src/video`, filmstrip)
 - Не парсить весь `.veg` повторно без нужды
+- Audio callback / video frame — держать бюджеты из plugins plan
 
 ---
 
 ## Обязательные действия при разработке
 
-1. Эталон UI → `SAMPLES/` (static HTML / screenshot) перед полировкой chrome  
+1. Эталон UI → `SAMPLES/veg_project/` / screenshot перед полировкой chrome  
 2. Новый `.cpp/.h` → **CMakeLists.txt и OpenVegas.pro**  
 3. Баг / stub / план → `ISSUES_AND_PLANS.md`  
 4. Существенная фича → `MARKDOWN/` (развёрнуто) + при необходимости `docs/` (кратко) + ссылка в README  
 5. Open `.veg` меняется → обновить `VEG_READER_V0.md` и `docs/VEG_OPEN.md`  
-6. Изменение правил → синхронизировать **`MARKDOWN/INIT.MD`** и **`.cursor/commands/init.md`**  
-7. Не трогать Cursor plan-файлы вне репозитория, если пользователь не просил  
+6. Audio/video/plugins стек меняется → обновить `PLAN_VIDEOAUDIOSTACK.md` / `PLAN_VIDEO-AUDIO-PLUGINS-STACK.md`  
+7. Изменение правил → синхронизировать **`MARKDOWN/INIT.MD`** и **`.cursor/commands/init.md`**  
+8. Не трогать Cursor plan-файлы вне репозитория, если пользователь не просил  
 
 ---
 
@@ -269,18 +290,21 @@ TODO в коде без записи в ISSUES — не оставлять.
 
 | Модуль | Ответственность |
 |--------|-----------------|
-| `MainWindow` | Shell, toolbars, open/demo, wiring диалогов |
+| `MainWindow` | Shell, transport, open/demo, wiring диалогов / Event FX |
 | `TimelineView` | Ruler, tracks, events, playhead, context menus |
-| `ProjectModel` | Состояние проекта |
-| `VegReader` | Импорт `.veg` v0 |
+| `ProjectModel` | Состояние проекта, FX slots, interchange apply |
+| `VegReader` | Импорт `.veg` (timings + Event FX + chunks) |
+| `AudioEngine` / graph / mixer | Playback clock, DSP chain, renderToWav |
+| `Vst2Host` / `Vst3Host` / `CompositePluginHost` | Audio plugin process + editors |
+| `OfxHost` | Video OFX discover/process + emulated |
+| `VideoCompositor` | Preview frames, Pan/Crop, Color, video FX chain |
+| `MediaEngine` | Offline render / FFmpeg encode |
 | `WelcomeDialog` | Старт / recent samples |
-| `IconFactory` | SVG icons |
-| `MenuBuilder` | Меню File/Edit/View/… |
-| `PluginScanner` | Stub OFX list |
-| `AudioPluginRegistry` / `AudioPluginScanner` | Builtin + VST1/VST2/VST3 discovery; Preferences → VST Effects |
-| `AudioPluginHost` | Null stub (no Steinberg SDK yet) |
+| `IconFactory` / `MenuBuilder` / Theme | Chrome |
+| `AudioEventFxDialog` / `VideoEventFxDialogExact` | Event FX UI (немодальные) |
+| `PluginScanner` / registry | Discovery OFX / VST / builtins |
 
-Детали порта и фазы: [`QT68_PORT_AND_VEG_OPEN.md`](QT68_PORT_AND_VEG_OPEN.md).
+Детали: [`QT68_PORT_AND_VEG_OPEN.md`](QT68_PORT_AND_VEG_OPEN.md), [`PLAN_VIDEOAUDIOSTACK.md`](PLAN_VIDEOAUDIOSTACK.md).
 
 ---
 

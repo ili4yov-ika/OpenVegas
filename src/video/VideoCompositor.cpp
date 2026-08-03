@@ -151,9 +151,9 @@ QImage VideoCompositor::compose(const ProjectModel &model, double t, const QSize
 
             QImage layer = applyPanCrop(src, pkf, fw, fh, sz.width(), sz.height(),
                                         pan.stretchToFillFrame, mask);
-            // Event FX color (Color Corrector / …) then track Color Grading.
-            applyVideoColorFxChain(&layer, ev.fxChain);
-            applyVideoColorFxChain(&layer, track.fxChain);
+            // Event then track FX (builtins + OFX / emulated).
+            applyVideoFxChain(&layer, ev.fxChain, eventLocal);
+            applyVideoFxChain(&layer, track.fxChain, mediaTime);
             applyTrackMotion(&painter, layer, motionKf, fw, fh, sz.width(), sz.height(), opacity);
             ++paintedCount;
         }

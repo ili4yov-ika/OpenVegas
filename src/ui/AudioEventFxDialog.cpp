@@ -38,6 +38,7 @@
 #include <QProgressBar>
 #include <QSizePolicy>
 #include <QFrame>
+#include <QTimer>
 #include <algorithm>
 #include <cmath>
 
@@ -324,6 +325,8 @@ AudioEventFxDialog::AudioEventFxDialog(QWidget *parent)
 {
     setObjectName(QStringLiteral("AudioEventFxDialog"));
     setWindowTitle(tr("Audio Event FX"));
+    setWindowFlags(Qt::Window | Qt::WindowMinMaxButtonsHint | Qt::WindowCloseButtonHint);
+    setWindowModality(Qt::NonModal);
     setMinimumSize(720, 520);
     resize(900, 640);
     buildUi();
@@ -435,11 +438,13 @@ void AudioEventFxDialog::buildUi()
 
 QString AudioEventFxDialog::formatSlotLabel(const FxSlot &s)
 {
+    const QString name =
+        (s.format == PluginFormat::Builtin) ? builtinFxDisplayName(s.displayName) : s.displayName;
     const QString fmt = formatName(s.format);
     if (fmt.isEmpty()) {
-        return s.displayName;
+        return name;
     }
-    return QStringLiteral("%1(%2)").arg(s.displayName, fmt);
+    return QStringLiteral("%1(%2)").arg(name, fmt);
 }
 
 void AudioEventFxDialog::setEvent(TrackEvent *ev)
@@ -514,6 +519,12 @@ QVector<FxSlot> *AudioEventFxDialog::chain()
 
 void AudioEventFxDialog::rebuildChain()
 {
+    if (QVector<FxSlot> *c = chain()) {
+        for (FxSlot &s : *c) {
+            normalizeBuiltinFxSlot(&s);
+        }
+        CompositePluginHost::instance().ensureChainLoaded(c);
+    }
     while (QLayoutItem *it = m_chainLay->takeAt(0)) {
         if (it->widget()) {
             it->widget()->deleteLater();
@@ -620,8 +631,12 @@ void AudioEventFxDialog::refreshViewport()
     }
 
     FxSlot &slot = (*c)[m_selected];
-    QWidget *page =
-        (slot.format == PluginFormat::Builtin) ? buildBuiltinEditor(slot) : buildVstPlaceholder(slot);
+    QWidget *page = nullptr;
+    if (slot.format == PluginFormat::Builtin) {
+        page = buildBuiltinEditor(slot);
+    } else {
+        page = buildVstEditorPage(slot);
+    }
     m_viewport->addWidget(page);
     m_viewport->setCurrentWidget(page);
 }
@@ -635,6 +650,12 @@ QWidget *AudioEventFxDialog::buildBuiltinEditor(FxSlot &slot)
     }
     if (n.contains(QLatin1String("chorus"), Qt::CaseInsensitive)) {
         return buildChorusEditor(slot);
+    }
+    if (n.contains(QLatin1String("reverb"), Qt::CaseInsensitive)) {
+        return buildReverbEditor(slot);
+    }
+    if (n.contains(QLatin1String("delay"), Qt::CaseInsensitive)) {
+        return buildDelayEditor(slot);
     }
     if (n.contains(QLatin1String("noise gate"), Qt::CaseInsensitive)
         || n.compare(QLatin1String("Noise Gate"), Qt::CaseInsensitive) == 0) {
@@ -654,6 +675,144 @@ QWidget *AudioEventFxDialog::buildBuiltinEditor(FxSlot &slot)
 QWidget *AudioEventFxDialog::buildColorGradingEditor(FxSlot &slot)
 {
     return new ColorGradingEditor(&slot, this);
+}
+
+QWidget *AudioEventFxDialog::buildDelayEditor(FxSlot &slot)
+{
+    FxSlot *slotPtr = &slot;
+    const QVariantMap p0 = loadParams(slot);
+
+    auto *page = new QWidget;
+    page->setObjectName(QStringLiteral("aefxBuiltinPage"));
+    auto *root = new QVBoxLayout(page);
+    root->setContentsMargins(0, 0, 0, 0);
+
+    auto *titleBar = new QWidget(page);
+    titleBar->setObjectName(QStringLiteral("aefxPluginTitleBar"));
+    auto *tbLay = new QHBoxLayout(titleBar);
+    tbLay->setContentsMargins(8, 4, 8, 4);
+    auto *title = new QLabel(slot.displayName, titleBar);
+    title->setObjectName(QStringLiteral("aefxPluginTitle"));
+    tbLay->addWidget(title);
+    tbLay->addStretch(1);
+    root->addWidget(titleBar);
+
+    auto *body = new QWidget(page);
+    body->setObjectName(QStringLiteral("aefxBuiltinBody"));
+    auto *bodyLay = new QVBoxLayout(body);
+    bodyLay->setContentsMargins(16, 16, 16, 16);
+    bodyLay->setSpacing(10);
+
+    auto addParam = [body, bodyLay, slotPtr, &p0](const QString &label, const QString &key,
+                                                  double def, double minV, double maxV, int decimals) {
+        auto *row = new QHBoxLayout();
+        auto *lab = new QLabel(label, body);
+        auto *sl = new QSlider(Qt::Horizontal, body);
+        sl->setObjectName(QStringLiteral("aefxHSlider"));
+        sl->setRange(0, 1000);
+        const double cur = mapGet(p0, key, def);
+        sl->setValue(int(std::lround((cur - minV) / (maxV - minV) * 1000.0)));
+        auto *spin = new QDoubleSpinBox(body);
+        spin->setObjectName(QStringLiteral("aefxSpin"));
+        spin->setRange(minV, maxV);
+        spin->setDecimals(decimals);
+        spin->setValue(cur);
+        spin->setFixedWidth(90);
+        connect(sl, &QSlider::valueChanged, body, [spin, minV, maxV, slotPtr, key](int v) {
+            const double x = minV + (maxV - minV) * (v / 1000.0);
+            spin->blockSignals(true);
+            spin->setValue(x);
+            spin->blockSignals(false);
+            setParam(slotPtr, key, x);
+        });
+        connect(spin, QOverload<double>::of(&QDoubleSpinBox::valueChanged), body,
+                [sl, minV, maxV, slotPtr, key](double x) {
+                    const int v = int(std::lround((x - minV) / (maxV - minV) * 1000.0));
+                    sl->blockSignals(true);
+                    sl->setValue(std::clamp(v, 0, 1000));
+                    sl->blockSignals(false);
+                    setParam(slotPtr, key, x);
+                });
+        row->addWidget(lab);
+        row->addWidget(sl, 1);
+        row->addWidget(spin);
+        bodyLay->addLayout(row);
+    };
+    addParam(tr("Delay (ms)"), QStringLiteral("delayMs"), 250.0, 1.0, 2000.0, 0);
+    addParam(tr("Feedback"), QStringLiteral("feedback"), 0.35, 0.0, 0.95, 2);
+    addParam(tr("Mix"), QStringLiteral("mix"), 0.4, 0.0, 1.0, 2);
+    bodyLay->addStretch(1);
+    root->addWidget(body, 1);
+    return page;
+}
+
+QWidget *AudioEventFxDialog::buildReverbEditor(FxSlot &slot)
+{
+    FxSlot *slotPtr = &slot;
+    const QVariantMap p0 = loadParams(slot);
+
+    auto *page = new QWidget;
+    page->setObjectName(QStringLiteral("aefxBuiltinPage"));
+    auto *root = new QVBoxLayout(page);
+    root->setContentsMargins(0, 0, 0, 0);
+
+    auto *titleBar = new QWidget(page);
+    titleBar->setObjectName(QStringLiteral("aefxPluginTitleBar"));
+    auto *tbLay = new QHBoxLayout(titleBar);
+    tbLay->setContentsMargins(8, 4, 8, 4);
+    auto *title = new QLabel(slot.displayName, titleBar);
+    title->setObjectName(QStringLiteral("aefxPluginTitle"));
+    tbLay->addWidget(title);
+    tbLay->addStretch(1);
+    root->addWidget(titleBar);
+
+    auto *body = new QWidget(page);
+    body->setObjectName(QStringLiteral("aefxBuiltinBody"));
+    auto *bodyLay = new QVBoxLayout(body);
+    bodyLay->setContentsMargins(16, 16, 16, 16);
+    bodyLay->setSpacing(10);
+
+    auto addParam = [body, bodyLay, slotPtr, &p0](const QString &label, const QString &key,
+                                                  double def, double minV, double maxV, int decimals) {
+        auto *row = new QHBoxLayout();
+        auto *lab = new QLabel(label, body);
+        auto *sl = new QSlider(Qt::Horizontal, body);
+        sl->setObjectName(QStringLiteral("aefxHSlider"));
+        sl->setRange(0, 1000);
+        const double cur = mapGet(p0, key, def);
+        sl->setValue(int(std::lround((cur - minV) / (maxV - minV) * 1000.0)));
+        auto *spin = new QDoubleSpinBox(body);
+        spin->setObjectName(QStringLiteral("aefxSpin"));
+        spin->setRange(minV, maxV);
+        spin->setDecimals(decimals);
+        spin->setValue(cur);
+        spin->setFixedWidth(90);
+        connect(sl, &QSlider::valueChanged, body, [spin, minV, maxV, slotPtr, key](int v) {
+            const double x = minV + (maxV - minV) * (v / 1000.0);
+            spin->blockSignals(true);
+            spin->setValue(x);
+            spin->blockSignals(false);
+            setParam(slotPtr, key, x);
+        });
+        connect(spin, QOverload<double>::of(&QDoubleSpinBox::valueChanged), body,
+                [sl, minV, maxV, slotPtr, key](double x) {
+                    const int v = int(std::lround((x - minV) / (maxV - minV) * 1000.0));
+                    sl->blockSignals(true);
+                    sl->setValue(std::clamp(v, 0, 1000));
+                    sl->blockSignals(false);
+                    setParam(slotPtr, key, x);
+                });
+        row->addWidget(lab);
+        row->addWidget(sl, 1);
+        row->addWidget(spin);
+        bodyLay->addLayout(row);
+    };
+    addParam(tr("Room size"), QStringLiteral("roomSize"), 0.55, 0.0, 1.0, 2);
+    addParam(tr("Damp"), QStringLiteral("damp"), 0.45, 0.0, 1.0, 2);
+    addParam(tr("Mix"), QStringLiteral("mix"), 0.35, 0.0, 1.0, 2);
+    bodyLay->addStretch(1);
+    root->addWidget(body, 1);
+    return page;
 }
 
 QWidget *AudioEventFxDialog::buildChorusEditor(FxSlot &slot)
@@ -1041,11 +1200,23 @@ QWidget *makePluginChrome(QWidget *page, const QString &title)
     auto *titleBar = new QWidget(page);
     titleBar->setObjectName(QStringLiteral("aefxPluginTitleBar"));
     auto *tbLay = new QHBoxLayout(titleBar);
-    tbLay->setContentsMargins(8, 4, 8, 4);
-    auto *lab = new QLabel(title, titleBar);
+    tbLay->setContentsMargins(14, 8, 14, 8);
+    tbLay->setSpacing(10);
+
+    auto *accent = new QFrame(titleBar);
+    accent->setObjectName(QStringLiteral("aefxTitleAccent"));
+    accent->setFixedSize(3, 18);
+
+    auto *lab = new QLabel(builtinFxDisplayName(title), titleBar);
     lab->setObjectName(QStringLiteral("aefxPluginTitle"));
-    tbLay->addWidget(lab);
+
+    auto *badge = new QLabel(QObject::tr("OpenVegas"), titleBar);
+    badge->setObjectName(QStringLiteral("aefxOpenVegasBadge"));
+
+    tbLay->addWidget(accent, 0, Qt::AlignVCenter);
+    tbLay->addWidget(lab, 0, Qt::AlignVCenter);
     tbLay->addStretch(1);
+    tbLay->addWidget(badge, 0, Qt::AlignVCenter);
     return titleBar;
 }
 
@@ -1066,13 +1237,13 @@ QWidget *AudioEventFxDialog::buildNoiseGateEditor(FxSlot &slot)
     auto *body = new QWidget(page);
     body->setObjectName(QStringLiteral("aefxBuiltinBody"));
     auto *bodyLay = new QHBoxLayout(body);
-    bodyLay->setContentsMargins(16, 14, 16, 14);
-    bodyLay->setSpacing(24);
+    bodyLay->setContentsMargins(20, 16, 20, 16);
+    bodyLay->setSpacing(28);
 
     // Threshold vertical fader (−Inf … 0 dB)
     {
         auto *col = new QVBoxLayout();
-        col->setSpacing(4);
+        col->setSpacing(6);
         auto *val = new QLabel(body);
         val->setObjectName(QStringLiteral("aefxFaderValue"));
         val->setAlignment(Qt::AlignCenter);
@@ -1091,7 +1262,7 @@ QWidget *AudioEventFxDialog::buildNoiseGateEditor(FxSlot &slot)
             updateVal(v);
             setParam(slotPtr, QStringLiteral("thresholdDb"), -60.0 * (v / 1000.0));
         });
-        auto *name = new QLabel(tr("Threshold level\n(-Inf. to 0 dB)"), body);
+        auto *name = new QLabel(tr("Threshold level\n(-Inf to 0 dB)"), body);
         name->setObjectName(QStringLiteral("aefxFaderLabel"));
         name->setAlignment(Qt::AlignCenter);
         col->addWidget(val);
@@ -1393,8 +1564,8 @@ QWidget *AudioEventFxDialog::buildTrackCompressorEditor(FxSlot &slot)
     auto *body = new QWidget(page);
     body->setObjectName(QStringLiteral("aefxBuiltinBody"));
     auto *bodyLay = new QVBoxLayout(body);
-    bodyLay->setContentsMargins(14, 12, 14, 12);
-    bodyLay->setSpacing(8);
+    bodyLay->setContentsMargins(16, 14, 16, 14);
+    bodyLay->setSpacing(10);
 
     auto addMeter = [&](const QString &caption, int fromDb, int /*toDb*/) {
         auto *lab = new QLabel(caption, body);
@@ -1574,8 +1745,9 @@ QWidget *AudioEventFxDialog::buildGenericBuiltinEditor(FxSlot &slot)
     return page;
 }
 
-QWidget *AudioEventFxDialog::buildVstPlaceholder(const FxSlot &slot)
+QWidget *AudioEventFxDialog::buildVstEditorPage(FxSlot &slot)
 {
+    FxSlot *slotPtr = &slot;
     auto *page = new QWidget;
     page->setObjectName(QStringLiteral("aefxVstPage"));
     auto *root = new QVBoxLayout(page);
@@ -1589,50 +1761,105 @@ QWidget *AudioEventFxDialog::buildVstPlaceholder(const FxSlot &slot)
     chLay->setSpacing(6);
     auto *logo = new QLabel(slot.displayName, chrome);
     logo->setObjectName(QStringLiteral("aefxVstChromeTitle"));
-    auto *preset = new QComboBox(chrome);
-    preset->setObjectName(QStringLiteral("aefxPresetCombo"));
-    preset->addItem(tr("Default"));
-    preset->setMinimumWidth(140);
+    auto *fmt = new QLabel(formatName(slot.format), chrome);
+    fmt->setObjectName(QStringLiteral("aefxVstFmt"));
     chLay->addWidget(logo);
+    chLay->addWidget(fmt);
     chLay->addStretch(1);
-    chLay->addWidget(preset);
-    chLay->addWidget(makeIconBtn(chrome, tr("Save"), IconFactory::svgSave()));
-    chLay->addWidget(makeIconBtn(chrome, tr("Undo"), IconFactory::svgUndo()));
-    chLay->addWidget(makeIconBtn(chrome, tr("Redo"), IconFactory::svgRedo()));
     root->addWidget(chrome);
 
-    auto *stage = new QWidget(page);
-    stage->setObjectName(QStringLiteral("aefxVstStage"));
-    auto *stageLay = new QVBoxLayout(stage);
-    stageLay->setAlignment(Qt::AlignCenter);
+    auto *status = new QLabel(page);
+    status->setObjectName(QStringLiteral("aefxVstHint"));
+    status->setWordWrap(true);
+    status->setAlignment(Qt::AlignLeft | Qt::AlignTop);
+    root->addWidget(status);
 
-    auto *name = new QLabel(slot.displayName, stage);
-    name->setObjectName(QStringLiteral("aefxVstName"));
-    name->setAlignment(Qt::AlignCenter);
-    QFont big = name->font();
-    big.setPointSize(big.pointSize() + 6);
-    big.setBold(true);
-    name->setFont(big);
+    auto *embed = new QWidget(page);
+    embed->setObjectName(QStringLiteral("aefxVstEmbed"));
+    embed->setMinimumSize(400, 280);
+    embed->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
+    auto *embedLay = new QVBoxLayout(embed);
+    embedLay->setContentsMargins(0, 0, 0, 0);
+    root->addWidget(embed, 1);
 
-    auto *fmt = new QLabel(formatName(slot.format), stage);
-    fmt->setObjectName(QStringLiteral("aefxVstFmt"));
-    fmt->setAlignment(Qt::AlignCenter);
+    auto *paramsHost = new QWidget(page);
+    paramsHost->setObjectName(QStringLiteral("aefxBuiltinBody"));
+    auto *paramsLay = new QVBoxLayout(paramsHost);
+    paramsLay->setContentsMargins(12, 8, 12, 8);
+    root->addWidget(paramsHost);
 
-    auto *hint = new QLabel(
-        tr("Native VST editor host is not connected yet.\n"
-           "The plug-in stays in the chain and can be bypassed."),
-        stage);
-    hint->setObjectName(QStringLiteral("aefxVstHint"));
-    hint->setAlignment(Qt::AlignCenter);
-    hint->setWordWrap(true);
+    const auto rebuildParams = [slotPtr, paramsHost, paramsLay]() {
+        while (QLayoutItem *it = paramsLay->takeAt(0)) {
+            if (it->widget()) {
+                it->widget()->deleteLater();
+            }
+            delete it;
+        }
+        auto &host = CompositePluginHost::instance();
+        const int n = host.parameterCount(slotPtr);
+        if (n <= 0) {
+            paramsHost->hide();
+            return;
+        }
+        paramsHost->show();
+        auto *title = new QLabel(QObject::tr("Parameters"), paramsHost);
+        paramsLay->addWidget(title);
+        const int showN = std::min(n, 24);
+        for (int i = 0; i < showN; ++i) {
+            QString name;
+            float mn = 0.f, mx = 1.f, step = 0.f;
+            if (!host.parameterInfo(slotPtr, i, &name, &mn, &mx, &step)) {
+                continue;
+            }
+            auto *row = new QHBoxLayout;
+            row->addWidget(new QLabel(name.isEmpty() ? QString::number(i) : name, paramsHost));
+            auto *sl = new QSlider(Qt::Horizontal, paramsHost);
+            sl->setRange(0, 1000);
+            const float v = host.getParameter(slotPtr, i);
+            sl->setValue(int(std::lround(std::clamp(double(v), 0.0, 1.0) * 1000.0)));
+            row->addWidget(sl, 1);
+            const int idx = i;
+            QObject::connect(sl, &QSlider::valueChanged, paramsHost, [slotPtr, idx](int x) {
+                CompositePluginHost::instance().setParameter(slotPtr, idx, float(x) / 1000.f);
+            });
+            paramsLay->addLayout(row);
+        }
+    };
 
-    stageLay->addStretch(1);
-    stageLay->addWidget(name);
-    stageLay->addWidget(fmt);
-    stageLay->addSpacing(12);
-    stageLay->addWidget(hint);
-    stageLay->addStretch(1);
-    root->addWidget(stage, 1);
+    QString err;
+    const bool loaded = CompositePluginHost::instance().ensureInstance(slotPtr, &err);
+    if (!loaded) {
+        status->setText(err.isEmpty()
+                            ? tr("Plug-in DLL not found. Add VST paths in Preferences → Plug-Ins.")
+                            : err);
+        status->show();
+        paramsHost->hide();
+        return page;
+    }
+
+    status->setText(tr("Loading native editor…"));
+    QTimer::singleShot(0, page, [slotPtr, embed, status, rebuildParams, page]() {
+        auto &host = CompositePluginHost::instance();
+        host.prepare(slotPtr, 48000.0, 512);
+        const bool opened = host.openEditor(slotPtr, embed);
+        if (opened) {
+            status->setText(tr("Native editor connected — audio is processed in the FX chain."));
+            embed->show();
+        } else {
+            embed->hide();
+            status->setText(
+                tr("Native GUI not available for this plug-in — use parameter sliders below. "
+                   "Audio is still processed when Play is active."));
+            rebuildParams();
+            if (host.parameterCount(slotPtr) <= 0) {
+                status->setText(
+                    tr("Native GUI not available and no automatable parameters exposed. "
+                       "Audio is still processed when Play is active."));
+            }
+        }
+        Q_UNUSED(page);
+    });
+
     return page;
 }
 
@@ -1642,7 +1869,7 @@ void AudioEventFxDialog::addPlugins()
     if (!c) {
         return;
     }
-    PluginChooserDialog dlg(nullptr, this);
+    PluginChooserDialog dlg(m_pluginScanner, this);
     dlg.setAudioMode(true);
     if (dlg.exec() != QDialog::Accepted) {
         return;

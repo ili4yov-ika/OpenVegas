@@ -1096,6 +1096,8 @@ void ContextMenuBuilder::showEventFxMenu(MainWindow *window, int eventId, const 
         window->refreshTimeline();
         if (isAudio) {
             window->onAudioEventFx(eventId);
+        } else {
+            window->onVideoEventFx(eventId);
         }
     });
 

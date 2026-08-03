@@ -1,5 +1,7 @@
 #include "video/ColorCorrectorApply.h"
 
+#include "plugins/OfxHost.h"
+
 #include <QDataStream>
 #include <QIODevice>
 
@@ -53,6 +55,22 @@ double mapGet(const QVariantMap &m, const QString &key, double def)
     return it->toDouble();
 }
 
+bool isEmulatedVideoFxName(const QString &displayName)
+{
+    const QString n = displayName.trimmed();
+    return n.compare(QLatin1String("Soften"), Qt::CaseInsensitive) == 0
+           || n.compare(QLatin1String("Blur"), Qt::CaseInsensitive) == 0
+           || n.contains(QLatin1String("soften"), Qt::CaseInsensitive)
+           || n.contains(QLatin1String("blur"), Qt::CaseInsensitive)
+           || n.contains(QLatin1String("chromablur"), Qt::CaseInsensitive)
+           || n.compare(QLatin1String("Invert"), Qt::CaseInsensitive) == 0
+           || n.contains(QLatin1String("invert"), Qt::CaseInsensitive)
+           || n.compare(QLatin1String("Sepia"), Qt::CaseInsensitive) == 0
+           || n.contains(QLatin1String("sepia"), Qt::CaseInsensitive)
+           || n.compare(QLatin1String("Gain"), Qt::CaseInsensitive) == 0
+           || n.endsWith(QLatin1String("Gain"), Qt::CaseInsensitive);
+}
+
 } // namespace
 
 ColorCorrectorParams colorCorrectorFromMap(const QVariantMap &m)
@@ -85,11 +103,25 @@ void colorCorrectorSaveToSlot(FxSlot *slot, const ColorCorrectorParams &p)
     saveParams(slot, colorCorrectorToMap(p));
 }
 
+bool isBrightnessContrastName(const QString &displayName)
+{
+    return displayName.trimmed().compare(QLatin1String("Brightness and Contrast"),
+                                         Qt::CaseInsensitive)
+           == 0;
+}
+
+bool isPanCropName(const QString &displayName)
+{
+    return displayName.trimmed().compare(QLatin1String("Pan/Crop"), Qt::CaseInsensitive) == 0;
+}
+
 bool isColorCorrectorName(const QString &displayName)
 {
     const QString n = displayName.trimmed();
+    if (isBrightnessContrastName(n)) {
+        return false;
+    }
     return n.compare(QLatin1String("Color Corrector"), Qt::CaseInsensitive) == 0
-           || n.compare(QLatin1String("Brightness and Contrast"), Qt::CaseInsensitive) == 0
            || n.contains(QLatin1String("colorcorrector"), Qt::CaseInsensitive);
 }
 
@@ -184,7 +216,6 @@ void applyColorGrading(QImage *img, const QVariantMap &params)
     const double invGy = 1.0 / std::max(0.05, gammaY * gammaR);
     const double invGg = 1.0 / std::max(0.05, gammaY * gammaG);
     const double invGb = 1.0 / std::max(0.05, gammaY * gammaB);
-    // Note: use per-channel gamma = gammaY * gamma{R,G,B} for simplicity.
 
     for (int y = 0; y < img->height(); ++y) {
         QRgb *line = reinterpret_cast<QRgb *>(img->scanLine(y));
@@ -216,21 +247,40 @@ void applyColorGrading(QImage *img, const QVariantMap &params)
     }
 }
 
-void applyVideoColorFxChain(QImage *img, const QVector<FxSlot> &chain)
+void applyVideoFxChain(QImage *img, const QVector<FxSlot> &chain, double timeSec)
 {
     if (!img || img->isNull()) {
         return;
     }
-    for (const FxSlot &slot : chain) {
-        if (slot.bypass) {
+    for (FxSlot slot : chain) {
+        if (slot.bypass || isPanCropName(slot.displayName)) {
             continue;
         }
         if (isColorCorrectorName(slot.displayName)) {
             applyColorCorrector(img, colorCorrectorFromSlot(slot));
-        } else if (isColorGradingName(slot.displayName)) {
+            continue;
+        }
+        if (isColorGradingName(slot.displayName)) {
             applyColorGrading(img, loadParams(slot));
+            continue;
+        }
+        if (isBrightnessContrastName(slot.displayName)) {
+            OfxHost::processEmulated(img, slot.displayName, loadParams(slot));
+            continue;
+        }
+        if (slot.format == PluginFormat::Ofx) {
+            OfxHost::instance().processSlot(slot, img, timeSec);
+            continue;
+        }
+        if (isEmulatedVideoFxName(slot.displayName)) {
+            OfxHost::processEmulated(img, slot.displayName, loadParams(slot));
         }
     }
+}
+
+void applyVideoColorFxChain(QImage *img, const QVector<FxSlot> &chain)
+{
+    applyVideoFxChain(img, chain, 0.0);
 }
 
 } // namespace openvegas

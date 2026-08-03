@@ -34,6 +34,7 @@ class TimelineView;
 class TrimmerWindow;
 class MixingConsoleWindow;
 class VideoEventFxDialogExact;
+class AudioEventFxDialog;
 class ExplorerPane;
 class VideoFxPane;
 class MediaGeneratorPane;
@@ -70,6 +71,8 @@ public slots:
     void onPreferences();
     void onCustomizeKeyboard();
     void onPluginChooser();
+    /** Open Video Event FX dialog for a video/still event (FX button / menu). */
+    void onVideoEventFx(int eventId);
     void onAudioEventFx(int eventId);
     void onTrackFx(int trackIndex);
     /** Add Color Grading to a video track FX chain and open Video Track FX. */
@@ -207,6 +210,7 @@ private:
     TrimmerWindow *m_trimmer = nullptr;
     MixingConsoleWindow *m_mixingConsole = nullptr;
     VideoEventFxDialogExact *m_videoEventFx = nullptr;
+    AudioEventFxDialog *m_audioEventFx = nullptr;
     ExplorerPane *m_explorer = nullptr;
     VideoFxPane *m_videoFx = nullptr;
     MediaGeneratorPane *m_mediaGen = nullptr;

@@ -8,6 +8,7 @@
 #include "model/ProjectModel.h"
 #include "plugins/AudioPluginHost.h"
 #include "plugins/AudioPluginTypes.h"
+#include "plugins/BuiltinAudioCatalog.h"
 
 #include <QAbstractButton>
 #include <QAbstractItemView>
@@ -295,9 +296,10 @@ public:
         btns->setContentsMargins(0, 0, 0, 0);
         m_muteBtn = makeStripBtn(this, QStringLiteral("M"), tr("Mute"), true);
         m_soloBtn = makeStripBtn(this, QStringLiteral("S"), tr("Solo"), true);
+        m_fxBtn = makeStripBtn(this, QStringLiteral("fx"), tr("Track FX"));
         btns->addWidget(m_muteBtn);
         btns->addWidget(m_soloBtn);
-        btns->addWidget(makeStripBtn(this, QStringLiteral("fx"), tr("Track FX")));
+        btns->addWidget(m_fxBtn);
         btns->addWidget(makeStripIconBtn(this, svgPhaseInvert(), tr("Phase Invert"), true));
         if (kind == Kind::AudioTrack) {
             btns->addWidget(makeStripIconBtn(this, IconFactory::svgRecord(), tr("Arm for Record"), true,
@@ -481,6 +483,21 @@ public:
         if (m_soloBtn) {
             QObject::connect(m_soloBtn, &QToolButton::toggled, owner, [commitUndo](bool) { commitUndo(); });
         }
+        if (m_fxBtn && m_kind == Kind::AudioTrack) {
+            QObject::connect(m_fxBtn, &QToolButton::clicked, owner, [this, owner]() {
+                if (m_trackId >= 0) {
+                    owner->openTrackFx(m_trackId);
+                }
+            });
+        } else if (m_fxBtn && m_kind == Kind::AssignableFx) {
+            // assignableFxId is set via setProperty on the strip after construction.
+            QObject::connect(m_fxBtn, &QToolButton::clicked, owner, [this, owner]() {
+                const int busId = property("assignableFxId").toInt();
+                if (busId > 0) {
+                    owner->openAssignableFx(busId);
+                }
+            });
+        }
     }
 
     void loadFromModel(const ProjectModel *project)
@@ -550,6 +567,7 @@ private:
     QSlider *m_pan = nullptr;
     QToolButton *m_muteBtn = nullptr;
     QToolButton *m_soloBtn = nullptr;
+    QToolButton *m_fxBtn = nullptr;
     QProgressBar *m_meterL = nullptr;
     QProgressBar *m_meterR = nullptr;
     QLabel *m_peakLabel = nullptr;
@@ -1053,6 +1071,31 @@ void MixingConsoleWindow::openAssignableFx(int busId)
     }
     emit documentEditCommitted(tr("Assignable FX"));
     rebuildStrips();
+}
+
+void MixingConsoleWindow::openTrackFx(int trackId)
+{
+    if (!m_project || trackId < 0) {
+        return;
+    }
+    Track *track = nullptr;
+    for (Track &t : m_project->tracks()) {
+        if (t.id == trackId && t.kind == TrackKind::Audio) {
+            track = &t;
+            break;
+        }
+    }
+    if (!track) {
+        return;
+    }
+    emit documentEditBegan();
+    if (track->fxChain.isEmpty()) {
+        track->fxChain = BuiltinAudioCatalog::defaultTrackFxChain();
+    }
+    AudioEventFxDialog dlg(this);
+    dlg.setTrack(track);
+    dlg.exec();
+    emit documentEditCommitted(tr("Track FX"));
 }
 
 void MixingConsoleWindow::rebuildStrips()

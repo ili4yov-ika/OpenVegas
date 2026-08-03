@@ -21,6 +21,11 @@ option(OPENVGAS_COPY_VEGAS_RUNTIME
     "Copy selected Vegas Pro 22 trees into build/vegas-runtime (gitignored)"
     OFF)
 set(OPENVGAS_VST3_SDK_PATH "" CACHE PATH "Path to Steinberg VST3 SDK (optional)")
+# Auto-detect vendored shallow clone when CACHE is empty.
+if(NOT OPENVGAS_VST3_SDK_PATH AND EXISTS "${CMAKE_SOURCE_DIR}/thirdparty/vst3sdk/pluginterfaces/vst/ivstaudioprocessor.h")
+    set(OPENVGAS_VST3_SDK_PATH "${CMAKE_SOURCE_DIR}/thirdparty/vst3sdk" CACHE PATH
+        "Path to Steinberg VST3 SDK (optional)" FORCE)
+endif()
 
     set(OPENVGAS_SOURCES
     src/app/main.cpp
@@ -200,6 +205,7 @@ add_executable(OpenVegas
 target_include_directories(OpenVegas PRIVATE
     ${CMAKE_SOURCE_DIR}/src
     ${CMAKE_SOURCE_DIR}/thirdparty
+    ${CMAKE_SOURCE_DIR}/thirdparty/openfx/include
     ${CMAKE_SOURCE_DIR}/thirdparty/vestige
     ${CMAKE_CURRENT_BINARY_DIR}
 )
@@ -209,14 +215,25 @@ target_link_libraries(OpenVegas PRIVATE Qt6::Widgets Qt6::Svg)
 if(OPENVGAS_AUDIO)
     target_compile_definitions(OpenVegas PRIVATE OPENVGAS_AUDIO=1)
 endif()
-if(OPENVGAS_VST3_SDK_PATH AND EXISTS "${OPENVGAS_VST3_SDK_PATH}")
+set(OPENVGAS_VST3_SDK_SOURCES "")
+if(OPENVGAS_VST3_SDK_PATH AND EXISTS "${OPENVGAS_VST3_SDK_PATH}/pluginterfaces/vst/ivstaudioprocessor.h")
+    set(OPENVGAS_HAS_VST3_SDK_INTERNAL 1)
     target_compile_definitions(OpenVegas PRIVATE OPENVGAS_HAS_VST3_SDK=1)
     target_include_directories(OpenVegas PRIVATE
         "${OPENVGAS_VST3_SDK_PATH}"
         "${OPENVGAS_VST3_SDK_PATH}/pluginterfaces"
     )
+    # Minimal IID symbols for lean host (headers-only process path; no full hosting stack).
+    list(APPEND OPENVGAS_VST3_SDK_SOURCES
+        "${OPENVGAS_VST3_SDK_PATH}/pluginterfaces/base/coreiids.cpp"
+        "${OPENVGAS_VST3_SDK_PATH}/pluginterfaces/base/funknown.cpp"
+        "${OPENVGAS_VST3_SDK_PATH}/public.sdk/source/common/commoniids.cpp"
+        "${OPENVGAS_VST3_SDK_PATH}/public.sdk/source/vst/vstinitiids.cpp"
+    )
+    target_sources(OpenVegas PRIVATE ${OPENVGAS_VST3_SDK_SOURCES})
     message(STATUS "VST3 SDK: ${OPENVGAS_VST3_SDK_PATH}")
 else()
+    set(OPENVGAS_HAS_VST3_SDK_INTERNAL 0)
     message(STATUS "VST3 SDK: not set — Vst3Host stub (pass-through). Set OPENVGAS_VST3_SDK_PATH for real host.")
 endif()
 
@@ -357,8 +374,11 @@ if(OPENVGAS_BUILD_TESTS)
 
     add_executable(openvegas_video_tests
         tests/test_video_preview.cpp
+        tests/test_video_fx_chain.cpp
         tests/stub_media_path_for_event.cpp
         src/audio/FadeCurves.cpp
+        src/plugins/OfxHost.cpp
+        src/plugins/PluginScanner.cpp
         src/video/VideoKeyframeEval.cpp
         src/video/PanCropApply.cpp
         src/video/TrackMotionApply.cpp
@@ -372,6 +392,7 @@ if(OPENVGAS_BUILD_TESTS)
     target_include_directories(openvegas_video_tests PRIVATE
         ${CMAKE_SOURCE_DIR}/src
         ${CMAKE_SOURCE_DIR}/thirdparty
+        ${CMAKE_SOURCE_DIR}/thirdparty/openfx/include
     )
     target_link_libraries(openvegas_video_tests PRIVATE
         Catch2::Catch2WithMain
@@ -399,6 +420,7 @@ if(OPENVGAS_BUILD_TESTS)
         tests/test_ofx_host.cpp
         tests/test_vst3_host.cpp
         tests/test_project_interchange.cpp
+        tests/test_plugin_state.cpp
         src/io/FFmpegEncoder.cpp
         src/io/FFmpegStreamDecoder.cpp
         src/io/MediaFilmstripCache.cpp
@@ -414,6 +436,7 @@ if(OPENVGAS_BUILD_TESTS)
         src/plugins/OfxHost.cpp
         src/plugins/AudioPluginScanner.cpp
         src/audio/Vst3Host.cpp
+        src/audio/BuiltinDsp.cpp
         src/audio/FadeCurves.cpp
         src/video/VideoKeyframeEval.cpp
         src/io/RenderTemplateCatalog.cpp
@@ -421,6 +444,7 @@ if(OPENVGAS_BUILD_TESTS)
     target_include_directories(openvegas_media_tests PRIVATE
         ${CMAKE_SOURCE_DIR}/src
         ${CMAKE_SOURCE_DIR}/thirdparty
+        ${CMAKE_SOURCE_DIR}/thirdparty/openfx/include
         ${CMAKE_SOURCE_DIR}/thirdparty/vestige
     )
     target_link_libraries(openvegas_media_tests PRIVATE
@@ -429,6 +453,14 @@ if(OPENVGAS_BUILD_TESTS)
         Qt6::Gui
         Qt6::Widgets
     )
+    if(OPENVGAS_HAS_VST3_SDK_INTERNAL)
+        target_compile_definitions(openvegas_media_tests PRIVATE OPENVGAS_HAS_VST3_SDK=1)
+        target_include_directories(openvegas_media_tests PRIVATE
+            "${OPENVGAS_VST3_SDK_PATH}"
+            "${OPENVGAS_VST3_SDK_PATH}/pluginterfaces"
+        )
+        target_sources(openvegas_media_tests PRIVATE ${OPENVGAS_VST3_SDK_SOURCES})
+    endif()
     if(MSVC)
         target_compile_options(openvegas_media_tests PRIVATE /W4 /permissive-)
     endif()
@@ -436,4 +468,36 @@ if(OPENVGAS_BUILD_TESTS)
         target_link_libraries(openvegas_media_tests PRIVATE ole32 shell32 uuid user32 gdi32)
     endif()
     add_test(NAME openvegas_media_tests COMMAND openvegas_media_tests)
+
+    # Minimal OFX Gain filter fixture for host process tests.
+    add_library(ov_gain_ofx MODULE tests/fixtures/plugins/ov_gain_ofx.cpp)
+    set_target_properties(ov_gain_ofx PROPERTIES
+        AUTOMOC OFF
+        AUTOUIC OFF
+        AUTORCC OFF
+    )
+    target_include_directories(ov_gain_ofx PRIVATE
+        ${CMAKE_SOURCE_DIR}/thirdparty/openfx/include
+    )
+    set(_ov_ofx_fixture_dir "${CMAKE_BINARY_DIR}/tests/fixtures/plugins")
+    set_target_properties(ov_gain_ofx PROPERTIES
+        PREFIX ""
+        OUTPUT_NAME "Gain"
+        SUFFIX ".ofx"
+        RUNTIME_OUTPUT_DIRECTORY "${_ov_ofx_fixture_dir}"
+        LIBRARY_OUTPUT_DIRECTORY "${_ov_ofx_fixture_dir}"
+        ARCHIVE_OUTPUT_DIRECTORY "${_ov_ofx_fixture_dir}"
+    )
+    foreach(_cfg Debug Release RelWithDebInfo MinSizeRel)
+        set_target_properties(ov_gain_ofx PROPERTIES
+            RUNTIME_OUTPUT_DIRECTORY_${_cfg} "${_ov_ofx_fixture_dir}"
+            LIBRARY_OUTPUT_DIRECTORY_${_cfg} "${_ov_ofx_fixture_dir}"
+            ARCHIVE_OUTPUT_DIRECTORY_${_cfg} "${_ov_ofx_fixture_dir}"
+        )
+    endforeach()
+    file(TO_CMAKE_PATH "${_ov_ofx_fixture_dir}" _ov_ofx_fixture_dir_cmake)
+    target_compile_definitions(openvegas_media_tests PRIVATE
+        OPENVGAS_OFX_FIXTURE_DIR="${_ov_ofx_fixture_dir_cmake}"
+    )
+    add_dependencies(openvegas_media_tests ov_gain_ofx)
 endif()

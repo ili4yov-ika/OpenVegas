@@ -37,6 +37,10 @@ public:
     /** Mirror Master Bus Downmix / Dim buttons (mode: 0=Surround, 1=Stereo, 2=Mono). */
     void syncMonitorButtons(int downmixMode, bool dimOutput);
 
+    /** Open Audio Track FX / Assignable FX editors (also used by strip buttons). */
+    void openAssignableFx(int busId);
+    void openTrackFx(int trackId);
+
 signals:
     /** Emitted after project track list changes from this window. */
     void tracksChanged();
@@ -62,7 +66,6 @@ private:
     void insertAssignableFx();
     void insertBus();
     void insertInputBus();
-    void openAssignableFx(int busId);
     MixerChannelStrip *addStrip(const QString &title, const QString &subtitle, const QString &route,
                                 const QColor &swatch, int kind, int trackNumber = 0);
     int stripIndexAtX(int x) const;

@@ -26,6 +26,8 @@ class QDragLeaveEvent;
 
 namespace openvegas {
 
+class PluginScanner;
+
 /** One node in the Vegas-style horizontal FX chain (draggable to reorder). */
 class FxChainNodeWidget : public QWidget {
     Q_OBJECT
@@ -85,13 +87,16 @@ public:
     /** Select chain node by display name (case-insensitive); no-op if missing. */
     void selectByName(const QString &displayName);
     Mode mode() const { return m_mode; }
+    /** Optional OFX/VST path scanner for Plug-In Chooser (fx+). */
+    void setPluginScanner(PluginScanner *scanner) { m_pluginScanner = scanner; }
+    /** Open Plug-In Chooser and append selected plugs (same as fx+). */
+    void addPlugins();
 
 private:
     void buildUi();
     void rebuildChain();
     void selectPlugin(int index);
     void refreshViewport();
-    void addPlugins();
     void removeSelected();
     void setBypass(int index, bool bypass);
     void movePlugin(int from, int insertBefore);
@@ -106,16 +111,19 @@ private:
     QWidget *buildBuiltinEditor(FxSlot &slot);
     QWidget *buildColorGradingEditor(FxSlot &slot);
     QWidget *buildChorusEditor(FxSlot &slot);
+    QWidget *buildDelayEditor(FxSlot &slot);
+    QWidget *buildReverbEditor(FxSlot &slot);
     QWidget *buildNoiseGateEditor(FxSlot &slot);
     QWidget *buildTrackEqEditor(FxSlot &slot);
     QWidget *buildTrackCompressorEditor(FxSlot &slot);
     QWidget *buildGenericBuiltinEditor(FxSlot &slot);
-    QWidget *buildVstPlaceholder(const FxSlot &slot);
+    QWidget *buildVstEditorPage(FxSlot &slot);
 
     Mode m_mode = Mode::Event;
     TrackEvent *m_event = nullptr;
     Track *m_track = nullptr;
     QVector<FxSlot> *m_chain = nullptr;
+    PluginScanner *m_pluginScanner = nullptr;
 
     QLabel *m_eventIcon = nullptr;
     QLabel *m_eventName = nullptr;

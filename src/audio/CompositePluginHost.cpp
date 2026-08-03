@@ -2,11 +2,15 @@
 
 #include "audio/BuiltinDsp.h"
 #include "audio/Vst3Host.h"
+#include "plugins/AudioPluginScanner.h"
 
+#include <QFileInfo>
 #include <QHash>
 #include <QMessageBox>
+#include <QRegularExpression>
 #include <QWidget>
 
+#include <algorithm>
 #include <memory>
 
 namespace openvegas {
@@ -186,6 +190,134 @@ QByteArray CompositePluginHost::getState(const FxSlot *slot) const
 bool CompositePluginHost::setState(FxSlot *slot, const QByteArray &state)
 {
     return hostFor(slot)->setState(slot, state);
+}
+
+AudioPluginDesc CompositePluginHost::resolveDesc(const FxSlot &slot)
+{
+    AudioPluginDesc d;
+    d.name = slot.displayName;
+    d.format = slot.format;
+    d.id = slot.pluginId;
+
+    QString path;
+    const int colon = slot.pluginId.indexOf(QLatin1Char(':'));
+    if (colon >= 0
+        && (slot.pluginId.startsWith(QLatin1String("vst1:"))
+            || slot.pluginId.startsWith(QLatin1String("vst2:"))
+            || slot.pluginId.startsWith(QLatin1String("vst3:")))) {
+        path = slot.pluginId.mid(colon + 1);
+    } else if (QFileInfo::exists(slot.pluginId)
+               && (slot.pluginId.endsWith(QLatin1String(".dll"), Qt::CaseInsensitive)
+                   || slot.pluginId.endsWith(QLatin1String(".vst3"), Qt::CaseInsensitive))) {
+        path = slot.pluginId;
+    }
+    if (!path.isEmpty() && QFileInfo::exists(path)) {
+        d.path = path;
+        return d;
+    }
+
+    // Strip Vegas-style " (VST2, 64 Bit)" already handled at import; fuzzy-match scanner.
+    QString want = slot.displayName.trimmed();
+    static const QRegularExpression vstTag(
+        QStringLiteral(R"([\t ]*\((VST[123]?|OFX)[^)]*\)\s*$)"),
+        QRegularExpression::CaseInsensitiveOption);
+    want.replace(vstTag, QString());
+    want = want.trimmed();
+
+    AudioPluginScanner scanner;
+    QStringList v1, v2, v3;
+    AudioPluginScanner::loadPathsFromSettings(&v1, &v2, &v3);
+    scanner.setVst1Paths(v1.isEmpty() ? AudioPluginScanner::defaultVst1Roots() : v1);
+    scanner.setVst2Paths(v2.isEmpty() ? AudioPluginScanner::defaultVst2Roots() : v2);
+    scanner.setVst3Paths(v3.isEmpty() ? AudioPluginScanner::defaultVst3Roots() : v3);
+    const QVector<AudioPluginDesc> all = scanner.scan();
+
+    AudioPluginDesc best;
+    int bestScore = 0;
+    for (const AudioPluginDesc &cand : all) {
+        if (slot.format == PluginFormat::Vst3 && cand.format != PluginFormat::Vst3) {
+            continue;
+        }
+        if ((slot.format == PluginFormat::Vst1 || slot.format == PluginFormat::Vst2)
+            && cand.format != PluginFormat::Vst1 && cand.format != PluginFormat::Vst2) {
+            continue;
+        }
+        if (slot.format == PluginFormat::Vst1 && cand.format == PluginFormat::Vst2) {
+            // allow VST2 for VST1 tag
+        }
+        const QString cn = cand.name.trimmed();
+        int score = 0;
+        if (cn.compare(want, Qt::CaseInsensitive) == 0) {
+            score = 100;
+        } else if (cn.contains(want, Qt::CaseInsensitive) || want.contains(cn, Qt::CaseInsensitive)) {
+            score = 50 + int(std::min(cn.size(), want.size()));
+        }
+        if (score > bestScore) {
+            bestScore = score;
+            best = cand;
+        }
+    }
+    if (bestScore > 0) {
+        return best;
+    }
+    d.path = path;
+    return d;
+}
+
+bool CompositePluginHost::ensureInstance(FxSlot *slot, QString *errorOut)
+{
+    if (!slot) {
+        return false;
+    }
+    ensureFxHostKey(slot);
+    if (slot->format == PluginFormat::Builtin || slot->format == PluginFormat::Ofx) {
+        return true;
+    }
+
+    AudioPluginDesc d = resolveDesc(*slot);
+    if (d.path.isEmpty() || !QFileInfo::exists(d.path)) {
+        const QString msg =
+            QObject::tr("Could not find plug-in DLL for \"%1\". "
+                        "Add the VST/VST3 folder in Preferences → Plug-Ins.")
+                .arg(slot->displayName);
+        if (errorOut) {
+            *errorOut = msg;
+        }
+        return false;
+    }
+    d.format = slot->format;
+    if (d.format == PluginFormat::Vst1) {
+        d.format = PluginFormat::Vst2; // load via Vst2Host
+    }
+    if (d.name.isEmpty()) {
+        d.name = slot->displayName;
+    }
+
+    const QByteArray state = slot->state;
+    const bool bypass = slot->bypass;
+    const QString name = slot->displayName;
+    const QString key = slot->hostKey;
+    const bool ok = createInstance(d, slot);
+    slot->hostKey = key;
+    slot->state = state;
+    slot->bypass = bypass;
+    if (!name.isEmpty()) {
+        slot->displayName = name;
+    }
+    if (!ok && errorOut) {
+        *errorOut = QObject::tr("Failed to load \"%1\" from %2").arg(name, d.path);
+    }
+    return ok;
+}
+
+void CompositePluginHost::ensureChainLoaded(QVector<FxSlot> *chain)
+{
+    if (!chain) {
+        return;
+    }
+    for (FxSlot &slot : *chain) {
+        ensureInstance(&slot, nullptr);
+    }
 }
 
 } // namespace openvegas

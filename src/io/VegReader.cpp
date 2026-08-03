@@ -12,6 +12,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <climits>
 #include <cstring>
 
 namespace openvegas {
@@ -64,6 +65,43 @@ FrameSizeCandidate scanFrameSize(const QByteArray &data)
         }
     }
     return {1920, 1080};
+}
+
+QByteArray utf16LeBytes(const QString &s)
+{
+    QByteArray out;
+    out.resize(s.size() * 2);
+    for (int i = 0; i < s.size(); ++i) {
+        const ushort c = s.at(i).unicode();
+        out[i * 2] = char(c & 0xff);
+        out[i * 2 + 1] = char((c >> 8) & 0xff);
+    }
+    return out;
+}
+
+/** Decode a UTF-16LE C-string starting at `bytePos` (must point at first char). */
+QString decodeUtf16zAt(const QByteArray &data, int bytePos, int maxChars = 256)
+{
+    QString s;
+    const uchar *base = reinterpret_cast<const uchar *>(data.constData());
+    for (int n = 0; bytePos + 1 < data.size() && n < maxChars; ++n, bytePos += 2) {
+        const ushort c = qFromLittleEndian<ushort>(base + bytePos);
+        if (c == 0) {
+            break;
+        }
+        if (!isPrintableUtf16Char(c) && c != ushort('{') && c != ushort('}')
+            && c != ushort(':') && c != ushort('.')) {
+            // Allow typical Svfx id punctuation already covered; stop on junk.
+            if (c < 32) {
+                break;
+            }
+        }
+        s.append(QChar(c));
+        if (c == ushort('}')) {
+            break;
+        }
+    }
+    return s;
 }
 
 } // namespace
@@ -190,7 +228,6 @@ void VegReader::parseUtf16Metadata(const QByteArray &data, VegOpenResult *result
     QSet<QString> seenMedia;
     QSet<QString> seenLabels;
     QSet<QString> seenTrackFx;
-    QSet<QString> seenEventFx;
 
     const QStringList utf16 = extractUtf16Strings(data, 4);
     for (const QString &s : utf16) {
@@ -272,18 +309,7 @@ void VegReader::parseUtf16Metadata(const QByteArray &data, VegOpenResult *result
             }
         }
 
-        if (s.startsWith(QLatin1String("{Svfx:"), Qt::CaseInsensitive)
-            || s.startsWith(QLatin1String("OFX:"), Qt::CaseInsensitive)) {
-            // Track Color Grading is handled by parseColorGrading — not event FX.
-            if (s.contains(QLatin1String("colorgrading"), Qt::CaseInsensitive)) {
-                continue;
-            }
-            if (!seenEventFx.contains(s)) {
-                seenEventFx.insert(s);
-                result->eventFxNames.push_back(s);
-            }
-            continue;
-        }
+        // Video Event FX (`{Svfx:…}` / OFX XML) — recovered in recoverVideoEventFxNames.
 
         // Event / take labels (docs_veg: sample_for_project_* correlating with timeline)
         const bool sampleLabel =
@@ -404,9 +430,120 @@ void VegReader::parseUtf16Metadata(const QByteArray &data, VegOpenResult *result
         }
     }
 
+    recoverVideoEventFxNames(data, result);
+
     if (result->mediaPaths.isEmpty()) {
         result->warnings << QStringLiteral(
             "No media file paths found in .veg (empty pool or unsupported layout).");
+    }
+}
+
+void VegReader::recoverVideoEventFxNames(const QByteArray &data, VegOpenResult *result)
+{
+    /*
+     * Vegas stores Video Event FX as `{Svfx:pluginId}` plus, for some VelvetMatter
+     * plugs, ASCII OFX XML (`<Glint>…`) without a matching Svfx string.
+     *
+     * Magix AI (e.g. `{Svfx:de.magix:autoframe}`) often appears before `CountEventFXs`
+     * as media/project AI reframe — not in the Video Event FX chain (Pan/Crop + OFX).
+     *
+     * Orphan Soft Contrast state can sit after a mismatched `{Svfx:…:sepia}` (`<Softlight>`
+     * XML + «Soft Moderate Contrast»); Vegas Event FX UI does not list that as Sepia.
+     */
+    result->eventFxNames.clear();
+
+    const QByteArray countMarker = utf16LeBytes(QStringLiteral("CountEventFXs"));
+    const int countPos = data.indexOf(countMarker);
+    const int regionStart = countPos >= 0 ? countPos : 0;
+
+    struct Item {
+        int pos = 0;
+        QString raw;
+        QString key;
+    };
+    QVector<Item> items;
+
+    const QByteArray svfxPrefix = utf16LeBytes(QStringLiteral("{Svfx:"));
+    const QByteArray ofxPrefix = utf16LeBytes(QStringLiteral("OFX:"));
+
+    auto pluginKey = [](QString raw) {
+        raw = raw.trimmed();
+        if (raw.startsWith(QLatin1String("{Svfx:"), Qt::CaseInsensitive)) {
+            const int colon = raw.indexOf(QLatin1Char(':'));
+            const int end = raw.indexOf(QLatin1Char('}'));
+            if (colon >= 0) {
+                raw = raw.mid(colon + 1, end > colon ? end - colon - 1 : -1);
+            }
+        } else if (raw.startsWith(QLatin1String("OFX:"), Qt::CaseInsensitive)) {
+            raw = raw.mid(4);
+        }
+        return raw.trimmed().toLower();
+    };
+
+    auto pushUnique = [&](int pos, const QString &raw) {
+        const QString key = pluginKey(raw);
+        if (key.isEmpty()) {
+            return;
+        }
+        for (const Item &it : items) {
+            if (it.key == key) {
+                return;
+            }
+        }
+        items.push_back(Item{pos, raw, key});
+    };
+
+    auto scanPrefixed = [&](const QByteArray &prefix) {
+        int pos = 0;
+        while (true) {
+            pos = data.indexOf(prefix, pos);
+            if (pos < 0) {
+                break;
+            }
+            const QString raw = decodeUtf16zAt(data, pos);
+            pos += qMax(2, raw.size() * 2);
+            if (raw.size() < 5) {
+                continue;
+            }
+            if (raw.contains(QLatin1String("colorgrading"), Qt::CaseInsensitive)) {
+                continue;
+            }
+            // Magix AI Auto Frame / Colorization / … ≠ Video Event FX chain.
+            if (raw.contains(QLatin1String("de.magix:"), Qt::CaseInsensitive)) {
+                continue;
+            }
+            if (countPos >= 0 && pos - raw.size() * 2 < countPos) {
+                continue;
+            }
+            // `{Svfx:…:sepia}` followed by Soft Contrast `<Softlight>` XML → not Sepia.
+            if (pluginKey(raw).contains(QLatin1String("sepia"))) {
+                const int after = pos;
+                const int soft = data.indexOf("<Softlight", after);
+                const int nextSvfx = data.indexOf(svfxPrefix, after);
+                if (soft >= 0 && soft < after + 5000
+                    && (nextSvfx < 0 || soft < nextSvfx)) {
+                    continue;
+                }
+            }
+            pushUnique(pos - raw.size() * 2, raw);
+        }
+    };
+    scanPrefixed(svfxPrefix);
+    scanPrefixed(ofxPrefix);
+
+    // Glint often has no `{Svfx:…glint…}` — only `<Glint xmlns=…>` keyframe XML.
+    {
+        const int glintPos = data.indexOf("<Glint", regionStart);
+        if (glintPos >= 0) {
+            pushUnique(glintPos,
+                       QStringLiteral("{Svfx:com.vegascreativesoftware:glintvelvetmatter}"));
+        }
+    }
+
+    std::sort(items.begin(), items.end(),
+              [](const Item &a, const Item &b) { return a.pos < b.pos; });
+    for (const Item &it : items) {
+        result->eventFxNames.push_back(it.raw);
     }
 }
 
@@ -658,6 +795,7 @@ VegOpenResult VegReader::open(const QString &path, QString *error)
     parseTrackMotion(data, &result);
     parsePanCrop(data, &result);
     parseColorGrading(data, &result);
+    parseFxStateChunks(data, &result);
     assignEventNames(&result);
 
     return result;
@@ -1170,6 +1308,130 @@ void VegReader::parseColorGrading(const QByteArray &data, VegOpenResult *result)
     }
     if (curve.size() >= 2) {
         result->colorGradingParams.insert(QStringLiteral("curve.rgb"), curve);
+    }
+}
+
+void VegReader::parseFxStateChunks(const QByteArray &data, VegOpenResult *result)
+{
+    if (!result || data.size() < 64) {
+        return;
+    }
+    const uchar *base = reinterpret_cast<const uchar *>(data.constData());
+    const int n = data.size();
+
+    auto readBe32 = [](const uchar *p) -> qint32 {
+        return qint32((quint32(p[0]) << 24) | (quint32(p[1]) << 16) | (quint32(p[2]) << 8)
+                      | quint32(p[3]));
+    };
+
+    struct ChunkHit {
+        int offset = 0;
+        int length = 0;
+    };
+    QVector<ChunkHit> hits;
+    for (int i = 0; i + 8 <= n; ++i) {
+        if (base[i] != 'C' || base[i + 1] != 'c' || base[i + 2] != 'n' || base[i + 3] != 'K') {
+            continue;
+        }
+        const qint32 byteSize = readBe32(base + i + 4);
+        int len = 0;
+        if (byteSize > 0 && byteSize < n && i + 8 + byteSize <= n) {
+            // Standard VST bank/program: byteSize is size after the size field.
+            len = 8 + byteSize;
+        } else if (i + 60 <= n) {
+            const char m0 = char(base[i + 8]);
+            const char m1 = char(base[i + 9]);
+            const char m2 = char(base[i + 10]);
+            const char m3 = char(base[i + 11]);
+            const bool isFpCh = (m0 == 'F' && m1 == 'P' && m2 == 'C' && m3 == 'h');
+            const bool isFxCk = (m0 == 'F' && m1 == 'x' && m2 == 'C' && m3 == 'k');
+            if (isFpCh) {
+                const qint32 chunkSize = readBe32(base + i + 56);
+                if (chunkSize > 0 && chunkSize < 8 * 1024 * 1024 && i + 60 + chunkSize <= n) {
+                    len = 60 + chunkSize;
+                }
+            } else if (isFxCk) {
+                // Param program — extend to next CcnK or cap.
+                int end = n;
+                for (int j = i + 12; j + 4 <= n; ++j) {
+                    if (base[j] == 'C' && base[j + 1] == 'c' && base[j + 2] == 'n'
+                        && base[j + 3] == 'K') {
+                        end = j;
+                        break;
+                    }
+                }
+                len = std::min(end - i, 64 * 1024);
+            }
+        }
+        if (len >= 60) {
+            hits.push_back({i, len});
+            i += len - 1;
+        }
+    }
+    if (hits.isEmpty()) {
+        return;
+    }
+
+    // Candidate FX names from UTF-16 recovery (audio event FX / track FX / assignable).
+    QStringList names = result->audioEventFxNames;
+    names += result->trackFxNames;
+    names += result->mixerAssignableFxPlugins;
+    names += result->eventFxNames;
+    auto cleanName = [](QString s) -> QString {
+        // Strip " (VST2, 64 Bit)" style suffixes for matching.
+        const int paren = s.indexOf(QLatin1Char('('));
+        if (paren > 0) {
+            s = s.left(paren).trimmed();
+        }
+        if (s.startsWith(QLatin1String("VEGAS Track "), Qt::CaseInsensitive)) {
+            s = s.mid(12).trimmed();
+        }
+        return s;
+    };
+
+    auto toUtf16Le = [](const QString &s) -> QByteArray {
+        QByteArray n;
+        n.resize(s.size() * 2);
+        for (int i = 0; i < s.size(); ++i) {
+            const ushort c = s.at(i).unicode();
+            n[i * 2] = char(c & 0xFF);
+            n[i * 2 + 1] = char((c >> 8) & 0xFF);
+        }
+        return n;
+    };
+
+    for (const QString &raw : names) {
+        const QString name = cleanName(raw);
+        if (name.size() < 2) {
+            continue;
+        }
+        const QByteArray needle = toUtf16Le(name);
+        int pos = 0;
+        int bestDelta = INT_MAX;
+        int bestHit = -1;
+        while (true) {
+            const int at = data.indexOf(needle, pos);
+            if (at < 0) {
+                break;
+            }
+            for (int hi = 0; hi < hits.size(); ++hi) {
+                const int delta = hits[hi].offset - at;
+                if (delta >= 0 && delta < bestDelta && delta < 4096) {
+                    bestDelta = delta;
+                    bestHit = hi;
+                }
+            }
+            pos = at + needle.size();
+        }
+        if (bestHit >= 0) {
+            const ChunkHit &h = hits[bestHit];
+            result->fxStateChunks.insert(name.toLower(), data.mid(h.offset, h.length));
+        }
+    }
+
+    if (!result->fxStateChunks.isEmpty()) {
+        result->warnings << QStringLiteral("Recovered %1 FX state chunk(s) (best-effort CcnK).")
+                                .arg(result->fxStateChunks.size());
     }
 }
 

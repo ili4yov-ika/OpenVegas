@@ -234,11 +234,12 @@ Interchange (экспорт 2026-08-02 ≈03:48):
 | 2 | AUDIO | BBB mp4 | 0 | **232.7833 s** | 0 | **36.595** / **0.010** s | paired audio (fade-out короткий) |
 | 3 | AUDIO | `sample_for_project_audio.wav` | **230.838 s** | **24.100 s** | **8.191 s** | **1.945** / **0.010** s | **reversed** SubClip (in-point 8.191) + **loop** cycle META **10.285 s**; первая засечка на remaining **~2.09 s** |
 
-UTF-16 Video Event FX: `{Svfx:de.magix:autoframe}`, `{Svfx:com.vegascreativesoftware:chromablur}`, `{Svfx:com.vegascreativesoftware:sepia}` (+ preset «Soft Moderate Contrast»).  
+Video Event FX (как в Vegas Video Event FX): **Pan/Crop**, **Chroma Blur** (`{Svfx:…:chromablur}`), **Glint / Мерцание** (OFX XML `<Glint>`, preset Sparkle; без отдельной `{Svfx:…glint…}`).  
+В бинарнике также есть Magix AI `{Svfx:de.magix:autoframe}` (4×3 reframe, **не** Event FX) и хвост Soft Contrast (`<Softlight>` / «Soft Moderate Contrast» у ошибочного `{Svfx:…:sepia}`) — OpenVegas их в цепочку event FX не включает.  
 Audio Event FX (на wav): FabFilter Pro-C 2 (VST2), Fresh Air (VST2), Auto-Key (VST3).  
 Track FX (audio): VEGAS Track Noise Gate / EQ / Compressor.
 
-OpenVegas: reverse SubClip — `source = cycle - fmod(StreamStart+local)`; cycle = META length; video/audio Event FX как выше.
+OpenVegas: reverse SubClip — `source = cycle - fmod(StreamStart+local)`; cycle = META length; video Event FX = Chroma Blur + Glint.
 
 Sidecar: **`edl-text-file/…_reverse-fades-fx.txt`**.
 

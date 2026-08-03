@@ -13,6 +13,22 @@
 
 ---
 
+## Статус на 2026-08-03
+
+| Тема | Статус |
+|------|--------|
+| Qt 6.8 / MinGW / MSVC kit | Работает; предпочтительно `build/Windows_MinGW-x64` |
+| Open `.veg` + Project Media + timeline | **Done** (v1 timings + Event FX recovery) |
+| Video Preview compositor | **Done** MVP (`src/video/*`) |
+| Audio / Builtin / VST1–3 / OFX | **Done** lean; VST3 `IPlugView` |
+| Event FX UI | Video + Audio **немодальные**; FX на клипе ≠ Chooser |
+| Render As / interchange | **Done** MVP |
+| Write `.veg` | Нет |
+
+Детали стека: [`PLAN_VIDEOAUDIOSTACK.md`](PLAN_VIDEOAUDIOSTACK.md), [`PLAN_VIDEO-AUDIO-PLUGINS-STACK.md`](PLAN_VIDEO-AUDIO-PLUGINS-STACK.md), [`ISSUES_AND_PLANS.md`](ISSUES_AND_PLANS.md).
+
+---
+
 ## 1. Цель переноса
 
 Не «переписать HTML один-в-один», а:
@@ -335,21 +351,26 @@ public:
 
 ## 4. Чеклист старта разработки на Qt 6.8
 
-1. [ ] CMake + Qt 6.8 (Widgets), тёмная палитра по `tokens.css`.
-2. [ ] `MainWindow` + splitter upper/timeline + пустые tracks.
-3. [ ] `TimelineView`: pps, ruler, playhead, scroll/zoom.
-4. [ ] Модель `Project`/`Track`/`TrackEvent` (без `.veg`).
-5. [ ] Select / move / trim / track height (поведение как JS).
-6. [ ] `VegReader` v0 + диалог Open + список медиа + relink.
-7. [ ] Диалоги Properties (проект / event) по макетам.
-8. [ ] Groups + CF + clipboard + `QUndoStack`.
-9. [ ] Углубление парсера timeline по `docs_veg` diffs.
+1. [x] CMake + Qt 6.8 (Widgets), тёмная палитра / QSS.
+2. [x] `MainWindow` + splitter upper/timeline + tracks.
+3. [x] `TimelineView`: pps, ruler, playhead, scroll/zoom.
+4. [x] Модель `ProjectModel` / tracks / events / media pool.
+5. [x] Select / move / trim / track height (MVP).
+6. [x] `VegReader` v0→v1 + Open + relink + Event FX recovery.
+7. [x] Диалоги Properties / Render As / Preferences / Event FX / Plugin Chooser.
+8. [ ] Groups + CF + clipboard + `QUndoStack` polish.
+9. [ ] Углубление парсера (media in/out, markers, полный OFX blob).
 
 ---
 
 ## 5. Ссылки внутри репозитория
 
-- Макеты: [`SAMPLES/README.md`](../SAMPLES/README.md)
+- Правила: [`INIT.MD`](INIT.MD)
+- Issues / планы: [`ISSUES_AND_PLANS.md`](ISSUES_AND_PLANS.md)
+- VegReader: [`VEG_READER_V0.md`](VEG_READER_V0.md)
+- A/V stack: [`PLAN_VIDEOAUDIOSTACK.md`](PLAN_VIDEOAUDIOSTACK.md)
+- Plugins: [`PLAN_VIDEO-AUDIO-PLUGINS-STACK.md`](PLAN_VIDEO-AUDIO-PLUGINS-STACK.md)
+- Макеты / samples: [`SAMPLES/README.md`](../SAMPLES/README.md)
 - Формат `.veg`: [`SAMPLES/docs_veg/00_format_overview.md`](../SAMPLES/docs_veg/00_format_overview.md), [`01_header_and_props.md`](../SAMPLES/docs_veg/01_header_and_props.md)
 - Peak `.sfk`: [`SAMPLES/docs_veg/02_sfk_peak_files.md`](../SAMPLES/docs_veg/02_sfk_peak_files.md)
 - Runtime Vegas: [`SAMPLES/VEGAS-PRO-22-PROGRAM-FILES/README.md`](../SAMPLES/VEGAS-PRO-22-PROGRAM-FILES/README.md)

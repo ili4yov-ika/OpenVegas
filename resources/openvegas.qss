@@ -2011,81 +2011,116 @@ QLabel#aefxEmptyHint {
 }
 
 QWidget#aefxBuiltinPage {
-  background-color: #c8c8c8;
+  background-color: #d4d6d9;
 }
 
 QWidget#aefxPluginTitleBar {
-  background-color: #a8a8a8;
-  border-bottom: 1px solid #888888;
+  background-color: #eceef1;
+  border-bottom: 1px solid #b4b8be;
+  min-height: 34px;
+}
+
+QFrame#aefxTitleAccent {
+  background-color: #2f6fed;
+  border: none;
+  border-radius: 1px;
 }
 
 QLabel#aefxPluginTitle {
-  color: #111111;
+  color: #1a1d21;
   background: transparent;
+  font-weight: 650;
+  font-size: 13px;
+}
+
+QLabel#aefxOpenVegasBadge {
+  color: #5a6570;
+  background-color: #dde1e6;
+  border: 1px solid #c5cad1;
+  border-radius: 3px;
+  padding: 2px 8px;
+  font-size: 10px;
   font-weight: 600;
 }
 
 QWidget#aefxBuiltinBody {
-  background-color: #c8c8c8;
-  color: #111111;
+  background-color: #d4d6d9;
+  color: #1a1d21;
 }
 
 QLabel#aefxFaderValue,
 QLabel#aefxFaderLabel,
 QLabel#aefxParamLabel,
 QLabel#aefxParamValue {
-  color: #111111;
+  color: #1a1d21;
   background: transparent;
 }
 
+QLabel#aefxFaderValue {
+  font-weight: 600;
+  font-size: 12px;
+  min-width: 56px;
+}
+
+QLabel#aefxFaderLabel {
+  font-size: 11px;
+  color: #3d4450;
+}
+
 QLabel#aefxFaderRange {
-  color: #444444;
+  color: #5a6570;
   background: transparent;
   font-size: 10px;
 }
 
 QCheckBox#aefxCheck {
-  color: #111111;
+  color: #1a1d21;
   background: transparent;
   spacing: 6px;
 }
 
 QSlider#aefxVFader::groove:vertical {
-  background: #888888;
-  width: 6px;
-  border: 1px solid #666666;
+  background: #9aa1aa;
+  width: 7px;
+  border: 1px solid #7a828c;
+  border-radius: 3px;
 }
 
 QSlider#aefxVFader::handle:vertical {
-  background: #f0f0f0;
-  border: 1px solid #555555;
-  height: 10px;
+  background: #f7f8fa;
+  border: 1px solid #5a6570;
+  border-radius: 2px;
+  height: 12px;
   margin: 0 -4px;
 }
 
 QSlider#aefxHSlider::groove:horizontal {
-  background: #888888;
-  height: 6px;
-  border: 1px solid #666666;
+  background: #9aa1aa;
+  height: 7px;
+  border: 1px solid #7a828c;
+  border-radius: 3px;
 }
 
 QSlider#aefxHSlider::sub-page:horizontal {
-  background: #5a5a5a;
+  background: #2f6fed;
+  border-radius: 3px;
 }
 
 QSlider#aefxHSlider::handle:horizontal {
-  background: #f0f0f0;
-  border: 1px solid #555555;
-  width: 10px;
+  background: #f7f8fa;
+  border: 1px solid #5a6570;
+  border-radius: 2px;
+  width: 12px;
   margin: -4px 0;
 }
 
 QDoubleSpinBox#aefxSpin {
-  background-color: #ffffff;
-  border: 1px solid #666666;
-  color: #111111;
-  padding: 1px 4px;
-  min-height: 18px;
+  background-color: #f7f8fa;
+  border: 1px solid #8a919a;
+  border-radius: 2px;
+  color: #1a1d21;
+  padding: 2px 6px;
+  min-height: 20px;
 }
 
 QWidget#aefxVstPage {
@@ -2124,42 +2159,49 @@ QLabel#aefxVstHint {
 }
 
 QProgressBar#aefxMeter {
-  background-color: #2a2a2a;
-  border: 1px solid #555555;
-  border-radius: 0;
+  background-color: #b8bec6;
+  border: 1px solid #8a919a;
+  border-radius: 2px;
 }
 
 QProgressBar#aefxMeter::chunk {
-  background-color: #3cb370;
+  background-color: #2f6fed;
 }
 
 QToolButton#aefxBandBtn {
-  background-color: #e8e8e8;
-  border: 1px solid #888888;
-  color: #111111;
+  background-color: #eceef1;
+  border: 1px solid #b4b8be;
+  border-radius: 2px;
+  color: #1a1d21;
   padding: 0;
+  min-width: 28px;
+  min-height: 22px;
 }
 
 QToolButton#aefxBandBtn:checked {
-  background-color: #0078d7;
-  border-color: #005a9e;
+  background-color: #2f6fed;
+  border-color: #1f5fd0;
   color: #ffffff;
 }
 
 QTabWidget#aefxEqTabs::pane {
-  border: 1px solid #666666;
-  background: #d8d8d8;
+  border: 1px solid #b4b8be;
+  background: #d4d6d9;
 }
 
 QTabWidget#aefxEqTabs QTabBar::tab {
-  background: #c8c8c8;
-  color: #222222;
-  padding: 4px 12px;
-  border: 1px solid #888888;
+  background: #eceef1;
+  color: #3d4450;
+  padding: 5px 12px;
+  border: 1px solid #b4b8be;
+  margin-right: 2px;
 }
 
 QTabWidget#aefxEqTabs QTabBar::tab:selected {
-  background: #e8e8e8;
+  background: #d4d6d9;
+  color: #1a1d21;
+  border-bottom-color: #d4d6d9;
+  font-weight: 600;
 }
 
 /* Vegas-style Warning (Delete Track with events, etc.) */

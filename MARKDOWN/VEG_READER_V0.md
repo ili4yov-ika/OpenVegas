@@ -1,7 +1,9 @@
-# Открытие проектов `.veg` в OpenVegas (VegReader v0)
+# Открытие проектов `.veg` в OpenVegas (VegReader)
 
 Документ описывает **реализованный** импортёр проектов VEGAS Pro 22: архитектуру, формат, API, UX и ограничения.  
-Для сырого реверса бинарника см. также [`SAMPLES/docs_veg/`](../SAMPLES/docs_veg/README.md) и обзорный план [`QT68_PORT_AND_VEG_OPEN.md`](QT68_PORT_AND_VEG_OPEN.md).
+Уровни: **v0** (header/media/labels) → **v1** (start/length/rate, fades) → **Event FX recovery** (2026-08-03).  
+Для сырого реверса бинарника см. также [`SAMPLES/docs_veg/`](../SAMPLES/docs_veg/README.md) и обзорный план [`QT68_PORT_AND_VEG_OPEN.md`](QT68_PORT_AND_VEG_OPEN.md).  
+Плагины / FX chain: [`PLAN_VIDEO-AUDIO-PLUGINS-STACK.md`](PLAN_VIDEO-AUDIO-PLUGINS-STACK.md).
 
 Краткая шпаргалка: [`docs/VEG_OPEN.md`](../docs/VEG_OPEN.md).
 
@@ -18,7 +20,7 @@
 5. Заполнить UI: Project Media, эвристический timeline, preview meta, статус-бар.
 6. Попытаться **relink** медиа, если абсолютный путь с другой машины битый.
 
-**Не цель v0:** точные `start` / `length` / fades / crossfades / track index / playback rate из плотного бинарного хвоста (это **v1/v2**).
+**Не цель v0:** точные `start` / `length` / fades / crossfades / track index / playback rate из плотного бинарного хвоста (это **v1/v2** — частично **Done**).
 
 ---
 
@@ -26,12 +28,15 @@
 
 | Путь | Роль |
 |------|------|
-| `src/io/VegReader.h` / `.cpp` | Парсер v0 |
-| `src/model/ProjectModel.{h,cpp}` | `applyVegImport()`, media pool, tracks |
-| `src/app/MainWindow.cpp` | `onOpenProject()`, `openProjectPath()`, `applyProjectToUi()` |
+| `src/io/VegReader.h` / `.cpp` | Парсер + timings + `recoverVideoEventFxNames` + chunks |
+| `src/model/ProjectModel.{h,cpp}` | `applyVegImport()`, media pool, tracks, FX slots |
+| `src/plugins/AudioPluginTypes.h` | VEG display name → `FxSlot` map |
+| `src/app/MainWindow.cpp` | Open / Welcome / CLI / Event FX dialogs |
 | `src/ui/WelcomeDialog.cpp` | Список `SAMPLES/example_project_*.veg`, double-click → open |
 | `src/app/main.cpp` | CLI: `OpenVegas.exe path\to\file.veg` |
+| `tests/test_plugin_state.cpp` | `[video-fx]` Glint / AutoFrame regression |
 | `SAMPLES/example_project_*.veg` | Эталонные проекты Vegas Pro 22 |
+| `SAMPLES/veg_project/` | FX / reverse / fades samples |
 | `SAMPLES/docs_veg/` | Реверс-документация и скрипты анализа |
 
 Сборка: цель CMake / qmake включает `src/io/VegReader.cpp`.
@@ -183,8 +188,11 @@ python SAMPLES/docs_veg/_analyze_props.py
 5. ProjectNotes (.NET) игнорируются.
 6. `.veg.bak`, `.sfk`, `.veg.sfap0` не читаются и не нужны для open.
 7. Запись `.veg` / `.ovp` отсутствует.
+8. Полный OFX/VST3 parameter blob — не decoded; имена Event FX — best-effort.
 
 **Сделано в v1:** паттерн `start/length/rate` (ticks÷1e7), A/V pairing, overlap fades, zoom-to-fit, last open dir.
+
+**Сделано в Event FX recovery (2026-08-03):** `recoverVideoEventFxNames` — не брать Magix AutoFrame; inject Glint из ASCII `<Glint>`; не путать Softlight-adjacent sepia с Event FX. Sample: `project_big--buck-bunny_4x3-preview-reverse-fades-fx.veg`. Unit: `tests/test_plugin_state.cpp` `[video-fx]`.
 
 ---
 
@@ -193,11 +201,12 @@ python SAMPLES/docs_veg/_analyze_props.py
 | Уровень | Scope |
 |---------|--------|
 | **v0** | Header + media pool + labels + UI apply + relink + CLI |
-| **v1 (сейчас)** | Binary `start/length/rate` (ticks/1e7); A/V pairing; overlap fades; open UX |
+| **v1** | Binary `start/length/rate` (ticks/1e7); A/V pairing; overlap fades; open UX |
+| **Event FX (сейчас)** | `recoverVideoEventFxNames`; CcnK chunks → `state["chunk"]`; полный OFX/VST3 blob — backlog |
 | **v2** | Media in/out, markers, track index, полные CF curves |
 | **Writer** | Сохранение OpenVegas-native (например `.ovp`) и/или экспорт subset `.veg` |
 
-Связанные UI-задачи: Trimmer на media из pool, диалог Relink.
+Связанные UI-задачи: Trimmer на media из pool, диалог Relink; Video/Audio Event FX — немодальные окна.
 
 ---
 

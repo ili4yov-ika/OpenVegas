@@ -22,6 +22,8 @@ void colorCorrectorSaveToSlot(FxSlot *slot, const ColorCorrectorParams &p);
 
 bool isColorCorrectorName(const QString &displayName);
 bool isColorGradingName(const QString &displayName);
+bool isBrightnessContrastName(const QString &displayName);
+bool isPanCropName(const QString &displayName);
 
 /** In-place ARGB32(_Premultiplied) color correct. No-op when params are identity. */
 void applyColorCorrector(QImage *img, const ColorCorrectorParams &p);
@@ -32,7 +34,13 @@ void applyColorCorrector(QImage *img, const ColorCorrectorParams &p);
  */
 void applyColorGrading(QImage *img, const QVariantMap &params);
 
-/** Apply non-bypassed Color Corrector / Color Grading slots in order. */
+/**
+ * Full video FX chain: skip bypass / PanCrop; builtins (CC, Grading, B&C);
+ * Soften/Blur/Invert/Sepia/Gain via OfxHost; PluginFormat::Ofx via processSlot.
+ */
+void applyVideoFxChain(QImage *img, const QVector<FxSlot> &chain, double timeSec = 0.0);
+
+/** Compat wrapper → applyVideoFxChain(..., 0). */
 void applyVideoColorFxChain(QImage *img, const QVector<FxSlot> &chain);
 
 } // namespace openvegas

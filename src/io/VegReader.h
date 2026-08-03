@@ -71,7 +71,11 @@ struct VegOpenResult {
     EventPanCropState eventPanCrop;
     bool hasEventPanCrop = false;
     /**
-     * Video track Color Grading (`{Svfx:com.vegascreativesoftware:colorgrading}`).
+     * Best-effort VST/OFX state blobs recovered near FX names (e.g. VST2 CcnK/FPCh/FxCk).
+     * Keyed by display name (case-insensitive lower).
+     */
+    QMap<QString, QByteArray> fxStateChunks;
+    /** First video track Color Grading (`{Svfx:com.vegascreativesoftware:colorgrading}`).
      * Params use ColorGradingEditor keys: lift|gamma|gain|offset.{r,g,b,y}, curve.rgb.
      */
     bool hasColorGrading = false;
@@ -104,11 +108,14 @@ private:
     static bool isServicePath(const QString &s);
     static void parseHeader(const QByteArray &data, VegOpenResult *result);
     static void parseUtf16Metadata(const QByteArray &data, VegOpenResult *result);
+    /** Rebuild `eventFxNames` from positioned `{Svfx:…}` + OFX XML roots (Glint, …). */
+    static void recoverVideoEventFxNames(const QByteArray &data, VegOpenResult *result);
     static void parseTimelineEvents(const QByteArray &data, VegOpenResult *result);
     static void parseMarkers(const QByteArray &data, VegOpenResult *result);
     static void parseTrackMotion(const QByteArray &data, VegOpenResult *result);
     static void parsePanCrop(const QByteArray &data, VegOpenResult *result);
     static void parseColorGrading(const QByteArray &data, VegOpenResult *result);
+    static void parseFxStateChunks(const QByteArray &data, VegOpenResult *result);
     static void assignEventNames(VegOpenResult *result);
 };
 

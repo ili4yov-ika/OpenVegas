@@ -27,6 +27,16 @@ public:
     QByteArray getState(const FxSlot *slot) const override;
     bool setState(FxSlot *slot, const QByteArray &state) override;
 
+    /**
+     * Resolve DLL/.vst3 path (scanner by name if pluginId has no path) and load host instance.
+     * Preserves displayName / state / bypass / hostKey. Safe to call repeatedly.
+     */
+    bool ensureInstance(FxSlot *slot, QString *errorOut = nullptr);
+    /** ensureInstance for every non-builtin slot in a chain. */
+    void ensureChainLoaded(QVector<FxSlot> *chain);
+    /** Match Preferences VST paths by display name + format. */
+    static AudioPluginDesc resolveDesc(const FxSlot &slot);
+
 private:
     AudioPluginHost *hostFor(const FxSlot *slot) const;
     AudioPluginHost *hostForFormat(PluginFormat format) const;

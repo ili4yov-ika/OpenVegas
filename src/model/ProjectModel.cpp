@@ -6,6 +6,7 @@
 #include "io/MediaProbe.h"
 #include "io/MediaWaveformCache.h"
 #include "plugins/BuiltinAudioCatalog.h"
+#include "audio/BuiltinDsp.h"
 
 #include <QFileInfo>
 #include <QDir>
@@ -20,6 +21,25 @@
 
 namespace openvegas {
 namespace {
+
+/** Attach best-effort VEG FX state chunk when present. */
+FxSlot fxSlotFromVegWithState(const QString &raw, const VegOpenResult &veg)
+{
+    FxSlot slot = fxSlotFromVegName(raw);
+    QString key = slot.displayName;
+    const int paren = key.indexOf(QLatin1Char('('));
+    if (paren > 0) {
+        key = key.left(paren).trimmed();
+    }
+    if (key.startsWith(QLatin1String("VEGAS Track "), Qt::CaseInsensitive)) {
+        key = key.mid(12).trimmed();
+    }
+    const auto it = veg.fxStateChunks.constFind(key.toLower());
+    if (it != veg.fxStateChunks.constEnd() && !it.value().isEmpty()) {
+        setFxStateChunk(&slot, it.value());
+    }
+    return slot;
+}
 
 /** Vegas-style lanes for multichannel audio (EDL FirstChannel / Channels). */
 struct AudioLane {
@@ -1488,7 +1508,7 @@ bool ProjectModel::applyVegImport(const VegOpenResult &veg, const QString &opene
                                                 || ext == QLatin1String("wma"));
                     if (audioOnlyFile) {
                         for (const QString &fx : veg.audioEventFxNames) {
-                            te.fxChain.push_back(fxSlotFromVegName(fx));
+                            te.fxChain.push_back(fxSlotFromVegWithState(fx, veg));
                         }
                     }
                 } else {
@@ -1498,7 +1518,7 @@ bool ProjectModel::applyVegImport(const VegOpenResult &veg, const QString &opene
                     }
                     if (!appliedVideoEventFx && !veg.eventFxNames.isEmpty()) {
                         for (const QString &fx : veg.eventFxNames) {
-                            te.fxChain.push_back(fxSlotFromVegName(fx));
+                            te.fxChain.push_back(fxSlotFromVegWithState(fx, veg));
                         }
                         appliedVideoEventFx = true;
                     }
@@ -1510,7 +1530,7 @@ bool ProjectModel::applyVegImport(const VegOpenResult &veg, const QString &opene
             if (!veg.trackFxNames.isEmpty()) {
                 QVector<FxSlot> mapped;
                 for (const QString &raw : veg.trackFxNames) {
-                    mapped.push_back(fxSlotFromVegName(raw));
+                    mapped.push_back(fxSlotFromVegWithState(raw, veg));
                 }
                 for (Track &tr : m_tracks) {
                     if (tr.kind == TrackKind::Audio) {
@@ -1631,7 +1651,7 @@ bool ProjectModel::applyVegImport(const VegOpenResult &veg, const QString &opene
                 te.fxChain = {makeFxSlot(QStringLiteral("Pan/Crop"), PluginFormat::Builtin)};
                 if (!veg.eventFxNames.isEmpty() && vi == 0) {
                     for (const QString &fx : veg.eventFxNames) {
-                        te.fxChain.push_back(fxSlotFromVegName(fx));
+                        te.fxChain.push_back(fxSlotFromVegWithState(fx, veg));
                     }
                 }
                 m_tracks[track].events.push_back(te);
@@ -1654,7 +1674,7 @@ bool ProjectModel::applyVegImport(const VegOpenResult &veg, const QString &opene
             te.lengthSec = std::max(0.05, ae.lengthSec);
             te.mediaKind = EventMediaKind::Audio;
             for (const QString &fx : veg.audioEventFxNames) {
-                te.fxChain.push_back(fxSlotFromVegName(fx));
+                te.fxChain.push_back(fxSlotFromVegWithState(fx, veg));
             }
             m_tracks[track].events.push_back(te);
         }
@@ -1861,7 +1881,7 @@ void ProjectModel::applyAudioEventFxFromVeg(const VegOpenResult &veg)
                 continue;
             }
             for (const QString &fx : veg.audioEventFxNames) {
-                ev.fxChain.push_back(fxSlotFromVegName(fx));
+                ev.fxChain.push_back(fxSlotFromVegWithState(fx, veg));
             }
         }
     }

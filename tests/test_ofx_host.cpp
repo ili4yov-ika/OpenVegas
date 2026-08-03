@@ -2,9 +2,23 @@
 
 #include <QDir>
 #include <QFile>
+#include <QImage>
 #include <QTemporaryDir>
 
 #include <catch2/catch_test_macros.hpp>
+
+namespace {
+
+QString fixtureGainOfx()
+{
+#ifdef OPENVGAS_OFX_FIXTURE_DIR
+    return QDir(QString::fromUtf8(OPENVGAS_OFX_FIXTURE_DIR)).filePath(QStringLiteral("Gain.ofx"));
+#else
+    return {};
+#endif
+}
+
+} // namespace
 
 TEST_CASE("OfxHost describe bundle with Win64 binary", "[media][ofx]")
 {
@@ -48,12 +62,52 @@ TEST_CASE("OfxHost discoverInRoot finds OFX Video Plug-Ins", "[media][ofx]")
     REQUIRE(list.first().hasBinary);
 }
 
-TEST_CASE("OfxHost load is stub failure", "[media][ofx]")
+TEST_CASE("OfxHost load missing binary fails soft", "[media][ofx][plugins]")
 {
     openvegas::OfxPluginDesc d;
     d.name = QStringLiteral("Any");
+    d.path = QStringLiteral("C:/definitely/missing/NoSuchPlugin.ofx");
     d.hasBinary = true;
     QString err;
     REQUIRE_FALSE(openvegas::OfxHost::load(d, &err));
-    REQUIRE(err.contains(QStringLiteral("stub"), Qt::CaseInsensitive));
+    REQUIRE_FALSE(err.isEmpty());
+    REQUIRE_FALSE(err.contains(QStringLiteral("stub"), Qt::CaseInsensitive));
+}
+
+TEST_CASE("OfxHost processEmulated Invert changes pixels", "[media][ofx][plugins]")
+{
+    QImage img(4, 4, QImage::Format_ARGB32);
+    img.fill(qRgb(10, 20, 30));
+    REQUIRE(openvegas::OfxHost::processEmulated(&img, QStringLiteral("Invert"), {}));
+    REQUIRE(qRed(img.pixel(0, 0)) == 245);
+    REQUIRE(qGreen(img.pixel(0, 0)) == 235);
+    REQUIRE(qBlue(img.pixel(0, 0)) == 225);
+}
+
+TEST_CASE("OfxHost load+process Gain.ofx fixture", "[media][ofx][plugins]")
+{
+    const QString path = fixtureGainOfx();
+    if (path.isEmpty() || !QFileInfo::exists(path)) {
+        SKIP("Gain.ofx fixture not built (OPENVGAS_OFX_FIXTURE_DIR)");
+    }
+
+    openvegas::OfxPluginDesc d = openvegas::OfxHost::describe(path);
+    REQUIRE(d.hasBinary);
+    QString err;
+    REQUIRE(openvegas::OfxHost::load(d, &err));
+    REQUIRE(err.isEmpty());
+
+    const int id = openvegas::OfxHost::instance().createInstance(d, &err);
+    REQUIRE(id > 0);
+
+    QImage img(8, 8, QImage::Format_ARGB32);
+    img.fill(qRgb(100, 100, 100));
+    QVariantMap params;
+    params.insert(QStringLiteral("gain"), 2.0);
+    REQUIRE(openvegas::OfxHost::instance().processFrame(id, &img, 0.0, params, &err));
+    REQUIRE(qRed(img.pixel(0, 0)) == 200);
+    REQUIRE(qGreen(img.pixel(0, 0)) == 200);
+    REQUIRE(qBlue(img.pixel(0, 0)) == 200);
+
+    openvegas::OfxHost::instance().destroyInstance(id);
 }

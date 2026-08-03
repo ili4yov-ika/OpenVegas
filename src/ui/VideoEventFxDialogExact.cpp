@@ -1,14 +1,17 @@
 #include "ui/VideoEventFxDialogExact.h"
 
+#include "audio/BuiltinDsp.h"
 #include "io/MediaProbe.h"
 #include "io/MediaThumbCache.h"
 #include "plugins/AudioPluginTypes.h"
+#include "plugins/OfxHost.h"
 #include "video/ColorCorrectorApply.h"
 #include "video/VideoFrameCache.h"
 #include "video/VideoKeyframeEval.h"
 #include "ui/AudioEventFxDialog.h"
 #include "ui/PluginChooserDialog.h"
 
+#include <QSlider>
 #include <QAbstractSpinBox>
 #include <QActionGroup>
 #include <QCheckBox>
@@ -1902,14 +1905,22 @@ QWidget *VideoEventFxDialogExact::buildGenericFxPage()
     f.setPointSize(f.pointSize() + 2);
     f.setBold(true);
     m_genericTitle->setFont(f);
-    auto *hint = new QLabel(
-        tr("Native OFX editor host is not connected yet.\n"
-           "The plug-in stays in the chain, can be bypassed, and reordered."),
-        page);
-    hint->setWordWrap(true);
     lay->addWidget(m_genericTitle);
     lay->addSpacing(8);
-    lay->addWidget(hint);
+
+    m_genericHint = new QLabel(
+        tr("OpenVegas applies this effect in Video Preview (CPU). "
+           "Vegas proprietary OFX GUIs are not loaded — use the controls below."),
+        page);
+    m_genericHint->setWordWrap(true);
+    m_genericHint->setObjectName(QStringLiteral("pcFxHint"));
+    lay->addWidget(m_genericHint);
+
+    m_ofxParamsHost = new QWidget(page);
+    m_ofxParamsLay = new QVBoxLayout(m_ofxParamsHost);
+    m_ofxParamsLay->setContentsMargins(0, 8, 0, 0);
+    m_ofxParamsLay->setSpacing(8);
+    lay->addWidget(m_ofxParamsHost);
     lay->addStretch(1);
     return page;
 }
@@ -2580,7 +2591,96 @@ void VideoEventFxDialogExact::refreshViewport()
         if (m_genericTitle && m_event && m_selectedFx >= 0 && m_selectedFx < m_event->fxChain.size()) {
             m_genericTitle->setText(m_event->fxChain[m_selectedFx].displayName);
         }
+        rebuildOfxParamsUi();
     }
+}
+
+void VideoEventFxDialogExact::rebuildOfxParamsUi()
+{
+    if (!m_ofxParamsLay || !m_event || m_selectedFx < 0 || m_selectedFx >= m_event->fxChain.size()) {
+        return;
+    }
+    while (QLayoutItem *it = m_ofxParamsLay->takeAt(0)) {
+        if (it->widget()) {
+            it->widget()->deleteLater();
+        }
+        delete it;
+    }
+
+    FxSlot &slot = m_event->fxChain[m_selectedFx];
+    const QString n = slot.displayName;
+    QVariantMap p = unpackFxParams(slot.state);
+
+    auto addSlider = [&](const QString &label, const QString &key, double def, double minV,
+                         double maxV, int decimals) {
+        auto *row = new QHBoxLayout;
+        row->addWidget(new QLabel(label, m_ofxParamsHost));
+        auto *sl = new QSlider(Qt::Horizontal, m_ofxParamsHost);
+        sl->setRange(0, 1000);
+        const double cur = p.value(key, def).toDouble();
+        sl->setValue(int(std::lround((cur - minV) / (maxV - minV) * 1000.0)));
+        auto *spin = new QDoubleSpinBox(m_ofxParamsHost);
+        spin->setRange(minV, maxV);
+        spin->setDecimals(decimals);
+        spin->setValue(cur);
+        spin->setFixedWidth(90);
+        FxSlot *slotPtr = &slot;
+        QObject::connect(sl, &QSlider::valueChanged, m_ofxParamsHost,
+                         [spin, minV, maxV, slotPtr, key](int v) {
+                             const double x = minV + (maxV - minV) * (v / 1000.0);
+                             spin->blockSignals(true);
+                             spin->setValue(x);
+                             spin->blockSignals(false);
+                             QVariantMap m = unpackFxParams(slotPtr->state);
+                             m.insert(key, x);
+                             slotPtr->state = packFxParams(m);
+                         });
+        QObject::connect(spin, QOverload<double>::of(&QDoubleSpinBox::valueChanged), m_ofxParamsHost,
+                         [sl, minV, maxV, slotPtr, key](double x) {
+                             const int v = int(std::lround((x - minV) / (maxV - minV) * 1000.0));
+                             sl->blockSignals(true);
+                             sl->setValue(std::clamp(v, 0, 1000));
+                             sl->blockSignals(false);
+                             QVariantMap m = unpackFxParams(slotPtr->state);
+                             m.insert(key, x);
+                             slotPtr->state = packFxParams(m);
+                         });
+        row->addWidget(sl, 1);
+        row->addWidget(spin);
+        m_ofxParamsLay->addLayout(row);
+    };
+
+    if (n.contains(QLatin1String("sepia"), Qt::CaseInsensitive)) {
+        if (m_genericHint) {
+            m_genericHint->setText(tr("Sepia tone — applied in Video Preview."));
+        }
+        addSlider(tr("Amount"), QStringLiteral("amount"), 1.0, 0.0, 1.0, 2);
+    } else if (n.contains(QLatin1String("soften"), Qt::CaseInsensitive)
+               || n.contains(QLatin1String("blur"), Qt::CaseInsensitive)
+               || n.contains(QLatin1String("chroma"), Qt::CaseInsensitive)) {
+        if (m_genericHint) {
+            m_genericHint->setText(tr("Blur / Soften — applied in Video Preview (CPU)."));
+        }
+        addSlider(tr("Radius (px)"), QStringLiteral("radius"), 2.0, 1.0, 24.0, 0);
+    } else if (n.contains(QLatin1String("invert"), Qt::CaseInsensitive)) {
+        if (m_genericHint) {
+            m_genericHint->setText(tr("Invert — applied in Video Preview (no parameters)."));
+        }
+    } else if (n.contains(QLatin1String("brightness"), Qt::CaseInsensitive)) {
+        if (m_genericHint) {
+            m_genericHint->setText(tr("Brightness / Contrast — applied in Video Preview."));
+        }
+        addSlider(tr("Brightness"), QStringLiteral("brightness"), 0.0, -1.0, 1.0, 2);
+        addSlider(tr("Contrast"), QStringLiteral("contrast"), 1.0, 0.0, 2.0, 2);
+    } else {
+        if (m_genericHint) {
+            m_genericHint->setText(
+                tr("Effect is kept in the chain. If a matching OFX binary is found it is processed; "
+                   "otherwise OpenVegas applies a CPU fallback when available."));
+        }
+        addSlider(tr("Gain"), QStringLiteral("gain"), 1.0, 0.0, 4.0, 2);
+    }
+    m_ofxParamsLay->addStretch(1);
 }
 
 void VideoEventFxDialogExact::syncColorCorrectorToUi()

@@ -141,6 +141,10 @@ void AudioGraph::applyLiveMixer(const ProjectModel &model)
                 for (int i = 0; i < gt.fxChain.size(); ++i) {
                     gt.fxChain[i].bypass = tr.fxChain[i].bypass;
                     gt.fxChain[i].state = tr.fxChain[i].state;
+                    // Keep graph hostKey (instance identity); refresh pluginId if resolved
+                    if (!tr.fxChain[i].pluginId.isEmpty()) {
+                        gt.fxChain[i].pluginId = tr.fxChain[i].pluginId;
+                    }
                 }
             }
             // Event gain / fades / envelopes — previously only applied on full rebuild,
@@ -156,6 +160,15 @@ void AudioGraph::applyLiveMixer(const ProjectModel &model)
                     clip.fadeInCurve = ev.fadeInCurve;
                     clip.fadeOutCurve = ev.fadeOutCurve;
                     clip.automationLanes = ev.automationLanes;
+                    if (clip.fxChain.size() == ev.fxChain.size()) {
+                        for (int i = 0; i < clip.fxChain.size(); ++i) {
+                            clip.fxChain[i].bypass = ev.fxChain[i].bypass;
+                            clip.fxChain[i].state = ev.fxChain[i].state;
+                            if (!ev.fxChain[i].pluginId.isEmpty()) {
+                                clip.fxChain[i].pluginId = ev.fxChain[i].pluginId;
+                            }
+                        }
+                    }
                     break;
                 }
             }
@@ -194,6 +207,26 @@ void AudioGraph::prepare(double sampleRate, int blockSize)
         prep(states);
     }
     prep(m_masterFxStates);
+
+    if (m_host) {
+        auto prepHost = [this, sampleRate, blockSize](QVector<FxSlot> &chain) {
+            for (FxSlot &slot : chain) {
+                if (slot.format != PluginFormat::Builtin) {
+                    m_host->prepare(&slot, sampleRate, blockSize);
+                }
+            }
+        };
+        for (AudioGraphTrack &tr : m_tracks) {
+            prepHost(tr.fxChain);
+            for (AudioGraphClip &clip : tr.clips) {
+                prepHost(clip.fxChain);
+            }
+        }
+        for (AudioGraphBus &bus : m_buses) {
+            prepHost(bus.fxChain);
+        }
+        prepHost(m_masterFx);
+    }
 }
 
 void AudioGraph::reset()

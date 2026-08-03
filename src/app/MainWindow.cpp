@@ -2004,7 +2004,7 @@ void MainWindow::setupTimeline()
         if (isAudioFamily(ev->mediaKind)) {
             onAudioEventFx(eventId);
         } else {
-            onPluginChooser();
+            onVideoEventFx(eventId);
         }
     });
     connect(m_timeline, &TimelineView::eventFxMenuRequested, this,
@@ -2012,31 +2012,7 @@ void MainWindow::setupTimeline()
                 ContextMenuBuilder::showEventFxMenu(this, eventId, globalPos);
             });
     connect(m_timeline, &TimelineView::eventPanCropRequested, this, [this](int eventId) {
-        TrackEvent *ev = m_project.findEvent(eventId);
-        if (!ev) {
-            return;
-        }
-        ensureFxFirst(ev->fxChain, QStringLiteral("Pan/Crop"), PluginFormat::Builtin);
-        ev->panCrop.ensureDefault(m_project.frameWidth(), m_project.frameHeight());
-
-        if (!m_videoEventFx) {
-            m_videoEventFx = new VideoEventFxDialogExact(this);
-            connect(m_videoEventFx, &QDialog::finished, this, [this](int) {
-                commitDocumentEdit(tr("Pan/Crop"));
-                if (m_timeline) {
-                    m_timeline->update();
-                }
-            });
-        } else if (m_videoEventFx->isVisible()) {
-            commitDocumentEdit(tr("Pan/Crop"));
-        }
-
-        beginDocumentEdit();
-        const double localPh = std::max(0.0, m_project.playheadSec() - ev->startSec);
-        m_videoEventFx->setEvent(ev, m_project.frameWidth(), m_project.frameHeight(), localPh);
-        m_videoEventFx->show();
-        m_videoEventFx->raise();
-        m_videoEventFx->activateWindow();
+        onVideoEventFx(eventId);
     });
     connect(m_timeline, &TimelineView::eventMoreMenuRequested, this,
             [this](int eventId, const QPoint &globalPos) {
@@ -2532,7 +2508,14 @@ void MainWindow::onMixingConsole()
         connect(m_mixingConsole, &MixingConsoleWindow::documentEditBegan, this,
                 &MainWindow::beginDocumentEdit);
         connect(m_mixingConsole, &MixingConsoleWindow::documentEditCommitted, this,
-                &MainWindow::commitDocumentEdit);
+                [this](const QString &text) {
+                    commitDocumentEdit(text);
+                    // FX chain edits need full AudioGraph rebuild (plugin instances).
+                    if (m_audioEngine
+                        && (text == tr("Track FX") || text == tr("Assignable FX"))) {
+                        m_audioEngine->syncGraphFromProject();
+                    }
+                });
         connect(m_mixingConsole, &MixingConsoleWindow::downmixOutputCycled, this,
                 &MainWindow::cycleDownmixOutput);
         connect(m_mixingConsole, &MixingConsoleWindow::dimOutputChanged, this,
@@ -3595,37 +3578,73 @@ void MainWindow::onPluginChooser()
     dlg.exec();
 }
 
+void MainWindow::onVideoEventFx(int eventId)
+{
+    TrackEvent *ev = m_project.findEvent(eventId);
+    if (!ev || isAudioFamily(ev->mediaKind)) {
+        return;
+    }
+    ensureFxFirst(ev->fxChain, QStringLiteral("Pan/Crop"), PluginFormat::Builtin);
+    ev->panCrop.ensureDefault(m_project.frameWidth(), m_project.frameHeight());
+
+    if (!m_videoEventFx) {
+        m_videoEventFx = new VideoEventFxDialogExact(this);
+        connect(m_videoEventFx, &QDialog::finished, this, [this](int) {
+            commitDocumentEdit(tr("Video Event FX"));
+            if (m_timeline) {
+                m_timeline->update();
+            }
+        });
+    } else if (m_videoEventFx->isVisible()) {
+        commitDocumentEdit(tr("Video Event FX"));
+    }
+
+    beginDocumentEdit();
+    const double localPh = std::max(0.0, m_project.playheadSec() - ev->startSec);
+    m_videoEventFx->setEvent(ev, m_project.frameWidth(), m_project.frameHeight(), localPh);
+    m_videoEventFx->show();
+    m_videoEventFx->raise();
+    m_videoEventFx->activateWindow();
+}
+
 void MainWindow::onAudioEventFx(int eventId)
 {
     TrackEvent *ev = m_project.findEvent(eventId);
     if (!ev || !isAudioFamily(ev->mediaKind)) {
         return;
     }
-    beginDocumentEdit();
-    if (ev->fxChain.isEmpty()) {
-        PluginChooserDialog chooser(&m_pluginScanner, this);
-        chooser.setAudioMode(true);
-        if (chooser.exec() == QDialog::Accepted) {
-            for (const AudioPluginDesc &d : chooser.selectedAudioPlugins()) {
-                FxSlot slot;
-                CompositePluginHost::instance().createInstance(d, &slot);
-                ev->fxChain.push_back(slot);
+
+    if (!m_audioEventFx) {
+        m_audioEventFx = new AudioEventFxDialog(this);
+        m_audioEventFx->setPluginScanner(&m_pluginScanner);
+        connect(m_audioEventFx, &QDialog::finished, this, [this](int) {
+            commitDocumentEdit(tr("Event FX"));
+            if (m_audioEngine) {
+                m_audioEngine->syncGraphFromProject();
             }
-        }
-        if (ev->fxChain.isEmpty()) {
-            discardDocumentEdit();
-            return;
+            if (m_timeline) {
+                m_timeline->update();
+            }
+        });
+    } else if (m_audioEventFx->isVisible()) {
+        commitDocumentEdit(tr("Event FX"));
+        if (m_audioEngine) {
+            m_audioEngine->syncGraphFromProject();
         }
     }
-    AudioEventFxDialog dlg(this);
-    dlg.setEvent(ev);
-    dlg.exec();
-    commitDocumentEdit(tr("Event FX"));
-    if (m_audioEngine) {
-        m_audioEngine->syncGraphFromProject();
-    }
-    if (m_timeline) {
-        m_timeline->update();
+
+    beginDocumentEdit();
+    m_audioEventFx->setEvent(ev);
+    m_audioEventFx->show();
+    m_audioEventFx->raise();
+    m_audioEventFx->activateWindow();
+    // Vegas-style: empty Event FX → open Plug-In Chooser after the chain window is up.
+    if (ev->fxChain.isEmpty()) {
+        QTimer::singleShot(0, m_audioEventFx, [this]() {
+            if (m_audioEventFx && m_audioEventFx->isVisible()) {
+                m_audioEventFx->addPlugins();
+            }
+        });
     }
 }
 

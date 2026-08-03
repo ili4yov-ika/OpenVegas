@@ -1,14 +1,17 @@
 #pragma once
 
+#include "plugins/AudioPluginTypes.h"
 #include "plugins/PluginScanner.h"
 
+#include <QImage>
 #include <QString>
 #include <QStringList>
+#include <QVariantMap>
 #include <QVector>
 
 namespace openvegas {
 
-/** Metadata for one discovered OFX plug-in (no binary process yet). */
+/** Metadata for one discovered OFX plug-in. */
 struct OfxPluginDesc {
     QString name;
     QString path;       // preferred binary (.ofx) or bundle root
@@ -19,11 +22,13 @@ struct OfxPluginDesc {
 };
 
 /**
- * Phase 2 stub OFX host: discover + describe bundles from PluginScanner roots.
- * Does not LoadLibrary / dlopen proprietary Vegas or third-party OFX binaries yet.
+ * Minimal OFX host: discover/describe, LoadLibrary load, instance cache,
+ * CPU frame process for simple filter plugs, plus emulated Soften/Invert/…
  */
 class OfxHost {
 public:
+    static OfxHost &instance();
+
     /** Discover plugins using scanner candidate roots (or an explicit root). */
     static QVector<OfxPluginDesc> discover(const PluginScanner &scanner);
     static QVector<OfxPluginDesc> discoverInRoot(const QString &root);
@@ -32,12 +37,48 @@ public:
     static OfxPluginDesc describe(const QString &path);
 
     /**
-     * Stub load: always fails with a clear reason until a real OFX host lands.
-     * Returns false; sets *errorOut when non-null.
+     * Load .ofx via QLibrary, resolve OfxGetPlugin, run setHost + Load + Describe.
+     * Fail soft: returns false + error string; never aborts.
      */
     static bool load(const OfxPluginDesc &desc, QString *errorOut = nullptr);
 
     static QStringList supportedArchFolderNames();
+
+    /**
+     * Create a process instance (caches by path + plugin index).
+     * Returns id > 0 on success, 0 on failure.
+     */
+    int createInstance(const OfxPluginDesc &desc, QString *errorOut = nullptr);
+    void destroyInstance(int id);
+
+    /**
+     * Process one RGBA frame through a loaded OFX instance.
+     * Updates *rgba in place. Fail soft on errors.
+     */
+    bool processFrame(int instanceId, QImage *rgba, double timeSec, const QVariantMap &params,
+                      QString *errorOut = nullptr);
+
+    /**
+     * Emulated video FX by display name: Soften/Blur, Invert, Sepia,
+     * Brightness and Contrast, Gain.
+     */
+    static bool processEmulated(QImage *rgba, const QString &displayName,
+                                const QVariantMap &params);
+
+    /**
+     * Try real OFX instance if binary path is known / already loaded;
+     * otherwise fall back to processEmulated by displayName.
+     */
+    bool processSlot(FxSlot &slot, QImage *rgba, double timeSec = 0.0);
+
+private:
+    OfxHost();
+    ~OfxHost();
+    OfxHost(const OfxHost &) = delete;
+    OfxHost &operator=(const OfxHost &) = delete;
+
+    struct Impl;
+    Impl *m_ = nullptr;
 };
 
 } // namespace openvegas

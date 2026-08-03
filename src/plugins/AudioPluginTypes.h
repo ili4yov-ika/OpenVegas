@@ -3,6 +3,7 @@
 #include <QByteArray>
 #include <QString>
 #include <QStringList>
+#include <QUuid>
 #include <QVector>
 #include <QRegularExpression>
 
@@ -24,14 +25,26 @@ struct FxSlot {
     bool bypass = false;
     /** Opaque plug-in state chunk (empty until a real host saves it). */
     QByteArray state;
+    /**
+     * Stable id for host instance maps. Survives AudioGraph copy of fxChain so
+     * VST/OFX process still finds the loaded module (pointer identity must not be used).
+     */
+    QString hostKey;
 
     bool operator==(const FxSlot &o) const
     {
         return pluginId == o.pluginId && displayName == o.displayName && format == o.format
-               && bypass == o.bypass && state == o.state;
+               && bypass == o.bypass && state == o.state && hostKey == o.hostKey;
     }
     bool operator!=(const FxSlot &o) const { return !(*this == o); }
 };
+
+inline void ensureFxHostKey(FxSlot *slot)
+{
+    if (slot && slot->hostKey.isEmpty()) {
+        slot->hostKey = QUuid::createUuid().toString(QUuid::WithoutBraces);
+    }
+}
 
 inline FxSlot makeFxSlot(const QString &name, PluginFormat format = PluginFormat::Builtin,
                          const QString &pluginId = {})
@@ -40,6 +53,7 @@ inline FxSlot makeFxSlot(const QString &name, PluginFormat format = PluginFormat
     s.displayName = name;
     s.pluginId = pluginId.isEmpty() ? name : pluginId;
     s.format = format;
+    ensureFxHostKey(&s);
     return s;
 }
 
@@ -134,6 +148,12 @@ inline FxSlot fxSlotFromVegName(const QString &raw)
     if (name.contains(QLatin1String("chromablur"), Qt::CaseInsensitive)) {
         return makeFxSlot(QStringLiteral("Chroma Blur"), PluginFormat::Ofx, name);
     }
+    if (name.contains(QLatin1String("glint"), Qt::CaseInsensitive)) {
+        return makeFxSlot(QStringLiteral("Glint"), PluginFormat::Ofx, name);
+    }
+    if (name.contains(QLatin1String("softcontrast"), Qt::CaseInsensitive)) {
+        return makeFxSlot(QStringLiteral("Soft Contrast"), PluginFormat::Ofx, name);
+    }
     if (name.contains(QLatin1String(":sepia"), Qt::CaseInsensitive)
         || name.endsWith(QLatin1String("sepia"), Qt::CaseInsensitive)) {
         return makeFxSlot(QStringLiteral("Sepia"), PluginFormat::Ofx, name);
@@ -149,8 +169,40 @@ inline FxSlot fxSlotFromVegName(const QString &raw)
         name.replace(vstSuffix, QString());
         name = name.trimmed();
     }
-    // "VEGAS Track Compressor" → keep full display name
-    return makeFxSlot(name, pluginFormatFromVegName(raw), name);
+    const PluginFormat fmt = pluginFormatFromVegName(raw);
+    // OpenVegas builtins: drop "VEGAS " brand from Track Noise Gate / EQ / Compressor labels.
+    if (fmt == PluginFormat::Builtin && name.startsWith(QLatin1String("VEGAS "), Qt::CaseInsensitive)) {
+        name = name.mid(6).trimmed();
+    }
+    return makeFxSlot(name, fmt, name);
+}
+
+/** Strip "VEGAS " brand from OpenVegas builtin Track FX display names. */
+inline QString builtinFxDisplayName(const QString &raw)
+{
+    QString n = raw.trimmed();
+    if (n.startsWith(QLatin1String("VEGAS "), Qt::CaseInsensitive)) {
+        n = n.mid(6).trimmed();
+    }
+    return n;
+}
+
+inline void normalizeBuiltinFxSlot(FxSlot *slot)
+{
+    if (!slot || slot->format != PluginFormat::Builtin) {
+        return;
+    }
+    const QString clean = builtinFxDisplayName(slot->displayName);
+    if (clean == slot->displayName) {
+        return;
+    }
+    slot->displayName = clean;
+    if (slot->pluginId.startsWith(QLatin1String("VEGAS "), Qt::CaseInsensitive)
+        || slot->pluginId.startsWith(QLatin1String("builtin:VEGAS "), Qt::CaseInsensitive)) {
+        slot->pluginId = QStringLiteral("builtin:") + clean;
+    } else if (slot->pluginId.startsWith(QLatin1String("builtin:"), Qt::CaseInsensitive)) {
+        slot->pluginId = QStringLiteral("builtin:") + clean;
+    }
 }
 
 /** Map Video FX pane / chooser name to FxSlot (builtins vs OFX placeholder). */

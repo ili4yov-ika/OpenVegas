@@ -33,13 +33,9 @@ public:
     bool setState(FxSlot *slot, const QByteArray &state) override;
 
 private:
-    struct Instance {
-        QString path;
-        double sampleRate = 48000.0;
-        int blockSize = 512;
-        bool loaded = false;
-    };
-    QHash<FxSlot *, std::shared_ptr<Instance>> m_instances;
+    struct Instance;
+    QHash<QString, std::shared_ptr<Instance>> m_instances;
+    static QString instanceKey(const FxSlot *slot);
 };
 
 /**
