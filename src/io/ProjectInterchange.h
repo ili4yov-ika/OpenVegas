@@ -55,7 +55,7 @@ public:
     /** Pull media pool paths from another .veg without replacing the current project. */
     static InterchangeResult importMediaFromProject(const QString &vegPath, QString *error = nullptr);
 
-    /** CMX3600-ish EDL text. */
+    /** CMX3600-ish EDL text; auto-routes Vegas semicolon CSV (EDL Text File) to importVegasCsvEdl. */
     static InterchangeResult importEdl(const QString &path, double frameRate, QString *error = nullptr);
     static bool exportEdl(const ProjectModel &model, const QString &path, QString *error = nullptr);
 

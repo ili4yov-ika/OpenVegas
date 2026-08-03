@@ -12,6 +12,8 @@
 
 namespace openvegas {
 
+struct InterchangeResult;
+
 enum class TrackKind {
     Video,
     Audio
@@ -990,6 +992,14 @@ public:
      *  @param preferTrack track index, -1 = first matching / create, -2 = always create new track(s). */
     int addMediaAt(const QString &name, const QString &kind, double startSec, double lengthSec = 0.0,
                    int preferTrack = -1, const QString &mediaPath = {});
+
+    /**
+     * Apply File→Import interchange events (EDL / FCP / FCPXML) with fades, gain,
+     * media in-point, reverse (negative playRate), channels and track indices.
+     * @return number of timeline events added.
+     */
+    int applyInterchangeEvents(const InterchangeResult &result,
+                               const QString &resolveAgainstPath = QString());
 
     /** Resolve filesystem path for an event (explicit mediaPath or media-pool match by name). */
     QString mediaPathForEvent(const TrackEvent &ev) const;

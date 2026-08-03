@@ -2738,15 +2738,22 @@ void MainWindow::applyInterchangeImport(const InterchangeResult &result, const Q
     int addedEvents = 0;
     int addedMarkers = 0;
     if (addEventsToTimeline) {
+        InterchangeResult timeline = result;
+        timeline.events.clear();
         for (const InterchangeEvent &ev : result.events) {
             if (ev.kind == QLatin1String("caption")) {
                 m_project.addMarkerAt(ev.startSec, ev.name);
                 ++addedMarkers;
-                continue;
+            } else {
+                timeline.events.push_back(ev);
             }
-            m_project.addMediaAt(ev.name, ev.kind, ev.startSec, ev.lengthSec, -1, ev.sourcePath);
-            ++addedEvents;
         }
+        // Prefer resolving relative/copied media against the first known media path's folder.
+        QString resolveAgainst = m_project.projectPath();
+        if (resolveAgainst.isEmpty() && !result.media.isEmpty()) {
+            resolveAgainst = result.media.first().path;
+        }
+        addedEvents = m_project.applyInterchangeEvents(timeline, resolveAgainst);
     }
     commitDocumentEdit(tr("Import"));
 

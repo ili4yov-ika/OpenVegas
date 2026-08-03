@@ -871,6 +871,125 @@ int ProjectModel::addMediaAt(const QString &name, const QString &kind, double st
     return addGroupedAvMedia(name, startSec, resolvedLen, 0.0, 0.0, preferTrack, path);
 }
 
+int ProjectModel::applyInterchangeEvents(const InterchangeResult &result,
+                                         const QString &resolveAgainstPath)
+{
+    if (result.events.isEmpty()) {
+        return 0;
+    }
+
+    QVector<int> videoTrackIds;
+    QVector<int> audioTrackIds;
+
+    auto trackForVegasId = [&](TrackKind kind, int vegasTrack) -> int {
+        QVector<int> &map = (kind == TrackKind::Video) ? videoTrackIds : audioTrackIds;
+        for (int i = 0; i < map.size(); ++i) {
+            if (map[i] == vegasTrack) {
+                int seen = 0;
+                for (int ti = 0; ti < m_tracks.size(); ++ti) {
+                    if (m_tracks[ti].kind == kind) {
+                        if (seen == i) {
+                            return ti;
+                        }
+                        ++seen;
+                    }
+                }
+            }
+        }
+        map.push_back(vegasTrack);
+        return addTrack(kind);
+    };
+
+    int added = 0;
+    for (const InterchangeEvent &ev : result.events) {
+        if (ev.kind == QLatin1String("caption")) {
+            addMarkerAt(ev.startSec, ev.name);
+            continue;
+        }
+        const bool isAudio = (ev.kind == QLatin1String("audio"));
+        const bool isStill = (ev.kind == QLatin1String("still")
+                              || ev.kind == QLatin1String("image"));
+        const TrackKind kind = isAudio ? TrackKind::Audio : TrackKind::Video;
+        const int ti = trackForVegasId(kind, ev.trackIndex);
+        TrackEvent te;
+        te.id = m_nextEventId++;
+        te.name = ev.name.isEmpty()
+                      ? (isAudio ? QStringLiteral("Audio")
+                                 : (isStill ? QStringLiteral("Still") : QStringLiteral("Video")))
+                      : ev.name;
+        te.mediaPath = ev.sourcePath.isEmpty()
+                           ? QString()
+                           : resolveMediaPath(ev.sourcePath, resolveAgainstPath);
+        te.startSec = std::max(0.0, ev.startSec);
+        te.lengthSec = std::max(0.05, ev.lengthSec);
+        te.mediaStartSec = std::max(0.0, ev.mediaStartSec);
+        te.mediaLengthSec = std::max(0.0, ev.mediaLengthSec);
+        te.looped = ev.looped;
+        te.reversed = (ev.playRate < 0.0);
+        te.fadeInSec = std::max(0.0, ev.fadeInSec);
+        te.fadeOutSec = std::max(0.0, ev.fadeOutSec);
+        if (te.fadeInSec + te.fadeOutSec > te.lengthSec) {
+            const double scale = te.lengthSec / (te.fadeInSec + te.fadeOutSec);
+            te.fadeInSec *= scale;
+            te.fadeOutSec *= scale;
+        }
+        te.fadeInCurve = ev.fadeInCurve;
+        te.fadeOutCurve = ev.fadeOutCurve;
+        te.mediaKind = isAudio ? EventMediaKind::Audio
+                               : (isStill ? EventMediaKind::Still : EventMediaKind::Video);
+        if (isAudio) {
+            te.firstChannel = ev.firstChannel;
+            te.channelCount = ev.channelCount > 0 ? ev.channelCount : 2;
+            if (ev.hasSustainGain) {
+                if (ev.sustainGain <= 1e-6) {
+                    te.gainDb = -40.0;
+                } else {
+                    te.gainDb = std::clamp(20.0 * std::log10(ev.sustainGain), -40.0, 12.0);
+                }
+            }
+        } else {
+            te.fxChain = {makeFxSlot(QStringLiteral("Pan/Crop"), PluginFormat::Builtin)};
+            if (ev.hasSustainGain) {
+                te.opacity = std::clamp(ev.sustainGain, 0.0, 1.0);
+            }
+        }
+        m_tracks[ti].events.push_back(te);
+        ++added;
+    }
+
+    // Pair A/V with matching timing into groups (skip stills).
+    for (Track &vt : m_tracks) {
+        if (vt.kind != TrackKind::Video) {
+            continue;
+        }
+        for (TrackEvent &ve : vt.events) {
+            if (ve.groupId > 0 || ve.mediaKind == EventMediaKind::Still) {
+                continue;
+            }
+            int gid = 0;
+            for (Track &at : m_tracks) {
+                if (at.kind != TrackKind::Audio) {
+                    continue;
+                }
+                for (TrackEvent &ae : at.events) {
+                    if (ae.groupId > 0) {
+                        continue;
+                    }
+                    if (std::abs(ae.startSec - ve.startSec) < 0.05
+                        && std::abs(ae.lengthSec - ve.lengthSec) < 0.05) {
+                        if (gid == 0) {
+                            gid = m_nextGroupId++;
+                            ve.groupId = gid;
+                        }
+                        ae.groupId = gid;
+                    }
+                }
+            }
+        }
+    }
+    return added;
+}
+
 int ProjectModel::relinkMedia(const QString &oldPath, const QString &newPath)
 {
     if (newPath.isEmpty() || !QFileInfo::exists(newPath)) {

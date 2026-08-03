@@ -59,13 +59,15 @@ void addMediaUnique(InterchangeResult *r, const QString &path)
 
 void scrapePathsFromText(const QString &text, InterchangeResult *r)
 {
+    // Allow spaces in paths (Premiere/Vegas often export "name - 12.mp4").
     static const QRegularExpression re(
-        QStringLiteral(R"((?:[A-Za-z]:[\\/][^\s"'<>|*?]+\.(?:mp4|mov|mkv|avi|webm|mxf|m4v|wmv|wav|bwf|mp3|aif|aiff|flac|ogg|png|jpg|jpeg|tga|tif|tiff|bmp|gif))"
-                       R"(|/(?:Users|home|media|mnt|Volumes)[^\s"'<>|*?]+\.(?:mp4|mov|mkv|avi|webm|mxf|m4v|wmv|wav|bwf|mp3|aif|aiff|flac|ogg|png|jpg|jpeg|tga|tif|tiff|bmp|gif)))"),
+        QStringLiteral(
+            R"((?:[A-Za-z]:[\\/][^"'<>|\r\n*?]+\.(?:mp4|mov|mkv|avi|webm|mxf|m4v|wmv|wav|bwf|mp3|aif|aiff|flac|ogg|png|jpg|jpeg|tga|tif|tiff|bmp|gif))"
+            R"(|/(?:Users|home|media|mnt|Volumes)[^"'<>|\r\n*?]+\.(?:mp4|mov|mkv|avi|webm|mxf|m4v|wmv|wav|bwf|mp3|aif|aiff|flac|ogg|png|jpg|jpeg|tga|tif|tiff|bmp|gif)))"),
         QRegularExpression::CaseInsensitiveOption);
     auto it = re.globalMatch(text);
     while (it.hasNext()) {
-        addMediaUnique(r, nativePathFromUrlish(it.next().captured()));
+        addMediaUnique(r, nativePathFromUrlish(it.next().captured().trimmed()));
     }
 }
 
@@ -181,6 +183,22 @@ InterchangeResult ProjectInterchange::importMediaFromProject(const QString &vegP
 
 InterchangeResult ProjectInterchange::importEdl(const QString &path, double frameRate, QString *error)
 {
+    // Vegas Pro “EDL Text File” is a semicolon CSV — route before CMX3600 parse.
+    {
+        QFile peek(path);
+        if (peek.open(QIODevice::ReadOnly | QIODevice::Text)) {
+            QTextStream in(&peek);
+            QString header;
+            while (!in.atEnd() && header.trimmed().isEmpty()) {
+                header = in.readLine();
+            }
+            if (header.contains(QLatin1Char(';'))
+                && header.contains(QLatin1String("StartTime"), Qt::CaseInsensitive)) {
+                return importVegasCsvEdl(path, error);
+            }
+        }
+    }
+
     InterchangeResult r;
     QFile f(path);
     if (!f.open(QIODevice::ReadOnly | QIODevice::Text)) {
@@ -310,29 +328,68 @@ InterchangeResult ProjectInterchange::importFinalCutXml(const QString &path, QSt
         return ok ? v : -1.0;
     };
 
-    // Map FCPX asset id → path/name
+    // Map FCPX asset id → path/name; FCP7 file id → pathurl
     QHash<QString, QString> assetIdToPath;
     QHash<QString, QString> assetIdToName;
     {
         QXmlStreamReader x(data);
         while (!x.atEnd()) {
             x.readNext();
-            if (!x.isStartElement() || x.name() != QLatin1String("asset")) {
+            if (!x.isStartElement()) {
                 continue;
             }
-            const QString id = x.attributes().value(QLatin1String("id")).toString();
-            const QString name = x.attributes().value(QLatin1String("name")).toString();
-            QString src = x.attributes().value(QLatin1String("src")).toString();
-            if (src.startsWith(QLatin1String("file://localhost/"))) {
-                src = src.mid(QStringLiteral("file://localhost/").size());
-            } else if (src.startsWith(QLatin1String("file:///"))) {
-                src = src.mid(QStringLiteral("file:///").size());
+            if (x.name() == QLatin1String("asset")) {
+                const QString id = x.attributes().value(QLatin1String("id")).toString();
+                const QString name = x.attributes().value(QLatin1String("name")).toString();
+                QString src = x.attributes().value(QLatin1String("src")).toString();
+                if (src.startsWith(QLatin1String("file://localhost/"))) {
+                    src = src.mid(QStringLiteral("file://localhost/").size());
+                } else if (src.startsWith(QLatin1String("file:///"))) {
+                    src = src.mid(QStringLiteral("file:///").size());
+                }
+                src = QDir::fromNativeSeparators(src);
+                if (!id.isEmpty()) {
+                    assetIdToPath.insert(id, src);
+                    assetIdToName.insert(id, name);
+                }
+            } else if (x.name() == QLatin1String("file")) {
+                const QString id = x.attributes().value(QLatin1String("id")).toString();
+                // Self-closing <file id="…"/> may have pathurl as sibling under clipitem;
+                // also capture nested pathurl when present.
+                int depth = 1;
+                QString pathurl;
+                QString fname;
+                while (depth > 0 && !x.atEnd()) {
+                    x.readNext();
+                    if (x.isStartElement()) {
+                        ++depth;
+                        if (x.name() == QLatin1String("pathurl")) {
+                            pathurl = nativePathFromUrlish(x.readElementText());
+                            --depth;
+                        } else if (x.name() == QLatin1String("name") && fname.isEmpty()) {
+                            fname = x.readElementText();
+                            --depth;
+                        }
+                    } else if (x.isEndElement()) {
+                        --depth;
+                    }
+                }
+                if (!id.isEmpty() && !pathurl.isEmpty()) {
+                    assetIdToPath.insert(id, pathurl);
+                    if (!fname.isEmpty()) {
+                        assetIdToName.insert(id, fname);
+                    }
+                }
             }
-            src = QDir::fromNativeSeparators(src);
-            if (!id.isEmpty()) {
-                assetIdToPath.insert(id, src);
-                assetIdToName.insert(id, name);
-            }
+        }
+    }
+
+    // Also map pathurl media already scraped by basename for FCP7 empty <file id/> refs
+    for (const InterchangeMediaRef &m : r.media) {
+        const QString base = QFileInfo(m.path).completeBaseName();
+        if (!base.isEmpty() && !assetIdToPath.contains(base)) {
+            assetIdToPath.insert(base, m.path);
+            assetIdToName.insert(base, QFileInfo(m.path).fileName());
         }
     }
 
@@ -362,121 +419,324 @@ InterchangeResult ProjectInterchange::importFinalCutXml(const QString &path, QSt
         }
     }
 
-    QXmlStreamReader xml2(data);
-    while (!xml2.atEnd()) {
-        xml2.readNext();
-        if (!xml2.isStartElement()) {
-            continue;
+    auto fillFcpxClip = [&](QXmlStreamReader &xml, const QString &elemName) {
+        // Skip channel stems (lane="-1" nested under parent audio)
+        if (!xml.attributes().value(QLatin1String("lane")).isEmpty()) {
+            return;
         }
-        const QString name = xml2.name().toString().toLower();
-
-        // FCPX spine video clips
-        if (name == QLatin1String("video") || name == QLatin1String("asset-clip")) {
-            InterchangeEvent ev;
-            const QString ref = xml2.attributes().value(QLatin1String("ref")).toString();
-            ev.name = assetIdToName.value(ref);
-            ev.sourcePath = assetIdToPath.value(ref);
-            if (ev.name.isEmpty()) {
-                ev.name = xml2.attributes().value(QLatin1String("name")).toString();
-            }
-            if (ev.name.isEmpty()) {
-                ev.name = QFileInfo(ev.sourcePath).completeBaseName();
-            }
-            if (ev.name.isEmpty()) {
-                ev.name = QStringLiteral("Clip");
-            }
-            ev.kind = guessKind(ev.sourcePath.isEmpty() ? ev.name : ev.sourcePath);
-            const double d = parseTimeAttr(xml2.attributes().value(QLatin1String("duration")).toString());
-            const QString startAttr = xml2.attributes().value(QLatin1String("start")).toString();
-            const QString offsetAttr = xml2.attributes().value(QLatin1String("offset")).toString();
-            // Timeline position prefers offset; start is often media in-point
-            const double st = parseTimeAttr(!offsetAttr.isEmpty() ? offsetAttr : startAttr);
-            if (d > 0.0) {
-                ev.lengthSec = d;
-            }
-            if (st >= 0.0) {
-                ev.startSec = st;
-            }
-            if (d > 0.0 || st >= 0.0) {
-                r.events.push_back(ev);
-            }
-            continue;
-        }
-
-        if (name != QLatin1String("clipitem") && name != QLatin1String("clip")) {
-            continue;
-        }
-
-        // FCP7 / xmeml clipitem — often nested <start>/<end>/<duration> in frames
         InterchangeEvent ev;
-        ev.name = xml2.attributes().value(QLatin1String("name")).toString();
+        const QString ref = xml.attributes().value(QLatin1String("ref")).toString();
+        ev.name = assetIdToName.value(ref);
+        ev.sourcePath = assetIdToPath.value(ref);
+        if (ev.name.isEmpty()) {
+            ev.name = xml.attributes().value(QLatin1String("name")).toString();
+        }
+        if (ev.name.isEmpty()) {
+            ev.name = QFileInfo(ev.sourcePath).completeBaseName();
+        }
         if (ev.name.isEmpty()) {
             ev.name = QStringLiteral("Clip");
         }
-        ev.kind = QStringLiteral("video");
-
-        // Attribute form (rare)
-        const double dAttr = parseTimeAttr(xml2.attributes().value(QLatin1String("duration")).toString());
-        const double stAttr = parseTimeAttr(!xml2.attributes().value(QLatin1String("start")).isEmpty()
-                                                ? xml2.attributes().value(QLatin1String("start")).toString()
-                                                : xml2.attributes().value(QLatin1String("offset")).toString());
-        if (dAttr > 0.0) {
-            ev.lengthSec = dAttr;
-        }
-        if (stAttr >= 0.0) {
-            ev.startSec = stAttr;
+        if (elemName == QLatin1String("audio")) {
+            ev.kind = QStringLiteral("audio");
+        } else {
+            ev.kind = guessKind(ev.sourcePath.isEmpty() ? ev.name : ev.sourcePath);
         }
 
-        int startFrame = -1;
-        int endFrame = -1;
-        int durFrame = -1;
-        const int depth0 = xml2.tokenString().isEmpty() ? 0 : 0;
-        Q_UNUSED(depth0);
+        const double d = parseTimeAttr(xml.attributes().value(QLatin1String("duration")).toString());
+        const QString startAttr = xml.attributes().value(QLatin1String("start")).toString();
+        const QString offsetAttr = xml.attributes().value(QLatin1String("offset")).toString();
+        // Timeline = offset when present; otherwise spine origin (0). Never use start as
+        // timeline — FCPX start is the media in-point (critical for reverse SubClips).
+        if (!offsetAttr.isEmpty()) {
+            const double off = parseTimeAttr(offsetAttr);
+            if (off >= 0.0) {
+                ev.startSec = off;
+            }
+        } else {
+            ev.startSec = 0.0;
+        }
+        if (!startAttr.isEmpty()) {
+            const double mediaIn = parseTimeAttr(startAttr);
+            if (mediaIn >= 0.0) {
+                ev.mediaStartSec = mediaIn;
+            }
+        }
+        if (d > 0.0) {
+            ev.lengthSec = d;
+        }
+
+        // Nested fades / timeMap until this element ends
         int depth = 1;
-        while (depth > 0 && !xml2.atEnd()) {
-            xml2.readNext();
-            if (xml2.isStartElement()) {
+        double timeMapT0 = -1.0, timeMapT1 = -1.0;
+        double timeMapV0 = 0.0, timeMapV1 = 0.0;
+        int timePts = 0;
+        while (depth > 0 && !xml.atEnd()) {
+            xml.readNext();
+            if (xml.isStartElement()) {
                 ++depth;
-                const QString child = xml2.name().toString().toLower();
-                if (child == QLatin1String("name") && ev.name == QLatin1String("Clip")) {
-                    const QString n = xml2.readElementText();
-                    --depth;
-                    if (!n.isEmpty()) {
-                        ev.name = n;
+                const QString child = xml.name().toString().toLower();
+                if (child == QLatin1String("fadein")) {
+                    const double fd =
+                        parseTimeAttr(xml.attributes().value(QLatin1String("duration")).toString());
+                    if (fd > 0.0) {
+                        ev.fadeInSec = fd;
                     }
-                } else if (child == QLatin1String("start")) {
-                    startFrame = xml2.readElementText().toInt();
-                    --depth;
-                } else if (child == QLatin1String("end")) {
-                    endFrame = xml2.readElementText().toInt();
-                    --depth;
-                } else if (child == QLatin1String("duration")) {
-                    durFrame = xml2.readElementText().toInt();
-                    --depth;
-                } else if (child == QLatin1String("pathurl") || child == QLatin1String("name")) {
-                    // keep scanning
+                } else if (child == QLatin1String("fadeout")) {
+                    const double fd =
+                        parseTimeAttr(xml.attributes().value(QLatin1String("duration")).toString());
+                    if (fd > 0.0) {
+                        ev.fadeOutSec = fd;
+                    }
+                } else if (child == QLatin1String("timept")) {
+                    const double t =
+                        parseTimeAttr(xml.attributes().value(QLatin1String("time")).toString());
+                    const double v =
+                        parseTimeAttr(xml.attributes().value(QLatin1String("value")).toString());
+                    if (t >= 0.0) {
+                        if (timePts == 0) {
+                            timeMapT0 = t;
+                            timeMapV0 = v;
+                        }
+                        timeMapT1 = t;
+                        timeMapV1 = v;
+                        ++timePts;
+                    }
                 }
-            } else if (xml2.isEndElement()) {
+            } else if (xml.isEndElement()) {
                 --depth;
             }
         }
-
-        if (startFrame >= 0 && endFrame > startFrame && seqFps > 1.0) {
-            ev.startSec = double(startFrame) / seqFps;
-            ev.lengthSec = double(endFrame - startFrame) / seqFps;
-        } else if (durFrame > 0 && seqFps > 1.0 && ev.lengthSec < 0.05) {
-            ev.lengthSec = double(durFrame) / seqFps;
+        if (timePts >= 2 && timeMapT1 > timeMapT0) {
+            // Decreasing value ⇒ reverse playback
+            if (timeMapV1 < timeMapV0 - 1e-3) {
+                ev.playRate = -1.0;
+                ev.mediaLengthSec = std::abs(timeMapV0 - timeMapV1);
+                // Reverse SubClip: media in-point on the reversed item is often 0
+                if (ev.mediaStartSec > ev.mediaLengthSec + 1.0) {
+                    // start attr was absolute source time; keep length from timeMap
+                    ev.mediaStartSec = 0.0;
+                }
+            }
         }
 
-        // Masterclip bins in FCP7 have start=end=0 — skip empty bin placeholders
-        if (ev.lengthSec < 0.05 && startFrame == 0 && endFrame == 0) {
-            continue;
-        }
-        if (guessKind(ev.name) == QLatin1String("still")) {
-            ev.kind = QStringLiteral("still");
-        }
-        if (ev.lengthSec > 0.05 || ev.startSec > 0.0) {
+        if (ev.lengthSec > 0.05 || (!offsetAttr.isEmpty() && ev.startSec >= 0.0)) {
             r.events.push_back(ev);
+        }
+    };
+
+    QXmlStreamReader xml2(data);
+    int sequenceDepth = 0;
+    double pendingFadeInSec = 0.0;
+    while (!xml2.atEnd()) {
+        xml2.readNext();
+        if (xml2.isStartElement()) {
+            const QString name = xml2.name().toString().toLower();
+            if (name == QLatin1String("sequence")) {
+                ++sequenceDepth;
+            }
+
+            // FCPX spine clips
+            if (name == QLatin1String("video") || name == QLatin1String("asset-clip")
+                || name == QLatin1String("audio")) {
+                fillFcpxClip(xml2, name);
+                continue;
+            }
+
+            // FCPX wrapper <clip duration="0s"> — skip creating a phantom event
+            if (name == QLatin1String("clip")) {
+                const double d =
+                    parseTimeAttr(xml2.attributes().value(QLatin1String("duration")).toString());
+                if (d <= 1e-6) {
+                    continue; // children (nested spine) still visited normally
+                }
+                // Non-zero FCPX compound clip: treat like asset-clip if it has ref
+                if (!xml2.attributes().value(QLatin1String("ref")).isEmpty()) {
+                    fillFcpxClip(xml2, name);
+                }
+                continue;
+            }
+
+            // FCP7: only sequence clipitems (skip master <clip ismasterclip>)
+            if (name == QLatin1String("clipitem") && sequenceDepth > 0) {
+                InterchangeEvent ev;
+                ev.name = xml2.attributes().value(QLatin1String("name")).toString();
+                if (ev.name.isEmpty()) {
+                    ev.name = QStringLiteral("Clip");
+                }
+                ev.kind = QStringLiteral("video");
+
+                int startFrame = -1;
+                int endFrame = -1;
+                int durFrame = -1;
+                int inFrame = -1;
+                int outFrame = -1;
+                double itemFps = seqFps;
+                QString fileId;
+                QString mediaType;
+
+                int depth = 1;
+                while (depth > 0 && !xml2.atEnd()) {
+                    xml2.readNext();
+                    if (xml2.isStartElement()) {
+                        ++depth;
+                        const QString child = xml2.name().toString().toLower();
+                        if (child == QLatin1String("name") && ev.name == QLatin1String("Clip")) {
+                            const QString n = xml2.readElementText();
+                            --depth;
+                            if (!n.isEmpty()) {
+                                ev.name = n;
+                            }
+                        } else if (child == QLatin1String("start")) {
+                            startFrame = xml2.readElementText().toInt();
+                            --depth;
+                        } else if (child == QLatin1String("end")) {
+                            endFrame = xml2.readElementText().toInt();
+                            --depth;
+                        } else if (child == QLatin1String("duration")) {
+                            durFrame = xml2.readElementText().toInt();
+                            --depth;
+                        } else if (child == QLatin1String("in")) {
+                            inFrame = xml2.readElementText().toInt();
+                            --depth;
+                        } else if (child == QLatin1String("out")) {
+                            outFrame = xml2.readElementText().toInt();
+                            --depth;
+                        } else if (child == QLatin1String("timebase")) {
+                            const double tb = xml2.readElementText().toDouble();
+                            --depth;
+                            if (tb > 1.0) {
+                                itemFps = tb;
+                            }
+                        } else if (child == QLatin1String("file")) {
+                            fileId = xml2.attributes().value(QLatin1String("id")).toString();
+                        } else if (child == QLatin1String("mediatype")) {
+                            mediaType = xml2.readElementText().trimmed().toLower();
+                            --depth;
+                        } else if (child == QLatin1String("pathurl")) {
+                            ev.sourcePath = nativePathFromUrlish(xml2.readElementText());
+                            --depth;
+                        }
+                    } else if (xml2.isEndElement()) {
+                        --depth;
+                    }
+                }
+
+                if (mediaType == QLatin1String("audio")) {
+                    ev.kind = QStringLiteral("audio");
+                } else if (guessKind(ev.name) == QLatin1String("still")) {
+                    ev.kind = QStringLiteral("still");
+                } else if (!ev.sourcePath.isEmpty()) {
+                    ev.kind = guessKind(ev.sourcePath);
+                }
+
+                if (ev.sourcePath.isEmpty() && !fileId.isEmpty()) {
+                    ev.sourcePath = assetIdToPath.value(fileId);
+                    if (ev.sourcePath.isEmpty()) {
+                        // id often equals basename without extension quirks
+                        for (auto it = assetIdToPath.begin(); it != assetIdToPath.end(); ++it) {
+                            if (it.key().startsWith(fileId, Qt::CaseInsensitive)
+                                || fileId.startsWith(it.key(), Qt::CaseInsensitive)) {
+                                ev.sourcePath = it.value();
+                                break;
+                            }
+                        }
+                    }
+                }
+                if (ev.sourcePath.isEmpty()) {
+                    // Match scraped media by event name / filename
+                    for (const InterchangeMediaRef &m : r.media) {
+                        if (QFileInfo(m.path).fileName().compare(ev.name, Qt::CaseInsensitive) == 0
+                            || m.displayName.compare(ev.name, Qt::CaseInsensitive) == 0) {
+                            ev.sourcePath = m.path;
+                            break;
+                        }
+                    }
+                }
+
+                const double fpsUse = itemFps > 1.0 ? itemFps : seqFps;
+                if (startFrame >= 0 && endFrame > startFrame && fpsUse > 1.0) {
+                    ev.startSec = double(startFrame) / fpsUse;
+                    ev.lengthSec = double(endFrame - startFrame) / fpsUse;
+                } else if ((startFrame < 0 || endFrame < 0) && durFrame > 0 && fpsUse > 1.0) {
+                    // Linked to surrounding transitions (start=end=-1)
+                    ev.startSec = 0.0;
+                    ev.lengthSec = double(durFrame) / fpsUse;
+                } else if (durFrame > 0 && fpsUse > 1.0 && ev.lengthSec < 0.05) {
+                    ev.lengthSec = double(durFrame) / fpsUse;
+                }
+                if (inFrame >= 0 && fpsUse > 1.0) {
+                    ev.mediaStartSec = double(inFrame) / fpsUse;
+                }
+                if (inFrame >= 0 && outFrame > inFrame && fpsUse > 1.0) {
+                    ev.mediaLengthSec = double(outFrame - inFrame) / fpsUse;
+                }
+
+                if (pendingFadeInSec > 1e-6) {
+                    ev.fadeInSec = pendingFadeInSec;
+                    pendingFadeInSec = 0.0;
+                }
+
+                if (ev.lengthSec < 0.05 && startFrame == 0 && endFrame == 0) {
+                    continue;
+                }
+                if (ev.lengthSec > 0.05 || ev.startSec > 0.0) {
+                    r.events.push_back(ev);
+                }
+                continue;
+            }
+
+            // FCP7 transitions → pending fades for neighboring clipitem
+            if (name == QLatin1String("transitionitem") && sequenceDepth > 0) {
+                int tStart = -1;
+                int tEnd = -1;
+                QString alignment;
+                double tFps = seqFps;
+                int depth = 1;
+                while (depth > 0 && !xml2.atEnd()) {
+                    xml2.readNext();
+                    if (xml2.isStartElement()) {
+                        ++depth;
+                        const QString child = xml2.name().toString().toLower();
+                        if (child == QLatin1String("start")) {
+                            tStart = xml2.readElementText().toInt();
+                            --depth;
+                        } else if (child == QLatin1String("end")) {
+                            tEnd = xml2.readElementText().toInt();
+                            --depth;
+                        } else if (child == QLatin1String("alignment")) {
+                            alignment = xml2.readElementText().trimmed().toLower();
+                            --depth;
+                        } else if (child == QLatin1String("timebase")) {
+                            const double tb = xml2.readElementText().toDouble();
+                            --depth;
+                            if (tb > 1.0) {
+                                tFps = tb;
+                            }
+                        }
+                    } else if (xml2.isEndElement()) {
+                        --depth;
+                    }
+                }
+                if (tStart >= 0 && tEnd > tStart && tFps > 1.0) {
+                    const double fadeSec = double(tEnd - tStart) / tFps;
+                    if (alignment.contains(QLatin1String("start")) || tStart == 0) {
+                        pendingFadeInSec = fadeSec;
+                    } else if (!r.events.isEmpty()) {
+                        // Fade-out / mid dissolve after the preceding clipitem
+                        r.events.last().fadeOutSec =
+                            std::max(r.events.last().fadeOutSec, fadeSec);
+                    } else {
+                        pendingFadeInSec = fadeSec;
+                    }
+                }
+                continue;
+            }
+        } else if (xml2.isEndElement()) {
+            if (xml2.name().toString().toLower() == QLatin1String("sequence")
+                && sequenceDepth > 0) {
+                --sequenceDepth;
+            }
         }
     }
 
