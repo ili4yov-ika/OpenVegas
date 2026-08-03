@@ -8,7 +8,7 @@ Unicode true
 !define PRODUCT_NAME "OpenVegas"
 !define PRODUCT_VERSION "0.1.0"
 !define PRODUCT_PUBLISHER "OpenVegas contributors"
-!define PRODUCT_WEB_SITE "https://github.com/OpenVegas/OpenVegas"
+!define PRODUCT_WEB_SITE "https://github.com/ili4yov-ika/OpenVegas"
 
 ; Общие настройки
 Name "${PRODUCT_NAME}"
