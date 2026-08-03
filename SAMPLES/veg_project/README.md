@@ -251,7 +251,7 @@ Interchange (экспорт 2026-08-02 ≈04:40–04:46):
 | FCPX | `final-cut-pro-x/….fcpxml` | **`timeMap`** reverse на video + wav |
 | Premiere / AE | `premiere_after-effect/….prproj` | FX ignored; media-копии `-16.mp4` / `-3.wav` |
 
-Открыть: `build\windows-mingw-x64\OpenVegas.exe SAMPLES\veg_project\project_big--buck-bunny_4x3-preview-reverse-fades-fx.veg`.
+Открыть: `build\Windows_MinGW-x64\OpenVegas.exe SAMPLES\veg_project\project_big--buck-bunny_4x3-preview-reverse-fades-fx.veg`.
 
 ### Раскладка `project_big--buck-bunny_4x3-preview-reverse-fades-fx1`
 
@@ -269,7 +269,7 @@ OpenVegas: reverse SubClip — `StreamStart` = in-point на перевёрну�
 Для looped `…-fx`: length **24.1 s**, cycle **10.285 s**, первая засечка на remaining **~2.094 s**, далее каждые 10.285 s; клип продолжается за последней засечкой.  
 Sidecar: **`edl-text-file/…_reverse-fades-fx1.txt`** (нужен: binary timeline в `.veg` неполный).
 
-Открыть: `build\windows-mingw-x64\OpenVegas.exe SAMPLES\veg_project\project_big--buck-bunny_4x3-preview-reverse-fades-fx1.veg`.
+Открыть: `build\Windows_MinGW-x64\OpenVegas.exe SAMPLES\veg_project\project_big--buck-bunny_4x3-preview-reverse-fades-fx1.veg`.
 
 ### Раскладка `project_big--buck-bunny_576x1024-preview-and-fades`
 

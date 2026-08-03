@@ -3,8 +3,8 @@
     "label": "OpenVegas — CMake MinGW Debug (GDB)",
     "adapter": "GDB",
     "request": "launch",
-    "program": "$ZED_WORKTREE_ROOT/build/Windows-MinGW-x64/OpenVegas.exe",
-    "cwd": "$ZED_WORKTREE_ROOT/build/Windows-MinGW-x64",
+    "program": "$ZED_WORKTREE_ROOT/build/Windows_MinGW-x64/OpenVegas.exe",
+    "cwd": "$ZED_WORKTREE_ROOT/build/Windows_MinGW-x64",
     "gdb_path": "C:/Qt/Tools/mingw1310_64/bin/gdb.exe",
     "env": {
       "PATH": "C:/Qt/6.9.3/mingw_64/bin;C:/Qt/Tools/mingw1310_64/bin",
@@ -41,8 +41,8 @@
     "label": "OpenVegas — CMake MinGW Release (GDB)",
     "adapter": "GDB",
     "request": "launch",
-    "program": "$ZED_WORKTREE_ROOT/build/Windows-MinGW-x64/OpenVegas.exe",
-    "cwd": "$ZED_WORKTREE_ROOT/build/Windows-MinGW-x64",
+    "program": "$ZED_WORKTREE_ROOT/build/Windows_MinGW-x64/OpenVegas.exe",
+    "cwd": "$ZED_WORKTREE_ROOT/build/Windows_MinGW-x64",
     "gdb_path": "C:/Qt/Tools/mingw1310_64/bin/gdb.exe",
     "env": {
       "PATH": "C:/Qt/6.9.3/mingw_64/bin;C:/Qt/Tools/mingw1310_64/bin",

@@ -6,7 +6,7 @@
       "-S",
       "$ZED_WORKTREE_ROOT",
       "-B",
-      "$ZED_WORKTREE_ROOT/build/Windows-MinGW-x64",
+      "$ZED_WORKTREE_ROOT/build/Windows_MinGW-x64",
       "-G",
       "Ninja",
       "-DCMAKE_BUILD_TYPE=Debug",
@@ -24,7 +24,7 @@
   {
     "label": "CMake: Build (MinGW Debug)",
     "command": "cmake",
-    "args": ["--build", "$ZED_WORKTREE_ROOT/build/Windows-MinGW-x64", "--parallel"],
+    "args": ["--build", "$ZED_WORKTREE_ROOT/build/Windows_MinGW-x64", "--parallel"],
     "cwd": "$ZED_WORKTREE_ROOT",
     "env": {
       "PATH": "C:/Qt/Tools/mingw1310_64/bin;C:/Qt/6.9.3/mingw_64/bin;C:/Qt/Tools/Ninja;C:/Program Files/CMake/bin"
@@ -38,7 +38,7 @@
     "args": [
       "-NoProfile",
       "-Command",
-      "$env:PATH='C:/Qt/Tools/mingw1310_64/bin;C:/Qt/6.9.3/mingw_64/bin;C:/Qt/Tools/Ninja;C:/Program Files/CMake/bin;' + $env:PATH; cmake -S . -B build/Windows-MinGW-x64 -G Ninja -DCMAKE_BUILD_TYPE=Debug -DCMAKE_PREFIX_PATH=C:/Qt/6.9.3/mingw_64 -DCMAKE_CXX_COMPILER=C:/Qt/Tools/mingw1310_64/bin/g++.exe -DCMAKE_MAKE_PROGRAM=C:/Qt/Tools/Ninja/ninja.exe -DCMAKE_EXPORT_COMPILE_COMMANDS=ON; if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }; cmake --build build/Windows-MinGW-x64 --parallel"
+      "$env:PATH='C:/Qt/Tools/mingw1310_64/bin;C:/Qt/6.9.3/mingw_64/bin;C:/Qt/Tools/Ninja;C:/Program Files/CMake/bin;' + $env:PATH; cmake -S . -B build/Windows_MinGW-x64 -G Ninja -DCMAKE_BUILD_TYPE=Debug -DCMAKE_PREFIX_PATH=C:/Qt/6.9.3/mingw_64 -DCMAKE_CXX_COMPILER=C:/Qt/Tools/mingw1310_64/bin/g++.exe -DCMAKE_MAKE_PROGRAM=C:/Qt/Tools/Ninja/ninja.exe -DCMAKE_EXPORT_COMPILE_COMMANDS=ON; if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }; cmake --build build/Windows_MinGW-x64 --parallel"
     ],
     "cwd": "$ZED_WORKTREE_ROOT",
     "reveal": "always",
@@ -50,7 +50,7 @@
     "args": [
       "-NoProfile",
       "-Command",
-      "$env:PATH='C:/Qt/Tools/mingw1310_64/bin;C:/Qt/6.9.3/mingw_64/bin;C:/Qt/Tools/Ninja;C:/Program Files/CMake/bin;' + $env:PATH; cmake -S . -B build/Windows-MinGW-x64 -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_PREFIX_PATH=C:/Qt/6.9.3/mingw_64 -DCMAKE_CXX_COMPILER=C:/Qt/Tools/mingw1310_64/bin/g++.exe -DCMAKE_MAKE_PROGRAM=C:/Qt/Tools/Ninja/ninja.exe; if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }; cmake --build build/Windows-MinGW-x64 --parallel"
+      "$env:PATH='C:/Qt/Tools/mingw1310_64/bin;C:/Qt/6.9.3/mingw_64/bin;C:/Qt/Tools/Ninja;C:/Program Files/CMake/bin;' + $env:PATH; cmake -S . -B build/Windows_MinGW-x64 -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_PREFIX_PATH=C:/Qt/6.9.3/mingw_64 -DCMAKE_CXX_COMPILER=C:/Qt/Tools/mingw1310_64/bin/g++.exe -DCMAKE_MAKE_PROGRAM=C:/Qt/Tools/Ninja/ninja.exe; if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }; cmake --build build/Windows_MinGW-x64 --parallel"
     ],
     "cwd": "$ZED_WORKTREE_ROOT",
     "reveal": "always",
@@ -82,7 +82,7 @@
   {
     "label": "CMake: Clean (MinGW)",
     "command": "cmake",
-    "args": ["--build", "$ZED_WORKTREE_ROOT/build/Windows-MinGW-x64", "--target", "clean"],
+    "args": ["--build", "$ZED_WORKTREE_ROOT/build/Windows_MinGW-x64", "--target", "clean"],
     "cwd": "$ZED_WORKTREE_ROOT",
     "env": {
       "PATH": "C:/Qt/Tools/mingw1310_64/bin;C:/Qt/Tools/Ninja;C:/Program Files/CMake/bin"
@@ -91,8 +91,8 @@
   },
   {
     "label": "Run OpenVegas (CMake MinGW Debug)",
-    "command": "$ZED_WORKTREE_ROOT/build/Windows-MinGW-x64/OpenVegas.exe",
-    "cwd": "$ZED_WORKTREE_ROOT/build/Windows-MinGW-x64",
+    "command": "$ZED_WORKTREE_ROOT/build/Windows_MinGW-x64/OpenVegas.exe",
+    "cwd": "$ZED_WORKTREE_ROOT/build/Windows_MinGW-x64",
     "env": {
       "PATH": "C:/Qt/6.9.3/mingw_64/bin;C:/Qt/Tools/mingw1310_64/bin",
       "QT_PLUGIN_PATH": "C:/Qt/6.9.3/mingw_64/plugins"

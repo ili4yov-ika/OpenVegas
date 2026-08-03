@@ -6,8 +6,8 @@
             "includePath": [
                 "${workspaceFolder}/src",
                 "${workspaceFolder}/ui",
-                "${workspaceFolder}/build/Windows-MinGW-x64",
-                "${workspaceFolder}/build/Windows-MinGW-x64/OpenVegas_autogen/include",
+                "${workspaceFolder}/build/Windows_MinGW-x64",
+                "${workspaceFolder}/build/Windows_MinGW-x64/OpenVegas_autogen/include",
                 "${workspaceFolder}/build-pro/ui_headers",
                 "${workspaceFolder}/build-pro/moc",
                 "C:/Qt/6.9.3/mingw_64/include",
@@ -35,7 +35,7 @@
             "cStandard": "c17",
             "cppStandard": "c++17",
             "intelliSenseMode": "windows-gcc-x64",
-            "compileCommands": "${workspaceFolder}/build/Windows-MinGW-x64/compile_commands.json"
+            "compileCommands": "${workspaceFolder}/build/Windows_MinGW-x64/compile_commands.json"
         },
         {
             "name": "Win32 (MSVC / Qt 6.9)",
@@ -72,8 +72,8 @@
             "includePath": [
                 "${workspaceFolder}/src",
                 "${workspaceFolder}/ui",
-                "${workspaceFolder}/build/linux-wsl",
-                "${workspaceFolder}/build/linux-wsl/OpenVegas_autogen/include",
+                "${workspaceFolder}/build/linux",
+                "${workspaceFolder}/build/linux/OpenVegas_autogen/include",
                 "/usr/include/x86_64-linux-gnu/qt6",
                 "/usr/include/x86_64-linux-gnu/qt6/QtCore",
                 "/usr/include/x86_64-linux-gnu/qt6/QtGui",
@@ -89,7 +89,7 @@
             "cStandard": "c17",
             "cppStandard": "c++17",
             "intelliSenseMode": "linux-gcc-x64",
-            "compileCommands": "${workspaceFolder}/build/linux-wsl/compile_commands.json"
+            "compileCommands": "${workspaceFolder}/build/linux/compile_commands.json"
         }
     ]
 }

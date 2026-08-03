@@ -22,7 +22,7 @@
 Открыть проект в OpenVegas:
 
 ```text
-build\windows-mingw-x64\OpenVegas.exe SAMPLES\veg_project\project_big--buck-bunny.veg
+build\Windows_MinGW-x64\OpenVegas.exe SAMPLES\veg_project\project_big--buck-bunny.veg
 ```
 
 ---

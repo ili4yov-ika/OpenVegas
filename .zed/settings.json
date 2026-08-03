@@ -8,7 +8,7 @@
           "--completion-style=detailed",
           "--header-insertion=never",
           "--pch-storage=memory",
-          "--compile-commands-dir=build/Windows-MinGW-x64",
+          "--compile-commands-dir=build/Windows_MinGW-x64",
           "--query-driver=C:/Qt/Tools/mingw1310_64/bin/g++.exe",
           "--clang-tidy=false"
         ]

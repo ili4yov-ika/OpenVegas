@@ -10,7 +10,7 @@
       "name": "windows-mingw-debug",
       "displayName": "Windows MinGW Debug",
       "generator": "Ninja",
-      "binaryDir": "${sourceDir}/build/Windows-MinGW-x64",
+      "binaryDir": "${sourceDir}/build/Windows_MinGW-x64",
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Debug",
         "CMAKE_PREFIX_PATH": "C:/Qt/6.9.3/mingw_64",
@@ -25,7 +25,7 @@
       "name": "windows-mingw-release",
       "displayName": "Windows MinGW Release",
       "generator": "Ninja",
-      "binaryDir": "${sourceDir}/build/Windows-MinGW-x64",
+      "binaryDir": "${sourceDir}/build/Windows_MinGW-x64",
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Release",
         "CMAKE_PREFIX_PATH": "C:/Qt/6.9.3/mingw_64",

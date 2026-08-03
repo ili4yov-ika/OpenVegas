@@ -37,7 +37,7 @@ source ~/.openvegas_wsl_env.sh
 То же для `ffprobe.exe`. Удобно положить Gyan/BtbN full build в `ffmpeg/bin/` в каталоге сборки или инсталлятора.
 
 ```text
-build/Windows-MinGW-x64/
+build/Windows_MinGW-x64/
   OpenVegas.exe
   ffmpeg.exe          # или
   ffmpeg/bin/ffmpeg.exe

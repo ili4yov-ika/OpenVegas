@@ -5,10 +5,10 @@
             "name": "OpenVegas (CMake MinGW Debug)",
             "type": "cppdbg",
             "request": "launch",
-            "program": "${workspaceFolder}/build/Windows-MinGW-x64/OpenVegas.exe",
+            "program": "${workspaceFolder}/build/Windows_MinGW-x64/OpenVegas.exe",
             "args": [],
             "stopAtEntry": false,
-            "cwd": "${workspaceFolder}/build/Windows-MinGW-x64",
+            "cwd": "${workspaceFolder}/build/Windows_MinGW-x64",
             "environment": [
                 {
                     "name": "PATH",
@@ -40,10 +40,10 @@
             "name": "OpenVegas (CMake MinGW Release)",
             "type": "cppdbg",
             "request": "launch",
-            "program": "${workspaceFolder}/build/Windows-MinGW-x64/OpenVegas.exe",
+            "program": "${workspaceFolder}/build/Windows_MinGW-x64/OpenVegas.exe",
             "args": [],
             "stopAtEntry": false,
-            "cwd": "${workspaceFolder}/build/Windows-MinGW-x64",
+            "cwd": "${workspaceFolder}/build/Windows_MinGW-x64",
             "environment": [
                 {
                     "name": "PATH",

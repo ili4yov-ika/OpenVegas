@@ -51,14 +51,14 @@
 
 ```bash
 # Windows MinGW (см. также cmake --preset windows-mingw-debug)
-cmake -S . -B build/Windows-MinGW-x64 -DCMAKE_PREFIX_PATH=<путь-к-Qt6.8>
-cmake --build build/Windows-MinGW-x64
+cmake -S . -B build/Windows_MinGW-x64 -DCMAKE_PREFIX_PATH=<путь-к-Qt6.8>
+cmake --build build/Windows_MinGW-x64
 ```
 
 Запуск (пример Windows):
 
 ```text
-build\Windows-MinGW-x64\OpenVegas.exe
+build\Windows_MinGW-x64\OpenVegas.exe
 # или shadow-build из Creator
 ```
 
@@ -67,7 +67,7 @@ build\Windows-MinGW-x64\OpenVegas.exe
 Опционально скопировать поддеревья Vegas в **игнорируемый** `build/.../vegas-runtime/`:
 
 ```bash
-cmake -S . -B build/Windows-MinGW-x64 -DCMAKE_PREFIX_PATH=<Qt6.8> -DOPENVGAS_COPY_VEGAS_RUNTIME=ON
+cmake -S . -B build/Windows_MinGW-x64 -DCMAKE_PREFIX_PATH=<Qt6.8> -DOPENVGAS_COPY_VEGAS_RUNTIME=ON
 ```
 
 **Не коммитьте** `build/`, `vegas-runtime/` и бинарники Vegas — они в [`.gitignore`](.gitignore).
