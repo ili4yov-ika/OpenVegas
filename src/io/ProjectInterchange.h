@@ -75,9 +75,12 @@ public:
      * Used as sidecar next to .veg: edl-text-file/<name>.txt
      */
     static InterchangeResult importVegasCsvEdl(const QString &path, QString *error = nullptr);
+    static bool exportVegasCsvEdl(const ProjectModel &model, const QString &path, QString *error = nullptr);
 
     /** Map Vegas CurveIn/CurveOut integer codes → FadeCurveType. */
     static FadeCurveType fadeCurveFromVegasCode(int code);
+    /** Inverse of fadeCurveFromVegasCode (Vegas EDL CurveIn/Out). */
+    static int fadeCurveToVegasCode(FadeCurveType type);
 
     /** Closed captions (.srt / .vtt / .scc) → timeline markers. */
     static InterchangeResult importClosedCaptions(const QString &path, QString *error = nullptr);

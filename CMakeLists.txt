@@ -398,14 +398,24 @@ if(OPENVGAS_BUILD_TESTS)
         tests/test_plugin_scanner_paths.cpp
         tests/test_ofx_host.cpp
         tests/test_vst3_host.cpp
+        tests/test_project_interchange.cpp
         src/io/FFmpegEncoder.cpp
         src/io/FFmpegStreamDecoder.cpp
         src/io/MediaFilmstripCache.cpp
         src/io/MediaThumbCache.cpp
+        src/io/ProjectInterchange.cpp
+        src/io/SamplePaths.cpp
+        src/io/VegReader.cpp
+        src/io/MediaProbe.cpp
+        src/io/MediaWaveformCache.cpp
+        src/model/ProjectModel.cpp
+        src/plugins/BuiltinAudioCatalog.cpp
         src/plugins/PluginScanner.cpp
         src/plugins/OfxHost.cpp
         src/plugins/AudioPluginScanner.cpp
         src/audio/Vst3Host.cpp
+        src/audio/FadeCurves.cpp
+        src/video/VideoKeyframeEval.cpp
         src/io/RenderTemplateCatalog.cpp
     )
     target_include_directories(openvegas_media_tests PRIVATE

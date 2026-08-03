@@ -99,6 +99,16 @@ void scrapePathsFromXml(QXmlStreamReader &xml, InterchangeResult *r)
     }
 }
 
+/** Prefer resolved existing path; fall back to stored mediaPath for offline export. */
+QString eventExportPath(const ProjectModel &model, const TrackEvent &ev)
+{
+    const QString resolved = model.mediaPathForEvent(ev);
+    if (!resolved.isEmpty()) {
+        return resolved;
+    }
+    return ev.mediaPath;
+}
+
 } // namespace
 
 QString ProjectInterchange::guessKind(const QString &pathOrName)
@@ -473,8 +483,12 @@ InterchangeResult ProjectInterchange::importFinalCutXml(const QString &path, QSt
         int timePts = 0;
         while (depth > 0 && !xml.atEnd()) {
             xml.readNext();
+            // Empty elements (<fadeIn … />) are both Start and End in one token — no depth change.
+            const bool emptyElem = xml.isStartElement() && xml.isEndElement();
             if (xml.isStartElement()) {
-                ++depth;
+                if (!emptyElem) {
+                    ++depth;
+                }
                 const QString child = xml.name().toString().toLower();
                 if (child == QLatin1String("fadein")) {
                     const double fd =
@@ -752,6 +766,10 @@ InterchangeResult ProjectInterchange::importFinalCutXml(const QString &path, QSt
     }
 
     for (InterchangeEvent &ev : r.events) {
+        // Do not override explicit <audio> clips just because the asset is an A/V container.
+        if (ev.kind == QLatin1String("audio")) {
+            continue;
+        }
         if (!ev.sourcePath.isEmpty()) {
             ev.kind = guessKind(ev.sourcePath);
         } else if (guessKind(ev.name) == QLatin1String("still")) {
@@ -778,75 +796,128 @@ bool ProjectInterchange::exportFinalCutXml(const ProjectModel &model, const QStr
         }
         return false;
     }
+    const double fps = model.frameRate() > 1.0 ? model.frameRate() : 30.0;
+    auto toFrames = [fps](double sec) {
+        return static_cast<int>(std::lround(std::max(0.0, sec) * fps));
+    };
+    auto pathUrl = [](const QString &native) -> QString {
+        if (native.isEmpty()) {
+            return {};
+        }
+        QString p = QDir::fromNativeSeparators(native);
+#if defined(Q_OS_WIN)
+        if (p.size() >= 2 && p.at(1) == QLatin1Char(':')) {
+            return QStringLiteral("file://localhost/") + p;
+        }
+#endif
+        return QStringLiteral("file://localhost") + (p.startsWith(QLatin1Char('/')) ? p : (QLatin1Char('/') + p));
+    };
+
     QXmlStreamWriter w(&f);
     w.setAutoFormatting(true);
     w.writeStartDocument();
     w.writeStartElement(QStringLiteral("xmeml"));
     w.writeAttribute(QStringLiteral("version"), QStringLiteral("5"));
     w.writeStartElement(QStringLiteral("sequence"));
-    w.writeTextElement(QStringLiteral("name"), model.projectTitle());
+    w.writeTextElement(QStringLiteral("name"),
+                        model.projectTitle().isEmpty() ? QStringLiteral("OpenVegas")
+                                                       : model.projectTitle());
     w.writeStartElement(QStringLiteral("rate"));
-    w.writeTextElement(QStringLiteral("timebase"),
-                       QString::number(static_cast<int>(std::lround(model.frameRate() > 1.0
-                                                                        ? model.frameRate()
-                                                                        : 30.0))));
+    w.writeTextElement(QStringLiteral("timebase"), QString::number(static_cast<int>(std::lround(fps))));
     w.writeTextElement(QStringLiteral("ntsc"),
-                       (std::abs(model.frameRate() - 29.97) < 0.05
-                        || std::abs(model.frameRate() - 59.94) < 0.05)
+                       (std::abs(fps - 29.97) < 0.05 || std::abs(fps - 59.94) < 0.05)
                            ? QStringLiteral("TRUE")
                            : QStringLiteral("FALSE"));
     w.writeEndElement(); // rate
 
     w.writeStartElement(QStringLiteral("media"));
-    w.writeStartElement(QStringLiteral("video"));
-    w.writeStartElement(QStringLiteral("track"));
     int id = 1;
-    const double fps = model.frameRate() > 1.0 ? model.frameRate() : 30.0;
+
+    auto writeClipItem = [&](const TrackEvent &ev, const QString &mediaType) {
+        const QString mediaPath = eventExportPath(model, ev);
+        const int dur = std::max(1, toFrames(ev.lengthSec));
+        const int start = toFrames(ev.startSec);
+        const int inF = toFrames(ev.mediaStartSec);
+        const int outF = inF + dur;
+        w.writeStartElement(QStringLiteral("clipitem"));
+        w.writeAttribute(QStringLiteral("id"), QStringLiteral("clipitem-%1").arg(id++));
+        w.writeTextElement(QStringLiteral("name"), ev.name);
+        w.writeTextElement(QStringLiteral("duration"), QString::number(dur));
+        w.writeStartElement(QStringLiteral("rate"));
+        w.writeTextElement(QStringLiteral("timebase"), QString::number(static_cast<int>(std::lround(fps))));
+        w.writeTextElement(QStringLiteral("ntsc"), QStringLiteral("FALSE"));
+        w.writeEndElement();
+        w.writeTextElement(QStringLiteral("start"), QString::number(start));
+        w.writeTextElement(QStringLiteral("end"), QString::number(start + dur));
+        w.writeTextElement(QStringLiteral("in"), QString::number(inF));
+        w.writeTextElement(QStringLiteral("out"), QString::number(outF));
+        if (!mediaPath.isEmpty()) {
+            w.writeStartElement(QStringLiteral("file"));
+            w.writeAttribute(QStringLiteral("id"), QStringLiteral("file-%1").arg(id));
+            w.writeTextElement(QStringLiteral("name"), QFileInfo(mediaPath).fileName());
+            w.writeTextElement(QStringLiteral("pathurl"), pathUrl(mediaPath));
+            w.writeEndElement();
+        }
+        w.writeStartElement(QStringLiteral("sourcetrack"));
+        w.writeTextElement(QStringLiteral("mediatype"), mediaType);
+        w.writeTextElement(QStringLiteral("trackindex"), QStringLiteral("1"));
+        w.writeEndElement();
+        w.writeEndElement(); // clipitem
+    };
+
+    w.writeStartElement(QStringLiteral("video"));
     for (const Track &t : model.tracks()) {
         if (t.kind != TrackKind::Video) {
             continue;
         }
+        w.writeStartElement(QStringLiteral("track"));
         for (const TrackEvent &ev : t.events) {
-            w.writeStartElement(QStringLiteral("clipitem"));
-            w.writeAttribute(QStringLiteral("id"), QStringLiteral("clipitem-%1").arg(id++));
-            w.writeTextElement(QStringLiteral("name"), ev.name);
-            w.writeTextElement(QStringLiteral("duration"),
-                               QString::number(static_cast<int>(std::lround(ev.lengthSec * fps))));
-            w.writeTextElement(QStringLiteral("start"),
-                               QString::number(static_cast<int>(std::lround(ev.startSec * fps))));
-            w.writeTextElement(QStringLiteral("end"),
-                               QString::number(static_cast<int>(
-                                   std::lround((ev.startSec + ev.lengthSec) * fps))));
-            w.writeTextElement(QStringLiteral("in"), QStringLiteral("0"));
-            w.writeTextElement(QStringLiteral("out"),
-                               QString::number(static_cast<int>(std::lround(ev.lengthSec * fps))));
-            w.writeEndElement();
+            if (ev.fadeInSec > 1e-3) {
+                w.writeStartElement(QStringLiteral("transitionitem"));
+                w.writeTextElement(QStringLiteral("start"), QString::number(toFrames(ev.startSec)));
+                w.writeTextElement(QStringLiteral("end"),
+                                   QString::number(toFrames(ev.startSec + ev.fadeInSec)));
+                w.writeTextElement(QStringLiteral("alignment"), QStringLiteral("start"));
+                w.writeStartElement(QStringLiteral("effect"));
+                w.writeTextElement(QStringLiteral("name"), QStringLiteral("Cross Dissolve"));
+                w.writeTextElement(QStringLiteral("effectid"), QStringLiteral("Cross Dissolve"));
+                w.writeTextElement(QStringLiteral("effecttype"), QStringLiteral("transition"));
+                w.writeTextElement(QStringLiteral("mediatype"), QStringLiteral("video"));
+                w.writeEndElement();
+                w.writeEndElement();
+            }
+            writeClipItem(ev, QStringLiteral("video"));
+            if (ev.fadeOutSec > 1e-3) {
+                const double fadeStart = ev.startSec + ev.lengthSec - ev.fadeOutSec;
+                w.writeStartElement(QStringLiteral("transitionitem"));
+                w.writeTextElement(QStringLiteral("start"), QString::number(toFrames(fadeStart)));
+                w.writeTextElement(QStringLiteral("end"),
+                                   QString::number(toFrames(ev.startSec + ev.lengthSec)));
+                w.writeTextElement(QStringLiteral("alignment"), QStringLiteral("end"));
+                w.writeStartElement(QStringLiteral("effect"));
+                w.writeTextElement(QStringLiteral("name"), QStringLiteral("Cross Dissolve"));
+                w.writeTextElement(QStringLiteral("effectid"), QStringLiteral("Cross Dissolve"));
+                w.writeTextElement(QStringLiteral("effecttype"), QStringLiteral("transition"));
+                w.writeTextElement(QStringLiteral("mediatype"), QStringLiteral("video"));
+                w.writeEndElement();
+                w.writeEndElement();
+            }
         }
+        w.writeEndElement(); // track
     }
-    w.writeEndElement(); // track
     w.writeEndElement(); // video
 
     w.writeStartElement(QStringLiteral("audio"));
-    w.writeStartElement(QStringLiteral("track"));
     for (const Track &t : model.tracks()) {
         if (t.kind != TrackKind::Audio) {
             continue;
         }
+        w.writeStartElement(QStringLiteral("track"));
         for (const TrackEvent &ev : t.events) {
-            w.writeStartElement(QStringLiteral("clipitem"));
-            w.writeAttribute(QStringLiteral("id"), QStringLiteral("clipitem-%1").arg(id++));
-            w.writeTextElement(QStringLiteral("name"), ev.name);
-            w.writeTextElement(QStringLiteral("duration"),
-                               QString::number(static_cast<int>(std::lround(ev.lengthSec * fps))));
-            w.writeTextElement(QStringLiteral("start"),
-                               QString::number(static_cast<int>(std::lround(ev.startSec * fps))));
-            w.writeTextElement(QStringLiteral("end"),
-                               QString::number(static_cast<int>(
-                                   std::lround((ev.startSec + ev.lengthSec) * fps))));
-            w.writeEndElement();
+            writeClipItem(ev, QStringLiteral("audio"));
         }
+        w.writeEndElement();
     }
-    w.writeEndElement();
     w.writeEndElement(); // audio
     w.writeEndElement(); // media
     w.writeEndElement(); // sequence
@@ -867,9 +938,62 @@ bool ProjectInterchange::exportFcpxml(const ProjectModel &model, const QString &
     const double fps = model.frameRate() > 1.0 ? model.frameRate() : 30.0;
     const qint64 frameRateNum = static_cast<qint64>(std::lround(fps * 1000.0));
     auto toRational = [frameRateNum](double sec) {
-        const qint64 frames = static_cast<qint64>(std::lround(sec * (frameRateNum / 1000.0)));
+        const qint64 frames = static_cast<qint64>(std::lround(std::max(0.0, sec) * (frameRateNum / 1000.0)));
         return QStringLiteral("%1/%2s").arg(frames * 1000).arg(frameRateNum);
     };
+    auto pathUrl = [](const QString &native) -> QString {
+        if (native.isEmpty()) {
+            return {};
+        }
+        QString p = QDir::fromNativeSeparators(native);
+#if defined(Q_OS_WIN)
+        if (p.size() >= 2 && p.at(1) == QLatin1Char(':')) {
+            return QStringLiteral("file://localhost/") + p;
+        }
+#endif
+        return QStringLiteral("file://localhost") + (p.startsWith(QLatin1Char('/')) ? p : (QLatin1Char('/') + p));
+    };
+
+    struct AssetRef {
+        QString id;
+        QString path;
+        QString name;
+        bool hasVideo = false;
+        bool hasAudio = false;
+    };
+    QVector<AssetRef> assets;
+    QHash<QString, int> assetIndexByKey;
+    auto ensureAsset = [&](const TrackEvent &ev) -> QString {
+        const QString mediaPath = eventExportPath(model, ev);
+        const QString key = mediaPath.isEmpty() ? (QStringLiteral("name:") + ev.name)
+                                               : QDir::cleanPath(mediaPath);
+        const auto it = assetIndexByKey.constFind(key);
+        if (it != assetIndexByKey.cend()) {
+            AssetRef &a = assets[*it];
+            if (isVideoFamily(ev.mediaKind) || ev.mediaKind == EventMediaKind::Still) {
+                a.hasVideo = true;
+            }
+            if (ev.mediaKind == EventMediaKind::Audio) {
+                a.hasAudio = true;
+            }
+            return a.id;
+        }
+        AssetRef a;
+        a.id = QStringLiteral("r%1").arg(assets.size() + 2); // r1 = format
+        a.path = mediaPath;
+        a.name = ev.name.isEmpty() ? QFileInfo(mediaPath).completeBaseName() : ev.name;
+        a.hasVideo = isVideoFamily(ev.mediaKind) || ev.mediaKind == EventMediaKind::Still;
+        a.hasAudio = ev.mediaKind == EventMediaKind::Audio;
+        assetIndexByKey.insert(key, assets.size());
+        assets.push_back(a);
+        return a.id;
+    };
+
+    for (const Track &t : model.tracks()) {
+        for (const TrackEvent &ev : t.events) {
+            ensureAsset(ev);
+        }
+    }
 
     QXmlStreamWriter w(&f);
     w.setAutoFormatting(true);
@@ -879,33 +1003,106 @@ bool ProjectInterchange::exportFcpxml(const ProjectModel &model, const QString &
     w.writeStartElement(QStringLiteral("resources"));
     w.writeStartElement(QStringLiteral("format"));
     w.writeAttribute(QStringLiteral("id"), QStringLiteral("r1"));
-    w.writeAttribute(QStringLiteral("frameDuration"),
-                     QStringLiteral("1000/%1s").arg(frameRateNum));
+    w.writeAttribute(QStringLiteral("frameDuration"), QStringLiteral("1000/%1s").arg(frameRateNum));
     w.writeAttribute(QStringLiteral("width"), QString::number(model.frameWidth()));
     w.writeAttribute(QStringLiteral("height"), QString::number(model.frameHeight()));
     w.writeEndElement();
+    for (const AssetRef &a : assets) {
+        w.writeStartElement(QStringLiteral("asset"));
+        w.writeAttribute(QStringLiteral("id"), a.id);
+        w.writeAttribute(QStringLiteral("name"), a.name);
+        if (!a.path.isEmpty()) {
+            w.writeAttribute(QStringLiteral("src"), pathUrl(a.path));
+        }
+        w.writeAttribute(QStringLiteral("start"), QStringLiteral("0/1s"));
+        if (a.hasVideo) {
+            w.writeAttribute(QStringLiteral("hasVideo"), QStringLiteral("1"));
+        }
+        if (a.hasAudio) {
+            w.writeAttribute(QStringLiteral("hasAudio"), QStringLiteral("1"));
+        }
+        w.writeEndElement();
+    }
     w.writeEndElement(); // resources
 
+    const QString title =
+        model.projectTitle().isEmpty() ? QStringLiteral("OpenVegas") : model.projectTitle();
     w.writeStartElement(QStringLiteral("library"));
     w.writeStartElement(QStringLiteral("event"));
-    w.writeAttribute(QStringLiteral("name"), model.projectTitle());
+    w.writeAttribute(QStringLiteral("name"), title);
     w.writeStartElement(QStringLiteral("project"));
-    w.writeAttribute(QStringLiteral("name"), model.projectTitle());
+    w.writeAttribute(QStringLiteral("name"), title);
     w.writeStartElement(QStringLiteral("sequence"));
     w.writeAttribute(QStringLiteral("format"), QStringLiteral("r1"));
+    w.writeAttribute(QStringLiteral("tcFormat"), QStringLiteral("NDF"));
     w.writeStartElement(QStringLiteral("spine"));
-    for (const Track &t : model.tracks()) {
-        if (t.kind != TrackKind::Video) {
-            continue;
+
+    auto writeClip = [&](const TrackEvent &ev, bool asAudio) {
+        const QString ref = ensureAsset(ev);
+        if (ref.isEmpty()) {
+            return;
         }
-        for (const TrackEvent &ev : t.events) {
-            w.writeStartElement(QStringLiteral("gap"));
-            w.writeAttribute(QStringLiteral("name"), ev.name);
-            w.writeAttribute(QStringLiteral("offset"), toRational(ev.startSec));
-            w.writeAttribute(QStringLiteral("duration"), toRational(ev.lengthSec));
+        w.writeStartElement(asAudio ? QStringLiteral("audio") : QStringLiteral("video"));
+        w.writeAttribute(QStringLiteral("ref"), ref);
+        w.writeAttribute(QStringLiteral("name"), ev.name);
+        w.writeAttribute(QStringLiteral("offset"), toRational(ev.startSec));
+        w.writeAttribute(QStringLiteral("duration"), toRational(ev.lengthSec));
+        w.writeAttribute(QStringLiteral("start"), toRational(ev.mediaStartSec));
+        if (ev.fadeInSec > 1e-3 || ev.fadeOutSec > 1e-3) {
+            w.writeStartElement(asAudio ? QStringLiteral("adjust-volume")
+                                        : QStringLiteral("adjust-blend"));
+            w.writeStartElement(QStringLiteral("param"));
+            w.writeAttribute(QStringLiteral("name"), QStringLiteral("amount"));
+            if (ev.fadeInSec > 1e-3) {
+                w.writeStartElement(QStringLiteral("fadeIn"));
+                w.writeAttribute(QStringLiteral("type"), QStringLiteral("linear"));
+                w.writeAttribute(QStringLiteral("duration"), toRational(ev.fadeInSec));
+                w.writeEndElement();
+            }
+            if (ev.fadeOutSec > 1e-3) {
+                w.writeStartElement(QStringLiteral("fadeOut"));
+                w.writeAttribute(QStringLiteral("type"), QStringLiteral("linear"));
+                w.writeAttribute(QStringLiteral("duration"), toRational(ev.fadeOutSec));
+                w.writeEndElement();
+            }
+            w.writeEndElement(); // param
             w.writeEndElement();
         }
+        if (ev.reversed) {
+            w.writeStartElement(QStringLiteral("timeMap"));
+            const double t0 = ev.mediaStartSec;
+            const double t1 = ev.mediaStartSec + ev.lengthSec;
+            const double cycle = ev.mediaLengthSec > 1e-6 ? ev.mediaLengthSec : ev.lengthSec;
+            w.writeStartElement(QStringLiteral("timept"));
+            w.writeAttribute(QStringLiteral("time"), toRational(t0));
+            w.writeAttribute(QStringLiteral("value"), toRational(cycle));
+            w.writeAttribute(QStringLiteral("interp"), QStringLiteral("linear"));
+            w.writeEndElement();
+            w.writeStartElement(QStringLiteral("timept"));
+            w.writeAttribute(QStringLiteral("time"), toRational(t1));
+            w.writeAttribute(QStringLiteral("value"), toRational(0.0));
+            w.writeAttribute(QStringLiteral("interp"), QStringLiteral("linear"));
+            w.writeEndElement();
+            w.writeEndElement();
+        }
+        w.writeEndElement();
+    };
+
+    for (const Track &t : model.tracks()) {
+        if (t.kind == TrackKind::Video) {
+            for (const TrackEvent &ev : t.events) {
+                writeClip(ev, false);
+            }
+        }
     }
+    for (const Track &t : model.tracks()) {
+        if (t.kind == TrackKind::Audio) {
+            for (const TrackEvent &ev : t.events) {
+                writeClip(ev, true);
+            }
+        }
+    }
+
     w.writeEndElement(); // spine
     w.writeEndElement(); // sequence
     w.writeEndElement(); // project
@@ -993,6 +1190,96 @@ FadeCurveType ProjectInterchange::fadeCurveFromVegasCode(int code)
     default:
         return FadeCurveType::Smooth;
     }
+}
+
+int ProjectInterchange::fadeCurveToVegasCode(FadeCurveType type)
+{
+    switch (type) {
+    case FadeCurveType::Linear:
+        return 1;
+    case FadeCurveType::Fast:
+        return 2;
+    case FadeCurveType::Slow:
+        return -2;
+    case FadeCurveType::Smooth:
+        return 4;
+    case FadeCurveType::Sharp:
+        return -4;
+    }
+    return 4;
+}
+
+bool ProjectInterchange::exportVegasCsvEdl(const ProjectModel &model, const QString &path,
+                                           QString *error)
+{
+    QFile f(path);
+    if (!f.open(QIODevice::WriteOnly | QIODevice::Text)) {
+        if (error) {
+            *error = QStringLiteral("Cannot write Vegas EDL: %1").arg(f.errorString());
+        }
+        return false;
+    }
+    QTextStream out(&f);
+    out << "\"ID\";\"Track\";\"StartTime\";\"Length\";\"PlayRate\";\"Locked\";\"Normalized\";"
+           "\"StretchMethod\";\"Looped\";\"OnRuler\";\"MediaType\";\"FileName\";\"Stream\";"
+           "\"StreamStart\";\"StreamLength\";\"FadeTimeIn\";\"FadeTimeOut\";\"SustainGain\";"
+           "\"CurveIn\";\"GainIn\";\"CurveOut\";\"GainOut\";\"Layer\";\"Color\";\"CurveInR\";"
+           "\"CurveOutR\";\"PlayPitch\";\"LockPitch\";\"FirstChannel\";\"Channels\"\n";
+
+    auto ms = [](double sec) {
+        return QString::number(sec * 1000.0, 'f', 4);
+    };
+    auto boolTok = [](bool v) {
+        return v ? QStringLiteral("TRUE") : QStringLiteral("FALSE");
+    };
+    auto quotePath = [](const QString &p) {
+        return QStringLiteral("\"%1\"").arg(QString(p).replace(QLatin1Char('"'), QLatin1String("\"\"")));
+    };
+
+    int id = 1;
+    int videoTrackNo = 0;
+    int audioTrackNo = 0;
+    for (const Track &t : model.tracks()) {
+        const bool isAudio = (t.kind == TrackKind::Audio);
+        const int trackNo = isAudio ? audioTrackNo++ : videoTrackNo++;
+        for (const TrackEvent &ev : t.events) {
+            QString mediaType = QStringLiteral("VIDEO");
+            if (isAudio || ev.mediaKind == EventMediaKind::Audio) {
+                mediaType = QStringLiteral("AUDIO");
+            } else if (ev.mediaKind == EventMediaKind::Still) {
+                mediaType = QStringLiteral("VIDEO");
+            }
+            const QString filePath = eventExportPath(model, ev);
+            double sustain = 1.0;
+            if (isAudio || ev.mediaKind == EventMediaKind::Audio) {
+                if (ev.gainDb <= -39.5) {
+                    sustain = 0.0;
+                } else {
+                    sustain = std::clamp(std::pow(10.0, ev.gainDb / 20.0), 0.0, 1.0);
+                }
+            } else {
+                sustain = std::clamp(ev.opacity, 0.0, 1.0);
+            }
+            const double playRate = ev.reversed ? -1.0 : 1.0;
+            const double streamLen =
+                ev.mediaLengthSec > 1e-6 ? ev.mediaLengthSec
+                                         : (ev.looped ? ev.lengthSec : ev.lengthSec);
+            out << id << "; " << trackNo << "; " << ms(ev.startSec) << "; " << ms(ev.lengthSec)
+                << "; " << QString::number(playRate, 'f', 6) << "; FALSE; FALSE; 0; "
+                << boolTok(ev.looped) << "; FALSE; " << mediaType << "; " << quotePath(filePath)
+                << "; 0; " << ms(ev.mediaStartSec) << "; " << ms(streamLen) << "; "
+                << ms(ev.fadeInSec) << "; " << ms(ev.fadeOutSec) << "; "
+                << QString::number(sustain, 'f', 6) << "; "
+                << fadeCurveToVegasCode(ev.fadeInCurve) << "; 0.000000; "
+                << fadeCurveToVegasCode(ev.fadeOutCurve) << "; 0.000000; 0; -1; "
+                << fadeCurveToVegasCode(ev.fadeInCurve) << "; "
+                << fadeCurveToVegasCode(ev.fadeOutCurve) << "; 0.000000; FALSE; "
+                << ev.firstChannel << "; "
+                << (ev.channelCount > 0 ? ev.channelCount : (isAudio ? 2 : 0)) << "\n";
+            ++id;
+        }
+    }
+    return true;
 }
 
 InterchangeResult ProjectInterchange::importVegasCsvEdl(const QString &path, QString *error)
@@ -1393,6 +1680,9 @@ bool ProjectInterchange::exportProjectArchive(const ProjectModel &model, const Q
 
     // Also write EDL next to archive for interchange convenience
     exportEdl(model, QDir(dirPath).filePath(model.projectTitle() + QStringLiteral(".edl")), nullptr);
+    exportVegasCsvEdl(model,
+                      QDir(dirPath).filePath(model.projectTitle() + QStringLiteral(".txt")),
+                      nullptr);
     return true;
 }
 

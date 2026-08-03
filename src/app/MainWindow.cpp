@@ -2996,13 +2996,17 @@ void MainWindow::onExportEdl()
     QString startName = m_project.projectTitle().isEmpty() ? QStringLiteral("timeline")
                                                           : m_project.projectTitle();
     const QString path = QFileDialog::getSaveFileName(
-        this, tr("Export EDL Text File"), startName + QStringLiteral(".edl"),
-        tr("EDL (*.edl *.txt)"));
+        this, tr("Export EDL Text File"), startName + QStringLiteral(".txt"),
+        tr("Vegas EDL Text (*.txt);;CMX3600 EDL (*.edl);;All files (*.*)"));
     if (path.isEmpty()) {
         return;
     }
     QString error;
-    if (!ProjectInterchange::exportEdl(m_project, path, &error)) {
+    const bool vegasCsv = path.endsWith(QLatin1String(".txt"), Qt::CaseInsensitive)
+                          || !path.endsWith(QLatin1String(".edl"), Qt::CaseInsensitive);
+    const bool ok = vegasCsv ? ProjectInterchange::exportVegasCsvEdl(m_project, path, &error)
+                             : ProjectInterchange::exportEdl(m_project, path, &error);
+    if (!ok) {
         QMessageBox::warning(this, tr("Export EDL"), error);
         return;
     }
