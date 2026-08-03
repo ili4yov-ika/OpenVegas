@@ -75,6 +75,8 @@ private:
     std::atomic<bool> m_playing{false};
     std::atomic<double> m_positionSec{0.0};
     std::atomic<bool> m_positionDirty{false};
+    /** Set on audio thread when play hits timeline end; drained on UI timer. */
+    std::atomic<bool> m_endReached{false};
 
     std::vector<float> m_scratchL;
     std::vector<float> m_scratchR;

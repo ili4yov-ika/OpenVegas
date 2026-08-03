@@ -267,7 +267,7 @@ MainWindow::MainWindow(QWidget *parent)
     setupTimeline();
     setupTimelineTools();
 
-    // AudioEngine must exist before setupToolbar → wireTransportButtons (positionChanged).
+    // AudioEngine must exist before wireTransportButtons (positionChanged clock sync).
     m_audioEngine = std::make_unique<AudioEngine>(this);
     m_audioEngine->setProject(&m_project);
     m_audioEngine->setPluginHost(&CompositePluginHost::instance());
@@ -276,6 +276,7 @@ MainWindow::MainWindow(QWidget *parent)
     }
     m_audioEngine->startDevice();
     m_audioEngine->syncGraphFromProject();
+    wireTransportButtons();
 
     setupToolbar();
     setupStatusBar();
@@ -1256,8 +1257,6 @@ void MainWindow::setupTimelineTools()
             settings.setValue(QStringLiteral("timeline/headerWidth"), w);
         });
     }
-
-    wireTransportButtons();
 }
 
 void MainWindow::setTrackHeaderWidth(int width)
@@ -2165,23 +2164,38 @@ void MainWindow::wireTransportButtons()
         }
     });
     if (m_audioEngine) {
+        // Engine may stop itself at timeline end — keep TimelineView transport in sync.
+        connect(m_audioEngine.get(), &AudioEngine::playingChanged, this, [this](bool playing) {
+            if (!playing && m_timeline && m_timeline->isPlaying()) {
+                m_timeline->setPlaying(false);
+            }
+        });
         // Audio is the clock master (Kdenlive/MLT consumer model). Video presents on
         // project-frame ticks derived from audio position — not a separate wall timer.
         connect(m_audioEngine.get(), &AudioEngine::positionChanged, this, [this](double sec) {
-            if (!m_timeline || !m_timeline->isPlaying()) {
+            if (!m_timeline) {
                 return;
             }
+            const double end = m_project.timelineEndSec();
+            const double clamped = std::min(sec, end);
             m_syncingPlayheadFromEngine = true;
-            m_project.setPlayheadSec(sec);
+            m_project.setPlayheadSec(clamped);
+            m_timeline->update();
+            updateTimecodeLabels(clamped);
             m_syncingPlayheadFromEngine = false;
 
+            if (!m_timeline->isPlaying()) {
+                refreshPreviewFrame(VideoCompositor::quantizeToFrame(clamped, m_project.frameRate()));
+                return;
+            }
+
             const double fps = std::clamp(m_project.frameRate(), 1.0, 120.0);
-            const qint64 frame = qint64(std::floor(std::max(0.0, sec) * fps + 1e-9));
+            const qint64 frame = qint64(std::floor(std::max(0.0, clamped) * fps + 1e-9));
             if (frame == m_lastAvSyncFrame) {
                 return;
             }
             m_lastAvSyncFrame = frame;
-            refreshPreviewFrame(VideoCompositor::quantizeToFrame(sec, fps));
+            refreshPreviewFrame(VideoCompositor::quantizeToFrame(clamped, fps));
         });
     }
     connect(m_timeline, &TimelineView::playheadChanged, this, [this](double sec) {

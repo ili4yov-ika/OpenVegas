@@ -21,6 +21,11 @@ AudioEngine::AudioEngine(QObject *parent)
     auto *tick = new QTimer(this);
     tick->setInterval(16);
     connect(tick, &QTimer::timeout, this, [this]() {
+        if (m_endReached.exchange(false)) {
+            emit positionChanged(positionSec());
+            emit playingChanged(false);
+            return;
+        }
         if (m_positionDirty.exchange(false) || m_playing.load()) {
             emit positionChanged(positionSec());
         }
@@ -125,6 +130,7 @@ void AudioEngine::play(double fromSec)
         m_graph.reset();
     }
     m_playing.store(true);
+    m_endReached.store(false);
     emit playingChanged(true);
     emit positionChanged(positionSec());
 }
@@ -181,6 +187,7 @@ void AudioEngine::processBlock(float *interleavedStereo, unsigned int frameCount
         }
 
         double next = pos + double(frameCount) / double(m_sampleRate);
+        bool wrote = false;
         if (m_model && m_model->loopPlaybackEnabled() && m_model->hasLoopRegion()) {
             const double a = m_model->loopRegion().startSec;
             const double b = m_model->loopRegion().endSec;
@@ -189,8 +196,21 @@ void AudioEngine::processBlock(float *interleavedStereo, unsigned int frameCount
                 QMutexLocker lock(&m_graphMutex);
                 m_graph.reset();
             }
+        } else if (m_model) {
+            // Stop at end of last clip (do not keep playing into empty timeline).
+            const double end = m_model->timelineEndSec();
+            if (next >= end) {
+                next = end;
+                m_positionSec.store(next);
+                wrote = true;
+                if (m_playing.exchange(false)) {
+                    m_endReached.store(true);
+                }
+            }
         }
-        m_positionSec.store(next);
+        if (!wrote) {
+            m_positionSec.store(next);
+        }
     }
 
     for (unsigned int i = 0; i < frameCount; ++i) {

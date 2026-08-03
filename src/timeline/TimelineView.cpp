@@ -270,6 +270,7 @@ TimelineView::TimelineView(ProjectModel *model, QWidget *parent)
         const double dt = std::max(0.0, ms / 1000.0);
         double ph = m_model->playheadSec() + dt * rate;
         ph = std::max(0.0, ph);
+        const double end = m_model->timelineEndSec();
         if (m_model->loopPlaybackEnabled() && m_model->hasLoopRegion()) {
             const double a = m_model->loopRegion().startSec;
             const double b = m_model->loopRegion().endSec;
@@ -280,8 +281,15 @@ TimelineView::TimelineView(ProjectModel *model, QWidget *parent)
                     ph = b;
                 }
             }
+        } else if (m_playing && ph >= end) {
+            ph = end;
+            m_model->setPlayheadSec(ph);
+            emit playheadChanged(ph);
+            update();
+            setPlaying(false);
+            return;
         }
-        m_model->setPlayheadSec(ph);
+        m_model->setPlayheadSec(std::min(ph, end));
         emit playheadChanged(m_model->playheadSec());
         update();
     });
