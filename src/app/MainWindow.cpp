@@ -35,6 +35,7 @@
 #include "plugins/AudioPluginHost.h"
 #include "plugins/BuiltinAudioCatalog.h"
 #include "audio/AudioEngine.h"
+#include "audio/AudioUtil.h"
 #include "audio/CompositePluginHost.h"
 #include "video/VideoCompositor.h"
 #include "video/VideoFrameCache.h"
@@ -284,23 +285,55 @@ MainWindow::MainWindow(QWidget *parent)
     auto *meterTick = new QTimer(this);
     meterTick->setInterval(50);
     connect(meterTick, &QTimer::timeout, this, [this]() {
-        if (!m_audioEngine || !m_mixingConsole || !m_mixingConsole->isVisible()) {
+        if (!m_audioEngine) {
             return;
         }
         const auto &m = m_audioEngine->graph().masterMeter();
-        m_mixingConsole->setMasterMeter(m.peakL.load(), m.peakR.load());
-        const auto tracks = m_project.tracks();
-        int audioIdx = 0;
-        auto meters = m_audioEngine->graph().trackMeters();
-        for (const Track &t : tracks) {
-            if (t.kind != TrackKind::Audio) {
-                continue;
+        const bool playing = m_audioEngine->isPlaying();
+        const float peakL = playing ? m.peakL.load() : 0.f;
+        const float peakR = playing ? m.peakR.load() : 0.f;
+
+        auto toPct = [](float p) {
+            if (p <= 1e-6f) {
+                return 0;
             }
-            if (audioIdx < meters.size() && meters[audioIdx]) {
-                m_mixingConsole->setTrackMeter(t.id, meters[audioIdx]->peakL.load(),
-                                               meters[audioIdx]->peakR.load());
+            const double db = linearToDb(p);
+            return int(std::clamp((db + 60.0) / 72.0 * 100.0, 0.0, 100.0));
+        };
+        auto peakText = [](float p) {
+            if (p <= 1e-6f) {
+                return QStringLiteral("-Inf");
             }
-            ++audioIdx;
+            return QString::number(linearToDb(p), 'f', 1);
+        };
+        if (m_masterMeterL) {
+            m_masterMeterL->setValue(toPct(peakL));
+        }
+        if (m_masterMeterR) {
+            m_masterMeterR->setValue(toPct(peakR));
+        }
+        if (m_masterPeakL) {
+            m_masterPeakL->setText(peakText(peakL));
+        }
+        if (m_masterPeakR) {
+            m_masterPeakR->setText(peakText(peakR));
+        }
+
+        if (m_mixingConsole && m_mixingConsole->isVisible()) {
+            m_mixingConsole->setMasterMeter(peakL, peakR);
+            const auto tracks = m_project.tracks();
+            int audioIdx = 0;
+            auto meters = m_audioEngine->graph().trackMeters();
+            for (const Track &t : tracks) {
+                if (t.kind != TrackKind::Audio) {
+                    continue;
+                }
+                if (audioIdx < meters.size() && meters[audioIdx]) {
+                    m_mixingConsole->setTrackMeter(t.id, meters[audioIdx]->peakL.load(),
+                                                   meters[audioIdx]->peakR.load());
+                }
+                ++audioIdx;
+            }
         }
     });
     meterTick->start();
@@ -920,25 +953,25 @@ void MainWindow::setupMasterBus()
         m->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Expanding);
         return m;
     };
-    metersRow->addWidget(makeMeter());
+    metersRow->addWidget(m_masterMeterL = makeMeter());
     metersRow->addWidget(new VuScaleWidget(this));
-    metersRow->addWidget(makeMeter());
+    metersRow->addWidget(m_masterMeterR = makeMeter());
     metersWrap->addLayout(metersRow, 1);
 
     auto *peaksRow = new QHBoxLayout();
     peaksRow->setContentsMargins(0, 0, 0, 0);
     peaksRow->setSpacing(2);
     auto makePeak = [this]() {
-        auto *peak = new QLabel(QStringLiteral("0,0"), this);
+        auto *peak = new QLabel(QStringLiteral("-Inf"), this);
         peak->setObjectName(QStringLiteral("masterPeaks"));
         peak->setAlignment(Qt::AlignHCenter | Qt::AlignVCenter);
         peak->setFixedWidth(14);
         peak->setFixedHeight(14);
         return peak;
     };
-    peaksRow->addWidget(makePeak());
+    peaksRow->addWidget(m_masterPeakL = makePeak());
     peaksRow->addSpacing(22);
-    peaksRow->addWidget(makePeak());
+    peaksRow->addWidget(m_masterPeakR = makePeak());
     metersWrap->addLayout(peaksRow);
 
     body->addLayout(metersWrap, 1);

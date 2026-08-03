@@ -19,6 +19,7 @@ class QToolButton;
 class QAction;
 class QUndoStack;
 class QShortcut;
+class QProgressBar;
 
 QT_BEGIN_NAMESPACE
 namespace Ui {
@@ -235,6 +236,10 @@ private:
     bool m_dimOutput = false;
     QToolButton *m_masterDownmixBtn = nullptr;
     QToolButton *m_masterDimBtn = nullptr;
+    QProgressBar *m_masterMeterL = nullptr;
+    QProgressBar *m_masterMeterR = nullptr;
+    QLabel *m_masterPeakL = nullptr;
+    QLabel *m_masterPeakR = nullptr;
 
     QToolButton *m_previewLoopBtn = nullptr;
     QToolButton *m_previewPlayBtn = nullptr;
