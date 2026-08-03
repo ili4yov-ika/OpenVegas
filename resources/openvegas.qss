@@ -1696,6 +1696,25 @@ QWidget#pcKfToolbar {
   border-top: 1px solid #151515;
 }
 
+QWidget#pcKfToolbar QPushButton#pcKfModeBtn {
+  min-width: 52px;
+  padding: 2px 6px;
+  color: #cccccc;
+  background: #333333;
+  border: 1px solid #1a1a1a;
+}
+
+QWidget#pcKfToolbar QPushButton#pcKfModeBtn:checked {
+  background: #1e4f7a;
+  color: #ffffff;
+  border-color: #2a6aa0;
+}
+
+QLabel#pcKfLaneName {
+  color: #dddddd;
+  font-size: 11px;
+}
+
 QLabel#pcKfTc {
   color: #eeeeee;
   font-weight: 600;

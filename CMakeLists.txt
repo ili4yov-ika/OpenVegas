@@ -86,6 +86,7 @@ endif()
     src/plugins/PluginScanner.cpp
     src/plugins/OfxHost.cpp
     src/plugins/BuiltinAudioCatalog.cpp
+    src/plugins/VegasSharedAudioCatalog.cpp
     src/plugins/AudioPluginScanner.cpp
     src/plugins/AudioPluginRegistry.cpp
     src/plugins/AudioPluginHost.cpp
@@ -166,6 +167,7 @@ set(OPENVGAS_HEADERS
     src/plugins/OfxHost.h
     src/plugins/AudioPluginTypes.h
     src/plugins/BuiltinAudioCatalog.h
+    src/plugins/VegasSharedAudioCatalog.h
     src/plugins/AudioPluginScanner.h
     src/plugins/AudioPluginRegistry.h
     src/plugins/AudioPluginHost.h
@@ -355,8 +357,10 @@ if(OPENVGAS_BUILD_TESTS)
         tests/test_audio_util.cpp
         tests/test_automation_lane.cpp
         tests/test_builtin_dsp.cpp
+        tests/test_vegas_shared_catalog.cpp
         src/audio/FadeCurves.cpp
         src/audio/BuiltinDsp.cpp
+        src/plugins/VegasSharedAudioCatalog.cpp
     )
     target_include_directories(openvegas_audio_tests PRIVATE
         ${CMAKE_SOURCE_DIR}/src
@@ -432,6 +436,7 @@ if(OPENVGAS_BUILD_TESTS)
         src/io/MediaWaveformCache.cpp
         src/model/ProjectModel.cpp
         src/plugins/BuiltinAudioCatalog.cpp
+        src/plugins/VegasSharedAudioCatalog.cpp
         src/plugins/PluginScanner.cpp
         src/plugins/OfxHost.cpp
         src/plugins/AudioPluginScanner.cpp

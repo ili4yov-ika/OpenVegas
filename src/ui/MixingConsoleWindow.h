@@ -21,6 +21,8 @@ namespace openvegas {
 
 class ProjectModel;
 class MixerChannelStrip;
+class AudioEventFxDialog;
+class PluginScanner;
 
 /** Vegas-style Mixing Console: sidebar filters + channel strips. */
 class MixingConsoleWindow : public QWidget {
@@ -40,6 +42,9 @@ public:
     /** Open Audio Track FX / Assignable FX editors (also used by strip buttons). */
     void openAssignableFx(int busId);
     void openTrackFx(int trackId);
+
+    /** Optional OFX path scanner for Plug-In Chooser inside Track FX. */
+    void setPluginScanner(PluginScanner *scanner);
 
 signals:
     /** Emitted after project track list changes from this window. */
@@ -72,8 +77,17 @@ private:
     int insertIndexAtX(int x) const;
     void updateReorderGhost(int insertIndex);
     void clearReorderUi();
+    void ensureFxDialog();
+    void commitOpenFxDialog();
+
+    enum class FxDialogKind { None, Track, Assignable };
 
     ProjectModel *m_project = nullptr;
+    PluginScanner *m_pluginScanner = nullptr;
+    AudioEventFxDialog *m_fxDialog = nullptr;
+    FxDialogKind m_fxDialogKind = FxDialogKind::None;
+    int m_fxDialogTrackId = -1;
+    int m_fxDialogBusId = -1;
     QWidget *m_sidebar = nullptr;
     QListWidget *m_channelList = nullptr;
     QWidget *m_viewControls = nullptr;

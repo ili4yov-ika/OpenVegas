@@ -2496,6 +2496,7 @@ void MainWindow::onMixingConsole()
     if (!m_mixingConsole) {
         m_mixingConsole = new MixingConsoleWindow(this);
         m_mixingConsole->setProject(&m_project);
+        m_mixingConsole->setPluginScanner(&m_pluginScanner);
         connect(m_mixingConsole, &MixingConsoleWindow::tracksChanged, this, [this]() {
             if (m_audioEngine) {
                 m_audioEngine->syncMixerLive();
@@ -3607,6 +3608,24 @@ void MainWindow::onVideoEventFx(int eventId)
     m_videoEventFx->activateWindow();
 }
 
+void MainWindow::ensureAudioFxDialog()
+{
+    if (m_audioEventFx) {
+        return;
+    }
+    m_audioEventFx = new AudioEventFxDialog(this);
+    m_audioEventFx->setPluginScanner(&m_pluginScanner);
+    connect(m_audioEventFx, &QDialog::finished, this, [this](int) {
+        commitDocumentEdit(m_audioFxCommitLabel.isEmpty() ? tr("Event FX") : m_audioFxCommitLabel);
+        if (m_audioEngine) {
+            m_audioEngine->syncGraphFromProject();
+        }
+        if (m_timeline) {
+            m_timeline->update();
+        }
+    });
+}
+
 void MainWindow::onAudioEventFx(int eventId)
 {
     TrackEvent *ev = m_project.findEvent(eventId);
@@ -3614,26 +3633,16 @@ void MainWindow::onAudioEventFx(int eventId)
         return;
     }
 
-    if (!m_audioEventFx) {
-        m_audioEventFx = new AudioEventFxDialog(this);
-        m_audioEventFx->setPluginScanner(&m_pluginScanner);
-        connect(m_audioEventFx, &QDialog::finished, this, [this](int) {
-            commitDocumentEdit(tr("Event FX"));
-            if (m_audioEngine) {
-                m_audioEngine->syncGraphFromProject();
-            }
-            if (m_timeline) {
-                m_timeline->update();
-            }
-        });
-    } else if (m_audioEventFx->isVisible()) {
-        commitDocumentEdit(tr("Event FX"));
+    ensureAudioFxDialog();
+    if (m_audioEventFx->isVisible()) {
+        commitDocumentEdit(m_audioFxCommitLabel.isEmpty() ? tr("Event FX") : m_audioFxCommitLabel);
         if (m_audioEngine) {
             m_audioEngine->syncGraphFromProject();
         }
     }
 
     beginDocumentEdit();
+    m_audioFxCommitLabel = tr("Event FX");
     m_audioEventFx->setEvent(ev);
     m_audioEventFx->show();
     m_audioEventFx->raise();
@@ -3654,23 +3663,26 @@ void MainWindow::onTrackFx(int trackIndex)
         return;
     }
     Track &track = m_project.tracks()[trackIndex];
-    beginDocumentEdit();
     if (track.kind == TrackKind::Audio) {
         if (track.fxChain.isEmpty()) {
             track.fxChain = BuiltinAudioCatalog::defaultTrackFxChain();
         }
     }
-    // Video Track FX: open chain editor (may be empty until plug-ins / Color Grading added).
-    AudioEventFxDialog dlg(this);
-    dlg.setTrack(&track);
-    dlg.exec();
-    commitDocumentEdit(tr("Track FX"));
-    if (m_audioEngine) {
-        m_audioEngine->syncGraphFromProject();
+
+    ensureAudioFxDialog();
+    if (m_audioEventFx->isVisible()) {
+        commitDocumentEdit(m_audioFxCommitLabel.isEmpty() ? tr("Track FX") : m_audioFxCommitLabel);
+        if (m_audioEngine) {
+            m_audioEngine->syncGraphFromProject();
+        }
     }
-    if (m_timeline) {
-        m_timeline->update();
-    }
+
+    beginDocumentEdit();
+    m_audioFxCommitLabel = tr("Track FX");
+    m_audioEventFx->setTrack(&track);
+    m_audioEventFx->show();
+    m_audioEventFx->raise();
+    m_audioEventFx->activateWindow();
 }
 
 void MainWindow::onColorGrading(int trackIndex)
@@ -3682,20 +3694,25 @@ void MainWindow::onColorGrading(int trackIndex)
     if (track.kind != TrackKind::Video) {
         return;
     }
-    beginDocumentEdit();
     if (indexOfFxName(track.fxChain, QStringLiteral("Color Grading")) < 0) {
         track.fxChain.push_back(
             makeFxSlot(QStringLiteral("Color Grading"), PluginFormat::Builtin,
                        QStringLiteral("builtin:Color Grading")));
     }
-    AudioEventFxDialog dlg(this);
-    dlg.setTrack(&track);
-    dlg.selectByName(QStringLiteral("Color Grading"));
-    dlg.exec();
-    commitDocumentEdit(tr("Color Grading"));
-    if (m_timeline) {
-        m_timeline->update();
+
+    ensureAudioFxDialog();
+    if (m_audioEventFx->isVisible()) {
+        commitDocumentEdit(m_audioFxCommitLabel.isEmpty() ? tr("Color Grading")
+                                                           : m_audioFxCommitLabel);
     }
+
+    beginDocumentEdit();
+    m_audioFxCommitLabel = tr("Color Grading");
+    m_audioEventFx->setTrack(&track);
+    m_audioEventFx->selectByName(QStringLiteral("Color Grading"));
+    m_audioEventFx->show();
+    m_audioEventFx->raise();
+    m_audioEventFx->activateWindow();
 }
 
 void MainWindow::onTrackMotion(int trackIndex)

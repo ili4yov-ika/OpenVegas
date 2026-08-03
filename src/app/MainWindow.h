@@ -156,6 +156,7 @@ private:
     void restoreUiSettings();
     void saveUiSettings();
     void refreshStatusBar();
+    void ensureAudioFxDialog();
     void addToolbarSep(QLayout *layout);
     void setTrackHeaderWidth(int width);
     void refreshMediaEmptyState();
@@ -211,6 +212,7 @@ private:
     MixingConsoleWindow *m_mixingConsole = nullptr;
     VideoEventFxDialogExact *m_videoEventFx = nullptr;
     AudioEventFxDialog *m_audioEventFx = nullptr;
+    QString m_audioFxCommitLabel;
     ExplorerPane *m_explorer = nullptr;
     VideoFxPane *m_videoFx = nullptr;
     MediaGeneratorPane *m_mediaGen = nullptr;

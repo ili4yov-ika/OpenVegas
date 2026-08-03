@@ -1,6 +1,8 @@
 #pragma once
 
 #include <QByteArray>
+#include <QList>
+#include <QPair>
 #include <QString>
 #include <QStringList>
 #include <QUuid>
@@ -173,6 +175,26 @@ inline FxSlot fxSlotFromVegName(const QString &raw)
     // OpenVegas builtins: drop "VEGAS " brand from Track Noise Gate / EQ / Compressor labels.
     if (fmt == PluginFormat::Builtin && name.startsWith(QLatin1String("VEGAS "), Qt::CaseInsensitive)) {
         name = name.mid(6).trimmed();
+    }
+    // Shared Plug-Ins / XFX / ExpressFX / TrackFX → builtin substitute when mapped.
+    // (Full resolve lives in VegasSharedAudioCatalog; keep a light inline alias table here
+    // so AudioPluginTypes.h stays header-only without pulling the catalog.)
+    if (fmt == PluginFormat::Builtin) {
+        static const QList<QPair<QString, QString>> sharedAliases = {
+            {QStringLiteral("TrackEQ"), QStringLiteral("Track EQ")},
+            {QStringLiteral("TrackFX"), QStringLiteral("Track EQ")},
+            {QStringLiteral("Graphic EQ"), QStringLiteral("Track EQ")},
+            {QStringLiteral("Parametric EQ"), QStringLiteral("Track EQ")},
+            {QStringLiteral("Paragraphic EQ"), QStringLiteral("Track EQ")},
+            {QStringLiteral("ExpressFX Reverb"), QStringLiteral("Reverb")},
+            {QStringLiteral("ExpressFX Flange"), QStringLiteral("Flange")},
+        };
+        for (const auto &a : sharedAliases) {
+            if (name.compare(a.first, Qt::CaseInsensitive) == 0) {
+                name = a.second;
+                break;
+            }
+        }
     }
     return makeFxSlot(name, fmt, name);
 }

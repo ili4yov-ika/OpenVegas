@@ -10,6 +10,8 @@
 
 #include <QDialog>
 
+#include <QPair>
+
 #include <QPixmap>
 
 #include <QVector>
@@ -29,6 +31,8 @@ class QHBoxLayout;
 class QVBoxLayout;
 
 class QLabel;
+
+class QPushButton;
 
 class QScrollArea;
 
@@ -89,6 +93,8 @@ private:
 
     QWidget *buildKeyframePanel();
 
+    QWidget *buildPluginKeyframePanel();
+
     QWidget *buildGenericFxPage();
 
     QWidget *buildColorCorrectorPage();
@@ -120,6 +126,32 @@ private:
     void syncMaskFromUi();
 
     void refreshKeyframeLanes();
+
+    void rebuildPluginKeyframeLanes();
+
+    void refreshPluginKeyframeLanes();
+
+    void updatePluginKeyframePanelVisibility();
+
+    void navigatePluginKeyframeFirst();
+
+    void navigatePluginKeyframePrev();
+
+    void navigatePluginKeyframeNext();
+
+    void navigatePluginKeyframeLast();
+
+    void addPluginKeyframeAtPlayhead();
+
+    void addPluginKeyframeAtTime(double timeSec);
+
+    void deleteSelectedPluginKeyframe();
+
+    void movePluginKeyframe(int pointIndex, double timeSec, bool finalize);
+
+    void selectPluginKeyframeIndex(int pointIndex);
+
+    void setPluginKfCurvesMode(bool curves);
 
     void refreshChannelUi();
 
@@ -193,6 +225,18 @@ private:
 
     bool isColorCorrectorSlot(int index) const;
 
+    QString fxMasterAutomationId(const FxSlot &slot) const;
+
+    QString fxParamAutomationId(const FxSlot &slot, const QString &paramKey) const;
+
+    AutomationLane *findAutomationLane(const QString &targetId);
+
+    AutomationLane &ensureAutomationLane(const QString &targetId);
+
+    QVector<QPair<QString, QString>> animatableParamsForSlot(const FxSlot &slot) const;
+
+    double currentParamValue(const FxSlot &slot, const QString &paramKey) const;
+
 
 
     TrackEvent *m_event = nullptr;
@@ -232,6 +276,14 @@ private:
     int m_selMaskAnchor = -1;
 
     int m_selectedFx = 0;
+
+    int m_pluginKfIndex = 0;
+
+    int m_pluginKfFocusFx = -1;
+
+    QString m_pluginKfParamKey;
+
+    bool m_pluginKfCurves = true;
 
     bool m_block = false;
 
@@ -307,6 +359,20 @@ private:
     QStackedWidget *m_stack = nullptr;
 
     PanCropKeyframeRuler *m_ruler = nullptr;
+
+    QWidget *m_pluginKfPanel = nullptr;
+
+    PanCropKeyframeRuler *m_pluginKfRuler = nullptr;
+
+    QWidget *m_pluginKfLanesHost = nullptr;
+
+    QVBoxLayout *m_pluginKfLanesLay = nullptr;
+
+    QLabel *m_pluginKfTc = nullptr;
+
+    QPushButton *m_btnPluginLanes = nullptr;
+
+    QPushButton *m_btnPluginCurves = nullptr;
 
     QVector<FxChainNodeWidget *> m_nodes;
 

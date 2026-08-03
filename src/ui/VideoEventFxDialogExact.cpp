@@ -143,9 +143,30 @@ public:
             m_times = times;
             m_types = types;
             m_selected = selected;
+            m_values.clear();
+            m_showCurve = false;
         }
         m_duration = std::max(0.001, duration);
         m_playhead = playhead;
+        setMinimumHeight(28);
+        update();
+    }
+
+    /** Optional value curve (same length as times); drawn when showCurve is true. */
+    void setCurve(const QVector<double> &times, const QVector<double> &values,
+                  const QVector<int> &types, double duration, int selected, double playhead,
+                  bool showCurve)
+    {
+        if (!m_dragging) {
+            m_times = times;
+            m_values = values;
+            m_types = types;
+            m_selected = selected;
+            m_showCurve = showCurve;
+        }
+        m_duration = std::max(0.001, duration);
+        m_playhead = playhead;
+        setMinimumHeight(showCurve ? 48 : 28);
         update();
     }
 
@@ -187,26 +208,73 @@ protected:
     {
         QPainter p(this);
         p.fillRect(rect(), QColor(0x2a, 0x2a, 0x2e));
-        const int midY = height() / 2;
         const double phX = (m_playhead / m_duration) * width();
         p.setPen(QPen(QColor(0xf0, 0x90, 0x20), 1));
         p.drawLine(QPointF(phX, 0), QPointF(phX, height()));
+
+        const bool curve = m_showCurve && m_values.size() == m_times.size() && !m_times.isEmpty();
+        double vmin = 0.0;
+        double vmax = 1.0;
+        if (curve) {
+            vmin = m_values.first();
+            vmax = m_values.first();
+            for (double v : m_values) {
+                vmin = std::min(vmin, v);
+                vmax = std::max(vmax, v);
+            }
+            if (std::abs(vmax - vmin) < 1e-9) {
+                vmin -= 0.5;
+                vmax += 0.5;
+            }
+            const double pad = (vmax - vmin) * 0.12;
+            vmin -= pad;
+            vmax += pad;
+            QPainterPath path;
+            for (int i = 0; i < m_times.size(); ++i) {
+                const double t = (m_dragging && i == m_dragIndex) ? m_dragTime : m_times[i];
+                const double x = (t / m_duration) * width();
+                const double yNorm = (m_values[i] - vmin) / (vmax - vmin);
+                const double y = height() - 6.0 - yNorm * (height() - 12.0);
+                if (i == 0) {
+                    path.moveTo(x, y);
+                } else {
+                    path.lineTo(x, y);
+                }
+            }
+            p.setPen(QPen(QColor(0xb0, 0xb0, 0xb8), 1.5));
+            p.setBrush(Qt::NoBrush);
+            p.drawPath(path);
+        }
+
+        const int midY = height() / 2;
         for (int i = 0; i < m_times.size(); ++i) {
             const double t = (m_dragging && i == m_dragIndex) ? m_dragTime : m_times[i];
             const double x = (t / m_duration) * width();
-            const bool sel = (i == m_selected) || (m_dragging && i == m_dragIndex);
-            const double s = sel ? 6.5 : 5.0;
-            QPolygonF dia;
-            dia << QPointF(x, midY - s) << QPointF(x + s, midY) << QPointF(x, midY + s)
-                << QPointF(x - s, midY);
-            const int typeCode = (i < m_types.size()) ? m_types[i] : 0;
-            QColor fill = colorForType(typeCode);
-            if (sel) {
-                fill = fill.lighter(130);
+            double y = midY;
+            if (curve) {
+                const double yNorm = (m_values[i] - vmin) / (vmax - vmin);
+                y = height() - 6.0 - yNorm * (height() - 12.0);
             }
-            p.setBrush(fill);
-            p.setPen(QPen(sel ? QColor(0x40, 0xa0, 0xff) : Qt::black, sel ? 2 : 1));
-            p.drawPolygon(dia);
+            const bool sel = (i == m_selected) || (m_dragging && i == m_dragIndex);
+            if (curve) {
+                const double r = sel ? 4.5 : 3.5;
+                p.setBrush(sel ? QColor(0x60, 0xc0, 0xff) : QColor(0xe8, 0xe8, 0xec));
+                p.setPen(QPen(Qt::black, 1));
+                p.drawEllipse(QPointF(x, y), r, r);
+            } else {
+                const double s = sel ? 6.5 : 5.0;
+                QPolygonF dia;
+                dia << QPointF(x, y - s) << QPointF(x + s, y) << QPointF(x, y + s)
+                    << QPointF(x - s, y);
+                const int typeCode = (i < m_types.size()) ? m_types[i] : 0;
+                QColor fill = colorForType(typeCode);
+                if (sel) {
+                    fill = fill.lighter(130);
+                }
+                p.setBrush(fill);
+                p.setPen(QPen(sel ? QColor(0x40, 0xa0, 0xff) : Qt::black, sel ? 2 : 1));
+                p.drawPolygon(dia);
+            }
         }
     }
 
@@ -342,10 +410,12 @@ private:
     }
 
     QVector<double> m_times;
+    QVector<double> m_values;
     QVector<int> m_types;
     double m_duration = 10.0;
     int m_selected = 0;
     double m_playhead = 0.0;
+    bool m_showCurve = false;
     bool m_dragging = false;
     bool m_scrubbing = false;
     bool m_moved = false;
@@ -1657,6 +1727,104 @@ bool VideoEventFxDialogExact::isColorCorrectorSlot(int index) const
     return isColorCorrectorName(m_event->fxChain[index].displayName);
 }
 
+QString VideoEventFxDialogExact::fxMasterAutomationId(const FxSlot &slot) const
+{
+    return QStringLiteral("fx:%1:_master").arg(slot.hostKey.isEmpty() ? slot.pluginId : slot.hostKey);
+}
+
+QString VideoEventFxDialogExact::fxParamAutomationId(const FxSlot &slot, const QString &paramKey) const
+{
+    return QStringLiteral("fx:%1:%2")
+        .arg(slot.hostKey.isEmpty() ? slot.pluginId : slot.hostKey, paramKey);
+}
+
+AutomationLane *VideoEventFxDialogExact::findAutomationLane(const QString &targetId)
+{
+    if (!m_event) {
+        return nullptr;
+    }
+    for (AutomationLane &lane : m_event->automationLanes) {
+        if (lane.targetId == targetId) {
+            return &lane;
+        }
+    }
+    return nullptr;
+}
+
+AutomationLane &VideoEventFxDialogExact::ensureAutomationLane(const QString &targetId)
+{
+    if (AutomationLane *existing = findAutomationLane(targetId)) {
+        return *existing;
+    }
+    AutomationLane lane;
+    lane.targetId = targetId;
+    m_event->automationLanes.push_back(lane);
+    return m_event->automationLanes.last();
+}
+
+QVector<QPair<QString, QString>> VideoEventFxDialogExact::animatableParamsForSlot(
+    const FxSlot &slot) const
+{
+    QVector<QPair<QString, QString>> out;
+    const QString n = slot.displayName;
+    if (isColorCorrectorName(n)) {
+        out.push_back({tr("Brightness"), QStringLiteral("brightness")});
+        out.push_back({tr("Contrast"), QStringLiteral("contrast")});
+        out.push_back({tr("Saturation"), QStringLiteral("saturation")});
+        out.push_back({tr("Gamma"), QStringLiteral("gamma")});
+        return out;
+    }
+    if (n.contains(QLatin1String("sepia"), Qt::CaseInsensitive)) {
+        out.push_back({tr("Amount"), QStringLiteral("amount")});
+    } else if (n.contains(QLatin1String("soften"), Qt::CaseInsensitive)
+               || n.contains(QLatin1String("blur"), Qt::CaseInsensitive)
+               || n.contains(QLatin1String("chroma"), Qt::CaseInsensitive)) {
+        out.push_back({tr("Horizontal pixels"), QStringLiteral("radius")});
+        out.push_back({tr("Vertical pixels"), QStringLiteral("radiusV")});
+    } else if (n.contains(QLatin1String("glint"), Qt::CaseInsensitive)
+               || n.contains(QLatin1String("мерцание"), Qt::CaseInsensitive)) {
+        out.push_back({tr("Threshold"), QStringLiteral("threshold")});
+        out.push_back({tr("Boost"), QStringLiteral("boost")});
+        out.push_back({tr("Gain"), QStringLiteral("gain")});
+    } else if (n.contains(QLatin1String("brightness"), Qt::CaseInsensitive)) {
+        out.push_back({tr("Brightness"), QStringLiteral("brightness")});
+        out.push_back({tr("Contrast"), QStringLiteral("contrast")});
+    } else if (!n.contains(QLatin1String("invert"), Qt::CaseInsensitive)) {
+        out.push_back({tr("Gain"), QStringLiteral("gain")});
+    }
+    return out;
+}
+
+double VideoEventFxDialogExact::currentParamValue(const FxSlot &slot, const QString &paramKey) const
+{
+    if (isColorCorrectorName(slot.displayName)) {
+        const ColorCorrectorParams p = colorCorrectorFromSlot(slot);
+        if (paramKey == QLatin1String("brightness")) {
+            return p.brightness;
+        }
+        if (paramKey == QLatin1String("contrast")) {
+            return p.contrast;
+        }
+        if (paramKey == QLatin1String("saturation")) {
+            return p.saturation;
+        }
+        if (paramKey == QLatin1String("gamma")) {
+            return p.gamma;
+        }
+    }
+    const QVariantMap m = unpackFxParams(slot.state);
+    if (paramKey == QLatin1String("radiusV")) {
+        return m.value(QStringLiteral("radiusV"), m.value(QStringLiteral("radius"), 2.0)).toDouble();
+    }
+    if (paramKey == QLatin1String("threshold")) {
+        return m.value(QStringLiteral("threshold"), 67.0).toDouble();
+    }
+    if (paramKey == QLatin1String("boost")) {
+        return m.value(QStringLiteral("boost"), -40.0).toDouble();
+    }
+    return m.value(paramKey, 0.5).toDouble();
+}
+
 EventPanCropState &VideoEventFxDialogExact::panCrop()
 {
     return m_event->panCrop;
@@ -1816,8 +1984,12 @@ void VideoEventFxDialogExact::setPlayheadSec(double sec, bool selectNearestKf)
     }
     loadMediaPreview();
     refreshKeyframeLanes();
+    refreshPluginKeyframeLanes();
     if (m_tc) {
         m_tc->setText(formatTc(m_playheadSec));
+    }
+    if (m_pluginKfTc) {
+        m_pluginKfTc->setText(formatTc(m_playheadSec));
     }
 }
 
@@ -1889,6 +2061,7 @@ void VideoEventFxDialogExact::buildUi()
     m_stack->addWidget(buildColorCorrectorPage());
     m_stack->addWidget(buildGenericFxPage());
     root->addWidget(m_stack, 1);
+    root->addWidget(buildPluginKeyframePanel(), 0);
 
     connect(addBtn, &QPushButton::clicked, this, &VideoEventFxDialogExact::addPlugins);
     connect(remBtn, &QPushButton::clicked, this, &VideoEventFxDialogExact::removeSelected);
@@ -2501,6 +2674,94 @@ QWidget *VideoEventFxDialogExact::buildKeyframePanel()
     return kf;
 }
 
+QWidget *VideoEventFxDialogExact::buildPluginKeyframePanel()
+{
+    auto *kf = new QWidget(this);
+    kf->setObjectName(QStringLiteral("pcKf"));
+    kf->setMinimumHeight(120);
+    m_pluginKfPanel = kf;
+    auto *root = new QVBoxLayout(kf);
+    root->setContentsMargins(0, 0, 0, 0);
+    root->setSpacing(0);
+
+    auto *headers = new QWidget(kf);
+    headers->setFixedHeight(20);
+    auto *hLay = new QHBoxLayout(headers);
+    hLay->setContentsMargins(0, 0, 0, 0);
+    auto *corner = new QWidget(headers);
+    corner->setObjectName(QStringLiteral("pcKfCorner"));
+    corner->setFixedWidth(140);
+    hLay->addWidget(corner);
+    m_pluginKfRuler = new PanCropKeyframeRuler(headers);
+    m_pluginKfRuler->setOnScrub([this](double t) { setPlayheadSec(t, false); });
+    hLay->addWidget(m_pluginKfRuler, 1);
+    root->addWidget(headers);
+
+    m_pluginKfLanesHost = new QWidget(kf);
+    m_pluginKfLanesLay = new QVBoxLayout(m_pluginKfLanesHost);
+    m_pluginKfLanesLay->setContentsMargins(0, 0, 0, 0);
+    m_pluginKfLanesLay->setSpacing(0);
+    root->addWidget(m_pluginKfLanesHost, 1);
+
+    auto *tb = new QWidget(kf);
+    tb->setObjectName(QStringLiteral("pcKfToolbar"));
+    auto *tbLay = new QHBoxLayout(tb);
+    tbLay->setContentsMargins(8, 2, 8, 2);
+    tbLay->setSpacing(4);
+    auto *btnSync = makeIcoBtn(tb, QStringLiteral("⏱"), tr("Sync Cursor"));
+    btnSync->setCheckable(true);
+    btnSync->setChecked(true);
+    auto *btnFirst = makeIcoBtn(tb, QStringLiteral("⏮"), tr("First Keyframe"));
+    auto *btnPrev = makeIcoBtn(tb, QStringLiteral("◀"), tr("Previous Keyframe"));
+    auto *btnNext = makeIcoBtn(tb, QStringLiteral("▶"), tr("Next Keyframe"));
+    auto *btnLast = makeIcoBtn(tb, QStringLiteral("⏭"), tr("Last Keyframe"));
+    auto *btnAdd = makeIcoBtn(tb, QStringLiteral("◆+"), tr("Create Keyframe"));
+    auto *btnDel = makeIcoBtn(tb, QStringLiteral("◆×"), tr("Delete Keyframe"));
+    for (auto *b : {btnSync, btnFirst, btnPrev, btnNext, btnLast, btnAdd, btnDel}) {
+        tbLay->addWidget(b);
+    }
+    tbLay->addSpacing(8);
+    m_btnPluginLanes = makeIcoBtn(tb, QStringLiteral("Lanes"), tr("Lanes"));
+    m_btnPluginCurves = makeIcoBtn(tb, QStringLiteral("Curves"), tr("Curves"));
+    m_btnPluginLanes->setCheckable(true);
+    m_btnPluginCurves->setCheckable(true);
+    m_btnPluginCurves->setChecked(true);
+    m_btnPluginLanes->setObjectName(QStringLiteral("pcKfModeBtn"));
+    m_btnPluginCurves->setObjectName(QStringLiteral("pcKfModeBtn"));
+    tbLay->addWidget(m_btnPluginLanes);
+    tbLay->addWidget(m_btnPluginCurves);
+    auto *btnZoomIn = makeIcoBtn(tb, QStringLiteral("+"), tr("Zoom In"));
+    auto *btnZoomOut = makeIcoBtn(tb, QStringLiteral("−"), tr("Zoom Out"));
+    tbLay->addWidget(btnZoomIn);
+    tbLay->addWidget(btnZoomOut);
+    tbLay->addStretch(1);
+    m_pluginKfTc = new QLabel(QStringLiteral("00:00:00,00"), tb);
+    m_pluginKfTc->setObjectName(QStringLiteral("pcKfTc"));
+    tbLay->addWidget(m_pluginKfTc);
+    root->addWidget(tb);
+
+    connect(btnFirst, &QPushButton::clicked, this,
+            &VideoEventFxDialogExact::navigatePluginKeyframeFirst);
+    connect(btnPrev, &QPushButton::clicked, this,
+            &VideoEventFxDialogExact::navigatePluginKeyframePrev);
+    connect(btnNext, &QPushButton::clicked, this,
+            &VideoEventFxDialogExact::navigatePluginKeyframeNext);
+    connect(btnLast, &QPushButton::clicked, this,
+            &VideoEventFxDialogExact::navigatePluginKeyframeLast);
+    connect(btnAdd, &QPushButton::clicked, this,
+            &VideoEventFxDialogExact::addPluginKeyframeAtPlayhead);
+    connect(btnDel, &QPushButton::clicked, this,
+            &VideoEventFxDialogExact::deleteSelectedPluginKeyframe);
+    connect(m_btnPluginLanes, &QPushButton::clicked, this, [this]() { setPluginKfCurvesMode(false); });
+    connect(m_btnPluginCurves, &QPushButton::clicked, this, [this]() { setPluginKfCurvesMode(true); });
+    // Zoom reserved: lanes already span full event duration (Vegas default).
+    Q_UNUSED(btnZoomIn);
+    Q_UNUSED(btnZoomOut);
+
+    kf->setVisible(false);
+    return kf;
+}
+
 void VideoEventFxDialogExact::rebuildChain()
 {
     if (!m_chainLay) {
@@ -2568,8 +2829,22 @@ void VideoEventFxDialogExact::selectPlugin(int index)
         return;
     }
     m_selectedFx = index;
+    if (!isPanCropSlot(m_selectedFx)) {
+        m_pluginKfFocusFx = m_selectedFx;
+        const auto params = animatableParamsForSlot(m_event->fxChain[m_selectedFx]);
+        if (m_pluginKfParamKey.isEmpty() && !params.isEmpty()) {
+            m_pluginKfParamKey = params.first().second;
+        }
+    }
     for (FxChainNodeWidget *n : m_nodes) {
         n->setSelected(n->index() == m_selectedFx);
+    }
+    if (m_subtitle) {
+        if (isPanCropSlot(m_selectedFx)) {
+            m_subtitle->setText(tr("Event Pan/Crop: "));
+        } else {
+            m_subtitle->setText(tr("Video Event FX: "));
+        }
     }
     refreshViewport();
 }
@@ -2592,6 +2867,20 @@ void VideoEventFxDialogExact::refreshViewport()
             m_genericTitle->setText(m_event->fxChain[m_selectedFx].displayName);
         }
         rebuildOfxParamsUi();
+    }
+    updatePluginKeyframePanelVisibility();
+}
+
+void VideoEventFxDialogExact::updatePluginKeyframePanelVisibility()
+{
+    const bool show = m_event && m_selectedFx >= 0 && !isPanCropSlot(m_selectedFx);
+    if (m_pluginKfPanel) {
+        m_pluginKfPanel->setVisible(show);
+    }
+    if (show) {
+        m_pluginKfFocusFx = m_selectedFx;
+        rebuildPluginKeyframeLanes();
+        refreshPluginKeyframeLanes();
     }
 }
 
@@ -2813,6 +3102,427 @@ void VideoEventFxDialogExact::refreshKeyframeLanes()
     }
     if (m_tc) {
         m_tc->setText(formatTc(m_playheadSec));
+    }
+}
+
+void VideoEventFxDialogExact::setPluginKfCurvesMode(bool curves)
+{
+    m_pluginKfCurves = curves;
+    if (m_btnPluginLanes) {
+        m_btnPluginLanes->setChecked(!curves);
+    }
+    if (m_btnPluginCurves) {
+        m_btnPluginCurves->setChecked(curves);
+    }
+    rebuildPluginKeyframeLanes();
+    refreshPluginKeyframeLanes();
+}
+
+void VideoEventFxDialogExact::rebuildPluginKeyframeLanes()
+{
+    if (!m_pluginKfLanesLay || !m_event) {
+        return;
+    }
+    while (QLayoutItem *it = m_pluginKfLanesLay->takeAt(0)) {
+        if (it->widget()) {
+            it->widget()->deleteLater();
+        }
+        delete it;
+    }
+
+    if (m_pluginKfFocusFx < 0 || isPanCropSlot(m_pluginKfFocusFx)) {
+        m_pluginKfFocusFx = m_selectedFx;
+    }
+    if (isPanCropSlot(m_pluginKfFocusFx) || m_pluginKfFocusFx < 0
+        || m_pluginKfFocusFx >= m_event->fxChain.size()) {
+        for (int i = 0; i < m_event->fxChain.size(); ++i) {
+            if (!isPanCropSlot(i)) {
+                m_pluginKfFocusFx = i;
+                break;
+            }
+        }
+    }
+
+    auto addLaneRow = [&](int fxIndex, const QString &label, const QString &paramKey, bool active,
+                          bool paramRow) {
+        auto *row = new QWidget(m_pluginKfLanesHost);
+        row->setObjectName(active ? QStringLiteral("pcKfRowActive") : QStringLiteral("pcKfRow"));
+        row->setMinimumHeight(m_pluginKfCurves && paramRow ? 48 : 28);
+        auto *rowLay = new QHBoxLayout(row);
+        rowLay->setContentsMargins(0, 0, 0, 0);
+        auto *labHost = new QWidget(row);
+        labHost->setObjectName(active ? QStringLiteral("pcKfLabelActive")
+                                       : QStringLiteral("pcKfLabel"));
+        labHost->setFixedWidth(140);
+        auto *labLay = new QHBoxLayout(labHost);
+        labLay->setContentsMargins(paramRow ? 18 : 8, 0, 8, 0);
+        auto *name = new QLabel(label, labHost);
+        name->setObjectName(QStringLiteral("pcKfLaneName"));
+        labLay->addWidget(name, 1);
+        rowLay->addWidget(labHost);
+        auto *lane = new KeyframeLane(row);
+        lane->setProperty("fxIndex", fxIndex);
+        lane->setProperty("paramKey", paramKey);
+        const int captureFx = fxIndex;
+        const QString captureParam = paramKey;
+        lane->setOnSelect([this, captureFx, captureParam](int i) {
+            const bool focusChanged = (m_pluginKfFocusFx != captureFx)
+                                      || (m_pluginKfParamKey != captureParam);
+            m_pluginKfFocusFx = captureFx;
+            m_pluginKfParamKey = captureParam;
+            m_selectedFx = captureFx;
+            for (FxChainNodeWidget *n : m_nodes) {
+                n->setSelected(n->index() == m_selectedFx);
+            }
+            if (m_subtitle) {
+                m_subtitle->setText(tr("Video Event FX: "));
+            }
+            if (isColorCorrectorSlot(m_selectedFx)) {
+                m_stack->setCurrentIndex(1);
+                syncColorCorrectorToUi();
+            } else if (!isPanCropSlot(m_selectedFx)) {
+                m_stack->setCurrentIndex(2);
+                if (m_genericTitle) {
+                    m_genericTitle->setText(m_event->fxChain[m_selectedFx].displayName);
+                }
+                rebuildOfxParamsUi();
+            }
+            if (focusChanged) {
+                rebuildPluginKeyframeLanes();
+            }
+            selectPluginKeyframeIndex(i);
+        });
+        lane->setOnScrub([this](double t) { setPlayheadSec(t, false); });
+        lane->setOnMove([this, captureFx, captureParam](int i, double t, bool fin) {
+            m_pluginKfFocusFx = captureFx;
+            m_pluginKfParamKey = captureParam;
+            movePluginKeyframe(i, t, fin);
+        });
+        lane->setOnCreateAt([this, captureFx, captureParam](double t) {
+            m_pluginKfFocusFx = captureFx;
+            m_pluginKfParamKey = captureParam;
+            selectPlugin(captureFx);
+            addPluginKeyframeAtTime(t);
+        });
+        lane->setOnDeleteSelected([this, captureFx, captureParam]() {
+            m_pluginKfFocusFx = captureFx;
+            m_pluginKfParamKey = captureParam;
+            deleteSelectedPluginKeyframe();
+        });
+        rowLay->addWidget(lane, 1);
+        m_pluginKfLanesLay->addWidget(row);
+        labHost->installEventFilter(new RowClickFilter(
+            [this, captureFx, captureParam, paramRow]() {
+                m_pluginKfFocusFx = captureFx;
+                if (!paramRow) {
+                    const auto params = animatableParamsForSlot(m_event->fxChain[captureFx]);
+                    if (!params.isEmpty()
+                        && (m_pluginKfParamKey.isEmpty()
+                            || m_pluginKfFocusFx != captureFx)) {
+                        m_pluginKfParamKey = params.first().second;
+                    }
+                } else {
+                    m_pluginKfParamKey = captureParam;
+                }
+                selectPlugin(captureFx);
+                rebuildPluginKeyframeLanes();
+                refreshPluginKeyframeLanes();
+            },
+            labHost));
+    };
+
+    for (int i = 0; i < m_event->fxChain.size(); ++i) {
+        if (isPanCropSlot(i)) {
+            continue;
+        }
+        const FxSlot &slot = m_event->fxChain[i];
+        const bool active = (i == m_pluginKfFocusFx);
+        addLaneRow(i, slot.displayName, QStringLiteral("_master"), active, false);
+        if (active) {
+            const auto params = animatableParamsForSlot(slot);
+            for (const auto &pr : params) {
+                const bool paramActive = (m_pluginKfParamKey == pr.second);
+                addLaneRow(i, pr.first, pr.second, paramActive, true);
+            }
+        }
+    }
+
+    if (m_pluginKfPanel) {
+        const int n = m_pluginKfLanesLay->count();
+        m_pluginKfPanel->setFixedHeight(std::clamp(20 + 28 * std::max(1, n) + 28
+                                                       + (m_pluginKfCurves ? 24 : 0),
+                                                   120, 280));
+    }
+}
+
+void VideoEventFxDialogExact::refreshPluginKeyframeLanes()
+{
+    if (!m_event || !m_pluginKfLanesHost || !m_pluginKfPanel || !m_pluginKfPanel->isVisible()) {
+        return;
+    }
+    if (m_pluginKfRuler) {
+        m_pluginKfRuler->setRange(m_durationSec, m_playheadSec);
+    }
+    if (m_pluginKfTc) {
+        m_pluginKfTc->setText(formatTc(m_playheadSec));
+    }
+
+    const auto widgets = m_pluginKfLanesHost->findChildren<QWidget *>();
+    for (QWidget *w : widgets) {
+        if (w->objectName() != QLatin1String("pcKfLane")) {
+            continue;
+        }
+        auto *lane = static_cast<KeyframeLane *>(w);
+        const int fxIndex = lane->property("fxIndex").toInt();
+        const QString paramKey = lane->property("paramKey").toString();
+        if (fxIndex < 0 || fxIndex >= m_event->fxChain.size()) {
+            continue;
+        }
+        const FxSlot &slot = m_event->fxChain[fxIndex];
+        const QString target = (paramKey == QLatin1String("_master"))
+                                   ? fxMasterAutomationId(slot)
+                                   : fxParamAutomationId(slot, paramKey);
+        const AutomationLane *al = findAutomationLane(target);
+        QVector<double> times;
+        QVector<double> values;
+        QVector<int> types;
+        if (al) {
+            for (const AutomationPoint &pt : al->points) {
+                times.push_back(pt.timeSec);
+                values.push_back(pt.value);
+                types.push_back(int(VideoKeyframeType::Linear));
+            }
+        }
+        const bool focus = (fxIndex == m_pluginKfFocusFx
+                            && (paramKey == m_pluginKfParamKey
+                                || (paramKey == QLatin1String("_master")
+                                    && m_pluginKfParamKey.isEmpty())));
+        const int sel = focus ? m_pluginKfIndex : -1;
+        const bool showCurve =
+            m_pluginKfCurves && paramKey != QLatin1String("_master") && !times.isEmpty();
+        if (showCurve) {
+            lane->setCurve(times, values, types, m_durationSec, sel, m_playheadSec, true);
+        } else {
+            lane->setTimes(times, types, m_durationSec, sel, m_playheadSec);
+        }
+    }
+}
+
+void VideoEventFxDialogExact::selectPluginKeyframeIndex(int pointIndex)
+{
+    m_pluginKfIndex = std::max(0, pointIndex);
+    if (!m_event || m_pluginKfFocusFx < 0 || m_pluginKfFocusFx >= m_event->fxChain.size()) {
+        refreshPluginKeyframeLanes();
+        return;
+    }
+    const FxSlot &slot = m_event->fxChain[m_pluginKfFocusFx];
+    const QString key =
+        m_pluginKfParamKey.isEmpty() ? QStringLiteral("_master") : m_pluginKfParamKey;
+    const QString target = (key == QLatin1String("_master")) ? fxMasterAutomationId(slot)
+                                                             : fxParamAutomationId(slot, key);
+    if (const AutomationLane *al = findAutomationLane(target)) {
+        if (m_pluginKfIndex >= 0 && m_pluginKfIndex < al->points.size()) {
+            m_playheadSec = al->points[m_pluginKfIndex].timeSec;
+            if (m_pluginKfTc) {
+                m_pluginKfTc->setText(formatTc(m_playheadSec));
+            }
+            if (m_pluginKfRuler) {
+                m_pluginKfRuler->setRange(m_durationSec, m_playheadSec);
+            }
+            loadMediaPreview();
+        }
+    }
+    refreshPluginKeyframeLanes();
+}
+
+void VideoEventFxDialogExact::navigatePluginKeyframeFirst()
+{
+    selectPluginKeyframeIndex(0);
+}
+
+void VideoEventFxDialogExact::navigatePluginKeyframePrev()
+{
+    selectPluginKeyframeIndex(std::max(0, m_pluginKfIndex - 1));
+}
+
+void VideoEventFxDialogExact::navigatePluginKeyframeNext()
+{
+    selectPluginKeyframeIndex(m_pluginKfIndex + 1);
+}
+
+void VideoEventFxDialogExact::navigatePluginKeyframeLast()
+{
+    if (!m_event || m_pluginKfFocusFx < 0 || m_pluginKfFocusFx >= m_event->fxChain.size()) {
+        return;
+    }
+    const FxSlot &slot = m_event->fxChain[m_pluginKfFocusFx];
+    const QString key =
+        m_pluginKfParamKey.isEmpty() ? QStringLiteral("_master") : m_pluginKfParamKey;
+    const QString target = (key == QLatin1String("_master")) ? fxMasterAutomationId(slot)
+                                                             : fxParamAutomationId(slot, key);
+    const AutomationLane *al = findAutomationLane(target);
+    if (!al || al->points.isEmpty()) {
+        return;
+    }
+    selectPluginKeyframeIndex(al->points.size() - 1);
+}
+
+void VideoEventFxDialogExact::addPluginKeyframeAtPlayhead()
+{
+    addPluginKeyframeAtTime(m_playheadSec);
+}
+
+void VideoEventFxDialogExact::addPluginKeyframeAtTime(double timeSec)
+{
+    if (!m_event || m_pluginKfFocusFx < 0 || m_pluginKfFocusFx >= m_event->fxChain.size()) {
+        return;
+    }
+    timeSec = std::clamp(timeSec, 0.0, m_durationSec);
+    FxSlot &slot = m_event->fxChain[m_pluginKfFocusFx];
+    ensureFxHostKey(&slot);
+    QString key = m_pluginKfParamKey;
+    if (key.isEmpty()) {
+        const auto params = animatableParamsForSlot(slot);
+        key = params.isEmpty() ? QStringLiteral("_master") : params.first().second;
+        m_pluginKfParamKey = key;
+    }
+    // Always stamp a master marker too (Vegas-style plugin row diamonds).
+    {
+        AutomationLane &master = ensureAutomationLane(fxMasterAutomationId(slot));
+        bool near = false;
+        for (const AutomationPoint &pt : master.points) {
+            if (std::abs(pt.timeSec - timeSec) < 1e-3) {
+                near = true;
+                break;
+            }
+        }
+        if (!near) {
+            AutomationPoint pt;
+            pt.timeSec = timeSec;
+            pt.value = 1.0;
+            master.points.push_back(pt);
+            std::sort(master.points.begin(), master.points.end(),
+                      [](const AutomationPoint &a, const AutomationPoint &b) {
+                          return a.timeSec < b.timeSec;
+                      });
+        }
+    }
+    if (key != QLatin1String("_master")) {
+        AutomationLane &lane = ensureAutomationLane(fxParamAutomationId(slot, key));
+        const double value = currentParamValue(slot, key);
+        int replace = -1;
+        for (int i = 0; i < lane.points.size(); ++i) {
+            if (std::abs(lane.points[i].timeSec - timeSec) < 1e-3) {
+                replace = i;
+                break;
+            }
+        }
+        if (replace >= 0) {
+            lane.points[replace].value = value;
+            m_pluginKfIndex = replace;
+        } else {
+            AutomationPoint pt;
+            pt.timeSec = timeSec;
+            pt.value = value;
+            lane.points.push_back(pt);
+            std::sort(lane.points.begin(), lane.points.end(),
+                      [](const AutomationPoint &a, const AutomationPoint &b) {
+                          return a.timeSec < b.timeSec;
+                      });
+            for (int i = 0; i < lane.points.size(); ++i) {
+                if (std::abs(lane.points[i].timeSec - timeSec) < 1e-3) {
+                    m_pluginKfIndex = i;
+                    break;
+                }
+            }
+        }
+    }
+    m_playheadSec = timeSec;
+    rebuildPluginKeyframeLanes();
+    refreshPluginKeyframeLanes();
+}
+
+void VideoEventFxDialogExact::deleteSelectedPluginKeyframe()
+{
+    if (!m_event || m_pluginKfFocusFx < 0 || m_pluginKfFocusFx >= m_event->fxChain.size()) {
+        return;
+    }
+    const FxSlot &slot = m_event->fxChain[m_pluginKfFocusFx];
+    const QString key =
+        m_pluginKfParamKey.isEmpty() ? QStringLiteral("_master") : m_pluginKfParamKey;
+    const QString target = (key == QLatin1String("_master")) ? fxMasterAutomationId(slot)
+                                                             : fxParamAutomationId(slot, key);
+    AutomationLane *al = findAutomationLane(target);
+    if (!al || m_pluginKfIndex < 0 || m_pluginKfIndex >= al->points.size()) {
+        return;
+    }
+    const double t = al->points[m_pluginKfIndex].timeSec;
+    al->points.removeAt(m_pluginKfIndex);
+    if (AutomationLane *master = findAutomationLane(fxMasterAutomationId(slot))) {
+        for (int i = master->points.size() - 1; i >= 0; --i) {
+            if (std::abs(master->points[i].timeSec - t) < 1e-3) {
+                master->points.removeAt(i);
+            }
+        }
+    }
+    if (al->points.isEmpty()) {
+        m_pluginKfIndex = 0;
+    } else {
+        m_pluginKfIndex = std::min(m_pluginKfIndex, int(al->points.size()) - 1);
+    }
+    rebuildPluginKeyframeLanes();
+    refreshPluginKeyframeLanes();
+}
+
+void VideoEventFxDialogExact::movePluginKeyframe(int pointIndex, double timeSec, bool finalize)
+{
+    if (!m_event || m_pluginKfFocusFx < 0 || m_pluginKfFocusFx >= m_event->fxChain.size()) {
+        return;
+    }
+    timeSec = std::clamp(timeSec, 0.0, m_durationSec);
+    const FxSlot &slot = m_event->fxChain[m_pluginKfFocusFx];
+    const QString key =
+        m_pluginKfParamKey.isEmpty() ? QStringLiteral("_master") : m_pluginKfParamKey;
+    const QString target = (key == QLatin1String("_master")) ? fxMasterAutomationId(slot)
+                                                             : fxParamAutomationId(slot, key);
+    AutomationLane *al = findAutomationLane(target);
+    if (!al || pointIndex < 0 || pointIndex >= al->points.size()) {
+        return;
+    }
+    const double oldT = al->points[pointIndex].timeSec;
+    al->points[pointIndex].timeSec = timeSec;
+    if (finalize) {
+        std::sort(al->points.begin(), al->points.end(),
+                  [](const AutomationPoint &a, const AutomationPoint &b) {
+                      return a.timeSec < b.timeSec;
+                  });
+        for (int i = 0; i < al->points.size(); ++i) {
+            if (std::abs(al->points[i].timeSec - timeSec) < 1e-6) {
+                m_pluginKfIndex = i;
+                break;
+            }
+        }
+        if (AutomationLane *master = findAutomationLane(fxMasterAutomationId(slot))) {
+            for (AutomationPoint &pt : master->points) {
+                if (std::abs(pt.timeSec - oldT) < 1e-3) {
+                    pt.timeSec = timeSec;
+                }
+            }
+            std::sort(master->points.begin(), master->points.end(),
+                      [](const AutomationPoint &a, const AutomationPoint &b) {
+                          return a.timeSec < b.timeSec;
+                      });
+        }
+    }
+    m_playheadSec = timeSec;
+    if (m_pluginKfTc) {
+        m_pluginKfTc->setText(formatTc(m_playheadSec));
+    }
+    if (m_pluginKfRuler) {
+        m_pluginKfRuler->setRange(m_durationSec, m_playheadSec);
+    }
+    if (finalize) {
+        refreshPluginKeyframeLanes();
     }
 }
 

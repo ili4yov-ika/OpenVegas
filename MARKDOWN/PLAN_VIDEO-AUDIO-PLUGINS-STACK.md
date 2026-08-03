@@ -119,6 +119,7 @@ build/Windows_MinGW-x64/openvegas_media_tests.exe "[video-fx]"
 | `FxSlot` / `PluginFormat` / VEG name map | **Done** | `AudioPluginTypes.h` (`hostKey`, Glint/Chroma Blur/…) |
 | Paths Preferences | **Done** | `PluginScanner`, QSettings |
 | Builtin audio: Gate / EQ / Comp / Chorus / Delay / Reverb | **Done E2E** | `BuiltinDsp` + editors (без бренда «VEGAS ») |
+| VEGAS Shared Plug-Ins → builtins | **Done** | `VegasSharedAudioCatalog` (discovery + map; no LoadLibrary; golden backlog) |
 | VST1 / VST2 process + HWND editor + stretch | **Done E2E** | `Vst2Host`; child HWND fill on resize |
 | VST3 lean host + **`IPlugView` editor** + stretch | **Done** | `Vst3Host` (`canResize`→`onSize`); CI fixture `.vst3` backlog |
 | OFX | **Done MVP** | `OfxHost` + emulated Soften/Invert/Sepia; `Gain.ofx` |
@@ -128,7 +129,7 @@ build/Windows_MinGW-x64/openvegas_media_tests.exe "[video-fx]"
 | Mixing Console Track FX | **Done** | strip `fx` → dialog + sync |
 | Event FX UX | **Done** | Video→`VideoEventFxDialogExact`; Audio→немодальный `AudioEventFxDialog`; пустая цепочка → chooser после окна |
 | Composite host | **Done** | `CompositePluginHost` + `hostKey` instance map |
-| Unit tests | **Done MVP** | `[builtin-dsp]` `[ofx]` `[vst3]` `[state]` `[video-fx]` `[perf]` |
+| Unit tests | **Done MVP** | `[builtin-dsp]` `[vegas-shared]` `[ofx]` `[vst3]` `[state]` `[video-fx]` `[perf]` |
 
 ```text
 ProjectModel (TrackEvent/Track/Bus .fxChain + panCrop/motion)

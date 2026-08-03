@@ -1053,6 +1053,42 @@ void MixingConsoleWindow::insertInputBus()
     rebuildStrips();
 }
 
+void MixingConsoleWindow::setPluginScanner(PluginScanner *scanner)
+{
+    m_pluginScanner = scanner;
+    if (m_fxDialog) {
+        m_fxDialog->setPluginScanner(m_pluginScanner);
+    }
+}
+
+void MixingConsoleWindow::ensureFxDialog()
+{
+    if (m_fxDialog) {
+        return;
+    }
+    m_fxDialog = new AudioEventFxDialog(this);
+    m_fxDialog->setPluginScanner(m_pluginScanner);
+    connect(m_fxDialog, &QDialog::finished, this, [this](int) { commitOpenFxDialog(); });
+}
+
+void MixingConsoleWindow::commitOpenFxDialog()
+{
+    if (m_fxDialogKind == FxDialogKind::Assignable && m_project) {
+        if (AssignableFxBus *bus = m_project->findAssignableFxBus(m_fxDialogBusId)) {
+            if (!bus->fxChain.isEmpty()) {
+                bus->name = bus->fxChain.first().displayName;
+            }
+        }
+        emit documentEditCommitted(tr("Assignable FX"));
+    } else if (m_fxDialogKind == FxDialogKind::Track) {
+        emit documentEditCommitted(tr("Track FX"));
+    }
+    m_fxDialogKind = FxDialogKind::None;
+    m_fxDialogTrackId = -1;
+    m_fxDialogBusId = -1;
+    rebuildStrips();
+}
+
 void MixingConsoleWindow::openAssignableFx(int busId)
 {
     if (!m_project) {
@@ -1062,15 +1098,18 @@ void MixingConsoleWindow::openAssignableFx(int busId)
     if (!bus) {
         return;
     }
-    emit documentEditBegan();
-    AudioEventFxDialog dlg(this);
-    dlg.setChain(&bus->fxChain, QStringLiteral("%1  %2").arg(bus->number).arg(bus->name));
-    dlg.exec();
-    if (!bus->fxChain.isEmpty()) {
-        bus->name = bus->fxChain.first().displayName;
+    ensureFxDialog();
+    if (m_fxDialog->isVisible()) {
+        commitOpenFxDialog();
     }
-    emit documentEditCommitted(tr("Assignable FX"));
-    rebuildStrips();
+    emit documentEditBegan();
+    m_fxDialogKind = FxDialogKind::Assignable;
+    m_fxDialogBusId = busId;
+    m_fxDialogTrackId = -1;
+    m_fxDialog->setChain(&bus->fxChain, QStringLiteral("%1  %2").arg(bus->number).arg(bus->name));
+    m_fxDialog->show();
+    m_fxDialog->raise();
+    m_fxDialog->activateWindow();
 }
 
 void MixingConsoleWindow::openTrackFx(int trackId)
@@ -1088,14 +1127,21 @@ void MixingConsoleWindow::openTrackFx(int trackId)
     if (!track) {
         return;
     }
+    ensureFxDialog();
+    if (m_fxDialog->isVisible()) {
+        commitOpenFxDialog();
+    }
     emit documentEditBegan();
     if (track->fxChain.isEmpty()) {
         track->fxChain = BuiltinAudioCatalog::defaultTrackFxChain();
     }
-    AudioEventFxDialog dlg(this);
-    dlg.setTrack(track);
-    dlg.exec();
-    emit documentEditCommitted(tr("Track FX"));
+    m_fxDialogKind = FxDialogKind::Track;
+    m_fxDialogTrackId = trackId;
+    m_fxDialogBusId = -1;
+    m_fxDialog->setTrack(track);
+    m_fxDialog->show();
+    m_fxDialog->raise();
+    m_fxDialog->activateWindow();
 }
 
 void MixingConsoleWindow::rebuildStrips()

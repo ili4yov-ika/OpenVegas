@@ -1,5 +1,6 @@
 #include "plugins/AudioPluginRegistry.h"
 #include "plugins/BuiltinAudioCatalog.h"
+#include "plugins/VegasSharedAudioCatalog.h"
 
 #include <QSet>
 
@@ -28,12 +29,33 @@ void AudioPluginRegistry::refresh()
     m_scanner.setVst3Paths(v3);
 
     m_all = BuiltinAudioCatalog::all();
+
+    // VEGAS/Sony Shared Plug-Ins → OpenVegas builtin substitutes (no LoadLibrary).
+    const QVector<AudioPluginDesc> shared =
+        VegasSharedAudioCatalog::chooserDescriptors(/*onlyIfInstalled=*/false);
+    QSet<QString> seenIds;
+    for (const AudioPluginDesc &d : m_all) {
+        seenIds.insert(d.id);
+    }
+    int sharedAdded = 0;
+    for (const AudioPluginDesc &d : shared) {
+        if (seenIds.contains(d.id)) {
+            continue;
+        }
+        seenIds.insert(d.id);
+        m_all.push_back(d);
+        ++sharedAdded;
+    }
+
     const QVector<AudioPluginDesc> scanned = m_scanner.scan();
     m_all += scanned;
 
+    const auto installed = VegasSharedAudioCatalog::discoverInstalled();
     m_sourceSummary =
-        QStringLiteral("Builtin %1 + VST scan: %2")
+        QStringLiteral("Builtin %1 + Shared map +%2 (installed packs %3) + VST scan: %4")
             .arg(BuiltinAudioCatalog::all().size())
+            .arg(sharedAdded)
+            .arg(installed.size())
             .arg(m_scanner.lastSourceSummary());
     emit refreshed();
 }
@@ -48,6 +70,7 @@ QStringList AudioPluginRegistry::categories() const
     }
     QStringList ordered = {
         QStringLiteral("VEGAS"),
+        QStringLiteral("VEGAS Shared"),
         QStringLiteral("Track Optimized"),
         QStringLiteral("Third Party"),
         QStringLiteral("VST"),

@@ -50,6 +50,7 @@
 | VST2/VST1 | Done E2E | process + HWND editor + stretch |
 | OFX | Done MVP | process + emulated Soften/Invert/Sepia |
 | Event FX UX | Done | Video/Audio немодальные окна; пустой audio chain → chooser после FX |
+| VEGAS Shared → builtins | Done | `VegasSharedAudioCatalog` (map + discovery; no LoadLibrary) |
 | VEG Event FX | Done (sample) | Glint из `<Glint>`; без Magix AutoFrame; unit `[video-fx]` |
 | VEG chunks | Partial | `CcnK` → `state["chunk"]` |
 
@@ -83,6 +84,7 @@
 | Запись `.veg` / `.ovp` | Не реализовано | После стабильного reader |
 | Soft bypass fade | Skip есть; fade нет | Plugins P3 backlog |
 | CI open-source `.vst3` fixture | Нет DLL в дереве | Добавить fixture / SKIP documented |
+| Golden compare vs Vegas Shared DSP | Каркас есть | `tests/fixtures/vegas_shared/` + bounce из Vegas |
 | Полный VEG OFX/VST3 blob | Proprietary layout | Best-effort write-up; P6 |
 | Shadow / Glow / blend / mask interpolate | Не в MVP compositor | Фаза 10 |
 | Status-bar OFX crash warnings | Fail soft есть | Wiring UI |
@@ -110,6 +112,7 @@
 
 | Дата | Что | Как |
 |------|-----|-----|
+| 2026-08-03 | VEGAS Shared Plug-Ins → builtin substitutes | `VegasSharedAudioCatalog` + registry category + `[vegas-shared]` tests |
 | 2026-08-03 | Video Event FX: лишний Auto Frame / Sepia вместо Glint | `recoverVideoEventFxNames` (skip Magix; Glint XML; sepia+Softlight) |
 | 2026-08-03 | FX на видеоклипе → Chooser вместо Video Event FX | `onVideoEventFx` |
 | 2026-08-03 | FX на аудиоклипе → Chooser / модальное окно | немодальный `AudioEventFxDialog`; chooser только если цепочка пуста (после окна) |
