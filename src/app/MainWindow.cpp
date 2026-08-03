@@ -2028,6 +2028,17 @@ void MainWindow::setupTimeline()
     connect(m_timeline, &TimelineView::playheadChanged, this, &MainWindow::updateTimecodeLabels);
     connect(m_timeline, &TimelineView::documentEditBegan, this, &MainWindow::beginDocumentEdit);
     connect(m_timeline, &TimelineView::documentEditCommitted, this, &MainWindow::commitDocumentEdit);
+    connect(m_timeline, &TimelineView::documentEditCommitted, this, [this](const QString &) {
+        // Fades / gain / trims committed on the timeline — push into the live mix graph.
+        if (m_audioEngine) {
+            m_audioEngine->syncMixerLive();
+        }
+    });
+    connect(m_timeline, &TimelineView::liveAudioParamsChanged, this, [this]() {
+        if (m_audioEngine) {
+            m_audioEngine->syncMixerLive();
+        }
+    });
     connect(m_timeline, &TimelineView::mediaDropRequested, this,
             [this](const QString &name, const QString &kindIn, double timeSec, int trackIndex,
                    double lengthSec, const QString &path) {

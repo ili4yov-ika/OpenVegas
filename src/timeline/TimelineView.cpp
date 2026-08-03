@@ -259,9 +259,10 @@ TimelineView::TimelineView(ProjectModel *model, QWidget *parent)
         if (!m_playing && !shuttling) {
             return;
         }
-        // AudioEngine owns the clock while playing — only refresh UI from model.
+        // AudioEngine owns the clock while playing — only redraw. Do NOT emit
+        // playheadChanged here: MainWindow treats that as a user seek and would
+        // reset AudioEngine every tick, fighting click-seek and stuttering audio.
         if (m_playing && m_externalTransportClock && !shuttling) {
-            emit playheadChanged(m_model->playheadSec());
             update();
             return;
         }
@@ -1227,15 +1228,29 @@ void TimelineView::setEventLevelFromNormalized(TrackEvent &ev, double n) const
 {
     n = std::clamp(n, 0.0, 1.0);
     if (isAudioFamily(ev.mediaKind)) {
+        double newDb = kGainDbMax;
         if (n <= 0.001) {
-            ev.gainDb = kGainDbMin; // treated as −Inf in UI
+            newDb = kGainDbMin; // treated as −Inf in UI
         } else if (n >= 0.999) {
-            ev.gainDb = kGainDbMax; // 0 dB
+            newDb = kGainDbMax; // 0 dB
         } else {
-            ev.gainDb = 20.0 * std::log10(n);
+            newDb = 20.0 * std::log10(n);
             // Keep above the −Inf sentinel so tooltip shows a real dB value
-            if (ev.gainDb <= kGainDbInfThreshold) {
-                ev.gainDb = kGainDbInfThreshold + 0.1;
+            if (newDb <= kGainDbInfThreshold) {
+                newDb = kGainDbInfThreshold + 0.1;
+            }
+        }
+        // Keep absolute event.gain envelope points aligned with the Level handle.
+        const double delta = newDb - ev.gainDb;
+        ev.gainDb = newDb;
+        if (std::abs(delta) > 1e-9) {
+            for (AutomationLane &lane : ev.automationLanes) {
+                if (lane.targetId != QLatin1String("event.gain")) {
+                    continue;
+                }
+                for (AutomationPoint &pt : lane.points) {
+                    pt.value += delta;
+                }
             }
         }
     } else {
@@ -2987,9 +3002,10 @@ void TimelineView::mousePressEvent(QMouseEvent *event)
         if (hit && hit->eventId >= 0) {
             m_model->clearMarkerSelection();
             m_model->selectEvent(hit->eventId, event->modifiers() & Qt::ControlModifier);
-            emitDocumentEditBegan();
+            // Arm Move, but defer undo + actual drag until the mouse moves past a
+            // small threshold so a plain click can seek without starting a Move edit.
             m_eventEditMode = EventEditMode::Move;
-            m_dragging = true;
+            m_dragging = false;
             m_dragEventId = hit->eventId;
             m_dragGroupOrigins.clear();
             if (TrackEvent *ev = m_model->findEvent(m_dragEventId)) {
@@ -3008,6 +3024,7 @@ void TimelineView::mousePressEvent(QMouseEvent *event)
                 }
             }
             m_dragOriginX = event->pos().x();
+            m_dragOriginY = event->pos().y();
             m_dragCreatedTrack = -1;
             grabMouse();
             update();
@@ -3063,6 +3080,16 @@ void TimelineView::mouseMoveEvent(QMouseEvent *event)
 
         switch (m_eventEditMode) {
         case EventEditMode::Move: {
+            // Click-to-seek: ignore tiny press jitter until a real drag starts.
+            if (!m_dragging) {
+                const int dx = event->pos().x() - m_dragOriginX;
+                const int dy = event->pos().y() - m_dragOriginY;
+                if (dx * dx + dy * dy < 16) {
+                    return;
+                }
+                emitDocumentEditBegan();
+                m_dragging = true;
+            }
             int fromTrack = -1;
             TrackEvent *cur = m_model->findEvent(m_dragEventId, &fromTrack);
             if (!cur) {
@@ -3152,12 +3179,18 @@ void TimelineView::mouseMoveEvent(QMouseEvent *event)
             const double fromLeft = xToTime(event->pos().x()) - ev->startSec;
             const double maxFade = std::max(0.0, ev->lengthSec - ev->fadeOutSec - minEventLengthSec());
             ev->fadeInSec = std::clamp(fromLeft, 0.0, maxFade);
+            if (isAudioFamily(ev->mediaKind)) {
+                emit liveAudioParamsChanged();
+            }
             break;
         }
         case EventEditMode::FadeOut: {
             const double fromRight = (ev->startSec + ev->lengthSec) - xToTime(event->pos().x());
             const double maxFade = std::max(0.0, ev->lengthSec - ev->fadeInSec - minEventLengthSec());
             ev->fadeOutSec = std::clamp(fromRight, 0.0, maxFade);
+            if (isAudioFamily(ev->mediaKind)) {
+                emit liveAudioParamsChanged();
+            }
             break;
         }
         case EventEditMode::Level: {
@@ -3173,6 +3206,9 @@ void TimelineView::mouseMoveEvent(QMouseEvent *event)
                 const double n = normalizedFromLevelY(body, event->pos().y());
                 setEventLevelFromNormalized(*ev, n);
                 QToolTip::showText(event->globalPosition().toPoint(), eventLevelTooltip(*ev), this);
+                if (isAudioFamily(ev->mediaKind)) {
+                    emit liveAudioParamsChanged();
+                }
             }
             break;
         }
@@ -3241,6 +3277,8 @@ void TimelineView::mouseReleaseEvent(QMouseEvent *)
     const bool finishedReorder = m_reorderingTrack >= 0;
     const bool finishedEventEdit = m_eventEditMode != EventEditMode::None;
     const EventEditMode finishedMode = m_eventEditMode;
+    const bool finishedMoveDrag = finishedEventEdit && finishedMode == EventEditMode::Move
+                                  && m_dragging;
     const bool finishedMarker = m_rulerDrag == RulerDragMode::Marker;
     const bool finishedLoop = m_rulerDrag == RulerDragMode::LoopCreate
                               || m_rulerDrag == RulerDragMode::LoopMove
@@ -3277,6 +3315,12 @@ void TimelineView::mouseReleaseEvent(QMouseEvent *)
     }
     if (finishedTrack || finishedReorder || finishedEventEdit || finishedRuler) {
         update();
+    }
+
+    // Click on a clip without dragging past the threshold — seek only, no undo entry.
+    if (finishedEventEdit && finishedMode == EventEditMode::Move && !finishedMoveDrag
+        && !m_docEditOpen) {
+        return;
     }
 
     if (m_docEditOpen) {

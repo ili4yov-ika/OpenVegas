@@ -147,6 +147,7 @@ void AudioEngine::stop()
 void AudioEngine::seek(double sec)
 {
     m_positionSec.store(std::max(0.0, sec));
+    m_seekEpoch.fetch_add(1, std::memory_order_acq_rel);
     {
         QMutexLocker lock(&m_graphMutex);
         m_graph.reset();
@@ -180,14 +181,17 @@ void AudioEngine::processBlock(float *interleavedStereo, unsigned int frameCount
     std::fill(m_scratchR.begin(), m_scratchR.begin() + frameCount, 0.f);
 
     if (m_playing.load()) {
-        const double pos = m_positionSec.load();
+        // Capture seek epoch before reading position so a concurrent seek() is not
+        // overwritten by next = oldPos + block.
+        const quint64 epoch = m_seekEpoch.load(std::memory_order_acquire);
+        const double pos = m_positionSec.load(std::memory_order_acquire);
         {
             QMutexLocker lock(&m_graphMutex);
             m_graph.process(pos, m_scratchL.data(), m_scratchR.data(), int(frameCount));
         }
 
         double next = pos + double(frameCount) / double(m_sampleRate);
-        bool wrote = false;
+        bool stopAtEnd = false;
         if (m_model && m_model->loopPlaybackEnabled() && m_model->hasLoopRegion()) {
             const double a = m_model->loopRegion().startSec;
             const double b = m_model->loopRegion().endSec;
@@ -197,19 +201,19 @@ void AudioEngine::processBlock(float *interleavedStereo, unsigned int frameCount
                 m_graph.reset();
             }
         } else if (m_model) {
-            // Stop at end of last clip (do not keep playing into empty timeline).
             const double end = m_model->timelineEndSec();
             if (next >= end) {
                 next = end;
-                m_positionSec.store(next);
-                wrote = true;
-                if (m_playing.exchange(false)) {
-                    m_endReached.store(true);
-                }
+                stopAtEnd = true;
             }
         }
-        if (!wrote) {
-            m_positionSec.store(next);
+
+        // Drop this advance if the UI seeked while we were mixing this block.
+        if (m_seekEpoch.load(std::memory_order_acquire) == epoch) {
+            m_positionSec.store(next, std::memory_order_release);
+            if (stopAtEnd && m_playing.exchange(false)) {
+                m_endReached.store(true);
+            }
         }
     }
 

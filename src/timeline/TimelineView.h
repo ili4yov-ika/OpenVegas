@@ -102,6 +102,8 @@ signals:
     /** Document mutation about to begin / finished (for Undo). */
     void documentEditBegan();
     void documentEditCommitted(const QString &text);
+    /** Event gain / fades changed — soft-sync AudioEngine without rebuild. */
+    void liveAudioParamsChanged();
 
 protected:
     void paintEvent(QPaintEvent *event) override;

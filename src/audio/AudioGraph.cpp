@@ -135,11 +135,28 @@ void AudioGraph::applyLiveMixer(const ProjectModel &model)
             gt.volumeDb = tr.volumeDb;
             gt.pan = tr.pan;
             gt.busId = tr.busId;
+            gt.automationLanes = tr.automationLanes;
             // Live FX state / bypass without full rebuild
             if (gt.fxChain.size() == tr.fxChain.size()) {
                 for (int i = 0; i < gt.fxChain.size(); ++i) {
                     gt.fxChain[i].bypass = tr.fxChain[i].bypass;
                     gt.fxChain[i].state = tr.fxChain[i].state;
+                }
+            }
+            // Event gain / fades / envelopes — previously only applied on full rebuild,
+            // so timeline Level edits were ignored while Play was active.
+            for (AudioGraphClip &clip : gt.clips) {
+                for (const TrackEvent &ev : tr.events) {
+                    if (ev.id != clip.eventId) {
+                        continue;
+                    }
+                    clip.gainDb = ev.gainDb;
+                    clip.fadeInSec = ev.fadeInSec;
+                    clip.fadeOutSec = ev.fadeOutSec;
+                    clip.fadeInCurve = ev.fadeInCurve;
+                    clip.fadeOutCurve = ev.fadeOutCurve;
+                    clip.automationLanes = ev.automationLanes;
+                    break;
                 }
             }
             break;

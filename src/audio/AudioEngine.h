@@ -75,6 +75,8 @@ private:
     std::atomic<bool> m_playing{false};
     std::atomic<double> m_positionSec{0.0};
     std::atomic<bool> m_positionDirty{false};
+    /** Bumped on seek so processBlock does not overwrite a concurrent user seek. */
+    std::atomic<quint64> m_seekEpoch{0};
     /** Set on audio thread when play hits timeline end; drained on UI timer. */
     std::atomic<bool> m_endReached{false};
 
