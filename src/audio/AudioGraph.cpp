@@ -313,23 +313,47 @@ void AudioGraph::processClip(const AudioGraphClip &clip, double startSec, float 
             fade *= float(fromEnd / micro);
         }
 
-        // Match TrackEvent::sourceTimeSec (reverse + loop past media edge).
+        // Match TrackEvent::sourceTimeSec (reverse SubClip in-point + loop wrap).
         double cycle = clip.mediaLengthSec > 1e-6 ? clip.mediaLengthSec : 0.0;
         if (cycle < 1e-6) {
             cycle = double(buf->frameCount()) / double(std::max(1, buf->sampleRate));
-            cycle = std::max(0.05, cycle - clip.inPointSec);
+            cycle = std::max(0.05, cycle);
         }
-        double loc = local;
-        if (clip.looped && clip.lengthSec > cycle + 1e-6) {
-            loc = std::fmod(loc, cycle);
-            if (loc < 0.0) {
-                loc += cycle;
+        double srcTime = 0.0;
+        if (clip.reversed) {
+            double r = clip.inPointSec + local;
+            const double rem = (clip.inPointSec > 1e-3 && clip.inPointSec < cycle)
+                                   ? (cycle - clip.inPointSec)
+                                   : cycle;
+            if (clip.looped && clip.lengthSec > std::min(cycle, rem) + 1e-6) {
+                r = std::fmod(r, cycle);
+                if (r < 0.0) {
+                    r += cycle;
+                }
+            } else {
+                const double takeEnd =
+                    clip.inPointSec
+                    + std::min(clip.lengthSec, std::max(0.0, cycle - clip.inPointSec));
+                if (r > takeEnd) {
+                    r = takeEnd;
+                }
+                if (r > cycle) {
+                    r = cycle;
+                }
             }
-        } else if (loc > cycle) {
-            loc = cycle;
+            srcTime = (r <= 1e-12) ? std::max(0.0, cycle) : std::max(0.0, cycle - r);
+        } else {
+            double loc = local;
+            if (clip.looped && clip.lengthSec > cycle + 1e-6) {
+                loc = std::fmod(loc, cycle);
+                if (loc < 0.0) {
+                    loc += cycle;
+                }
+            } else if (loc > cycle) {
+                loc = cycle;
+            }
+            srcTime = std::max(0.0, clip.inPointSec + loc);
         }
-        const double srcTime = clip.reversed ? std::max(0.0, clip.inPointSec + cycle - loc)
-                                             : std::max(0.0, clip.inPointSec + loc);
         const double srcFrame = srcTime * double(buf->sampleRate);
         const qint64 i0 = qint64(srcFrame);
         if (i0 < 0 || i0 >= buf->frameCount()) {

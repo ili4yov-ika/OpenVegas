@@ -1784,11 +1784,13 @@ void TimelineView::paintAudioWave(QPainter &p, const QRect &body, const TrackEve
         peaks.durationSec > 0.05 ? peaks.durationSec : std::max(0.05, ev.lengthSec);
     double cycle = ev.mediaLengthSec > 1e-6 ? ev.mediaLengthSec : 0.0;
     if (cycle < 1e-6) {
-        cycle = std::max(0.05, fileDur - ev.mediaStartSec);
+        cycle = std::max(0.05, fileDur);
     }
-    const bool doLoop =
-        ev.looped && cycle > 1e-6 && ev.lengthSec > cycle + 1e-3;
     const double media0 = std::max(0.0, ev.mediaStartSec);
+    const bool remPast = ev.reversed && media0 > 1e-3 && media0 < cycle - 1e-3
+                         && ev.lengthSec > (cycle - media0) + 1e-3;
+    const bool doLoop =
+        ev.looped && cycle > 1e-6 && (ev.lengthSec > cycle + 1e-3 || remPast);
 
     p.setRenderHint(QPainter::Antialiasing, false);
     p.setPen(QPen(audioWave(), 1));
@@ -1805,17 +1807,39 @@ void TimelineView::paintAudioWave(QPainter &p, const QRect &body, const TrackEve
             const double u = (body.width() <= 1)
                                  ? 0.0
                                  : double(x - body.left()) / double(body.width() - 1);
-            double local = u * ev.lengthSec;
-            if (doLoop) {
-                local = std::fmod(local, cycle);
-                if (local < 0.0) {
-                    local += cycle;
+            const double local = u * ev.lengthSec;
+            double srcTRaw = 0.0;
+            if (ev.reversed) {
+                // Reverse SubClip: StreamStart (media0) is in-point on reversed item.
+                double r = media0 + local;
+                if (doLoop) {
+                    r = std::fmod(r, cycle);
+                    if (r < 0.0) {
+                        r += cycle;
+                    }
+                } else {
+                    const double takeEnd =
+                        media0 + std::min(ev.lengthSec, std::max(0.0, cycle - media0));
+                    if (r > takeEnd) {
+                        r = takeEnd;
+                    }
+                    if (r > cycle) {
+                        r = cycle;
+                    }
                 }
+                srcTRaw = (r <= 1e-12) ? cycle : (cycle - r);
             } else {
-                local = std::min(local, cycle);
+                double loc = local;
+                if (doLoop) {
+                    loc = std::fmod(loc, cycle);
+                    if (loc < 0.0) {
+                        loc += cycle;
+                    }
+                } else {
+                    loc = std::min(loc, cycle);
+                }
+                srcTRaw = media0 + loc;
             }
-            const double srcTRaw =
-                ev.reversed ? (media0 + cycle - local) : (media0 + local);
             const double srcT = std::clamp(srcTRaw, 0.0, std::max(0.0, fileDur - 1e-9));
             const int bin =
                 std::clamp(int(std::floor((srcT / fileDur) * peaks.bins)), 0, peaks.bins - 1);
@@ -1841,14 +1865,25 @@ void paintEventLoopNotches(QPainter &p, const TrackEvent &ev, const QRect &event
         return;
     }
     if (!ev.looped || ev.lengthSec <= cycle + 1e-3) {
-        return;
+        // Still allow a first wrap notch when reverse SubClip in-point leaves a short
+        // remainder before the media end (remainder < full cycle but event extends past it).
+        if (!(ev.reversed && ev.looped && ev.mediaStartSec > 1e-3
+              && ev.lengthSec > (cycle - ev.mediaStartSec) + 1e-3)) {
+            return;
+        }
     }
     if (eventRect.width() < 10) {
         return;
     }
 
+    // Reverse SubClip: StreamStart is mid-item — first loop is at remaining (cycle - start).
+    double t0 = cycle;
+    if (ev.reversed && ev.mediaStartSec > 1e-3 && ev.mediaStartSec < cycle - 1e-3) {
+        t0 = cycle - ev.mediaStartSec;
+    }
+
     const QColor bg(0x14, 0x14, 0x14);
-    for (double t = cycle; t < ev.lengthSec - 1e-4; t += cycle) {
+    for (double t = t0; t < ev.lengthSec - 1e-4; t += cycle) {
         const int x = eventRect.left()
                       + int(std::lround((t / ev.lengthSec) * double(eventRect.width() - 1)));
         if (x <= eventRect.left() + 2 || x >= eventRect.right() - 2) {

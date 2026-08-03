@@ -412,7 +412,12 @@ struct TrackEvent {
         return std::max(0.05, lengthSec);
     }
 
-    /** Source media time for decode (mediaStart + reverse + optional loop wrap). */
+    /**
+     * Source media time for decode.
+     * Forward: mediaStart + local (optional loop wrap on cycle).
+     * Reverse SubClip: EDL StreamStart is an in-point on the reversed item;
+     * original = cycle - fmod(mediaStart + local, cycle) (Vegas/FCPX timeMap).
+     */
     double sourceTimeSec(double timelineSec) const
     {
         double local = eventLocalSec(timelineSec);
@@ -420,6 +425,35 @@ struct TrackEvent {
             local = 0.0;
         }
         const double cycle = sourceCycleSec();
+        if (reversed) {
+            // Walk the reverse-subclip timeline starting at mediaStartSec.
+            double r = mediaStartSec + local;
+            const double rem = (mediaStartSec > 1e-3 && mediaStartSec < cycle)
+                                   ? (cycle - mediaStartSec)
+                                   : cycle;
+            if (looped && mediaLengthSec > 1e-6
+                && lengthSec > std::min(cycle, rem) + 1e-6) {
+                r = std::fmod(r, cycle);
+                if (r < 0.0) {
+                    r += cycle;
+                }
+            } else {
+                // Clamp to the take window [mediaStart, mediaStart+length] within cycle.
+                const double takeEnd = mediaStartSec
+                                       + std::min(lengthSec, std::max(0.0, cycle - mediaStartSec));
+                if (r > takeEnd) {
+                    r = takeEnd;
+                }
+                if (r > cycle) {
+                    r = cycle;
+                }
+            }
+            // r==0 maps to end of original (cycle); keep a tiny epsilon below cycle for decoders.
+            if (r <= 1e-12) {
+                return std::max(0.0, cycle);
+            }
+            return std::max(0.0, cycle - r);
+        }
         if (looped && mediaLengthSec > 1e-6 && lengthSec > mediaLengthSec + 1e-6) {
             local = std::fmod(local, cycle);
             if (local < 0.0) {
@@ -427,9 +461,6 @@ struct TrackEvent {
             }
         } else if (local > cycle) {
             local = cycle;
-        }
-        if (reversed) {
-            return std::max(0.0, mediaStartSec + cycle - local);
         }
         return std::max(0.0, mediaStartSec + local);
     }

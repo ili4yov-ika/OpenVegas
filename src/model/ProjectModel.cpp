@@ -387,7 +387,7 @@ int ProjectModel::addMixerBus()
     bus.id = m_nextMixerBusId++;
     bus.letterIndex = m_mixerBuses.size();
     const QChar letter = QChar(QLatin1Char('A' + (bus.letterIndex % 26)));
-    // After Z: AA, AB… simple Vegas-style — keep single letter + index for now
+    // After Z: AA, AB... simple Vegas-style - keep single letter + index for now
     if (bus.letterIndex < 26) {
         bus.name = QStringLiteral("Bus %1").arg(letter);
     } else {
@@ -1096,7 +1096,7 @@ bool ProjectModel::applyVegImport(const VegOpenResult &veg, const QString &opene
 
     // --- Preferred: Vegas EDL CSV sidecar (veg_project/edl-text-file/<name>.txt) ---
     // Renamed copies (e.g. Downloads/1-просто-видео.veg) still embed the original
-    // project path — use that basename so EDL from SAMPLES/veg_project still matches.
+    // project path - use that basename so EDL from SAMPLES/veg_project still matches.
     QStringList edlAltNames;
     if (!veg.projectPathHint.isEmpty()) {
         edlAltNames << veg.projectPathHint;
@@ -1172,37 +1172,45 @@ bool ProjectModel::applyVegImport(const VegOpenResult &veg, const QString &opene
                          || ext == QLatin1String("mkv") || ext == QLatin1String("avi")
                          || ext == QLatin1String("m2ts") || ext == QLatin1String("mxf"));
                     // Reverse SubClip on an A/V file usually applies to the video take only
-                    // (paired audio from the same mp4 stays forward — see FCPX timeMap).
-                    const bool reverseOk =
+                    // (paired audio from the same mp4 stays forward - see FCPX timeMap).
+                    // Same basename may also appear as a normal forward event (fx1: short
+                    // reverse wav + second full-length forward wav) - do not reverse all.
+                    bool reverseOk =
                         !base.isEmpty() && veg.reversedMediaBasenames.contains(base)
                         && !(isAudio && videoContainer);
+                    if (reverseOk && isAudio) {
+                        const double metaLen =
+                            veg.reversedSubclipLengthSec.value(base, 0.0);
+                        const bool suffixOrPartial =
+                            te.mediaStartSec > 1e-3
+                            || (metaLen > 1e-6 && te.mediaLengthSec > 1e-6
+                                && te.mediaLengthSec < metaLen * 0.95);
+                        const bool loopedPastEdge =
+                            te.looped && te.mediaLengthSec > 1e-6
+                            && te.lengthSec > te.mediaLengthSec * 1.5;
+                        reverseOk = suffixOrPartial || loopedPastEdge;
+                    }
                     if (reverseOk || ev.playRate < 0.0) {
                         te.reversed = true;
                         const double metaStart = veg.reversedSubclipStartSec.value(base, -1.0);
                         const double metaLen = veg.reversedSubclipLengthSec.value(base, 0.0);
-                        // META start=0: full reverse-subclip from head of media.
-                        // StreamStart in EDL is often a quirk (parked at far edge).
-                        if (metaStart >= 0.0 && metaStart < 1e-6) {
-                            te.mediaStartSec = 0.0;
-                            // Event longer than StreamLength + Looped → loop the META window
-                            // (wav sample: StreamLength≈2.1s but META length≈10.3s).
-                            // Event ≈ StreamLength → use StreamLength (video BBB 232s take).
-                            if (te.looped && te.mediaLengthSec > 1e-6
-                                && te.lengthSec > te.mediaLengthSec * 1.5 && metaLen > 1e-6
-                                && metaLen > te.mediaLengthSec + 1e-3) {
-                                te.mediaLengthSec = metaLen;
-                            } else if (te.mediaLengthSec < 1e-6 && metaLen > 1e-6) {
+                        // META start=0: media is a reverse SubClip of length metaLen.
+                        // EDL StreamStart is the in-point on that reversed item (keep it).
+                        // Cycle must be the full reverse-subclip length so
+                        // source = cycle - fmod(StreamStart + local, cycle) matches FCPX timeMap
+                        // (wav fx: start~2.1s going backwards with wrap; not silence at file end).
+                        if (metaStart >= 0.0 && metaStart < 1e-6 && metaLen > 1e-6) {
+                            if (te.mediaLengthSec < 1e-6 || metaLen > te.mediaLengthSec + 1e-3) {
                                 te.mediaLengthSec = metaLen;
                             }
                         }
                     }
-                    // If StreamLength missing, leave mediaLengthSec=0 until probe/paint fills it.
                 }
                 if (isAudio) {
                     te.firstChannel = ev.firstChannel;
                     te.channelCount = ev.channelCount > 0 ? ev.channelCount : 2;
                     if (ev.hasSustainGain) {
-                        // Linear amplitude → dB (0 → −Inf / UI floor −40 dB, Vegas-like)
+                        // Linear amplitude → dB (0 → -Inf / UI floor -40 dB, Vegas-like)
                         if (ev.sustainGain <= 1e-6) {
                             te.gainDb = -40.0;
                         } else {
@@ -1285,7 +1293,7 @@ bool ProjectModel::applyVegImport(const VegOpenResult &veg, const QString &opene
                 }
             }
 
-            // EDL is authoritative for timeline — do not re-append stillFiles from media pool
+            // EDL is authoritative for timeline - do not re-append stillFiles from media pool
             // (that duplicated sample_for_project_pictures: 2 EDL stills + 2 pool stills).
             applyAudioEventFxFromVeg(veg);
             applyMixerChannelsFromVeg(veg);
@@ -1663,7 +1671,7 @@ void ProjectModel::applyMixerChannelsFromVeg(const VegOpenResult &veg)
         }
     }
 
-    // Assignable FX: "FX 1" + "Chorus", "FX 2" + "Volume", …
+    // Assignable FX: "FX 1" + "Chorus", "FX 2" + "Volume", ...
     const int fxCount =
         std::min(veg.mixerAssignableFxLabels.size(), veg.mixerAssignableFxPlugins.size());
     for (int i = 0; i < fxCount; ++i) {
@@ -1687,7 +1695,7 @@ void ProjectModel::applyMixerChannelsFromVeg(const VegOpenResult &veg)
     rebuildDefaultMixerStripOrder();
 
     // Prefer Vegas-like layouts when sample has extras.
-    // FX-only (mix-console after Bus/Input removal): tracks | FX1 | Master | FX2…
+    // FX-only (mix-console after Bus/Input removal): tracks | FX1 | Master | FX2...
     if (!m_assignableFx.isEmpty() && m_mixerBuses.isEmpty() && m_mixerInputBuses.isEmpty()) {
         QVector<MixerStripRef> order;
         for (const Track &t : m_tracks) {
@@ -2273,7 +2281,7 @@ bool ProjectModel::splitSelectedAt(double timeSec)
 {
     const QVector<int> ids = selectedEventIds();
     bool any = false;
-    // Copy ids — split mutates selection/structure
+    // Copy ids - split mutates selection/structure
     for (int id : ids) {
         any = splitEventAt(id, timeSec) || any;
     }
@@ -2435,7 +2443,7 @@ QString ProjectModel::formatRulerTime(double sec) const
         return QStringLiteral("%1.1.%2").arg(measure).arg(ticks, 3, 10, QChar('0'));
     }
     case RulerTimeFormat::Seconds: {
-        // Simple “seconds with 1 decimal” (Vegas-like for this simplified editor).
+        // Simple "seconds with 1 decimal" (Vegas-like for this simplified editor).
         return QString::number(sec, 'f', 1);
     }
     case RulerTimeFormat::TimeFrames: {
