@@ -2199,11 +2199,16 @@ void MainWindow::wireTransportButtons()
         });
     }
     connect(m_timeline, &TimelineView::playheadChanged, this, [this](double sec) {
-        if (m_audioEngine && !m_syncingPlayheadFromEngine && !m_timeline->isPlaying()) {
+        // User scrub / click-seek: always drive the audio clock (unless we are
+        // mirroring AudioEngine → UI).
+        if (m_audioEngine && !m_syncingPlayheadFromEngine) {
             m_audioEngine->seek(sec);
         }
-        // During play, video is driven by AudioEngine::positionChanged (frame ticks).
+        // During play, steady-state video is driven by AudioEngine::positionChanged.
+        // Still refresh immediately so a click-seek updates the preview now.
         if (m_timeline && m_timeline->isPlaying()) {
+            m_lastAvSyncFrame = -1;
+            refreshPreviewFrame(sec);
             return;
         }
         m_lastAvSyncFrame = -1;

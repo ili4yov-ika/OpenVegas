@@ -2979,6 +2979,11 @@ void TimelineView::mousePressEvent(QMouseEvent *event)
         }
 
         auto hit = hitTest(event->pos());
+        // Vegas-style: click on clip or empty track area seeks the playhead.
+        if (event->pos().x() >= headerWidth()) {
+            m_model->setPlayheadSec(std::max(0.0, xToTime(event->pos().x())));
+            emit playheadChanged(m_model->playheadSec());
+        }
         if (hit && hit->eventId >= 0) {
             m_model->clearMarkerSelection();
             m_model->selectEvent(hit->eventId, event->modifiers() & Qt::ControlModifier);
