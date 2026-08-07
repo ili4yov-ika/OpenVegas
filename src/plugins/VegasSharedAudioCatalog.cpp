@@ -21,20 +21,6 @@ VegasSharedFxEntry entry(const char *dll, const char *pack, const char *vegasNam
     return e;
 }
 
-QString normalizeKey(QString n)
-{
-    n = n.trimmed();
-    if (n.startsWith(QLatin1String("VEGAS "), Qt::CaseInsensitive)) {
-        n = n.mid(6).trimmed();
-    }
-    n.replace(QLatin1Char('_'), QLatin1Char(' '));
-    n.replace(QLatin1Char('-'), QLatin1Char(' '));
-    while (n.contains(QLatin1String("  "))) {
-        n.replace(QLatin1String("  "), QStringLiteral(" "));
-    }
-    return n.toLower();
-}
-
 } // namespace
 
 QStringList VegasSharedAudioCatalog::defaultSharedRoots()
@@ -173,7 +159,7 @@ bool VegasSharedAudioCatalog::anyInstalled(const QStringList &roots)
 
 QString VegasSharedAudioCatalog::resolveBuiltinName(const QString &vegasOrAliasName)
 {
-    const QString key = normalizeKey(vegasOrAliasName);
+    const QString key = normalizeVegasPluginKey(vegasOrAliasName);
     if (key.isEmpty()) {
         return {};
     }
@@ -199,8 +185,8 @@ QString VegasSharedAudioCatalog::resolveBuiltinName(const QString &vegasOrAliasN
         if (e.status == VegasSharedReplacementStatus::Unmapped) {
             continue;
         }
-        if (normalizeKey(e.vegasFxName) == key
-            || normalizeKey(e.openvegasBuiltinName) == key) {
+        if (normalizeVegasPluginKey(e.vegasFxName) == key
+            || normalizeVegasPluginKey(e.openvegasBuiltinName) == key) {
             return e.openvegasBuiltinName;
         }
     }

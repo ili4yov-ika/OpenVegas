@@ -3590,6 +3590,7 @@ void MainWindow::onVideoEventFx(int eventId)
 
     if (!m_videoEventFx) {
         m_videoEventFx = new VideoEventFxDialogExact(this);
+        m_videoEventFx->setPluginScanner(&m_pluginScanner);
         connect(m_videoEventFx, &QDialog::finished, this, [this](int) {
             commitDocumentEdit(tr("Video Event FX"));
             if (m_timeline) {

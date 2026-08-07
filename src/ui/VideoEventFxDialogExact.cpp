@@ -5,6 +5,7 @@
 #include "io/MediaThumbCache.h"
 #include "plugins/AudioPluginTypes.h"
 #include "plugins/OfxHost.h"
+#include "plugins/VegasVideoPluginCatalog.h"
 #include "video/ColorCorrectorApply.h"
 #include "video/VideoFrameCache.h"
 #include "video/VideoKeyframeEval.h"
@@ -1762,35 +1763,60 @@ AutomationLane &VideoEventFxDialogExact::ensureAutomationLane(const QString &tar
     return m_event->automationLanes.last();
 }
 
+QVector<OfxParamInfo> VideoEventFxDialogExact::paramsInfoForSlot(const FxSlot &slot) const
+{
+    if (slot.format == PluginFormat::Ofx) {
+        const QVector<OfxParamInfo> real = OfxHost::instance().paramsForSlot(slot);
+        if (!real.isEmpty()) {
+            return real;
+        }
+    }
+
+    // Approximate fallback — used when the plug-in isn't installed, or the OFX
+    // host couldn't fully load it (see OfxHost::paramsForSlot / ISSUES_AND_PLANS.md).
+    QVector<OfxParamInfo> out;
+    auto add = [&](const QString &label, const QString &key, double def, double lo, double hi) {
+        OfxParamInfo info;
+        info.name = key;
+        info.label = label;
+        info.defaultValue = def;
+        info.minValue = lo;
+        info.maxValue = hi;
+        out.push_back(info);
+    };
+    const QString n = slot.displayName;
+    if (isColorCorrectorName(n)) {
+        add(tr("Brightness"), QStringLiteral("brightness"), 0.0, -1.0, 1.0);
+        add(tr("Contrast"), QStringLiteral("contrast"), 1.0, 0.0, 2.0);
+        add(tr("Saturation"), QStringLiteral("saturation"), 1.0, 0.0, 2.0);
+        add(tr("Gamma"), QStringLiteral("gamma"), 1.0, 0.1, 3.0);
+    } else if (n.contains(QLatin1String("sepia"), Qt::CaseInsensitive)) {
+        add(tr("Amount"), QStringLiteral("amount"), 1.0, 0.0, 1.0);
+    } else if (n.contains(QLatin1String("soften"), Qt::CaseInsensitive)
+               || n.contains(QLatin1String("blur"), Qt::CaseInsensitive)
+               || n.contains(QLatin1String("chroma"), Qt::CaseInsensitive)) {
+        add(tr("Horizontal pixels"), QStringLiteral("radius"), 2.0, 1.0, 24.0);
+        add(tr("Vertical pixels"), QStringLiteral("radiusV"), 2.0, 1.0, 24.0);
+    } else if (n.contains(QLatin1String("glint"), Qt::CaseInsensitive)
+               || n.contains(QLatin1String("мерцание"), Qt::CaseInsensitive)) {
+        add(tr("Threshold"), QStringLiteral("threshold"), 67.0, 0.0, 100.0);
+        add(tr("Boost"), QStringLiteral("boost"), -40.0, -100.0, 100.0);
+        add(tr("Gain"), QStringLiteral("gain"), 1.0, 0.0, 4.0);
+    } else if (n.contains(QLatin1String("brightness"), Qt::CaseInsensitive)) {
+        add(tr("Brightness"), QStringLiteral("brightness"), 0.0, -1.0, 1.0);
+        add(tr("Contrast"), QStringLiteral("contrast"), 1.0, 0.0, 2.0);
+    } else if (!n.contains(QLatin1String("invert"), Qt::CaseInsensitive)) {
+        add(tr("Gain"), QStringLiteral("gain"), 1.0, 0.0, 4.0);
+    }
+    return out;
+}
+
 QVector<QPair<QString, QString>> VideoEventFxDialogExact::animatableParamsForSlot(
     const FxSlot &slot) const
 {
     QVector<QPair<QString, QString>> out;
-    const QString n = slot.displayName;
-    if (isColorCorrectorName(n)) {
-        out.push_back({tr("Brightness"), QStringLiteral("brightness")});
-        out.push_back({tr("Contrast"), QStringLiteral("contrast")});
-        out.push_back({tr("Saturation"), QStringLiteral("saturation")});
-        out.push_back({tr("Gamma"), QStringLiteral("gamma")});
-        return out;
-    }
-    if (n.contains(QLatin1String("sepia"), Qt::CaseInsensitive)) {
-        out.push_back({tr("Amount"), QStringLiteral("amount")});
-    } else if (n.contains(QLatin1String("soften"), Qt::CaseInsensitive)
-               || n.contains(QLatin1String("blur"), Qt::CaseInsensitive)
-               || n.contains(QLatin1String("chroma"), Qt::CaseInsensitive)) {
-        out.push_back({tr("Horizontal pixels"), QStringLiteral("radius")});
-        out.push_back({tr("Vertical pixels"), QStringLiteral("radiusV")});
-    } else if (n.contains(QLatin1String("glint"), Qt::CaseInsensitive)
-               || n.contains(QLatin1String("мерцание"), Qt::CaseInsensitive)) {
-        out.push_back({tr("Threshold"), QStringLiteral("threshold")});
-        out.push_back({tr("Boost"), QStringLiteral("boost")});
-        out.push_back({tr("Gain"), QStringLiteral("gain")});
-    } else if (n.contains(QLatin1String("brightness"), Qt::CaseInsensitive)) {
-        out.push_back({tr("Brightness"), QStringLiteral("brightness")});
-        out.push_back({tr("Contrast"), QStringLiteral("contrast")});
-    } else if (!n.contains(QLatin1String("invert"), Qt::CaseInsensitive)) {
-        out.push_back({tr("Gain"), QStringLiteral("gain")});
+    for (const OfxParamInfo &info : paramsInfoForSlot(slot)) {
+        out.push_back({info.label, info.name});
     }
     return out;
 }
@@ -1812,17 +1838,15 @@ double VideoEventFxDialogExact::currentParamValue(const FxSlot &slot, const QStr
             return p.gamma;
         }
     }
+    double def = 0.5;
+    for (const OfxParamInfo &info : paramsInfoForSlot(slot)) {
+        if (info.name == paramKey) {
+            def = info.defaultValue;
+            break;
+        }
+    }
     const QVariantMap m = unpackFxParams(slot.state);
-    if (paramKey == QLatin1String("radiusV")) {
-        return m.value(QStringLiteral("radiusV"), m.value(QStringLiteral("radius"), 2.0)).toDouble();
-    }
-    if (paramKey == QLatin1String("threshold")) {
-        return m.value(QStringLiteral("threshold"), 67.0).toDouble();
-    }
-    if (paramKey == QLatin1String("boost")) {
-        return m.value(QStringLiteral("boost"), -40.0).toDouble();
-    }
-    return m.value(paramKey, 0.5).toDouble();
+    return m.value(paramKey, def).toDouble();
 }
 
 EventPanCropState &VideoEventFxDialogExact::panCrop()
@@ -2897,8 +2921,8 @@ void VideoEventFxDialogExact::rebuildOfxParamsUi()
     }
 
     FxSlot &slot = m_event->fxChain[m_selectedFx];
-    const QString n = slot.displayName;
     QVariantMap p = unpackFxParams(slot.state);
+    const QVector<OfxParamInfo> infos = paramsInfoForSlot(slot);
 
     auto addSlider = [&](const QString &label, const QString &key, double def, double minV,
                          double maxV, int decimals) {
@@ -2939,35 +2963,18 @@ void VideoEventFxDialogExact::rebuildOfxParamsUi()
         m_ofxParamsLay->addLayout(row);
     };
 
-    if (n.contains(QLatin1String("sepia"), Qt::CaseInsensitive)) {
-        if (m_genericHint) {
-            m_genericHint->setText(tr("Sepia tone — applied in Video Preview."));
-        }
-        addSlider(tr("Amount"), QStringLiteral("amount"), 1.0, 0.0, 1.0, 2);
-    } else if (n.contains(QLatin1String("soften"), Qt::CaseInsensitive)
-               || n.contains(QLatin1String("blur"), Qt::CaseInsensitive)
-               || n.contains(QLatin1String("chroma"), Qt::CaseInsensitive)) {
-        if (m_genericHint) {
-            m_genericHint->setText(tr("Blur / Soften — applied in Video Preview (CPU)."));
-        }
-        addSlider(tr("Radius (px)"), QStringLiteral("radius"), 2.0, 1.0, 24.0, 0);
-    } else if (n.contains(QLatin1String("invert"), Qt::CaseInsensitive)) {
-        if (m_genericHint) {
-            m_genericHint->setText(tr("Invert — applied in Video Preview (no parameters)."));
-        }
-    } else if (n.contains(QLatin1String("brightness"), Qt::CaseInsensitive)) {
-        if (m_genericHint) {
-            m_genericHint->setText(tr("Brightness / Contrast — applied in Video Preview."));
-        }
-        addSlider(tr("Brightness"), QStringLiteral("brightness"), 0.0, -1.0, 1.0, 2);
-        addSlider(tr("Contrast"), QStringLiteral("contrast"), 1.0, 0.0, 2.0, 2);
-    } else {
-        if (m_genericHint) {
-            m_genericHint->setText(
-                tr("Effect is kept in the chain. If a matching OFX binary is found it is processed; "
-                   "otherwise OpenVegas applies a CPU fallback when available."));
-        }
-        addSlider(tr("Gain"), QStringLiteral("gain"), 1.0, 0.0, 4.0, 2);
+    if (m_genericHint) {
+        const bool usingRealParams =
+            slot.format == PluginFormat::Ofx && !OfxHost::instance().paramsForSlot(slot).isEmpty();
+        m_genericHint->setText(usingRealParams
+            ? tr("Parameters from the installed OFX plug-in — applied in Video Preview.")
+            : infos.isEmpty()
+                ? tr("Effect is kept in the chain. If a matching OFX binary is found it is processed; "
+                     "otherwise OpenVegas applies a CPU fallback when available.")
+                : tr("Approximate parameters — applied via CPU fallback in Video Preview."));
+    }
+    for (const OfxParamInfo &info : infos) {
+        addSlider(info.label, info.name, info.defaultValue, info.minValue, info.maxValue, 2);
     }
     m_ofxParamsLay->addStretch(1);
 }
@@ -3042,7 +3049,7 @@ void VideoEventFxDialogExact::addPlugins()
     if (!m_event) {
         return;
     }
-    PluginChooserDialog dlg(nullptr, this);
+    PluginChooserDialog dlg(m_scanner, this);
     dlg.setAudioMode(false);
     if (dlg.exec() != QDialog::Accepted) {
         return;
@@ -3051,7 +3058,7 @@ void VideoEventFxDialogExact::addPlugins()
     if (name.isEmpty()) {
         return;
     }
-    m_event->fxChain.push_back(videoFxSlotFromName(name));
+    m_event->fxChain.push_back(VegasVideoPluginCatalog::slotFromDisplayName(name));
     rebuildChain();
     selectPlugin(m_event->fxChain.size() - 1);
 }

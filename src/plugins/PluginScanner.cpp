@@ -1,9 +1,9 @@
 #include "plugins/PluginScanner.h"
-#include "plugins/OfxHost.h"
+#include "plugins/VegasVideoPluginCatalog.h"
 
 #include <QCoreApplication>
 #include <QDir>
-#include <QFileInfo>
+#include <QProcessEnvironment>
 #include <QSettings>
 
 namespace openvegas {
@@ -54,6 +54,11 @@ QStringList PluginScanner::candidateRoots() const
         add(QStringLiteral(
             "C:/Program Files (x86)/Steam/steamapps/common/VEGAS Pro 22 Steam Edition/VEGAS Pro 22 Steam Edition"));
         add(QStringLiteral("C:/Program Files/VEGAS/VEGAS Pro 22"));
+        const QString pf86 = QProcessEnvironment::systemEnvironment().value(
+            QStringLiteral("ProgramFiles(x86)"));
+        if (!pf86.isEmpty()) {
+            add(QDir(pf86).filePath(QStringLiteral("VEGAS/VEGAS Pro 22")));
+        }
     }
 #endif
 
@@ -61,48 +66,30 @@ QStringList PluginScanner::candidateRoots() const
     return roots;
 }
 
-QVector<PluginInfo> PluginScanner::scanDirectory(const QString &root) const
+QVector<PluginInfo> PluginScanner::scanOfx() const
 {
+    const QVector<VegasVideoPluginEntry> found =
+        VegasVideoPluginCatalog::discoverUsingScanner(*this, &m_lastSource);
+    if (m_lastSource.isEmpty()) {
+        m_lastSource = QStringLiteral("(no Vegas OFX path found)");
+    }
+
     QVector<PluginInfo> out;
-    const QVector<OfxPluginDesc> found = OfxHost::discoverInRoot(root);
     out.reserve(found.size());
-    for (const OfxPluginDesc &d : found) {
+    for (const VegasVideoPluginEntry &e : found) {
         PluginInfo info;
-        info.name = d.name;
-        info.path = d.hasBinary ? d.path : (d.bundlePath.isEmpty() ? d.path : d.bundlePath);
+        info.name = e.displayName;
+        info.path = e.binaryPath;
+        info.effectId = e.effectId;
+        info.pluginId = VegasVideoPluginCatalog::formatPluginId(e);
+        info.grouping = e.grouping;
+        info.categories = e.categories;
+        info.presets = e.presets;
+        info.pluginIndex = e.pluginIndex;
+        info.hasBinary = e.hasBinary;
         out.push_back(info);
     }
     return out;
-}
-
-QVector<PluginInfo> PluginScanner::scanOfx() const
-{
-    m_lastSource.clear();
-    for (const QString &root : candidateRoots()) {
-        if (!QDir(root).exists()
-            && !QDir(QDir(root).filePath(QStringLiteral("OFX Video Plug-Ins"))).exists()) {
-            continue;
-        }
-        QVector<PluginInfo> found = scanDirectory(root);
-        if (!found.isEmpty()) {
-            m_lastSource = root;
-            return found;
-        }
-        const QString ofxPath = QDir(root).filePath(QStringLiteral("OFX Video Plug-Ins"));
-        if (QDir(ofxPath).exists()) {
-            m_lastSource = ofxPath;
-            PluginInfo stub;
-            stub.name = QStringLiteral("(OFX folder found — empty or inaccessible)");
-            stub.path = ofxPath;
-            return {stub};
-        }
-    }
-    m_lastSource = QStringLiteral("(no Vegas OFX path found)");
-    return {
-        {QStringLiteral("TitlesAndText (stub)"), QString()},
-        {QStringLiteral("Color Corrector (stub)"), QString()},
-        {QStringLiteral("Gaussian Blur (stub)"), QString()},
-    };
 }
 
 } // namespace openvegas

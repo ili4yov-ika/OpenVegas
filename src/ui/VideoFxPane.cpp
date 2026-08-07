@@ -1,5 +1,6 @@
 #include "ui/VideoFxPane.h"
 #include "ui/IconFactory.h"
+#include "plugins/VegasVideoPluginCatalog.h"
 
 #include <QButtonGroup>
 #include <QCursor>
@@ -58,141 +59,64 @@ void VideoFxPane::loadCatalog()
 
     auto add = [this](Plugin p) { m_plugins.push_back(std::move(p)); };
 
-    const auto stylePresets = QVector<Preset>{
-        grad(QStringLiteral("(Default)"), c(0x2a, 0x20, 0x30), c(0x5a, 0x40, 0x60)),
-        grad(QStringLiteral("Self-Portrait (Picasso)"), c(0x6a, 0x40, 0x20), c(0xc0, 0x80, 0x40)),
-        grad(QStringLiteral("Night Alley Walk"), c(0x10, 0x20, 0x40), c(0x30, 0x60, 0xa0)),
-        grad(QStringLiteral("The Great Wave"), c(0x1a, 0x40, 0x60), c(0x80, 0xb0, 0xd0)),
-        grad(QStringLiteral("Fruit (Hunt)"), c(0x60, 0x30, 0x10), c(0xc0, 0x60, 0x30)),
-        grad(QStringLiteral("Light (Kheron)"), c(0x50, 0x40, 0x20), c(0xe0, 0xc0, 0x80)),
-        grad(QStringLiteral("Floral pattern"), c(0x40, 0x20, 0x50), c(0xa0, 0x60, 0x90)),
-        grad(QStringLiteral("Sunrise Flowers"), c(0x80, 0x40, 0x20), c(0xe0, 0xa0, 0x50)),
-        grad(QStringLiteral("Abstract Painting"), c(0x20, 0x30, 0x60), c(0x80, 0x60, 0xa0)),
-        grad(QStringLiteral("Black and White"), c(0x22, 0x22, 0x22), c(0x88, 0x88, 0x88)),
-        grad(QStringLiteral("The Starry Night"), c(0x10, 0x20, 0x50), c(0x40, 0x60, 0xc0)),
-        grad(QStringLiteral("The Weeping Woman"), c(0x60, 0x30, 0x20), c(0xc0, 0x70, 0x50)),
-        grad(QStringLiteral("Bark pattern"), c(0x3a, 0x28, 0x18), c(0x8a, 0x60, 0x40)),
-        grad(QStringLiteral("Leaf pattern"), c(0x1a, 0x40, 0x20), c(0x50, 0xa0, 0x40)),
-        grad(QStringLiteral("Rick and Morty"), c(0x20, 0x60, 0x40), c(0x60, 0xc0, 0x80)),
-        grad(QStringLiteral("Candy"), c(0x80, 0x20, 0x60), c(0xe0, 0x80, 0xc0)),
-        grad(QStringLiteral("Mosaic"), c(0x40, 0x40, 0x60), c(0xa0, 0xa0, 0xc0)),
-        grad(QStringLiteral("Pointillism"), c(0xc0, 0xa0, 0x60), c(0x40, 0x30, 0x20), true),
-        grad(QStringLiteral("Rain Princess"), c(0x20, 0x40, 0x60), c(0x80, 0xa0, 0xc0)),
-        grad(QStringLiteral("Udnie (Picasso)"), c(0x60, 0x20, 0x40), c(0xc0, 0x60, 0x80)),
-        grad(QStringLiteral("Scream (Munch)"), c(0x80, 0x60, 0x40), c(0xe0, 0xc0, 0x80)),
-        grad(QStringLiteral("Simpsons"), c(0xc0, 0xa0, 0x20), c(0x40, 0x60, 0xc0)),
-    };
-
-    auto simple = [&](const QString &name, const QStringList &cats, const QString &group,
-                      const QString &desc, QColor a, QColor b) {
+    auto addBuiltin = [&](const QString &name, const QStringList &cats, const QString &desc) {
         Plugin p;
         p.name = name;
         p.categories = cats;
-        p.grouping = group;
+        p.grouping = QStringLiteral("OpenVegas");
         p.version = QStringLiteral("1.0");
         p.description = desc;
-        p.presets = {grad(QStringLiteral("(Default)"), a, b)};
+        p.presets = {grad(QStringLiteral("(Default)"), c(0x30, 0x30, 0x38), c(0x50, 0x50, 0x60))};
         add(std::move(p));
     };
 
-    simple(QStringLiteral("360 Stabilization"), {QStringLiteral("360°"), QStringLiteral("Utility")},
-           QStringLiteral("OpenVegas/360"), QStringLiteral("Stabilize 360° footage."),
-           c(0x20, 0x40, 0x60), c(0x40, 0x80, 0xa0));
-    simple(QStringLiteral("Add Noise"), {QStringLiteral("Creative"), QStringLiteral("Utility")},
-           QStringLiteral("OpenVegas"), QStringLiteral("Add film grain / noise."),
-           c(0x30, 0x30, 0x30), c(0x70, 0x70, 0x70));
-    simple(QStringLiteral("AI Auto Reframe"), {QStringLiteral("AI/ML")},
-           QStringLiteral("OpenVegas/AI"), QStringLiteral("Auto-reframe for vertical video."),
-           c(0x20, 0x30, 0x50), c(0x50, 0x70, 0xb0));
-    simple(QStringLiteral("AI Colorization"), {QStringLiteral("AI/ML"), QStringLiteral("Color")},
-           QStringLiteral("OpenVegas/AI"), QStringLiteral("Colorize black-and-white footage."),
-           c(0x40, 0x20, 0x10), c(0xc0, 0x80, 0x40));
-    simple(QStringLiteral("AI Dehaze"), {QStringLiteral("AI/ML")},
-           QStringLiteral("OpenVegas/AI"), QStringLiteral("Remove haze and fog."),
-           c(0x50, 0x60, 0x70), c(0xa0, 0xb0, 0xc0));
-    simple(QStringLiteral("AI Sharpen"), {QStringLiteral("AI/ML")},
-           QStringLiteral("OpenVegas/AI"), QStringLiteral("AI-based sharpening."),
-           c(0x30, 0x30, 0x40), c(0x90, 0x90, 0xa0));
-    simple(QStringLiteral("AI Smart Mask 2.0"), {QStringLiteral("AI/ML")},
-           QStringLiteral("OpenVegas/AI"), QStringLiteral("Intelligent subject masking."),
-           c(0x20, 0x40, 0x30), c(0x40, 0xa0, 0x70));
-    simple(QStringLiteral("AI Smoothen"), {QStringLiteral("AI/ML")},
-           QStringLiteral("OpenVegas/AI"), QStringLiteral("Skin / detail smoothening."),
-           c(0x60, 0x40, 0x40), c(0xc0, 0xa0, 0xa0));
+    addBuiltin(QStringLiteral("Pan/Crop"), {QStringLiteral("Utility")},
+               QStringLiteral("Pan, crop, and mask (built-in)."));
+    addBuiltin(QStringLiteral("Color Corrector"), {QStringLiteral("Color")},
+               QStringLiteral("Primary color correction (built-in)."));
+    addBuiltin(QStringLiteral("Color Grading"), {QStringLiteral("Color")},
+               QStringLiteral("Lift / gamma / gain color grading (built-in)."));
 
-    {
-        Plugin p;
-        p.name = QStringLiteral("AI Style Transfer");
-        p.categories = {QStringLiteral("AI/ML"), QStringLiteral("Creative")};
-        p.grouping = QStringLiteral("OpenVegas/AI");
-        p.version = QStringLiteral("1.0");
-        p.description =
-            QStringLiteral("Transforming the appearance of famous paintings to user-supplied clips.");
-        p.presets = stylePresets;
-        add(std::move(p));
+    QHash<QString, int> known;
+    for (int i = 0; i < m_plugins.size(); ++i) {
+        known.insert(m_plugins[i].name.toLower(), i);
     }
 
-    simple(QStringLiteral("AI Upscale"), {QStringLiteral("AI/ML")},
-           QStringLiteral("OpenVegas/AI"), QStringLiteral("Upscale resolution with AI."),
-           c(0x20, 0x20, 0x40), c(0x60, 0x60, 0xc0));
-    simple(QStringLiteral("AI Z-Depth"), {QStringLiteral("AI/ML")},
-           QStringLiteral("OpenVegas/AI"), QStringLiteral("Estimate depth map."),
-           c(0x10, 0x10, 0x30), c(0x80, 0x80, 0xc0));
-    simple(QStringLiteral("AutoLooks"), {QStringLiteral("Color"), QStringLiteral("Creative")},
-           QStringLiteral("OpenVegas"), QStringLiteral("Automatic look matching."),
-           c(0x40, 0x30, 0x20), c(0xc0, 0x90, 0x50));
-    simple(QStringLiteral("Bézier Masking"), {QStringLiteral("Utility")},
-           QStringLiteral("OpenVegas"), QStringLiteral("Bézier mask tool."),
-           c(0x30, 0x40, 0x50), c(0x60, 0x80, 0xa0));
-    simple(QStringLiteral("Black and White"), {QStringLiteral("Color")},
-           QStringLiteral("OpenVegas"), QStringLiteral("Convert to monochrome."),
-           c(0x18, 0x18, 0x18), c(0x90, 0x90, 0x90));
-    simple(QStringLiteral("Black Bar Fill"), {QStringLiteral("Utility")},
-           QStringLiteral("OpenVegas"), QStringLiteral("Fill letterbox bars."),
-           c(0x10, 0x10, 0x10), c(0x40, 0x40, 0x40));
-    simple(QStringLiteral("Brightness and Contrast"), {QStringLiteral("Color"), QStringLiteral("Utility")},
-           QStringLiteral("OpenVegas"), QStringLiteral("Adjust brightness and contrast."),
-           c(0x20, 0x20, 0x20), c(0xd0, 0xd0, 0xd0));
-    simple(QStringLiteral("Channel Blend"), {QStringLiteral("Color"), QStringLiteral("Creative")},
-           QStringLiteral("OpenVegas"), QStringLiteral("Blend color channels."),
-           c(0x60, 0x20, 0x20), c(0x20, 0x20, 0x60));
-    simple(QStringLiteral("Color Corrector"), {QStringLiteral("Color")},
-           QStringLiteral("OpenVegas"), QStringLiteral("Primary color correction."),
-           c(0x40, 0x20, 0x10), c(0x20, 0x40, 0x60));
-    simple(QStringLiteral("Gaussian Blur"), {QStringLiteral("Blur")},
-           QStringLiteral("OpenVegas"), QStringLiteral("Gaussian blur filter."),
-           c(0x40, 0x40, 0x50), c(0xa0, 0xa0, 0xb0));
-
-    // Append scanned OFX (Third Party) if available
+    QVector<VegasVideoPluginEntry> catalog;
     if (m_scanner) {
-        const auto scanned = m_scanner->scanOfx();
-        QHash<QString, int> known;
-        for (int i = 0; i < m_plugins.size(); ++i) {
-            known.insert(m_plugins[i].name.toLower(), i);
+        VegasVideoPluginCatalog::invalidateCache();
+        catalog = VegasVideoPluginCatalog::discoverUsingScanner(*m_scanner);
+    }
+    if (catalog.isEmpty()) {
+        catalog = VegasVideoPluginCatalog::discover();
+    }
+
+    for (const VegasVideoPluginEntry &e : catalog) {
+        const QString key = e.displayName.toLower();
+        if (known.contains(key)) {
+            m_plugins[known.value(key)].path = e.binaryPath;
+            continue;
         }
-        for (const PluginInfo &info : scanned) {
-            if (info.name.startsWith(QLatin1Char('(')) || info.path.isEmpty()) {
-                // skip stubs / empty markers unless unique
-                if (info.path.isEmpty()) {
-                    continue;
-                }
+        Plugin p;
+        p.name = e.displayName;
+        p.categories = e.categories;
+        if (p.categories.isEmpty()) {
+            p.categories = {QStringLiteral("VEGAS")};
+        }
+        p.grouping = e.grouping.isEmpty() ? QStringLiteral("VEGAS") : e.grouping;
+        p.version = e.hasBinary ? QStringLiteral("OFX") : QStringLiteral("OFX (catalog)");
+        p.description = e.effectId;
+        p.path = e.binaryPath;
+        if (!e.presets.isEmpty()) {
+            for (const QString &presetName : e.presets) {
+                p.presets.push_back(
+                    grad(presetName, c(0x28, 0x28, 0x32), c(0x48, 0x48, 0x58)));
             }
-            const QString key = info.name.toLower();
-            if (known.contains(key)) {
-                m_plugins[known.value(key)].path = info.path;
-                continue;
-            }
-            Plugin p;
-            p.name = info.name;
-            p.categories = {QStringLiteral("Third Party")};
-            p.grouping = QStringLiteral("OFX");
-            p.version = QStringLiteral("—");
-            p.description = info.path;
-            p.path = info.path;
+        } else {
             p.presets = {grad(QStringLiteral("(Default)"), c(0x30, 0x30, 0x38), c(0x50, 0x50, 0x60))};
-            known.insert(key, m_plugins.size());
-            add(std::move(p));
         }
+        known.insert(key, m_plugins.size());
+        add(std::move(p));
     }
 }
 

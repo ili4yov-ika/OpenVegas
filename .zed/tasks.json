@@ -3,12 +3,9 @@
     "label": "CMake: Configure (MinGW Debug)",
     "command": "cmake",
     "args": [
-      "-S",
-      "$ZED_WORKTREE_ROOT",
-      "-B",
-      "$ZED_WORKTREE_ROOT/build/Windows_MinGW-x64",
-      "-G",
-      "Ninja",
+      "-S", "$ZED_WORKTREE_ROOT",
+      "-B", "$ZED_WORKTREE_ROOT/build/Windows_MinGW-x64",
+      "-G", "Ninja",
       "-DCMAKE_BUILD_TYPE=Debug",
       "-DCMAKE_PREFIX_PATH=C:/Qt/6.9.3/mingw_64",
       "-DCMAKE_CXX_COMPILER=C:/Qt/Tools/mingw1310_64/bin/g++.exe",
@@ -17,9 +14,10 @@
     ],
     "cwd": "$ZED_WORKTREE_ROOT",
     "env": {
-      "PATH": "C:/Qt/Tools/mingw1310_64/bin;C:/Qt/6.9.3/mingw_64/bin;C:/Qt/Tools/Ninja;C:/Program Files/CMake/bin"
+      "PATH": "C:/Qt/Tools/mingw1310_64/bin;C:/Qt/6.9.3/mingw_64/bin;C:/Qt/Tools/Ninja;C:/Program Files/CMake/bin;$PATH"
     },
-    "reveal": "always"
+    "reveal": "always",
+    "detail": "CMake → build/Windows_MinGW-x64 (MinGW + Ninja Debug)"
   },
   {
     "label": "CMake: Build (MinGW Debug)",
@@ -27,7 +25,87 @@
     "args": ["--build", "$ZED_WORKTREE_ROOT/build/Windows_MinGW-x64", "--parallel"],
     "cwd": "$ZED_WORKTREE_ROOT",
     "env": {
-      "PATH": "C:/Qt/Tools/mingw1310_64/bin;C:/Qt/6.9.3/mingw_64/bin;C:/Qt/Tools/Ninja;C:/Program Files/CMake/bin"
+      "PATH": "C:/Qt/Tools/mingw1310_64/bin;C:/Qt/6.9.3/mingw_64/bin;C:/Qt/Tools/Ninja;C:/Program Files/CMake/bin;$PATH"
+    },
+    "reveal": "always",
+    "tags": ["build"]
+  },
+  {
+    "label": "CMake: Configure (MinGW Release)",
+    "command": "cmake",
+    "args": [
+      "-S", "$ZED_WORKTREE_ROOT",
+      "-B", "$ZED_WORKTREE_ROOT/build/Windows_MinGW-x64",
+      "-G", "Ninja",
+      "-DCMAKE_BUILD_TYPE=Release",
+      "-DCMAKE_PREFIX_PATH=C:/Qt/6.9.3/mingw_64",
+      "-DCMAKE_CXX_COMPILER=C:/Qt/Tools/mingw1310_64/bin/g++.exe",
+      "-DCMAKE_MAKE_PROGRAM=C:/Qt/Tools/Ninja/ninja.exe"
+    ],
+    "cwd": "$ZED_WORKTREE_ROOT",
+    "env": {
+      "PATH": "C:/Qt/Tools/mingw1310_64/bin;C:/Qt/6.9.3/mingw_64/bin;C:/Qt/Tools/Ninja;C:/Program Files/CMake/bin;$PATH"
+    },
+    "reveal": "always"
+  },
+  {
+    "label": "CMake: Build (MinGW Release)",
+    "command": "cmake",
+    "args": ["--build", "$ZED_WORKTREE_ROOT/build/Windows_MinGW-x64", "--parallel"],
+    "cwd": "$ZED_WORKTREE_ROOT",
+    "env": {
+      "PATH": "C:/Qt/Tools/mingw1310_64/bin;C:/Qt/6.9.3/mingw_64/bin;C:/Qt/Tools/Ninja;C:/Program Files/CMake/bin;$PATH"
+    },
+    "reveal": "always",
+    "tags": ["build"]
+  },
+  {
+    "label": "CMake: Configure (MSVC Debug)",
+    "command": "call \"%ProgramFiles(x86)%\\Microsoft Visual Studio\\Installer\\vswhere.exe\" -latest -property installationPath > \"%TEMP%\\ov_vs.txt\" && set /p VS=<\"%TEMP%\\ov_vs.txt\" && call \"%VS%\\VC\\Auxiliary\\Build\\vcvars64.bat\" && cmake -S \"$ZED_WORKTREE_ROOT\" -B \"$ZED_WORKTREE_ROOT/build-msvc\" -G Ninja -DCMAKE_BUILD_TYPE=Debug -DCMAKE_PREFIX_PATH=C:/Qt/6.9.3/msvc2022_64 -DCMAKE_MAKE_PROGRAM=C:/Qt/Tools/Ninja/ninja.exe -DCMAKE_EXPORT_COMPILE_COMMANDS=ON",
+    "shell": {
+      "with_arguments": {
+        "program": "cmd",
+        "args": ["/c"]
+      }
+    },
+    "cwd": "$ZED_WORKTREE_ROOT",
+    "reveal": "always",
+    "detail": "CMake → build-msvc/ (MSVC + Qt msvc2022_64)"
+  },
+  {
+    "label": "CMake: Build (MSVC Debug)",
+    "command": "call \"%ProgramFiles(x86)%\\Microsoft Visual Studio\\Installer\\vswhere.exe\" -latest -property installationPath > \"%TEMP%\\ov_vs.txt\" && set /p VS=<\"%TEMP%\\ov_vs.txt\" && call \"%VS%\\VC\\Auxiliary\\Build\\vcvars64.bat\" && cmake --build \"$ZED_WORKTREE_ROOT/build-msvc\" --parallel",
+    "shell": {
+      "with_arguments": {
+        "program": "cmd",
+        "args": ["/c"]
+      }
+    },
+    "cwd": "$ZED_WORKTREE_ROOT",
+    "reveal": "always",
+    "tags": ["build"]
+  },
+  {
+    "label": "qmake: Configure (MinGW Debug)",
+    "command": "powershell",
+    "args": [
+      "-NoProfile",
+      "-Command",
+      "New-Item -ItemType Directory -Force -Path '$ZED_WORKTREE_ROOT/build-pro' | Out-Null; Set-Location '$ZED_WORKTREE_ROOT/build-pro'; & 'C:/Qt/6.9.3/mingw_64/bin/qmake.exe' '$ZED_WORKTREE_ROOT/OpenVegas.pro' CONFIG+=debug -spec win32-g++"
+    ],
+    "cwd": "$ZED_WORKTREE_ROOT",
+    "env": {
+      "PATH": "C:/Qt/Tools/mingw1310_64/bin;C:/Qt/6.9.3/mingw_64/bin;$PATH"
+    },
+    "reveal": "always",
+    "detail": "qmake OpenVegas.pro → build-pro/"
+  },
+  {
+    "label": "qmake: Build (MinGW Debug)",
+    "command": "C:/Qt/Tools/mingw1310_64/bin/mingw32-make.exe -j$NUMBER_OF_PROCESSORS",
+    "cwd": "$ZED_WORKTREE_ROOT/build-pro",
+    "env": {
+      "PATH": "C:/Qt/Tools/mingw1310_64/bin;C:/Qt/6.9.3/mingw_64/bin;$PATH"
     },
     "reveal": "always",
     "tags": ["build"]
@@ -58,11 +136,13 @@
   },
   {
     "label": "CMake: Configure + Build (MSVC Debug)",
-    "command": "cmd",
-    "args": [
-      "/c",
-      "call \"%ProgramFiles(x86)%\\Microsoft Visual Studio\\Installer\\vswhere.exe\" -latest -property installationPath > \"%TEMP%\\ov_vs.txt\" && set /p VS=<\"%TEMP%\\ov_vs.txt\" && call \"%VS%\\VC\\Auxiliary\\Build\\vcvars64.bat\" && cmake -S . -B build-msvc -G Ninja -DCMAKE_BUILD_TYPE=Debug -DCMAKE_PREFIX_PATH=C:/Qt/6.9.3/msvc2022_64 -DCMAKE_MAKE_PROGRAM=C:/Qt/Tools/Ninja/ninja.exe -DCMAKE_EXPORT_COMPILE_COMMANDS=ON && cmake --build build-msvc --parallel"
-    ],
+    "command": "call \"%ProgramFiles(x86)%\\Microsoft Visual Studio\\Installer\\vswhere.exe\" -latest -property installationPath > \"%TEMP%\\ov_vs.txt\" && set /p VS=<\"%TEMP%\\ov_vs.txt\" && call \"%VS%\\VC\\Auxiliary\\Build\\vcvars64.bat\" && cmake -S \"$ZED_WORKTREE_ROOT\" -B \"$ZED_WORKTREE_ROOT/build-msvc\" -G Ninja -DCMAKE_BUILD_TYPE=Debug -DCMAKE_PREFIX_PATH=C:/Qt/6.9.3/msvc2022_64 -DCMAKE_MAKE_PROGRAM=C:/Qt/Tools/Ninja/ninja.exe -DCMAKE_EXPORT_COMPILE_COMMANDS=ON && cmake --build \"$ZED_WORKTREE_ROOT/build-msvc\" --parallel",
+    "shell": {
+      "with_arguments": {
+        "program": "cmd",
+        "args": ["/c"]
+      }
+    },
     "cwd": "$ZED_WORKTREE_ROOT",
     "reveal": "always",
     "tags": ["build"]
@@ -73,7 +153,7 @@
     "args": [
       "-NoProfile",
       "-Command",
-      "$env:PATH='C:/Qt/Tools/mingw1310_64/bin;C:/Qt/6.9.3/mingw_64/bin;' + $env:PATH; New-Item -ItemType Directory -Force -Path build-pro | Out-Null; Set-Location build-pro; & 'C:/Qt/6.9.3/mingw_64/bin/qmake.exe' ../OpenVegas.pro CONFIG+=debug -spec win32-g++; if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }; & 'C:/Qt/Tools/mingw1310_64/bin/mingw32-make.exe' -j$env:NUMBER_OF_PROCESSORS"
+      "$env:PATH='C:/Qt/Tools/mingw1310_64/bin;C:/Qt/6.9.3/mingw_64/bin;' + $env:PATH; New-Item -ItemType Directory -Force -Path 'build-pro' | Out-Null; Set-Location 'build-pro'; & 'C:/Qt/6.9.3/mingw_64/bin/qmake.exe' '$ZED_WORKTREE_ROOT/OpenVegas.pro' CONFIG+=debug -spec win32-g++; if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }; & 'C:/Qt/Tools/mingw1310_64/bin/mingw32-make.exe' -j$env:NUMBER_OF_PROCESSORS"
     ],
     "cwd": "$ZED_WORKTREE_ROOT",
     "reveal": "always",
@@ -85,12 +165,66 @@
     "args": ["--build", "$ZED_WORKTREE_ROOT/build/Windows_MinGW-x64", "--target", "clean"],
     "cwd": "$ZED_WORKTREE_ROOT",
     "env": {
-      "PATH": "C:/Qt/Tools/mingw1310_64/bin;C:/Qt/Tools/Ninja;C:/Program Files/CMake/bin"
+      "PATH": "C:/Qt/Tools/mingw1310_64/bin;C:/Qt/Tools/Ninja;C:/Program Files/CMake/bin;$PATH"
     },
     "reveal": "always"
   },
   {
-    "label": "Run OpenVegas (CMake MinGW Debug)",
+    "label": "CMake: Configure (Linux Debug)",
+    "command": "cmake --preset linux-debug",
+    "cwd": "$ZED_WORKTREE_ROOT",
+    "reveal": "always",
+    "detail": "System Qt + Ninja → build/linux"
+  },
+  {
+    "label": "CMake: Build (Linux Debug)",
+    "command": "cmake --build --preset linux-debug --parallel",
+    "cwd": "$ZED_WORKTREE_ROOT",
+    "reveal": "always",
+    "tags": ["build"]
+  },
+  {
+    "label": "CMake: Configure (Linux Release)",
+    "command": "cmake --preset linux-release",
+    "cwd": "$ZED_WORKTREE_ROOT",
+    "reveal": "always"
+  },
+  {
+    "label": "CMake: Build (Linux Release)",
+    "command": "cmake --build --preset linux-release --parallel",
+    "cwd": "$ZED_WORKTREE_ROOT",
+    "reveal": "always",
+    "tags": ["build"]
+  },
+  {
+    "label": "CMake: Configure (macOS Debug)",
+    "command": "cmake --preset macos-debug",
+    "cwd": "$ZED_WORKTREE_ROOT",
+    "reveal": "always",
+    "detail": "Qt from CMAKE_PREFIX_PATH + Ninja → build/macos"
+  },
+  {
+    "label": "CMake: Build (macOS Debug)",
+    "command": "cmake --build --preset macos-debug --parallel",
+    "cwd": "$ZED_WORKTREE_ROOT",
+    "reveal": "always",
+    "tags": ["build"]
+  },
+  {
+    "label": "CMake: Configure (macOS Release)",
+    "command": "cmake --preset macos-release",
+    "cwd": "$ZED_WORKTREE_ROOT",
+    "reveal": "always"
+  },
+  {
+    "label": "CMake: Build (macOS Release)",
+    "command": "cmake --build --preset macos-release --parallel",
+    "cwd": "$ZED_WORKTREE_ROOT",
+    "reveal": "always",
+    "tags": ["build"]
+  },
+  {
+    "label": "Run OpenVegas (MinGW Debug)",
     "command": "$ZED_WORKTREE_ROOT/build/Windows_MinGW-x64/OpenVegas.exe",
     "cwd": "$ZED_WORKTREE_ROOT/build/Windows_MinGW-x64",
     "env": {
@@ -101,24 +235,27 @@
     "use_new_terminal": true
   },
   {
-    "label": "Run OpenVegas (qmake MinGW Debug)",
-    "command": "$ZED_WORKTREE_ROOT/build-pro/debug/OpenVegas.exe",
-    "cwd": "$ZED_WORKTREE_ROOT/build-pro/debug",
-    "env": {
-      "PATH": "C:/Qt/6.9.3/mingw_64/bin;C:/Qt/Tools/mingw1310_64/bin",
-      "QT_PLUGIN_PATH": "C:/Qt/6.9.3/mingw_64/plugins"
-    },
-    "reveal": "always",
-    "use_new_terminal": true
-  },
-  {
-    "label": "Run OpenVegas (CMake MSVC Debug)",
+    "label": "Run OpenVegas (MSVC Debug)",
     "command": "$ZED_WORKTREE_ROOT/build-msvc/OpenVegas.exe",
     "cwd": "$ZED_WORKTREE_ROOT/build-msvc",
     "env": {
       "PATH": "C:/Qt/6.9.3/msvc2022_64/bin",
       "QT_PLUGIN_PATH": "C:/Qt/6.9.3/msvc2022_64/plugins"
     },
+    "reveal": "always",
+    "use_new_terminal": true
+  },
+  {
+    "label": "Run OpenVegas (Linux Debug)",
+    "command": "$ZED_WORKTREE_ROOT/build/linux/OpenVegas",
+    "cwd": "$ZED_WORKTREE_ROOT/build/linux",
+    "reveal": "always",
+    "use_new_terminal": true
+  },
+  {
+    "label": "Run OpenVegas (macOS Debug)",
+    "command": "$ZED_WORKTREE_ROOT/build/macos/OpenVegas.app/Contents/MacOS/OpenVegas",
+    "cwd": "$ZED_WORKTREE_ROOT/build/macos",
     "reveal": "always",
     "use_new_terminal": true
   }

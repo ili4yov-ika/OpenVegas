@@ -87,6 +87,7 @@ endif()
     src/plugins/OfxHost.cpp
     src/plugins/BuiltinAudioCatalog.cpp
     src/plugins/VegasSharedAudioCatalog.cpp
+    src/plugins/VegasVideoPluginCatalog.cpp
     src/plugins/AudioPluginScanner.cpp
     src/plugins/AudioPluginRegistry.cpp
     src/plugins/AudioPluginHost.cpp
@@ -168,6 +169,7 @@ set(OPENVGAS_HEADERS
     src/plugins/AudioPluginTypes.h
     src/plugins/BuiltinAudioCatalog.h
     src/plugins/VegasSharedAudioCatalog.h
+    src/plugins/VegasVideoPluginCatalog.h
     src/plugins/AudioPluginScanner.h
     src/plugins/AudioPluginRegistry.h
     src/plugins/AudioPluginHost.h
@@ -361,10 +363,14 @@ if(OPENVGAS_BUILD_TESTS)
         src/audio/FadeCurves.cpp
         src/audio/BuiltinDsp.cpp
         src/plugins/VegasSharedAudioCatalog.cpp
+        src/plugins/OfxHost.cpp
+        src/plugins/PluginScanner.cpp
+        src/plugins/VegasVideoPluginCatalog.cpp
     )
     target_include_directories(openvegas_audio_tests PRIVATE
         ${CMAKE_SOURCE_DIR}/src
         ${CMAKE_SOURCE_DIR}/thirdparty
+        ${CMAKE_SOURCE_DIR}/thirdparty/openfx/include
     )
     target_link_libraries(openvegas_audio_tests PRIVATE
         Catch2::Catch2WithMain
@@ -379,10 +385,13 @@ if(OPENVGAS_BUILD_TESTS)
     add_executable(openvegas_video_tests
         tests/test_video_preview.cpp
         tests/test_video_fx_chain.cpp
+        tests/test_vegas_video_catalog.cpp
         tests/stub_media_path_for_event.cpp
         src/audio/FadeCurves.cpp
+        src/io/SamplePaths.cpp
         src/plugins/OfxHost.cpp
         src/plugins/PluginScanner.cpp
+        src/plugins/VegasVideoPluginCatalog.cpp
         src/video/VideoKeyframeEval.cpp
         src/video/PanCropApply.cpp
         src/video/TrackMotionApply.cpp
@@ -425,6 +434,7 @@ if(OPENVGAS_BUILD_TESTS)
         tests/test_vst3_host.cpp
         tests/test_project_interchange.cpp
         tests/test_plugin_state.cpp
+        tests/test_vegas_video_catalog.cpp
         src/io/FFmpegEncoder.cpp
         src/io/FFmpegStreamDecoder.cpp
         src/io/MediaFilmstripCache.cpp
@@ -437,6 +447,7 @@ if(OPENVGAS_BUILD_TESTS)
         src/model/ProjectModel.cpp
         src/plugins/BuiltinAudioCatalog.cpp
         src/plugins/VegasSharedAudioCatalog.cpp
+        src/plugins/VegasVideoPluginCatalog.cpp
         src/plugins/PluginScanner.cpp
         src/plugins/OfxHost.cpp
         src/plugins/AudioPluginScanner.cpp

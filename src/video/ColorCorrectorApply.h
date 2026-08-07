@@ -20,11 +20,6 @@ QVariantMap colorCorrectorToMap(const ColorCorrectorParams &p);
 ColorCorrectorParams colorCorrectorFromSlot(const FxSlot &slot);
 void colorCorrectorSaveToSlot(FxSlot *slot, const ColorCorrectorParams &p);
 
-bool isColorCorrectorName(const QString &displayName);
-bool isColorGradingName(const QString &displayName);
-bool isBrightnessContrastName(const QString &displayName);
-bool isPanCropName(const QString &displayName);
-
 /** In-place ARGB32(_Premultiplied) color correct. No-op when params are identity. */
 void applyColorCorrector(QImage *img, const ColorCorrectorParams &p);
 

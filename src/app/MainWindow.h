@@ -104,6 +104,8 @@ public slots:
     ProjectModel &projectModel() { return m_project; }
     const ProjectModel &projectModel() const { return m_project; }
     TimelineView *timelineView() const { return m_timeline; }
+    /** Video/OFX + audio plug-in scanner (Vegas OFX roots from Preferences). */
+    PluginScanner *pluginScanner() { return &m_pluginScanner; }
     /** Set loop-playback flag and sync toolbar / preview buttons. */
     void setLoopPlaybackEnabled(bool on);
 

@@ -1,4 +1,5 @@
 #include "plugins/OfxHost.h"
+#include "plugins/VegasVideoPluginCatalog.h"
 
 #include <QDataStream>
 #include <QDir>
@@ -19,6 +20,13 @@
 #include <string>
 #include <vector>
 
+#ifdef _WIN32
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+#include <windows.h>
+#endif
+
 extern "C" {
 #include <ofxCore.h>
 #include <ofxImageEffect.h>
@@ -32,8 +40,66 @@ namespace openvegas {
 namespace {
 
 // ---------------------------------------------------------------------------
-// Discover helpers (unchanged behaviour)
+// DLL search path — Vegas OFX binaries import sibling runtime DLLs (e.g.
+// sharedk.dll, OpenColorIO_2_0.dll) that live in the VEGAS install root, not
+// next to the .ofx binary itself. Plain LoadLibrary() only searches the
+// *calling exe's* directory for dependencies, so it fails with "module not
+// found" unless the install root is added to the search path first.
 // ---------------------------------------------------------------------------
+
+/** Walk up from a bundled .ofx binary to find the VEGAS install root (parent of "OFX Video Plug-Ins"). */
+QString ofxInstallRootForBinary(const QString &binaryPath)
+{
+    QDir dir = QFileInfo(binaryPath).dir();
+    for (int i = 0; i < 8 && dir.exists(); ++i) {
+        if (dir.dirName().compare(QStringLiteral("OFX Video Plug-Ins"), Qt::CaseInsensitive) == 0) {
+            QDir parent = dir;
+            return parent.cdUp() ? parent.absolutePath() : QString();
+        }
+        if (!dir.cdUp()) {
+            break;
+        }
+    }
+    return {};
+}
+
+/** Temporarily add a directory to the process DLL search path for the duration of a LoadLibrary call. */
+class ScopedOfxDllDirectory {
+public:
+    explicit ScopedOfxDllDirectory(const QString &dir)
+    {
+#ifdef _WIN32
+        if (dir.isEmpty()) {
+            return;
+        }
+        wchar_t prevBuf[MAX_PATH] = {};
+        const DWORD prevLen = ::GetDllDirectoryW(MAX_PATH, prevBuf);
+        m_prev = (prevLen > 0 && prevLen < MAX_PATH) ? QString::fromWCharArray(prevBuf) : QString();
+        m_active = ::SetDllDirectoryW(reinterpret_cast<const wchar_t *>(dir.utf16())) != 0;
+#else
+        Q_UNUSED(dir);
+#endif
+    }
+
+    ~ScopedOfxDllDirectory()
+    {
+#ifdef _WIN32
+        if (m_active) {
+            ::SetDllDirectoryW(m_prev.isEmpty() ? nullptr
+                                                : reinterpret_cast<const wchar_t *>(m_prev.utf16()));
+        }
+#endif
+    }
+
+    ScopedOfxDllDirectory(const ScopedOfxDllDirectory &) = delete;
+    ScopedOfxDllDirectory &operator=(const ScopedOfxDllDirectory &) = delete;
+
+private:
+#ifdef _WIN32
+    QString m_prev;
+    bool m_active = false;
+#endif
+};
 
 QString tidyNameFromBundle(const QString &bundleName)
 {
@@ -123,14 +189,6 @@ QVariantMap loadSlotParams(const FxSlot &slot)
     in.setVersion(QDataStream::Qt_6_0);
     in >> m;
     return m;
-}
-
-QString ofxPathFromPluginId(const QString &pluginId)
-{
-    if (pluginId.startsWith(QStringLiteral("ofx:"), Qt::CaseInsensitive)) {
-        return pluginId.mid(4);
-    }
-    return {};
 }
 
 double mapGet(const QVariantMap &m, const QString &key, double def)
@@ -1066,6 +1124,66 @@ bool statusOk(OfxStatus st)
 
 } // namespace
 
+OfxPluginIdParts OfxHost::parsePluginId(const QString &pluginId)
+{
+    OfxPluginIdParts p;
+    QString rest = pluginId.trimmed();
+    if (rest.startsWith(QStringLiteral("ofx-id:"), Qt::CaseInsensitive)) {
+        p.effectId = rest.mid(7).trimmed();
+        return p;
+    }
+    if (rest.startsWith(QStringLiteral("ofx:"), Qt::CaseInsensitive)) {
+        rest = rest.mid(4);
+    }
+    const int hash1 = rest.indexOf(QLatin1Char('#'));
+    if (hash1 >= 0) {
+        p.path = rest.left(hash1);
+        const int hash2 = rest.indexOf(QLatin1Char('#'), hash1 + 1);
+        if (hash2 >= 0) {
+            p.index = rest.mid(hash1 + 1, hash2 - hash1 - 1).toInt();
+            p.effectId = rest.mid(hash2 + 1);
+        } else {
+            p.index = rest.mid(hash1 + 1).toInt();
+        }
+    } else if (!rest.isEmpty()) {
+        p.path = rest;
+    }
+    return p;
+}
+
+QHash<QString, int> OfxHost::effectIndexMap(const QString &binaryPath)
+{
+    QHash<QString, int> out;
+    if (binaryPath.isEmpty() || !QFileInfo::exists(binaryPath)) {
+        return out;
+    }
+    ScopedOfxDllDirectory dllDirGuard(ofxInstallRootForBinary(binaryPath));
+    QLibrary lib(binaryPath);
+    if (!lib.load()) {
+        return out;
+    }
+    using GetNumFn = int (*)();
+    using GetPluginFn = OfxPlugin *(*)(int);
+    auto getNum = reinterpret_cast<GetNumFn>(lib.resolve("OfxGetNumberOfPlugins"));
+    auto getPlugin = reinterpret_cast<GetPluginFn>(lib.resolve("OfxGetPlugin"));
+    if (!getNum || !getPlugin) {
+        lib.unload();
+        return out;
+    }
+    try {
+        const int n = getNum();
+        for (int i = 0; i < n; ++i) {
+            OfxPlugin *plug = getPlugin(i);
+            if (plug && plug->pluginIdentifier) {
+                out.insert(QString::fromUtf8(plug->pluginIdentifier).toLower(), i);
+            }
+        }
+    } catch (...) {
+    }
+    lib.unload();
+    return out;
+}
+
 struct OfxHost::Impl {
     QMutex mutex;
     QHash<QString, std::shared_ptr<ModuleRec>> modules; // path -> module
@@ -1077,6 +1195,8 @@ struct OfxHost::Impl {
     {
         ensureHostC();
         const QString path = desc.path;
+        const int plugIdx = std::max(0, desc.pluginIndex);
+        const QString modKey = path + QLatin1Char('#') + QString::number(plugIdx);
         if (path.isEmpty() || !QFileInfo::exists(path)) {
             if (errorOut) {
                 *errorOut = QStringLiteral("OFX binary not found: \"%1\"")
@@ -1084,13 +1204,15 @@ struct OfxHost::Impl {
             }
             return {};
         }
-        if (modules.contains(path) && modules[path] && modules[path]->loaded) {
-            return modules[path];
+        if (modules.contains(modKey) && modules[modKey] && modules[modKey]->loaded) {
+            return modules[modKey];
         }
 
         auto mod = std::make_shared<ModuleRec>();
         mod->path = path;
+        mod->pluginIndex = plugIdx;
         mod->lib = std::make_unique<QLibrary>(path);
+        ScopedOfxDllDirectory dllDirGuard(ofxInstallRootForBinary(path));
         if (!mod->lib->load()) {
             if (errorOut) {
                 *errorOut = QStringLiteral("Failed to load OFX \"%1\": %2")
@@ -1115,13 +1237,16 @@ struct OfxHost::Impl {
 
         try {
             const int n = getNum();
-            if (n <= 0) {
+            if (n <= 0 || plugIdx >= n) {
                 if (errorOut) {
-                    *errorOut = QStringLiteral("OFX reports zero plugins: \"%1\"").arg(path);
+                    *errorOut = QStringLiteral("OFX plugin index %1 out of range (%2) in \"%3\"")
+                                    .arg(plugIdx)
+                                    .arg(n)
+                                    .arg(path);
                 }
                 return {};
             }
-            OfxPlugin *plug = getPlugin(0);
+            OfxPlugin *plug = getPlugin(plugIdx);
             if (!plug || !plug->setHost || !plug->mainEntry) {
                 if (errorOut) {
                     *errorOut = QStringLiteral("Invalid OfxPlugin from \"%1\"").arg(path);
@@ -1140,7 +1265,6 @@ struct OfxHost::Impl {
                 return {};
             }
             mod->plugin = plug;
-            mod->pluginIndex = 0;
             mod->loaded = true;
 
             // Describe into a temporary effect descriptor
@@ -1190,7 +1314,7 @@ struct OfxHost::Impl {
                 mod->describedInContext = true;
             }
 
-            modules[path] = mod;
+            modules[modKey] = mod;
             if (errorOut && errorOut->contains(QStringLiteral("DescribeInContext"))) {
                 // Keep warning but load succeeded
             } else if (errorOut) {
@@ -1577,21 +1701,30 @@ bool OfxHost::processSlot(FxSlot &slot, QImage *rgba, double timeSec)
         return false;
     }
 
+    // Vegas catalog resolution (effectId/displayName -> real binary + index) already
+    // happened here; parts.path/parts.index are trustworthy as-is when non-empty.
+    slot = VegasVideoPluginCatalog::resolveVideoFxSlot(slot);
     const QVariantMap params = loadSlotParams(slot);
-    QString path = ofxPathFromPluginId(slot.pluginId);
-    if (path.isEmpty() && QFileInfo::exists(slot.pluginId)
+    OfxPluginIdParts parts = parsePluginId(slot.pluginId);
+
+    if (parts.path.isEmpty() && QFileInfo::exists(slot.pluginId)
         && slot.pluginId.endsWith(QStringLiteral(".ofx"), Qt::CaseInsensitive)) {
-        path = slot.pluginId;
+        parts.path = slot.pluginId;
     }
 
-    if (!path.isEmpty()) {
-        const QString key = path + QLatin1Char('|') + slot.pluginId;
+    if (!parts.path.isEmpty()) {
+        const QString key =
+            parts.path + QLatin1Char('#') + QString::number(parts.index) + QLatin1Char('|')
+            + (parts.effectId.isEmpty() ? slot.pluginId : parts.effectId);
         QMutexLocker lock(&m_->mutex);
         int id = m_->instanceKeyToId.value(key, 0);
         lock.unlock();
 
         if (id == 0) {
-            OfxPluginDesc desc = describe(path);
+            OfxPluginDesc desc = describe(parts.path);
+            desc.path = parts.path;
+            desc.pluginIndex = parts.index;
+            desc.effectId = parts.effectId;
             QString err;
             id = createInstance(desc, &err);
             if (id > 0) {
@@ -1608,6 +1741,75 @@ bool OfxHost::processSlot(FxSlot &slot, QImage *rgba, double timeSec)
     }
 
     return processEmulated(rgba, slot.displayName, params);
+}
+
+QVector<OfxParamInfo> OfxHost::paramsForSlot(FxSlot slot)
+{
+    QVector<OfxParamInfo> out;
+    if (slot.format != PluginFormat::Ofx || slot.bypass) {
+        return out;
+    }
+
+    slot = VegasVideoPluginCatalog::resolveVideoFxSlot(slot);
+    OfxPluginIdParts parts = parsePluginId(slot.pluginId);
+    if (parts.path.isEmpty() && QFileInfo::exists(slot.pluginId)
+        && slot.pluginId.endsWith(QStringLiteral(".ofx"), Qt::CaseInsensitive)) {
+        parts.path = slot.pluginId;
+    }
+    if (parts.path.isEmpty()) {
+        return out;
+    }
+
+    OfxPluginDesc desc = describe(parts.path);
+    desc.path = parts.path;
+    desc.pluginIndex = parts.index;
+    desc.effectId = parts.effectId;
+    QString err;
+    std::shared_ptr<ModuleRec> mod = m_->ensureModule(desc, &err);
+    if (!mod) {
+        return out;
+    }
+
+    auto propString = [](const PropSet &props, const char *key) -> QString {
+        const auto it = props.props.find(key);
+        if (it != props.props.end() && it->second.kind == PropValue::String
+            && !it->second.strings.empty()) {
+            return QString::fromStdString(it->second.strings.front());
+        }
+        return {};
+    };
+    auto propDouble = [](const PropSet &props, const char *key, double fallback) -> double {
+        const auto it = props.props.find(key);
+        if (it != props.props.end() && it->second.kind == PropValue::Double
+            && !it->second.doubles.empty()) {
+            return it->second.doubles.front();
+        }
+        return fallback;
+    };
+
+    out.reserve(int(mod->descriptorParams.size()));
+    for (const auto &kv : mod->descriptorParams) {
+        const ParamRec &p = kv.second;
+        if (p.type != kOfxParamTypeDouble) {
+            continue; // MVP: continuous sliders only; extend for bool/choice/int as needed.
+        }
+        OfxParamInfo info;
+        info.name = QString::fromStdString(p.name);
+        info.label = propString(p.props, kOfxPropLabel);
+        if (info.label.isEmpty()) {
+            info.label = info.name;
+        }
+        info.defaultValue = propDouble(p.props, kOfxParamPropDefault, 0.0);
+        info.minValue = propDouble(p.props, kOfxParamPropDisplayMin,
+                                   propDouble(p.props, kOfxParamPropMin, 0.0));
+        info.maxValue = propDouble(p.props, kOfxParamPropDisplayMax,
+                                   propDouble(p.props, kOfxParamPropMax, 1.0));
+        if (info.maxValue <= info.minValue) {
+            info.maxValue = info.minValue + 1.0;
+        }
+        out.push_back(info);
+    }
+    return out;
 }
 
 } // namespace openvegas

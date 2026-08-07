@@ -1,4 +1,5 @@
 #include "ui/ContextMenuBuilder.h"
+#include "plugins/VegasVideoPluginCatalog.h"
 #include "app/MainWindow.h"
 #include "model/ProjectModel.h"
 #include "model/TrackColors.h"
@@ -7,6 +8,7 @@
 #include "ui/PluginChooserDialog.h"
 #include "plugins/AudioPluginHost.h"
 #include "plugins/AudioPluginTypes.h"
+#include "plugins/VegasVideoPluginCatalog.h"
 #include "audio/CompositePluginHost.h"
 
 #include <QMenu>
@@ -1063,7 +1065,7 @@ void ContextMenuBuilder::showEventFxMenu(MainWindow *window, int eventId, const 
             return;
         }
         window->beginDocumentEdit();
-        PluginChooserDialog dlg(nullptr, window);
+        PluginChooserDialog dlg(window->pluginScanner(), window);
         dlg.setAudioMode(isAudio);
         if (dlg.exec() != QDialog::Accepted) {
             window->discardDocumentEdit();
@@ -1083,7 +1085,7 @@ void ContextMenuBuilder::showEventFxMenu(MainWindow *window, int eventId, const 
                 if (name.compare(QStringLiteral("Pan/Crop"), Qt::CaseInsensitive) == 0) {
                     ensureFxFirst(e->fxChain, QStringLiteral("Pan/Crop"), PluginFormat::Builtin);
                 } else {
-                    e->fxChain.push_back(videoFxSlotFromName(name));
+                    e->fxChain.push_back(VegasVideoPluginCatalog::slotFromDisplayName(name));
                 }
                 added = true;
             }

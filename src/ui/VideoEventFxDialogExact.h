@@ -6,6 +6,8 @@
 
 #include "plugins/AudioPluginTypes.h"
 
+#include "plugins/OfxHost.h"
+
 
 
 #include <QDialog>
@@ -54,6 +56,8 @@ class FxChainNodeWidget;
 
 class PanCropKeyframeRuler;
 
+class PluginScanner;
+
 
 
 /** Video Event FX / Pan/Crop — Vegas-style workspace + keyframed Position/Mask. */
@@ -69,6 +73,9 @@ public:
 
 
     void setEvent(TrackEvent *ev, int frameW, int frameH, double playheadSec = 0.0);
+
+    /** OFX/video plug-in scanner (Vegas OFX roots from Preferences) — needed by Plug-In Chooser. */
+    void setPluginScanner(PluginScanner *scanner) { m_scanner = scanner; }
 
 protected:
     void keyPressEvent(QKeyEvent *event) override;
@@ -233,6 +240,13 @@ private:
 
     AutomationLane &ensureAutomationLane(const QString &targetId);
 
+    /**
+     * Real params declared by the installed OFX plug-in when available (see
+     * OfxHost::paramsForSlot); otherwise an approximate fallback by display name.
+     * Single source of truth for both the param editor and the keyframe lanes below.
+     */
+    QVector<OfxParamInfo> paramsInfoForSlot(const FxSlot &slot) const;
+
     QVector<QPair<QString, QString>> animatableParamsForSlot(const FxSlot &slot) const;
 
     double currentParamValue(const FxSlot &slot, const QString &paramKey) const;
@@ -240,6 +254,8 @@ private:
 
 
     TrackEvent *m_event = nullptr;
+
+    PluginScanner *m_scanner = nullptr;
 
     bool m_thumbHooked = false;
 

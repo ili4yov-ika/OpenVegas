@@ -6,6 +6,7 @@
 #include "io/MediaProbe.h"
 #include "io/MediaWaveformCache.h"
 #include "plugins/BuiltinAudioCatalog.h"
+#include "plugins/VegasVideoPluginCatalog.h"
 #include "audio/BuiltinDsp.h"
 
 #include <QFileInfo>
@@ -37,6 +38,9 @@ FxSlot fxSlotFromVegWithState(const QString &raw, const VegOpenResult &veg)
     const auto it = veg.fxStateChunks.constFind(key.toLower());
     if (it != veg.fxStateChunks.constEnd() && !it.value().isEmpty()) {
         setFxStateChunk(&slot, it.value());
+    }
+    if (slot.format == PluginFormat::Ofx) {
+        slot = VegasVideoPluginCatalog::resolveVegImportSlot(slot);
     }
     return slot;
 }

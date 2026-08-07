@@ -1,32 +1,45 @@
 [
   {
-    "label": "OpenVegas — CMake MinGW Debug (GDB)",
+    "label": "OpenVegas (CMake MinGW Debug)",
     "adapter": "GDB",
     "request": "launch",
     "program": "$ZED_WORKTREE_ROOT/build/Windows_MinGW-x64/OpenVegas.exe",
     "cwd": "$ZED_WORKTREE_ROOT/build/Windows_MinGW-x64",
-    "gdb_path": "C:/Qt/Tools/mingw1310_64/bin/gdb.exe",
     "env": {
       "PATH": "C:/Qt/6.9.3/mingw_64/bin;C:/Qt/Tools/mingw1310_64/bin",
       "QT_PLUGIN_PATH": "C:/Qt/6.9.3/mingw_64/plugins"
     },
+    "gdb_path": "C:/Qt/Tools/mingw1310_64/bin/gdb.exe",
     "build": "CMake: Configure + Build (MinGW Debug)"
   },
   {
-    "label": "OpenVegas — qmake MinGW Debug (GDB)",
+    "label": "OpenVegas (CMake MinGW Release)",
+    "adapter": "GDB",
+    "request": "launch",
+    "program": "$ZED_WORKTREE_ROOT/build/Windows_MinGW-x64/OpenVegas.exe",
+    "cwd": "$ZED_WORKTREE_ROOT/build/Windows_MinGW-x64",
+    "env": {
+      "PATH": "C:/Qt/6.9.3/mingw_64/bin;C:/Qt/Tools/mingw1310_64/bin",
+      "QT_PLUGIN_PATH": "C:/Qt/6.9.3/mingw_64/plugins"
+    },
+    "gdb_path": "C:/Qt/Tools/mingw1310_64/bin/gdb.exe",
+    "build": "CMake: Configure + Build (MinGW Release)"
+  },
+  {
+    "label": "OpenVegas (qmake MinGW Debug)",
     "adapter": "GDB",
     "request": "launch",
     "program": "$ZED_WORKTREE_ROOT/build-pro/debug/OpenVegas.exe",
     "cwd": "$ZED_WORKTREE_ROOT/build-pro/debug",
-    "gdb_path": "C:/Qt/Tools/mingw1310_64/bin/gdb.exe",
     "env": {
       "PATH": "C:/Qt/6.9.3/mingw_64/bin;C:/Qt/Tools/mingw1310_64/bin",
       "QT_PLUGIN_PATH": "C:/Qt/6.9.3/mingw_64/plugins"
     },
+    "gdb_path": "C:/Qt/Tools/mingw1310_64/bin/gdb.exe",
     "build": "qmake: Configure + Build (MinGW Debug)"
   },
   {
-    "label": "OpenVegas — CMake MSVC Debug (CodeLLDB)",
+    "label": "OpenVegas (CMake MSVC Debug)",
     "adapter": "CodeLLDB",
     "request": "launch",
     "program": "$ZED_WORKTREE_ROOT/build-msvc/OpenVegas.exe",
@@ -36,18 +49,5 @@
       "QT_PLUGIN_PATH": "C:/Qt/6.9.3/msvc2022_64/plugins"
     },
     "build": "CMake: Configure + Build (MSVC Debug)"
-  },
-  {
-    "label": "OpenVegas — CMake MinGW Release (GDB)",
-    "adapter": "GDB",
-    "request": "launch",
-    "program": "$ZED_WORKTREE_ROOT/build/Windows_MinGW-x64/OpenVegas.exe",
-    "cwd": "$ZED_WORKTREE_ROOT/build/Windows_MinGW-x64",
-    "gdb_path": "C:/Qt/Tools/mingw1310_64/bin/gdb.exe",
-    "env": {
-      "PATH": "C:/Qt/6.9.3/mingw_64/bin;C:/Qt/Tools/mingw1310_64/bin",
-      "QT_PLUGIN_PATH": "C:/Qt/6.9.3/mingw_64/plugins"
-    },
-    "build": "CMake: Configure + Build (MinGW Release)"
   }
 ]

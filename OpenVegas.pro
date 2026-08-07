@@ -93,6 +93,7 @@ HEADERS += \
     src/plugins/AudioPluginTypes.h \
     src/plugins/BuiltinAudioCatalog.h \
     src/plugins/VegasSharedAudioCatalog.h \
+    src/plugins/VegasVideoPluginCatalog.h \
     src/plugins/AudioPluginScanner.h \
     src/plugins/AudioPluginRegistry.h \
     src/plugins/AudioPluginHost.h \
@@ -171,6 +172,7 @@ SOURCES += \
     src/plugins/OfxHost.cpp \
     src/plugins/BuiltinAudioCatalog.cpp \
     src/plugins/VegasSharedAudioCatalog.cpp \
+    src/plugins/VegasVideoPluginCatalog.cpp \
     src/plugins/AudioPluginScanner.cpp \
     src/plugins/AudioPluginRegistry.cpp \
     src/plugins/AudioPluginHost.cpp \

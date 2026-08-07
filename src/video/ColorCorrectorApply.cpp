@@ -1,6 +1,7 @@
 #include "video/ColorCorrectorApply.h"
 
 #include "plugins/OfxHost.h"
+#include "plugins/VegasVideoPluginCatalog.h"
 
 #include <QDataStream>
 #include <QIODevice>
@@ -101,35 +102,6 @@ ColorCorrectorParams colorCorrectorFromSlot(const FxSlot &slot)
 void colorCorrectorSaveToSlot(FxSlot *slot, const ColorCorrectorParams &p)
 {
     saveParams(slot, colorCorrectorToMap(p));
-}
-
-bool isBrightnessContrastName(const QString &displayName)
-{
-    return displayName.trimmed().compare(QLatin1String("Brightness and Contrast"),
-                                         Qt::CaseInsensitive)
-           == 0;
-}
-
-bool isPanCropName(const QString &displayName)
-{
-    return displayName.trimmed().compare(QLatin1String("Pan/Crop"), Qt::CaseInsensitive) == 0;
-}
-
-bool isColorCorrectorName(const QString &displayName)
-{
-    const QString n = displayName.trimmed();
-    if (isBrightnessContrastName(n)) {
-        return false;
-    }
-    return n.compare(QLatin1String("Color Corrector"), Qt::CaseInsensitive) == 0
-           || n.contains(QLatin1String("colorcorrector"), Qt::CaseInsensitive);
-}
-
-bool isColorGradingName(const QString &displayName)
-{
-    const QString n = displayName.trimmed();
-    return n.compare(QLatin1String("Color Grading"), Qt::CaseInsensitive) == 0
-           || n.contains(QLatin1String("colorgrading"), Qt::CaseInsensitive);
 }
 
 void applyColorCorrector(QImage *img, const ColorCorrectorParams &p)
@@ -256,6 +228,7 @@ void applyVideoFxChain(QImage *img, const QVector<FxSlot> &chain, double timeSec
         if (slot.bypass || isPanCropName(slot.displayName)) {
             continue;
         }
+        slot = VegasVideoPluginCatalog::resolveVideoFxSlot(slot);
         if (isColorCorrectorName(slot.displayName)) {
             applyColorCorrector(img, colorCorrectorFromSlot(slot));
             continue;

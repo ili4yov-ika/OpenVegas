@@ -209,6 +209,21 @@ inline QString builtinFxDisplayName(const QString &raw)
     return n;
 }
 
+/**
+ * Case/spacing/brand-insensitive key for matching VEGAS plug-in names
+ * (VEG XML labels, UI display names, alias tables) against each other.
+ */
+inline QString normalizeVegasPluginKey(const QString &raw)
+{
+    QString n = builtinFxDisplayName(raw);
+    n.replace(QLatin1Char('_'), QLatin1Char(' '));
+    n.replace(QLatin1Char('-'), QLatin1Char(' '));
+    while (n.contains(QLatin1String("  "))) {
+        n.replace(QLatin1String("  "), QStringLiteral(" "));
+    }
+    return n.toLower();
+}
+
 inline void normalizeBuiltinFxSlot(FxSlot *slot)
 {
     if (!slot || slot->format != PluginFormat::Builtin) {
@@ -227,32 +242,40 @@ inline void normalizeBuiltinFxSlot(FxSlot *slot)
     }
 }
 
-/** Map Video FX pane / chooser name to FxSlot (builtins vs OFX placeholder). */
-inline FxSlot videoFxSlotFromName(const QString &rawName)
+/** Map Video FX pane / chooser name to FxSlot (see VegasVideoPluginCatalog.cpp). */
+FxSlot videoFxSlotFromName(const QString &rawName);
+
+// Builtin video FX name predicates — single source of truth for classifying a
+// display name as one of OpenVegas's built-in video effects (vs. an OFX plug-in).
+// Shared by ColorCorrectorApply (compositing) and VegasVideoPluginCatalog (chooser/import).
+
+inline bool isPanCropName(const QString &displayName)
 {
-    const QString name = rawName.trimmed();
-    if (name.isEmpty()) {
-        return {};
+    return displayName.trimmed().compare(QLatin1String("Pan/Crop"), Qt::CaseInsensitive) == 0;
+}
+
+inline bool isBrightnessContrastName(const QString &displayName)
+{
+    return displayName.trimmed().compare(QLatin1String("Brightness and Contrast"),
+                                         Qt::CaseInsensitive)
+           == 0;
+}
+
+inline bool isColorCorrectorName(const QString &displayName)
+{
+    const QString n = displayName.trimmed();
+    if (isBrightnessContrastName(n)) {
+        return false;
     }
-    if (name.compare(QLatin1String("Pan/Crop"), Qt::CaseInsensitive) == 0) {
-        return makeFxSlot(QStringLiteral("Pan/Crop"), PluginFormat::Builtin,
-                          QStringLiteral("builtin:Pan/Crop"));
-    }
-    if (name.compare(QLatin1String("Color Corrector"), Qt::CaseInsensitive) == 0
-        || name.contains(QLatin1String("colorcorrector"), Qt::CaseInsensitive)) {
-        return makeFxSlot(QStringLiteral("Color Corrector"), PluginFormat::Builtin,
-                          QStringLiteral("builtin:Color Corrector"));
-    }
-    if (name.compare(QLatin1String("Brightness and Contrast"), Qt::CaseInsensitive) == 0) {
-        return makeFxSlot(QStringLiteral("Brightness and Contrast"), PluginFormat::Builtin,
-                          QStringLiteral("builtin:Brightness and Contrast"));
-    }
-    if (name.compare(QLatin1String("Color Grading"), Qt::CaseInsensitive) == 0
-        || name.contains(QLatin1String("colorgrading"), Qt::CaseInsensitive)) {
-        return makeFxSlot(QStringLiteral("Color Grading"), PluginFormat::Builtin,
-                          QStringLiteral("builtin:Color Grading"));
-    }
-    return makeFxSlot(name, PluginFormat::Ofx, name);
+    return n.compare(QLatin1String("Color Corrector"), Qt::CaseInsensitive) == 0
+           || n.contains(QLatin1String("colorcorrector"), Qt::CaseInsensitive);
+}
+
+inline bool isColorGradingName(const QString &displayName)
+{
+    const QString n = displayName.trimmed();
+    return n.compare(QLatin1String("Color Grading"), Qt::CaseInsensitive) == 0
+           || n.contains(QLatin1String("colorgrading"), Qt::CaseInsensitive);
 }
 
 /** Descriptor for discovery / Plug-In Chooser (not an instance). */

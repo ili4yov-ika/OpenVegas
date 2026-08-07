@@ -3,6 +3,7 @@
 #include "plugins/AudioPluginTypes.h"
 #include "plugins/PluginScanner.h"
 
+#include <QHash>
 #include <QImage>
 #include <QString>
 #include <QStringList>
@@ -11,13 +12,31 @@
 
 namespace openvegas {
 
+/** Parsed OpenVegas OFX pluginId (ofx:<path>#<index>#<effectId> or ofx-id:<effectId>). */
+struct OfxPluginIdParts {
+    QString path;
+    int index = 0;
+    QString effectId;
+};
+
+/** Real declared Double param (name/label/range/default) straight from an OFX plug-in's Describe. */
+struct OfxParamInfo {
+    QString name;   // OFX identifier — matches the key processFrame() applies via loadSlotParams()
+    QString label;  // UI label (kOfxPropLabel; falls back to name)
+    double defaultValue = 0.0;
+    double minValue = 0.0;
+    double maxValue = 1.0;
+};
+
 /** Metadata for one discovered OFX plug-in. */
 struct OfxPluginDesc {
     QString name;
     QString path;       // preferred binary (.ofx) or bundle root
     QString bundlePath; // .ofx.bundle directory if any
     QString archHint;   // e.g. Win64 / MacOS / Linux-x86-64
+    QString effectId;   // com.vegascreativesoftware:… when known
     QString apiLabel = QStringLiteral("OFX");
+    int pluginIndex = 0;
     bool hasBinary = false;
 };
 
@@ -43,6 +62,14 @@ public:
     static bool load(const OfxPluginDesc &desc, QString *errorOut = nullptr);
 
     static QStringList supportedArchFolderNames();
+
+    /** Parse pluginId produced by VegasVideoPluginCatalog / FxSlot. */
+    static OfxPluginIdParts parsePluginId(const QString &pluginId);
+
+    /**
+     * Map effectId → plugin index inside a loaded .ofx binary (fail-soft, empty on error).
+     */
+    static QHash<QString, int> effectIndexMap(const QString &binaryPath);
 
     /**
      * Create a process instance (caches by path + plugin index).
@@ -70,6 +97,13 @@ public:
      * otherwise fall back to processEmulated by displayName.
      */
     bool processSlot(FxSlot &slot, QImage *rgba, double timeSec = 0.0);
+
+    /**
+     * Real Double params declared by the resolved plug-in's own Describe (name/label/range/default).
+     * Empty when the slot isn't OFX, doesn't resolve to an installed binary, or has no Double params —
+     * callers should fall back to an approximation in that case (see VideoEventFxDialogExact).
+     */
+    QVector<OfxParamInfo> paramsForSlot(FxSlot slot);
 
 private:
     OfxHost();

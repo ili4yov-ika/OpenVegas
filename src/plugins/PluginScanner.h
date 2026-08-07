@@ -8,7 +8,14 @@ namespace openvegas {
 
 struct PluginInfo {
     QString name;
-    QString path;
+    QString path;       ///< OFX binary path when available
+    QString effectId;
+    QString pluginId;   ///< Full FxSlot pluginId (ofx:…)
+    QString grouping;
+    QStringList categories;
+    QStringList presets;
+    int pluginIndex = 0;
+    bool hasBinary = false;
 };
 
 class PluginScanner {
@@ -27,7 +34,6 @@ public:
     static QString sampleVegasProPath();
 
 private:
-    QVector<PluginInfo> scanDirectory(const QString &ofxRoot) const;
     QString m_preferredPath;
     QString m_vegasProPath;
     mutable QString m_lastSource;

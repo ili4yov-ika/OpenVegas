@@ -214,6 +214,24 @@ ProjectModel (TrackEvent/Track/Bus .fxChain + panCrop/motion)
 
 - [x] Load/process + emulated Soften/Blur/Invert/Sepia/Gain.
 - [x] Fixture `Gain.ofx`; unit tests.
+- [x] DLL search path fix (2026-08-07): реальные Vegas OFX бинарники (`Vfx1.ofx` и др.) импортируют
+  соседние runtime DLL (`sharedk.dll`, `OpenColorIO_2_0.dll`) из корня установки VEGAS, а не из папки
+  бандла — голый `LoadLibrary` их не находил («module not found»), `effectIndexMap`/`ensureModule`
+  молча проваливались, `pluginIndex` откатывался на `0` (неверный эффект). Исправлено:
+  `ScopedOfxDllDirectory` + `ofxInstallRootForBinary` в `OfxHost.cpp` — временно добавляют корень
+  инсталляции в DLL search path на время `LoadLibrary`. См. `[video-fx][ofx][vegas-video]` тест
+  `effectIndexMap resolves real effect identifiers in Vfx1.ofx`.
+- [ ] **Новый, более точный найденный барьер:** даже после фикса путей, `Vfx1.ofx`
+  (Chroma Blur/Glint/…) отвечает на `kOfxActionLoad` статусом `kOfxStatErrMissingHostFeature` —
+  минимальный host не объявляет какую-то фичу/suite, которую ждёт настоящий Vegas-плагин
+  (кандидаты: доп. suites — multithread/OpenGL/parametric/interact, либо `kOfxImageEffectProp*`
+  host-свойства сверх текущего минимального набора в `initHostProps()`). Из-за этого `Describe`
+  никогда не выполняется для настоящих Vegas OFX бинарников — `OfxHost::paramsForSlot`/
+  `processFrame` **всегда** тихо уходят в CPU-эмуляцию (`processEmulated`), даже когда бинарник
+  успешно найден и проиндексирован. Реальный рендер через подлинный Vegas OFX не работал никогда
+  (ни в этой сессии, ни раньше) — то, что тесты "успешно обрабатывают кадр", проверяло emulated
+  fallback, не настоящий плагин. Точный список недостающих host-свойств неизвестен без дизасма
+  (`kOfxActionLoad` — решение самого плагина, снаружи не видно). Backlog, отдельная задача от UI-фикса.
 - [ ] Status-bar warning UI при crash/plugin error — backlog.
 
 ---
