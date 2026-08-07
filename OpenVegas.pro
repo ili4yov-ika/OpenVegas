@@ -63,6 +63,8 @@ HEADERS += \
     src/ui/RateSlider.h \
     src/ui/VideoEventFxDialog.h \
     src/ui/VideoEventFxDialogExact.h \
+    src/ui/VideoTrackFxDialog.h \
+    src/ui/KeyframeLaneWidgets.h \
     src/ui/TrackMotionDialog.h \
     src/ui/ConfirmWarningDialog.h \
     src/ui/MediaBinListWidget.h \
@@ -144,6 +146,7 @@ SOURCES += \
     src/ui/RateSlider.cpp \
     src/ui/VideoEventFxDialog.cpp \
     src/ui/VideoEventFxDialogExact.cpp \
+    src/ui/VideoTrackFxDialog.cpp \
     src/ui/TrackMotionDialog.cpp \
     src/ui/ConfirmWarningDialog.cpp \
     src/ui/MediaBinListWidget.cpp \

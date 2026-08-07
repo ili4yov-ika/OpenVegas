@@ -1160,7 +1160,9 @@ void ContextMenuBuilder::showTrackEmptyMenu(MainWindow *window, int trackIndex,
     menu.addSeparator();
     addItem(&menu, QObject::tr("Select All on Track"));
     if (isVideo) {
-        addItem(&menu, QObject::tr("Track FX…"));
+        menu.addAction(QObject::tr("Track FX…"), window, [window, trackIndex]() {
+            window->onTrackFx(trackIndex);
+        });
         addItem(&menu, QObject::tr("Insert/Remove Envelope"));
     } else {
         addItem(&menu, QObject::tr("Insert/Remove Envelope"));

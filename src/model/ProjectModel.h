@@ -1026,6 +1026,8 @@ private:
     void applyPanCropFromVeg(const VegOpenResult &veg);
     /** Attach Color Grading OFX from .veg onto first video track FX chain. */
     void applyColorGradingFromVeg(const VegOpenResult &veg);
+    /** Attach recovered Video Track FX (e.g. Sepia + Soft Contrast) onto first video track. */
+    void applyVideoTrackFxFromVeg(const VegOpenResult &veg);
     /** Attach UTF-16 Audio Event FX names onto audio clip events (if chain empty). */
     void applyAudioEventFxFromVeg(const VegOpenResult &veg);
     /**

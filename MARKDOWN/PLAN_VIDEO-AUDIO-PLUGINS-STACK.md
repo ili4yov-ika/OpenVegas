@@ -5,7 +5,10 @@
 Родительский roadmap: [`PLAN_VIDEOAUDIOSTACK.md`](PLAN_VIDEOAUDIOSTACK.md) (фазы **8–11**).  
 См. также: [`ISSUES_AND_PLANS.md`](ISSUES_AND_PLANS.md), `SAMPLES/veg_project/README.md`.
 
-**Обновлено:** 2026-08-03 (P1–P6 + VST3 `IPlugView` editor, Event FX UX, VEG Glint/AutoFrame fix, editor stretch).
+**Обновлено:** 2026-08-07 (реальный каталог видеоплагинов VEGAS, real-param UI + keyframe lanes для
+Video Event/Track FX, VEG Track FX recovery — Sepia + Soft Contrast, DLL search path fix, находка
+`kOfxStatErrMissingHostFeature`). Ранее: 2026-08-03 — P1–P6 + VST3 `IPlugView` editor, Event FX UX,
+VEG Glint/AutoFrame fix, editor stretch.
 
 ---
 
@@ -251,14 +254,21 @@ ProjectModel (TrackEvent/Track/Bus .fxChain + panCrop/motion)
 - [x] VST2 `CcnK`/`FPCh`/`FxCk` → `state["chunk"]` + apply on create.
 - [x] **Video Event FX:** `recoverVideoEventFxNames`:
   - skip `de.magix:*` (Auto Frame / AI);
-  - skip `{Svfx:…:sepia}` если следом `<Softlight>` (orphan Soft Contrast);
+  - skip `{Svfx:…:sepia}` если следом `<Softlight>` — это не orphan, а **Track FX** (см. ниже), просто не Event FX;
   - inject `{Svfx:…:glintvelvetmatter}` из `<Glint>` XML;
   - порядок по byte offset после `CountEventFXs`.
 - [x] Unit `[video-fx]` на `…-reverse-fades-fx.veg` → chromablur + glint.
+- [x] **Video Track FX (2026-08-07):** `recoverVideoTrackFxNames` — та же пара `{Svfx:…:sepia}` +
+  `<Softlight>` XML, которую Event FX намеренно пропускает, реально является track-level
+  Sepia + `com.vegascreativesoftware:softcontrastvelvetmatter` (пресет «Soft Moderate
+  Contrast», сверено с XML каталога установленных плагинов). `ProjectModel::applyVideoTrackFxFromVeg`
+  кладёт обе на первую видеодорожку. Новый `VideoTrackFxDialog` показывает их с реальными/fallback
+  параметрами и keyframe lanes — проверено вживую (скриншот) на `…-reverse-fades-fx.veg`.
 - [ ] Полный reverse VEG OFX/VST3 proprietary blobs.
 - [ ] Matched scanned DLL parity на всех FX samples.
 
-Эталон UI Vegas для FX sample: **Pan/Crop + Chroma Blur + Glint (Мерцание / Sparkle)** — не Auto Frame, не Sepia.
+Эталон UI Vegas для FX sample: Event FX — **Pan/Crop + Chroma Blur + Glint (Мерцание / Sparkle)**
+(не Auto Frame, не Sepia); Track FX (video) — **Sepia + Soft Contrast**.
 
 ---
 
@@ -289,6 +299,6 @@ ProjectModel (TrackEvent/Track/Bus .fxChain + panCrop/motion)
 
 ## Краткий вердикт
 
-**Работает:** Builtin Delay/Reverb; VST2 E2E + stretch; VST3 process/state/**IPlugView**/stretch; OFX+emulated+video chain; Mixing Console FX; VEG Glint/Chroma Blur (без лишнего AutoFrame); немодальные Event FX окна.
+**Работает:** Builtin Delay/Reverb; VST2 E2E + stretch; VST3 process/state/**IPlugView**/stretch; OFX+emulated+video chain; Mixing Console FX; VEG Glint/Chroma Blur (без лишнего AutoFrame) + **VEG Track FX (Sepia + Soft Contrast)**; немодальные Event FX окна; реальный каталог видеоплагинов VEGAS (`VegasVideoPluginCatalog`); real-param + keyframe lanes UI для Video Event FX **и** Video Track FX (`VideoTrackFxDialog`, общий `KeyframeLaneWidgets.h`).
 
-**Backlog:** open-source `.vst3` в CI; soft bypass fade; полный reverse VEG OFX/VST3 blobs; Shadow/Glow/blend; status-bar OFX errors.
+**Backlog:** open-source `.vst3` в CI; soft bypass fade; полный reverse VEG OFX/VST3 blobs; Shadow/Glow/blend; status-bar OFX errors; реальный рендер через настоящие Vegas OFX бинарники (блокер — `kOfxStatErrMissingHostFeature` на `kOfxActionLoad`, нужен дизасм).

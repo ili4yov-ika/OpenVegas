@@ -34,6 +34,7 @@ class TimelineView;
 class TrimmerWindow;
 class MixingConsoleWindow;
 class VideoEventFxDialogExact;
+class VideoTrackFxDialog;
 class AudioEventFxDialog;
 class ExplorerPane;
 class VideoFxPane;
@@ -213,6 +214,7 @@ private:
     TrimmerWindow *m_trimmer = nullptr;
     MixingConsoleWindow *m_mixingConsole = nullptr;
     VideoEventFxDialogExact *m_videoEventFx = nullptr;
+    VideoTrackFxDialog *m_videoTrackFx = nullptr;
     AudioEventFxDialog *m_audioEventFx = nullptr;
     QString m_audioFxCommitLabel;
     ExplorerPane *m_explorer = nullptr;

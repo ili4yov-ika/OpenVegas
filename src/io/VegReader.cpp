@@ -431,6 +431,7 @@ void VegReader::parseUtf16Metadata(const QByteArray &data, VegOpenResult *result
     }
 
     recoverVideoEventFxNames(data, result);
+    recoverVideoTrackFxNames(data, result);
 
     if (result->mediaPaths.isEmpty()) {
         result->warnings << QStringLiteral(
@@ -544,6 +545,43 @@ void VegReader::recoverVideoEventFxNames(const QByteArray &data, VegOpenResult *
               [](const Item &a, const Item &b) { return a.pos < b.pos; });
     for (const Item &it : items) {
         result->eventFxNames.push_back(it.raw);
+    }
+}
+
+void VegReader::recoverVideoTrackFxNames(const QByteArray &data, VegOpenResult *result)
+{
+    /*
+     * The `{Svfx:…:sepia}` + Soft Contrast tail that recoverVideoEventFxNames()
+     * deliberately excludes from the Event FX chain isn't noise — Vegas renders
+     * it as a **Video Track FX** pair: Sepia + VelvetMatter Soft Contrast
+     * (`com.vegascreativesoftware:softcontrastvelvetmatter`, real preset name
+     * "Soft Moderate Contrast" — confirmed against the installed OFX catalog).
+     * Soft Contrast has no `{Svfx:…}` string of its own in the binary, only its
+     * `<Softlight>` XML state, so it's synthesized once the sepia pairing matches.
+     */
+    result->videoTrackFxNames.clear();
+
+    const QByteArray svfxPrefix = utf16LeBytes(QStringLiteral("{Svfx:"));
+    int pos = 0;
+    while (true) {
+        pos = data.indexOf(svfxPrefix, pos);
+        if (pos < 0) {
+            break;
+        }
+        const QString raw = decodeUtf16zAt(data, pos);
+        const int rawBytes = qMax(2, raw.size() * 2);
+        if (raw.contains(QLatin1String("sepia"), Qt::CaseInsensitive)) {
+            const int after = pos + rawBytes;
+            const int soft = data.indexOf("<Softlight", after);
+            const int nextSvfx = data.indexOf(svfxPrefix, after);
+            if (soft >= 0 && soft < after + 5000 && (nextSvfx < 0 || soft < nextSvfx)) {
+                result->videoTrackFxNames.push_back(raw.trimmed());
+                result->videoTrackFxNames.push_back(QStringLiteral(
+                    "{Svfx:com.vegascreativesoftware:softcontrastvelvetmatter}"));
+                break; // one Track FX tail per file (MVP — matches known samples)
+            }
+        }
+        pos += rawBytes;
     }
 }
 

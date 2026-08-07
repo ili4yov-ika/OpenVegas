@@ -1582,6 +1582,7 @@ bool ProjectModel::applyVegImport(const VegOpenResult &veg, const QString &opene
             applyTrackMotionFromVeg(veg);
             applyPanCropFromVeg(veg);
             applyColorGradingFromVeg(veg);
+            applyVideoTrackFxFromVeg(veg);
             applyDefaultTrackDisplayColors();
             backfillEventMediaPaths();
             seedSampleAudioBeatMarkersIfNeeded(openedPath);
@@ -1695,6 +1696,7 @@ bool ProjectModel::applyVegImport(const VegOpenResult &veg, const QString &opene
         applyTrackMotionFromVeg(veg);
         applyPanCropFromVeg(veg);
         applyColorGradingFromVeg(veg);
+        applyVideoTrackFxFromVeg(veg);
         applyDefaultTrackDisplayColors();
         backfillEventMediaPaths();
         seedSampleAudioBeatMarkersIfNeeded(openedPath);
@@ -1761,6 +1763,7 @@ bool ProjectModel::applyVegImport(const VegOpenResult &veg, const QString &opene
     applyTrackMotionFromVeg(veg);
     applyPanCropFromVeg(veg);
     applyColorGradingFromVeg(veg);
+    applyVideoTrackFxFromVeg(veg);
     applyDefaultTrackDisplayColors();
     backfillEventMediaPaths();
     seedSampleAudioBeatMarkersIfNeeded(openedPath);
@@ -1844,6 +1847,25 @@ void ProjectModel::applyColorGradingFromVeg(const VegOpenResult &veg)
             tr.fxChain[existing] = slot;
         } else {
             tr.fxChain.push_back(slot);
+        }
+        return; // first video track
+    }
+}
+
+void ProjectModel::applyVideoTrackFxFromVeg(const VegOpenResult &veg)
+{
+    if (veg.videoTrackFxNames.isEmpty()) {
+        return;
+    }
+    for (Track &tr : m_tracks) {
+        if (tr.kind != TrackKind::Video) {
+            continue;
+        }
+        for (const QString &raw : veg.videoTrackFxNames) {
+            const FxSlot slot = fxSlotFromVegWithState(raw, veg);
+            if (indexOfFxName(tr.fxChain, slot.displayName) < 0) {
+                tr.fxChain.push_back(slot);
+            }
         }
         return; // first video track
     }

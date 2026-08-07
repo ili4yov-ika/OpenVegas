@@ -24,6 +24,7 @@
 #include "ui/ExtractAudioFromCdDialog.h"
 #include "ui/RateSlider.h"
 #include "ui/VideoEventFxDialogExact.h"
+#include "ui/VideoTrackFxDialog.h"
 #include "ui/AudioEventFxDialog.h"
 #include "ui/TrackMotionDialog.h"
 #include "ui/CustomizeKeyboardDialog.h"
@@ -3664,6 +3665,23 @@ void MainWindow::onTrackFx(int trackIndex)
         return;
     }
     Track &track = m_project.tracks()[trackIndex];
+    if (track.kind == TrackKind::Video) {
+        if (!m_videoTrackFx) {
+            m_videoTrackFx = new VideoTrackFxDialog(this);
+            m_videoTrackFx->setPluginScanner(&m_pluginScanner);
+            connect(m_videoTrackFx, &QDialog::finished, this, [this](int) {
+                commitDocumentEdit(tr("Video Track FX"));
+            });
+        } else if (m_videoTrackFx->isVisible()) {
+            commitDocumentEdit(tr("Video Track FX"));
+        }
+        beginDocumentEdit();
+        m_videoTrackFx->setTrack(&track, m_project.timelineEndSec(), m_project.playheadSec());
+        m_videoTrackFx->show();
+        m_videoTrackFx->raise();
+        m_videoTrackFx->activateWindow();
+        return;
+    }
     if (track.kind == TrackKind::Audio) {
         if (track.fxChain.isEmpty()) {
             track.fxChain = BuiltinAudioCatalog::defaultTrackFxChain();

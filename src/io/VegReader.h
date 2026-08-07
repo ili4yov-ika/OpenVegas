@@ -50,6 +50,12 @@ struct VegOpenResult {
     /** Video/OFX-style event FX (`{Svfx:…}`, `OFX:…`). */
     QStringList eventFxNames;
     /**
+     * Video Track FX chain (`{Svfx:…}`), e.g. Sepia + VelvetMatter Soft Contrast
+     * (the latter has no `{Svfx:…}` string of its own — only `<Softlight>` XML —
+     * so it's synthesized once the pairing is recognized). First video track.
+     */
+    QStringList videoTrackFxNames;
+    /**
      * Audio Event FX chain recovered from UTF-16 (ordered):
      * e.g. "Fresh Air\\t(VST2, 64 Bit)", "OldPlug\\t(VST, 64 Bit)", "Auto-Key\\t(VST3, 64 Bit)".
      */
@@ -110,6 +116,8 @@ private:
     static void parseUtf16Metadata(const QByteArray &data, VegOpenResult *result);
     /** Rebuild `eventFxNames` from positioned `{Svfx:…}` + OFX XML roots (Glint, …). */
     static void recoverVideoEventFxNames(const QByteArray &data, VegOpenResult *result);
+    /** Rebuild `videoTrackFxNames` — Sepia + Soft Contrast tail excluded from event FX. */
+    static void recoverVideoTrackFxNames(const QByteArray &data, VegOpenResult *result);
     static void parseTimelineEvents(const QByteArray &data, VegOpenResult *result);
     static void parseMarkers(const QByteArray &data, VegOpenResult *result);
     static void parseTrackMotion(const QByteArray &data, VegOpenResult *result);

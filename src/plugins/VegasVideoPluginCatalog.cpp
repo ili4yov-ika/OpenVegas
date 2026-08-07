@@ -437,6 +437,66 @@ FxSlot VegasVideoPluginCatalog::resolveVegImportSlot(FxSlot slot)
     return resolveVideoFxSlot(std::move(slot));
 }
 
+QVector<OfxParamInfo> VegasVideoPluginCatalog::paramsInfoForSlot(const FxSlot &slot)
+{
+    if (slot.format == PluginFormat::Ofx) {
+        const QVector<OfxParamInfo> real = OfxHost::instance().paramsForSlot(slot);
+        if (!real.isEmpty()) {
+            return real;
+        }
+    }
+
+    // Approximate fallback — used when the plug-in isn't installed, or the OFX
+    // host couldn't fully load it (see OfxHost::paramsForSlot / ISSUES_AND_PLANS.md).
+    QVector<OfxParamInfo> out;
+    auto add = [&](const QString &label, const QString &key, double def, double lo, double hi) {
+        OfxParamInfo info;
+        info.name = key;
+        info.label = label;
+        info.defaultValue = def;
+        info.minValue = lo;
+        info.maxValue = hi;
+        out.push_back(info);
+    };
+    const QString n = slot.displayName;
+    if (isColorCorrectorName(n)) {
+        add(QObject::tr("Brightness"), QStringLiteral("brightness"), 0.0, -1.0, 1.0);
+        add(QObject::tr("Contrast"), QStringLiteral("contrast"), 1.0, 0.0, 2.0);
+        add(QObject::tr("Saturation"), QStringLiteral("saturation"), 1.0, 0.0, 2.0);
+        add(QObject::tr("Gamma"), QStringLiteral("gamma"), 1.0, 0.1, 3.0);
+    } else if (n.contains(QLatin1String("sepia"), Qt::CaseInsensitive)) {
+        // Real params (com.vegascreativesoftware:sepia): Color (RGB, not a slider —
+        // out of scope) + these two Double params.
+        add(QObject::tr("Blending strength"), QStringLiteral("BlendingStrength"), 0.5, 0.0, 1.0);
+        add(QObject::tr("Blending falloff"), QStringLiteral("BlendingFalloff"), 0.5, 0.0, 1.0);
+    } else if (n.contains(QLatin1String("soft contrast"), Qt::CaseInsensitive)
+               || n.contains(QLatin1String("softcontrast"), Qt::CaseInsensitive)) {
+        // Real params (com.vegascreativesoftware:softcontrastvelvetmatter) — subset;
+        // Vignette sub-group left out of the flat fallback list for now.
+        add(QObject::tr("Stretch range"), QStringLiteral("EffectStretchRange"), 0.0, 0.0, 1.0);
+        add(QObject::tr("Contrast"), QStringLiteral("EffectContrast"), 0.5, 0.0, 1.0);
+        add(QObject::tr("Diffusion"), QStringLiteral("EffectDiffusion"), 0.5, 0.0, 1.0);
+        add(QObject::tr("Low trim"), QStringLiteral("EffectLowTrim"), 0.0, 0.0, 1.0);
+        add(QObject::tr("High trim"), QStringLiteral("EffectHighTrim"), 0.0, 0.0, 1.0);
+    } else if (n.contains(QLatin1String("soften"), Qt::CaseInsensitive)
+               || n.contains(QLatin1String("blur"), Qt::CaseInsensitive)
+               || n.contains(QLatin1String("chroma"), Qt::CaseInsensitive)) {
+        add(QObject::tr("Horizontal pixels"), QStringLiteral("radius"), 2.0, 1.0, 24.0);
+        add(QObject::tr("Vertical pixels"), QStringLiteral("radiusV"), 2.0, 1.0, 24.0);
+    } else if (n.contains(QLatin1String("glint"), Qt::CaseInsensitive)
+               || n.contains(QLatin1String("мерцание"), Qt::CaseInsensitive)) {
+        add(QObject::tr("Threshold"), QStringLiteral("threshold"), 67.0, 0.0, 100.0);
+        add(QObject::tr("Boost"), QStringLiteral("boost"), -40.0, -100.0, 100.0);
+        add(QObject::tr("Gain"), QStringLiteral("gain"), 1.0, 0.0, 4.0);
+    } else if (n.contains(QLatin1String("brightness"), Qt::CaseInsensitive)) {
+        add(QObject::tr("Brightness"), QStringLiteral("brightness"), 0.0, -1.0, 1.0);
+        add(QObject::tr("Contrast"), QStringLiteral("contrast"), 1.0, 0.0, 2.0);
+    } else if (!n.contains(QLatin1String("invert"), Qt::CaseInsensitive)) {
+        add(QObject::tr("Gain"), QStringLiteral("gain"), 1.0, 0.0, 4.0);
+    }
+    return out;
+}
+
 void VegasVideoPluginCatalog::invalidateCache()
 {
     g_cacheValid = false;

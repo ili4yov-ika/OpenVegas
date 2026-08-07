@@ -1,6 +1,7 @@
 #pragma once
 
 #include "plugins/AudioPluginTypes.h"
+#include "plugins/OfxHost.h"
 #include "plugins/PluginScanner.h"
 
 #include <QString>
@@ -58,6 +59,13 @@ public:
 
     /** After fxSlotFromVegName — attach binary path + index when known. */
     static FxSlot resolveVegImportSlot(FxSlot slot);
+
+    /**
+     * Real params declared by the installed OFX plug-in (OfxHost::paramsForSlot) when
+     * available; otherwise an approximate fallback by display name. Single source of
+     * truth for both the Video Event FX and Video Track FX param editors/keyframe lanes.
+     */
+    static QVector<OfxParamInfo> paramsInfoForSlot(const FxSlot &slot);
 
     static void invalidateCache();
 };

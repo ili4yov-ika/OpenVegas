@@ -4,6 +4,7 @@
 #include "audio/BuiltinDsp.h"
 #include "io/VegReader.h"
 #include "io/SamplePaths.h"
+#include "model/ProjectModel.h"
 #include "plugins/AudioPluginTypes.h"
 
 #include <QDir>
@@ -90,4 +91,73 @@ TEST_CASE("VegReader video Event FX matches Vegas chain (no Auto Frame)",
     const FxSlot b = fxSlotFromVegName(veg.eventFxNames.at(1));
     REQUIRE(a.displayName == QStringLiteral("Chroma Blur"));
     REQUIRE(b.displayName == QStringLiteral("Glint"));
+}
+
+TEST_CASE("VegReader recovers Video Track FX (Sepia + Soft Contrast)",
+          "[plugins][state][veg][video-fx]")
+{
+    const QString root = SamplePaths::vegProjectDir();
+    if (root.isEmpty()) {
+        SKIP("SAMPLES/veg_project not available");
+    }
+    const QString path =
+        QDir(root).filePath(QStringLiteral("project_big--buck-bunny_4x3-preview-reverse-fades-fx.veg"));
+    if (!QFile::exists(path)) {
+        SKIP("FX sample .veg missing");
+    }
+    QString err;
+    const VegOpenResult veg = VegReader::open(path, &err);
+    REQUIRE(err.isEmpty());
+    // The Sepia + Soft Contrast tail is excluded from Event FX (see the test above)
+    // but is real Video Track FX data, not noise — recovered separately here.
+    REQUIRE(veg.videoTrackFxNames.size() == 2);
+    REQUIRE(veg.videoTrackFxNames.at(0).contains(QStringLiteral("sepia"), Qt::CaseInsensitive));
+    REQUIRE(veg.videoTrackFxNames.at(1).contains(QStringLiteral("softcontrastvelvetmatter"),
+                                                 Qt::CaseInsensitive));
+    const FxSlot a = fxSlotFromVegName(veg.videoTrackFxNames.at(0));
+    const FxSlot b = fxSlotFromVegName(veg.videoTrackFxNames.at(1));
+    REQUIRE(a.displayName == QStringLiteral("Sepia"));
+    REQUIRE(b.displayName.contains(QStringLiteral("Contrast"), Qt::CaseInsensitive));
+}
+
+TEST_CASE("Opening the FX sample .veg puts Sepia + Soft Contrast on the video track",
+          "[plugins][state][veg][video-fx]")
+{
+    const QString root = SamplePaths::vegProjectDir();
+    if (root.isEmpty()) {
+        SKIP("SAMPLES/veg_project not available");
+    }
+    const QString path =
+        QDir(root).filePath(QStringLiteral("project_big--buck-bunny_4x3-preview-reverse-fades-fx.veg"));
+    if (!QFile::exists(path)) {
+        SKIP("FX sample .veg missing");
+    }
+    QString err;
+    const VegOpenResult veg = VegReader::open(path, &err);
+    REQUIRE(err.isEmpty());
+
+    ProjectModel model;
+    model.applyVegImport(veg, path);
+
+    bool foundVideoTrack = false;
+    for (const Track &tr : model.tracks()) {
+        if (tr.kind != TrackKind::Video) {
+            continue;
+        }
+        foundVideoTrack = true;
+        bool hasSepia = false;
+        bool hasSoftContrast = false;
+        for (const FxSlot &slot : tr.fxChain) {
+            if (slot.displayName == QStringLiteral("Sepia")) {
+                hasSepia = true;
+            }
+            if (slot.displayName.contains(QStringLiteral("Contrast"), Qt::CaseInsensitive)) {
+                hasSoftContrast = true;
+            }
+        }
+        REQUIRE(hasSepia);
+        REQUIRE(hasSoftContrast);
+        break; // first video track
+    }
+    REQUIRE(foundVideoTrack);
 }

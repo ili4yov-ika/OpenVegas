@@ -52,6 +52,7 @@
 | Event FX UX | Done | Video/Audio немодальные окна; пустой audio chain → chooser после FX |
 | VEGAS Shared → builtins | Done | `VegasSharedAudioCatalog` (map + discovery; no LoadLibrary) |
 | VEG Event FX | Done (sample) | Glint из `<Glint>`; без Magix AutoFrame; unit `[video-fx]` |
+| VEG Track FX (video) | Done (sample) | Sepia + Soft Contrast (`<Softlight>` XML, ранее считался «мусором») из `recoverVideoTrackFxNames`; кладётся на первую видеодорожку |
 | VEG chunks | Partial | `CcnK` → `state["chunk"]` |
 
 ### Архитектура (актуально)
@@ -62,8 +63,8 @@
 | Типы | `AudioPluginTypes.h` | `FxSlot`, `hostKey`, VEG name map |
 | Host | `CompositePluginHost` | Builtin / VST1–3 routing |
 | OFX | `OfxHost` | Discover + process + emulated |
-| VEG | `VegReader` | UTF-16 + `recoverVideoEventFxNames` + chunks |
-| UI | `AudioEventFxDialog`, `VideoEventFxDialogExact`, Chooser | Event/Track FX |
+| VEG | `VegReader` | UTF-16 + `recoverVideoEventFxNames`/`recoverVideoTrackFxNames` + chunks |
+| UI | `AudioEventFxDialog` (audio Track FX), `VideoEventFxDialogExact` (video Event FX), `VideoTrackFxDialog` (video Track FX), Chooser | Event/Track FX; общие `KeyframeLaneWidgets.h` + `VegasVideoPluginCatalog::paramsInfoForSlot` |
 
 ### Внутренние / video FX
 
@@ -73,7 +74,8 @@
 | Track Motion | Preview KF (Shadow/Glow — backlog) |
 | Audio builtins | DSP + UI (без бренда «VEGAS ») |
 | Color Corrector / Grading | Preview + UI |
-| Chroma Blur / Glint / Sepia | VEG map + emulated/OFX path; редактор параметров теперь читает реальные params плагина (`OfxHost::paramsForSlot`) с fallback на эвристику; сам рендер через настоящий `.ofx` пока не проходит (см. backlog) |
+| Chroma Blur / Glint / Sepia / Soft Contrast | VEG map + emulated/OFX path; редактор параметров теперь читает реальные params плагина (`OfxHost::paramsForSlot`) с fallback на эвристику; сам рендер через настоящий `.ofx` пока не проходит (см. backlog) |
+| Video Track FX (Sepia + Soft Contrast) | `VideoTrackFxDialog` — цепочка + реальные/приблизительные параметры + keyframe lanes (Lanes/Curves), проверено вживую на `reverse-fades-fx.veg` |
 
 ---
 
@@ -113,6 +115,8 @@
 
 | Дата | Что | Как |
 |------|-----|-----|
+| 2026-08-07 | На видеодорожке `reverse-fades-fx.veg` были эффекты (Sepia + Soft Contrast), но OpenVegas показывал пустую цепочку — `{Svfx:…:sepia}` + `<Softlight>` XML считались «мусором» и просто отбрасывались, никуда не попадая | `VegReader::recoverVideoTrackFxNames` + `ProjectModel::applyVideoTrackFxFromVeg` — распознают ту же пару как **Video Track FX** (эффект `com.vegascreativesoftware:softcontrastvelvetmatter`, пресет «Soft Moderate Contrast», сверено с XML каталога) и кладут на первую видеодорожку; unit + сверено вживую скриншотом |
+| 2026-08-07 | Video Track FX открывал тот же диалог, что и аудио Track FX (`AudioEventFxDialog`) — без параметров/кейфреймов для видео-OFX | Новый `VideoTrackFxDialog` (цепочка + реальные/fallback параметры + keyframe lanes), общий `ui/KeyframeLaneWidgets.h` (вынесен из `VideoEventFxDialogExact`) и `VegasVideoPluginCatalog::paramsInfoForSlot()` как единый источник для Event/Track FX; `MainWindow::onTrackFx` ветвится по `TrackKind::Video`; починен мёртвый пункт «Track FX…» в контекстном меню пустой видеодорожки |
 | 2026-08-07 | Video Event FX: один общий слайдер «Radius» вместо реальных параметров плагина (напр. Chroma Blur — нет Vertical pixels) | `OfxHost::paramsForSlot()` (реальные params из OFX `Describe`) + `VideoEventFxDialogExact::paramsInfoForSlot()` — один источник правды для редактора и для строк кейфреймов |
 | 2026-08-07 | `effectIndexMap`/`ensureModule` не находили реальные Vegas OFX бинарники (`Vfx1.ofx` и др.) — «module not found», `pluginIndex` откатывался на 0 (не тот эффект) | `ScopedOfxDllDirectory` + `ofxInstallRootForBinary` — добавляют корень установки VEGAS в DLL search path на время `LoadLibrary` (зависимости `sharedk.dll`/`OpenColorIO_2_0.dll` лежат в корне, не рядом с `.ofx`) |
 | 2026-08-07 | Найден (не исправлен) более глубокий барьер: настоящие Vegas OFX плагины отвечают на `kOfxActionLoad` статусом `kOfxStatErrMissingHostFeature` → `Describe` никогда не проходит → обработка кадра всегда тихо уходит в CPU-эмуляцию | Задокументировано в `PLAN_VIDEO-AUDIO-PLUGINS-STACK.md` (P4); нужен дизасм, чтобы понять какой host-feature не хватает |
