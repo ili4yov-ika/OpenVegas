@@ -278,6 +278,14 @@ inline bool isColorGradingName(const QString &displayName)
            || n.contains(QLatin1String("colorgrading"), Qt::CaseInsensitive);
 }
 
+inline bool isTitlesTextName(const QString &displayName)
+{
+    const QString n = displayName.trimmed();
+    return n.compare(QLatin1String("Titles & Text"), Qt::CaseInsensitive) == 0
+           || n.compare(QLatin1String("VEGAS Titles & Text"), Qt::CaseInsensitive) == 0
+           || n.contains(QLatin1String("titlesandtext"), Qt::CaseInsensitive);
+}
+
 /** Descriptor for discovery / Plug-In Chooser (not an instance). */
 struct AudioPluginDesc {
     QString id;

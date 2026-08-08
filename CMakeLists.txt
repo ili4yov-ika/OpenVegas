@@ -46,6 +46,9 @@ endif()
     src/ui/PluginChooserDialog.cpp
     src/ui/AudioEventFxDialog.cpp
     src/ui/ColorGradingEditor.cpp
+    src/ui/CollapsibleSection.cpp
+    src/ui/ColorPickerWidget.cpp
+    src/ui/TitlesTextEditorDialog.cpp
     src/ui/ContextMenuBuilder.cpp
     src/ui/FadeCurvePopup.cpp
     src/ui/ExplorerPane.cpp
@@ -105,6 +108,7 @@ endif()
     src/video/PanCropApply.cpp
     src/video/TrackMotionApply.cpp
     src/video/ColorCorrectorApply.cpp
+    src/video/TitlesTextApply.cpp
     src/video/VideoCompositor.cpp
     resources/resources.qrc
 )
@@ -127,6 +131,9 @@ set(OPENVGAS_HEADERS
     src/ui/PluginChooserDialog.h
     src/ui/AudioEventFxDialog.h
     src/ui/ColorGradingEditor.h
+    src/ui/CollapsibleSection.h
+    src/ui/ColorPickerWidget.h
+    src/ui/TitlesTextEditorDialog.h
     src/ui/ContextMenuBuilder.h
     src/ui/FadeCurvePopup.h
     src/ui/ExplorerPane.h
@@ -189,6 +196,7 @@ set(OPENVGAS_HEADERS
     src/video/PanCropApply.h
     src/video/TrackMotionApply.h
     src/video/ColorCorrectorApply.h
+    src/video/TitlesTextApply.h
     src/video/VideoCompositor.h
 )
 
@@ -399,6 +407,7 @@ if(OPENVGAS_BUILD_TESTS)
         src/video/PanCropApply.cpp
         src/video/TrackMotionApply.cpp
         src/video/ColorCorrectorApply.cpp
+        src/video/TitlesTextApply.cpp
         src/video/VideoCompositor.cpp
         src/video/VideoFrameCache.cpp
         src/io/FFmpegStreamDecoder.cpp
@@ -458,6 +467,7 @@ if(OPENVGAS_BUILD_TESTS)
         src/audio/BuiltinDsp.cpp
         src/audio/FadeCurves.cpp
         src/video/VideoKeyframeEval.cpp
+        src/video/TitlesTextApply.cpp
         src/io/RenderTemplateCatalog.cpp
     )
     target_include_directories(openvegas_media_tests PRIVATE

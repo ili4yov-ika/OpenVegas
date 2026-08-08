@@ -3,6 +3,7 @@
 #include "model/ProjectModel.h"
 
 #include <QByteArray>
+#include <QColor>
 #include <QMap>
 #include <QString>
 #include <QStringList>
@@ -31,6 +32,43 @@ struct VegEventInfo {
     double lengthSec = 0.0;
     double playbackRate = 1.0;
     QString name;
+    /** Byte offset of the kindCode field this record was matched at; -1 if not tracked. */
+    int offset = -1;
+};
+
+/**
+ * One `{Svfx:com.vegascreativesoftware:titlesandtext}` generator instance recovered from
+ * the binary, with a best-effort timeline position (see VegReader::parseVideoTitlesText).
+ * Field shapes mirror TitlesTextParams (src/video/TitlesTextApply.h) so ProjectModel can
+ * convert 1:1; kept as its own struct so src/io stays independent of src/video.
+ */
+struct VegTitleTextInfo {
+    QString text;
+    QString fontFamily;
+    double fontSize = 48.0;
+    bool bold = false;
+    bool italic = false;
+    /** 0=Left, 1=Center, 2=Right — best-effort guess, see .cpp. */
+    int alignment = 0;
+    QColor textColor = QColor(255, 255, 255, 255);
+    QString animationName = QStringLiteral("_None");
+    double scale = 1.0;
+    double locationX = 0.5;
+    double locationY = 0.5;
+    bool cropBackgroundToText = false;
+    QColor backgroundColor = QColor(0, 0, 0, 0);
+    double tracking = 0.0;
+    double lineSpacing = 1.0;
+    double outlineWidth = 0.0;
+    QColor outlineColor = QColor(255, 255, 255, 255);
+    bool shadowEnable = false;
+    QColor shadowColor = QColor(0, 0, 0, 255);
+    double shadowOffsetX = 0.2;
+    double shadowOffsetY = 0.2;
+    double shadowBlur = 0.4;
+
+    double startSec = 0.0;
+    double lengthSec = 10.0;
 };
 
 /** Ruler marker recovered from binary marker GUID blocks. */
@@ -86,6 +124,8 @@ struct VegOpenResult {
      */
     bool hasColorGrading = false;
     QVariantMap colorGradingParams;
+    /** VEGAS Titles & Text generator instances recovered from the binary, in timeline order. */
+    QVector<VegTitleTextInfo> titlesAndText;
     /**
      * Media basenames (lower) marked reversed via META:\\SubClip\\…[…][1] or
      * labels containing “(reversed)”.
@@ -123,6 +163,7 @@ private:
     static void parseTrackMotion(const QByteArray &data, VegOpenResult *result);
     static void parsePanCrop(const QByteArray &data, VegOpenResult *result);
     static void parseColorGrading(const QByteArray &data, VegOpenResult *result);
+    static void parseVideoTitlesText(const QByteArray &data, VegOpenResult *result);
     static void parseFxStateChunks(const QByteArray &data, VegOpenResult *result);
     static void assignEventNames(VegOpenResult *result);
 };

@@ -57,6 +57,14 @@ QColor loopBandEdge() { return QColor(90, 170, 255, 200); }
 QColor trackGridMajor() { return QColor(0x2a, 0x2a, 0x2a); }
 QColor trackGridMinor() { return QColor(0x1e, 0x1e, 0x1e); }
 
+/** True for a "generated media" event (e.g. VEGAS Titles & Text) — no media file,
+ *  picture synthesized from its first FX chain slot (see VideoCompositor::compose). */
+bool isGeneratorEvent(const TrackEvent &ev)
+{
+    return ev.mediaPath.isEmpty() && !ev.fxChain.isEmpty()
+           && isTitlesTextName(ev.fxChain.first().displayName);
+}
+
 /** Vegas-style adaptive ruler: major labels ~90–120 px apart, hierarchical ticks. */
 struct RulerTickPlan {
     double majorSec = 1.0;
@@ -600,6 +608,9 @@ void TimelineView::updateEventChromeTooltip(const QPoint &pos)
         switch (btn) {
         case EventChromeButton::PanCrop:
             tip = tr("Event Pan/Crop…\nClick to crop a video event or add animated pan/zoom effects.");
+            break;
+        case EventChromeButton::Generator:
+            tip = tr("Generated Media…\nClick to edit settings for a generated media event.");
             break;
         case EventChromeButton::Fx:
             tip = tr("Event FX…\nClick to add effects to an event or edit event effects.");
@@ -1303,13 +1314,20 @@ QRect TimelineView::eventButtonRect(const Track &track, const TrackEvent &ev, co
         return {};
     }
     const int y = content.bottom() - kEventBtn - 2;
-    // Layout right→left: More, FX, [Pan/Crop for video]
+    // Layout right→left: More, FX, [Pan/Crop for video], [Generator for generated media]
     int xr = content.right() - 2;
     const QRect moreR(xr - kEventBtn, y, kEventBtn, kEventBtn);
     xr = moreR.left() - kEventBtnGap;
     const QRect fxR(xr - kEventBtn, y, kEventBtn, kEventBtn);
     xr = fxR.left() - kEventBtnGap;
     const QRect panR = isVideo ? QRect(xr - kEventBtn, y, kEventBtn, kEventBtn) : QRect();
+    if (isVideo) {
+        xr = panR.left() - kEventBtnGap;
+    }
+    // Narrow clips (common on short generator events) may not have room for a 4th
+    // button — hide it rather than overlap the neighboring clip to the left.
+    const bool genFits = isGeneratorEvent(ev) && (xr - kEventBtn) >= content.left();
+    const QRect genR = genFits ? QRect(xr - kEventBtn, y, kEventBtn, kEventBtn) : QRect();
 
     switch (button) {
     case EventChromeButton::More:
@@ -1318,6 +1336,8 @@ QRect TimelineView::eventButtonRect(const Track &track, const TrackEvent &ev, co
         return fxR;
     case EventChromeButton::PanCrop:
         return panR;
+    case EventChromeButton::Generator:
+        return genR;
     default:
         return {};
     }
@@ -1335,7 +1355,7 @@ TimelineView::EventChromeButton TimelineView::eventButtonAt(const QPoint &pos, H
     }
     const Track &track = m_model->tracks()[hit->trackIndex];
     const EventChromeButton order[] = {EventChromeButton::More, EventChromeButton::Fx,
-                                       EventChromeButton::PanCrop};
+                                       EventChromeButton::PanCrop, EventChromeButton::Generator};
     for (EventChromeButton b : order) {
         const QRect br = eventButtonRect(track, *ev, hit->eventRect, b);
         if (!br.isEmpty() && br.adjusted(-1, -1, 1, 1).contains(pos)) {
@@ -1365,6 +1385,24 @@ void TimelineView::paintCropGlyph(QPainter &p, const QRect &r) const
     // Bottom-right
     p.drawLine(r.right() - m, r.bottom() - m, r.right() - m - len, r.bottom() - m);
     p.drawLine(r.right() - m, r.bottom() - m, r.right() - m, r.bottom() - m - len);
+}
+
+void TimelineView::paintGeneratorGlyph(QPainter &p, const QRect &r) const
+{
+    // Small transparency checkerboard — Vegas's own "generated media" chrome icon.
+    const QRect g = r.adjusted(3, 3, -3, -3);
+    if (g.width() < 2 || g.height() < 2) {
+        return;
+    }
+    p.setPen(Qt::NoPen);
+    const int halfW = g.width() / 2;
+    const int halfH = g.height() / 2;
+    p.setBrush(QColor(235, 235, 240));
+    p.drawRect(g.left(), g.top(), halfW, halfH);
+    p.drawRect(g.left() + halfW, g.top() + halfH, g.width() - halfW, g.height() - halfH);
+    p.setBrush(QColor(120, 120, 130));
+    p.drawRect(g.left() + halfW, g.top(), g.width() - halfW, halfH);
+    p.drawRect(g.left(), g.top() + halfH, halfW, g.height() - halfH);
 }
 
 TimelineView::EventEditMode TimelineView::eventEditModeAt(const QPoint &pos, Hit *outHit) const
@@ -2168,9 +2206,12 @@ void TimelineView::paintEventChrome(QPainter &p, const Track &track, const Track
     };
 
     const EventChromeButton buttons[] = {EventChromeButton::PanCrop, EventChromeButton::Fx,
-                                         EventChromeButton::More};
+                                         EventChromeButton::More, EventChromeButton::Generator};
     for (EventChromeButton b : buttons) {
         if (b == EventChromeButton::PanCrop && !isVideo) {
+            continue;
+        }
+        if (b == EventChromeButton::Generator && !isGeneratorEvent(ev)) {
             continue;
         }
         const QRect br = eventButtonRect(track, ev, r, b);
@@ -2181,7 +2222,9 @@ void TimelineView::paintEventChrome(QPainter &p, const Track &track, const Track
                          || (m_hoverButton == b && m_dragEventId == ev.id);
         // Vegas: event "fx" chip is filled with Track Display Color.
         paintBtnBg(br, hot || (m_hoverButton == b), b == EventChromeButton::Fx);
-        if (b == EventChromeButton::PanCrop) {
+        if (b == EventChromeButton::Generator) {
+            paintGeneratorGlyph(p, br);
+        } else if (b == EventChromeButton::PanCrop) {
             paintCropGlyph(p, br);
         } else if (b == EventChromeButton::Fx) {
             p.setPen(QColor(255, 255, 255, 235));
@@ -2921,6 +2964,9 @@ void TimelineView::mousePressEvent(QMouseEvent *event)
                 m_model->selectEvent(btnHit.eventId, event->modifiers() & Qt::ControlModifier);
                 update();
                 switch (btn) {
+                case EventChromeButton::Generator:
+                    emit eventGeneratorRequested(btnHit.eventId);
+                    break;
                 case EventChromeButton::PanCrop:
                     emit eventPanCropRequested(btnHit.eventId);
                     break;
@@ -3633,7 +3679,8 @@ void TimelineView::dropEvent(QDropEvent *event)
     QStringList kinds;
     QStringList paths;
     QVector<double> lengths;
-    MediaMime::parse(event->mimeData(), &names, &kinds, &paths, &lengths);
+    QStringList extras;
+    MediaMime::parse(event->mimeData(), &names, &kinds, &paths, &lengths, &extras);
     if (names.isEmpty()) {
         event->ignore();
         return;
@@ -3645,9 +3692,10 @@ void TimelineView::dropEvent(QDropEvent *event)
     for (int i = 0; i < names.size(); ++i) {
         const QString kind = i < kinds.size() ? kinds[i] : QString();
         const QString path = i < paths.size() ? paths[i] : QString();
+        const QString extra = i < extras.size() ? extras[i] : QString();
         double len = (i < lengths.size()) ? lengths[i] : 0.0;
         len = MediaProbe::lengthForInsert(path, kind, len);
-        emit mediaDropRequested(names[i], kind, t, trackIndex, len, path);
+        emit mediaDropRequested(names[i], kind, t, trackIndex, len, path, extra);
     }
     event->acceptProposedAction();
 }

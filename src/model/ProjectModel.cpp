@@ -8,6 +8,7 @@
 #include "plugins/BuiltinAudioCatalog.h"
 #include "plugins/VegasVideoPluginCatalog.h"
 #include "audio/BuiltinDsp.h"
+#include "video/TitlesTextApply.h"
 
 #include <QFileInfo>
 #include <QDir>
@@ -810,8 +811,13 @@ int ProjectModel::addGroupedAvMedia(const QString &name, double startSec, double
     return ve.id;
 }
 
+namespace {
+FxSlot titlesTextSlotFor(const TitlesTextParams &p);
+} // namespace
+
 int ProjectModel::addMediaAt(const QString &name, const QString &kind, double startSec,
-                             double lengthSec, int preferTrack, const QString &mediaPath)
+                             double lengthSec, int preferTrack, const QString &mediaPath,
+                             const QString &extra)
 {
     const QString k = kind.toLower();
     const QString path = mediaPath;
@@ -870,6 +876,31 @@ int ProjectModel::addMediaAt(const QString &name, const QString &kind, double st
             }
         }
         return firstId;
+    }
+    if (k == QLatin1String("titles")) {
+        // Generator events land on a video track, same placement rule as stills
+        int vi = preferTrack;
+        if (preferTrack == kDropCreateNewTracks) {
+            vi = addTrack(TrackKind::Video);
+        } else if (vi < 0 || vi >= m_tracks.size() || m_tracks[vi].kind != TrackKind::Video) {
+            vi = ensureTrack(TrackKind::Video);
+        }
+        TitlesTextParams p; // defaults: "Sample Text", Verdana 48pt, white, centered, no animation
+        if (!extra.isEmpty()) {
+            p.animationName = extra;
+        }
+        if (!name.isEmpty()) {
+            p.text = name;
+        }
+        TrackEvent te;
+        te.id = m_nextEventId++;
+        te.name = name.isEmpty() ? QStringLiteral("VEGAS Titles & Text") : name;
+        te.startSec = std::max(0.0, startSec);
+        te.lengthSec = std::max(0.05, resolvedLen);
+        te.mediaKind = EventMediaKind::Title;
+        te.fxChain = {titlesTextSlotFor(p)};
+        m_tracks[vi].events.push_back(te);
+        return te.id;
     }
     if (k == QLatin1String("still") || k == QLatin1String("image")) {
         // Images always land on a video track (Vegas still events)
@@ -1583,6 +1614,7 @@ bool ProjectModel::applyVegImport(const VegOpenResult &veg, const QString &opene
             applyPanCropFromVeg(veg);
             applyColorGradingFromVeg(veg);
             applyVideoTrackFxFromVeg(veg);
+            applyTitlesTextFromVeg(veg);
             applyDefaultTrackDisplayColors();
             backfillEventMediaPaths();
             seedSampleAudioBeatMarkersIfNeeded(openedPath);
@@ -1697,6 +1729,7 @@ bool ProjectModel::applyVegImport(const VegOpenResult &veg, const QString &opene
         applyPanCropFromVeg(veg);
         applyColorGradingFromVeg(veg);
         applyVideoTrackFxFromVeg(veg);
+        applyTitlesTextFromVeg(veg);
         applyDefaultTrackDisplayColors();
         backfillEventMediaPaths();
         seedSampleAudioBeatMarkersIfNeeded(openedPath);
@@ -1764,6 +1797,7 @@ bool ProjectModel::applyVegImport(const VegOpenResult &veg, const QString &opene
     applyPanCropFromVeg(veg);
     applyColorGradingFromVeg(veg);
     applyVideoTrackFxFromVeg(veg);
+    applyTitlesTextFromVeg(veg);
     applyDefaultTrackDisplayColors();
     backfillEventMediaPaths();
     seedSampleAudioBeatMarkersIfNeeded(openedPath);
@@ -1869,6 +1903,152 @@ void ProjectModel::applyVideoTrackFxFromVeg(const VegOpenResult &veg)
         }
         return; // first video track
     }
+}
+
+namespace {
+TitlesTextParams titlesTextParamsFromVeg(const VegTitleTextInfo &src)
+{
+    TitlesTextParams p;
+    p.text = src.text;
+    p.fontFamily = src.fontFamily;
+    p.fontSize = src.fontSize;
+    p.bold = src.bold;
+    p.italic = src.italic;
+    p.alignment = static_cast<TitlesTextAlignment>(std::clamp(src.alignment, 0, 2));
+    p.textColor = src.textColor;
+    p.animationName = src.animationName;
+    p.scale = src.scale;
+    p.locationX = src.locationX;
+    p.locationY = src.locationY;
+    p.cropBackgroundToText = src.cropBackgroundToText;
+    p.backgroundColor = src.backgroundColor;
+    p.tracking = src.tracking;
+    p.lineSpacing = src.lineSpacing;
+    p.outlineWidth = src.outlineWidth;
+    p.outlineColor = src.outlineColor;
+    p.shadowEnable = src.shadowEnable;
+    p.shadowColor = src.shadowColor;
+    p.shadowOffsetX = src.shadowOffsetX;
+    p.shadowOffsetY = src.shadowOffsetY;
+    p.shadowBlur = src.shadowBlur;
+    return p;
+}
+
+FxSlot titlesTextSlotFor(const TitlesTextParams &p)
+{
+    FxSlot slot = makeFxSlot(QStringLiteral("VEGAS Titles & Text"), PluginFormat::Builtin,
+                             QStringLiteral("{Svfx:com.vegascreativesoftware:titlesandtext}"));
+    titlesTextSaveToSlot(&slot, p);
+    return slot;
+}
+} // namespace
+
+void ProjectModel::applyTitlesTextFromVeg(const VegOpenResult &veg)
+{
+    if (veg.titlesAndText.isEmpty()) {
+        return;
+    }
+
+    // Prefer converting existing blank ("no media") video placeholder events in place —
+    // an EDL sidecar import (authoritative for timing/fades/track layout) has no notion
+    // of generators, so it exports each Titles & Text instance as a plain empty VIDEO
+    // clip. Converting in place keeps the EDL's real start/length/crossfades, which is
+    // strictly better than the binary scan's own heuristic timing (see VegTitleTextInfo
+    // doc) used by the fallback below.
+    QVector<TrackEvent *> candidates;
+    for (Track &tr : m_tracks) {
+        if (tr.kind != TrackKind::Video) {
+            continue;
+        }
+        for (TrackEvent &ev : tr.events) {
+            if (ev.mediaKind == EventMediaKind::Video && ev.mediaPath.isEmpty()) {
+                candidates.push_back(&ev);
+            }
+        }
+    }
+    std::sort(candidates.begin(), candidates.end(),
+              [](const TrackEvent *a, const TrackEvent *b) { return a->startSec < b->startSec; });
+
+    if (candidates.size() >= veg.titlesAndText.size()) {
+        for (int i = 0; i < veg.titlesAndText.size(); ++i) {
+            const TitlesTextParams p = titlesTextParamsFromVeg(veg.titlesAndText[i]);
+            TrackEvent *ev = candidates[i];
+            ev->mediaKind = EventMediaKind::Title;
+            ev->fxChain = {titlesTextSlotFor(p)};
+            if (ev->name.isEmpty() || ev->name == QStringLiteral("Video")) {
+                ev->name = p.text.section(QLatin1Char('\n'), 0, 0).left(60);
+            }
+        }
+        return;
+    }
+
+    // Fallback: no (or too few) placeholder events to convert — e.g. an import path
+    // that doesn't pre-create per-instance events. One dedicated track holding every
+    // recovered instance, inserted at the front so it composites on top of the existing
+    // video per VideoCompositor's "index 0 = topmost" convention.
+    const int vi = addTrack(TrackKind::Video);
+    m_tracks[vi].name = QStringLiteral("Titles & Text");
+    m_tracks.move(vi, 0);
+
+    for (const VegTitleTextInfo &src : veg.titlesAndText) {
+        const TitlesTextParams p = titlesTextParamsFromVeg(src);
+        TrackEvent ev;
+        ev.id = m_nextEventId++;
+        ev.name = p.text.section(QLatin1Char('\n'), 0, 0).left(60);
+        if (ev.name.isEmpty()) {
+            ev.name = QStringLiteral("VEGAS Titles & Text");
+        }
+        ev.startSec = src.startSec;
+        ev.lengthSec = std::max(0.05, src.lengthSec);
+        ev.mediaKind = EventMediaKind::Title;
+        ev.fxChain = {titlesTextSlotFor(p)};
+        m_tracks[0].events.push_back(ev);
+    }
+}
+
+int ProjectModel::addTitlesTextEvent(const QString &animationKey, const QString &sampleText)
+{
+    int vi = -1;
+    for (int i = 0; i < m_tracks.size(); ++i) {
+        if (m_tracks[i].kind == TrackKind::Video
+            && m_tracks[i].name == QStringLiteral("Titles & Text")) {
+            vi = i;
+            break;
+        }
+    }
+    if (vi < 0) {
+        vi = addTrack(TrackKind::Video);
+        m_tracks[vi].name = QStringLiteral("Titles & Text");
+        m_tracks.move(vi, 0);
+        vi = 0;
+    }
+
+    double trackEnd = 0.0;
+    for (const TrackEvent &ev : m_tracks[vi].events) {
+        trackEnd = std::max(trackEnd, ev.startSec + ev.lengthSec);
+    }
+    const double startSec = std::max(m_playheadSec, trackEnd);
+
+    TitlesTextParams p; // defaults: "Sample Text", Verdana 48pt, white, centered, no animation
+    if (!animationKey.isEmpty()) {
+        p.animationName = animationKey;
+    }
+    if (!sampleText.isEmpty()) {
+        p.text = sampleText;
+    }
+    FxSlot slot = makeFxSlot(QStringLiteral("VEGAS Titles & Text"), PluginFormat::Builtin,
+                             QStringLiteral("{Svfx:com.vegascreativesoftware:titlesandtext}"));
+    titlesTextSaveToSlot(&slot, p);
+
+    TrackEvent ev;
+    ev.id = m_nextEventId++;
+    ev.name = p.text;
+    ev.startSec = startSec;
+    ev.lengthSec = 10.0;
+    ev.mediaKind = EventMediaKind::Title;
+    ev.fxChain = {slot};
+    m_tracks[vi].events.push_back(ev);
+    return ev.id;
 }
 
 void ProjectModel::applyAudioEventFxFromVeg(const VegOpenResult &veg)

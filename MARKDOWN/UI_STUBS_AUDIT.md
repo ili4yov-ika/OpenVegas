@@ -177,13 +177,15 @@
 Также `BuiltinAudioCatalog.cpp:141-155` — «Third Party» (Auto-Key, GClip, GGate, GMulti, GNormal, GSnap) и «5.1 FX» (Surround Panner) существуют только чтобы список чузера выглядел полным — без DSP.
 
 ### Transitions / Media Generator / Video FX панели — активация косметическая
+**Обновление 2026-08-08:** для `MediaGeneratorPane` эта находка закрыта — см. `ISSUES_AND_PLANS.md` («Исправлено»). Double-click теперь создаёт настоящий timeline-event для Titles & Text (единственный генератор с реальным рендер-бэкендом), и добавлен Drag'n'Drop (плагин-строка + пресет-тайлы → `mimeData`/`startDrag` в `GeneratorDragListWidget`, `dragEnterEvent`/`dropEvent` уже были в `TimelineView` для media-дропов). Остальные генераторы (Checkerboard, Color Gradient, …) и обе других панели (`TransitionsPane`, `VideoFxPane`) — по-прежнему как описано ниже (косметическая активация, drag-and-drop не реализован).
+
 `MainWindow.cpp:1553-1601` — во всех трёх панелях активация элемента (даблклик/Enter) подключена одинаково:
 ```cpp
 connect(m_transitions, &TransitionsPane::transitionActivated, this, [this](const QString &name) {
     statusBar()->showMessage(tr("Transition: %1").arg(name), 2500);
 });
 ```
-То же для `MediaGeneratorPane` и `VideoFxPane` (кроме добавления через кнопку/двойной клик именно в Video FX пейне на клипе, см. `VideoFxPane::pluginActivated` — тот путь, что реально работает, отличается от этого). Drag-and-drop не реализован (`grep` по `mimeData`/`startDrag`/`dropEvent` в `TransitionsPane.cpp`/`MediaGeneratorPane.cpp` — пусто). Визуально полностью готовые панели (превью, категории, поиск) не вставляют переход/генератор на таймлайн через double-click.
+То же для `VideoFxPane` (кроме добавления через кнопку/двойной клик именно в Video FX пейне на клипе, см. `VideoFxPane::pluginActivated` — тот путь, что реально работает, отличается от этого) и для `TransitionsPane`. Drag-and-drop не реализован ни там, ни там (`grep` по `mimeData`/`startDrag`/`dropEvent` в `TransitionsPane.cpp` — пусто). Визуально полностью готовые панели (превью, категории, поиск) не вставляют переход на таймлайн через double-click или DnD.
 
 ### CD Audio
 `src/io/CdAudioReader.h:23` — «Windows CDDA: TOC + raw sector rip to WAV. Stub elsewhere.» — File → Extract Audio from CD… работает только на Windows, на остальных платформах — заглушка.
@@ -194,7 +196,7 @@ connect(m_transitions, &TransitionsPane::transitionActivated, this, [this](const
 
 - `ExplorerPane.cpp` — Rename/Cut/Copy/Remove в контекстном меню пустой области disabled — это ожидаемо (нет выделения), не баг.
 - `MediaThumbCache` — плейсхолдеры превью — легитимный паттерн асинхронной подгрузки.
-- Explorer/Generators/Transitions панели как таковые уже отмечены в `ISSUES_AND_PLANS.md` («Неработающие / backlog») как «Placeholders» — этот файл уточняет: панели **визуально не заглушки** (полноценный UI), проблема именно в отсутствии insert-действия.
+- Explorer/Transitions панели как таковые уже отмечены в `ISSUES_AND_PLANS.md` («Неработающие / backlog») как «Placeholders» — этот файл уточняет: панели **визуально не заглушки** (полноценный UI), проблема именно в отсутствии insert-действия. (Media Generator для Titles & Text из этого списка исключён — 2026-08-08, insert-действие есть.)
 - Shadow/Glow/blend/mask interpolate, soft bypass fade, `.prproj`/`.veg` write — уже в roadmap `PLAN_VIDEOAUDIOSTACK.md`/`PLAN_VIDEO-AUDIO-PLUGINS-STACK.md`.
 
 ---
@@ -202,7 +204,7 @@ connect(m_transitions, &TransitionsPane::transitionActivated, this, [this](const
 ## Приоритеты (предложение)
 
 1. **File → Save/Save As** — сейчас это самая заметная дыра: пункты меню выглядят как рабочие (со стандартными Ctrl+S/Ctrl+Shift+S шорткатами через `addStub`, хоть шорткаты и не назначаются — см. комментарий в коде), но ничего не сохраняют. Либо реализовать запись, либо явно задизейблить/переименовать, чтобы не вводить в заблуждение.
-2. **Transitions/Media Generator/Video FX panes** — insert-по-двойному-клику или drag&drop на таймлайн; сейчас полностью готовый браузер контента ни на что не годен, кроме просмотра превью.
+2. **Transitions/Video FX panes** — insert-по-двойному-клику или drag&drop на таймлайн; сейчас полностью готовый браузер контента ни на что не годен, кроме просмотра превью. (Media Generator для Titles & Text уже сделан — 2026-08-08.)
 3. **VEGAS Shared `CatalogOnly` эффекты** — либо пометить в UI чузера (например суффиксом «(no DSP)»), либо скрыть из списка до реализации.
 4. **Video Event FX (`VideoEventFxDialog`, старый)** — проверить, не является ли он мёртвым кодом, если весь flow уже идёт через `VideoEventFxDialogExact`; если мёртв — удалить, а не оставлять диалог с фейковыми параметрами.
 5. Остальное (Editing Tool submenu, Group/Switches/Channels в Edit, Compositing Mode blend-режимы, Time Display/Split Screen/Preview context-меню) — низкий приоритет, это Vegas-паритет «для галочки», а не блокер базового редактирования.

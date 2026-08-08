@@ -4,13 +4,16 @@
 #include <QString>
 #include <QVector>
 #include <QColor>
+#include <QModelIndex>
 
 class QLineEdit;
 class QListWidget;
+class QListWidgetItem;
 class QLabel;
 class QButtonGroup;
 class QHBoxLayout;
 class QSplitter;
+class QTimer;
 
 namespace openvegas {
 
@@ -44,6 +47,12 @@ public:
         QColor c0;
         QColor c1;
         int tile = 8;
+        /**
+         * Non-empty for a real Titles & Text animation preset (a
+         * titlesTextAnimationPresets() key) — presetIcon() renders real animated text
+         * for these instead of the abstract pattern above.
+         */
+        QString animationKey;
     };
 
     struct Plugin {
@@ -59,7 +68,9 @@ public:
 
 signals:
     void generatorActivated(const QString &name);
-    void presetActivated(const QString &generatorName, const QString &presetName);
+    /** animationKey is non-empty only for a real Titles & Text preset (see Preset::animationKey). */
+    void presetActivated(const QString &generatorName, const QString &presetName,
+                         const QString &animationKey = QString());
 
 private:
     void buildUi();
@@ -69,7 +80,9 @@ private:
     void rebuildPluginList();
     void showPlugin(int catalogIndex);
     void applySearchAndCategory();
-    QIcon presetIcon(const Preset &p) const;
+    QIcon presetIcon(const Preset &p, double progress = 1.0) const;
+    void onPresetHoverEntered(const QModelIndex &index);
+    void onHoverTick();
 
     QVector<Plugin> m_plugins;
     int m_currentIndex = -1;
@@ -82,6 +95,11 @@ private:
     QLabel *m_metaLine1 = nullptr;
     QLabel *m_metaLine2 = nullptr;
     QSplitter *m_splitter = nullptr;
+
+    /** Animated hover preview for the preset under the cursor (see onHoverTick()). */
+    QTimer *m_hoverTimer = nullptr;
+    int m_hoverRow = -1;
+    qint64 m_hoverStartMs = 0;
 };
 
 } // namespace openvegas

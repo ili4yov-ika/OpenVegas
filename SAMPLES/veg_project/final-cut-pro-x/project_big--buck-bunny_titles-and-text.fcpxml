@@ -1,0 +1,28 @@
+﻿<?xml version="1.0"?>
+<fcpxml version="1.2">
+	<project name="Untitled Project 1">
+		<resources>
+			<format id="r1" name="FFVideoFormatRateUndefined" frameDuration="100/6000s" width="3840" height="2160" />
+			<projectRef id="r2" name="Untitled Project 1" />
+			<format id="r3" frameDuration="100/6000s" width="3840" height="2160" />
+			<asset id="r4" name="big-buck-bunny_video-60fps-4k-19" projectRef="r2" src="file://localhost/D:/Devs/C++/OpenVegas/SAMPLES/veg_project/final-cut-pro-x/big-buck-bunny_video-60fps-4k-19.mp4" start="0/6000s" hasVideo="1" hasAudio="1" />
+			<effect id="r5" name="Cross Dissolve" uid="FxPlug:4731E73A-8DAC-4113-9A30-AE85B1761265" />
+		</resources>
+		<sequence duration="1589400/6000s" format="r1" tcFormat="NDF" audioLayout="stereo" audioRate="48k">
+			<spine>
+				<clip duration="0s">
+					<spine lane="-2">
+						<audio ref="r4" duration="1555300/6000s" start="0/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="1541300/6000s" ref="r5" name="Cross Dissolve" duration="28000/6000s" />
+						<audio offset="1555300/6000s" ref="r4" duration="34100/6000s" start="1603400/6000s" srcID="1" srcCh="1, 2" />
+					</spine>
+					<spine lane="-1">
+						<video ref="r4" duration="1569300/6000s" start="0/6000s" />
+					</spine>
+				</clip>
+				<transition offset="1541300/6000s" ref="r5" name="Cross Dissolve" duration="6000/6000s" />
+				<video offset="1544300/6000s" ref="r4" duration="45100/6000s" start="1592400/6000s" />
+			</spine>
+		</sequence>
+	</project>
+</fcpxml>

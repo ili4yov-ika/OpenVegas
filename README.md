@@ -31,6 +31,7 @@
 | Event FX UI (Video / Audio, немодальные) | Done |
 | Render As (FFmpeg) + progress UI | Done |
 | NLE interchange (Vegas CSV / FCP7 / FCPX / Premiere scrape) | Done MVP |
+| Media Generator — VEGAS Titles & Text (анимации, hover-preview, Drag'n'Drop) | Done MVP |
 
 Подробности и backlog: [`MARKDOWN/ISSUES_AND_PLANS.md`](MARKDOWN/ISSUES_AND_PLANS.md), [`MARKDOWN/PLAN_VIDEOAUDIOSTACK.md`](MARKDOWN/PLAN_VIDEOAUDIOSTACK.md), [`MARKDOWN/PLAN_VIDEO-AUDIO-PLUGINS-STACK.md`](MARKDOWN/PLAN_VIDEO-AUDIO-PLUGINS-STACK.md).
 

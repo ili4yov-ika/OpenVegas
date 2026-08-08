@@ -105,8 +105,16 @@ QMimeData *MediaMime::fromLocalPaths(const QStringList &paths)
     return md;
 }
 
+QMimeData *MediaMime::fromSynthetic(const QString &kind, const QString &name, const QString &extra)
+{
+    auto *md = new QMimeData;
+    md->setData(mimeType(), QStringLiteral("%1\n%2\n\n0\n%3").arg(kind, name, extra).toUtf8());
+    md->setText(name);
+    return md;
+}
+
 void MediaMime::parse(const QMimeData *md, QStringList *names, QStringList *kinds, QStringList *paths,
-                      QVector<double> *lengths)
+                      QVector<double> *lengths, QStringList *extras)
 {
     if (!md || !names) {
         return;
@@ -121,6 +129,9 @@ void MediaMime::parse(const QMimeData *md, QStringList *names, QStringList *kind
     if (lengths) {
         lengths->clear();
     }
+    if (extras) {
+        extras->clear();
+    }
 
     QStringList rawPaths;
 
@@ -133,6 +144,7 @@ void MediaMime::parse(const QMimeData *md, QStringList *names, QStringList *kind
             QString name;
             QString path;
             double len = 0.0;
+            QString extra;
             if (parts.size() >= 2) {
                 kind = parts[0].trimmed();
                 name = parts[1].trimmed();
@@ -142,6 +154,9 @@ void MediaMime::parse(const QMimeData *md, QStringList *names, QStringList *kind
             }
             if (parts.size() >= 4) {
                 len = parts[3].trimmed().toDouble();
+            }
+            if (parts.size() >= 5) {
+                extra = parts[4].trimmed();
             }
             if (!path.isEmpty()) {
                 rawPaths << path;
@@ -160,6 +175,9 @@ void MediaMime::parse(const QMimeData *md, QStringList *names, QStringList *kind
                 }
                 if (lengths) {
                     lengths->push_back(len);
+                }
+                if (extras) {
+                    extras->push_back(extra);
                 }
             }
         }
@@ -192,6 +210,9 @@ void MediaMime::parse(const QMimeData *md, QStringList *names, QStringList *kind
                 if (lengths) {
                     lengths->push_back(0.0);
                 }
+                if (extras) {
+                    extras->push_back(QString());
+                }
             }
         }
     }
@@ -223,6 +244,9 @@ void MediaMime::parse(const QMimeData *md, QStringList *names, QStringList *kind
         }
         if (lengths) {
             lengths->push_back(lenByPath.value(QDir::cleanPath(path), 0.0));
+        }
+        if (extras) {
+            extras->push_back(QString());
         }
     }
 }

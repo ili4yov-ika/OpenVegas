@@ -24,6 +24,7 @@
 #include "ui/ExtractAudioFromCdDialog.h"
 #include "ui/RateSlider.h"
 #include "ui/VideoEventFxDialogExact.h"
+#include "ui/TitlesTextEditorDialog.h"
 #include "ui/VideoTrackFxDialog.h"
 #include "ui/AudioEventFxDialog.h"
 #include "ui/TrackMotionDialog.h"
@@ -1573,10 +1574,18 @@ void MainWindow::setupMediaGenerator()
     ui->generatorsLayout->addWidget(m_mediaGen);
 
     connect(m_mediaGen, &MediaGeneratorPane::generatorActivated, this, [this](const QString &name) {
+        if (name.compare(QStringLiteral("Titles & Text"), Qt::CaseInsensitive) == 0) {
+            createTitlesTextEvent();
+            return;
+        }
         statusBar()->showMessage(tr("Media Generator: %1").arg(name), 2500);
     });
     connect(m_mediaGen, &MediaGeneratorPane::presetActivated, this,
-            [this](const QString &gen, const QString &preset) {
+            [this](const QString &gen, const QString &preset, const QString &animationKey) {
+                if (gen.compare(QStringLiteral("Titles & Text"), Qt::CaseInsensitive) == 0) {
+                    createTitlesTextEvent(animationKey, preset);
+                    return;
+                }
                 statusBar()->showMessage(tr("Preset «%1» — %2").arg(preset, gen), 2500);
             });
 }
@@ -1997,6 +2006,9 @@ void MainWindow::setupTimeline()
 
     connect(m_timeline, &TimelineView::eventDoubleClicked, this, &MainWindow::openEventProperties);
     connect(m_timeline, &TimelineView::eventContextMenuRequested, this, &MainWindow::showEventContextMenu);
+    connect(m_timeline, &TimelineView::eventGeneratorRequested, this, [this](int eventId) {
+        openTitlesTextEditor(m_project.findEvent(eventId));
+    });
     connect(m_timeline, &TimelineView::eventFxRequested, this, [this](int eventId) {
         TrackEvent *ev = m_project.findEvent(eventId);
         if (!ev) {
@@ -2051,7 +2063,7 @@ void MainWindow::setupTimeline()
     });
     connect(m_timeline, &TimelineView::mediaDropRequested, this,
             [this](const QString &name, const QString &kindIn, double timeSec, int trackIndex,
-                   double lengthSec, const QString &path) {
+                   double lengthSec, const QString &path, const QString &extra) {
                 // Folders / multi-select from OS: path may already be expanded by MediaMime;
                 // still re-expand when a directory slips through.
                 QStringList placePaths;
@@ -2063,7 +2075,8 @@ void MainWindow::setupTimeline()
                 }
 
                 beginDocumentEdit();
-                auto placeOne = [&](const QString &n, const QString &kIn, const QString &p) {
+                auto placeOne = [&](const QString &n, const QString &kIn, const QString &p,
+                                    const QString &ex) {
                     const QString kind = kIn.isEmpty() ? MediaMime::guessKind(p.isEmpty() ? n : p) : kIn;
                     const double len = MediaProbe::lengthForInsert(p, kind, lengthSec);
                     if (!p.isEmpty()) {
@@ -2086,7 +2099,7 @@ void MainWindow::setupTimeline()
                             refreshMediaEmptyState();
                         }
                     }
-                    m_project.addMediaAt(n, kind, timeSec, len, trackIndex, p);
+                    m_project.addMediaAt(n, kind, timeSec, len, trackIndex, p, ex);
                 };
 
                 if (!placePaths.isEmpty()) {
@@ -2094,19 +2107,25 @@ void MainWindow::setupTimeline()
                     double t = timeSec;
                     for (const QString &p : placePaths) {
                         const QString n = QFileInfo(p).fileName();
-                        placeOne(n, MediaMime::guessKind(p), p);
+                        placeOne(n, MediaMime::guessKind(p), p, QString());
                         t += 0.0; // same start like Vegas multi-drop; keep aligned
                         Q_UNUSED(t);
                     }
                 } else {
-                    placeOne(name, kindIn, path);
+                    placeOne(name, kindIn, path, extra);
                 }
                 commitDocumentEdit(tr("Drop Media"));
 
                 refreshTimeline();
                 refreshPreviewFrame(m_project.playheadSec());
-                statusBar()->showMessage(
-                    tr("Dropped media at %1").arg(m_project.formatRulerTime(timeSec)), 3000);
+                if (kindIn.compare(QStringLiteral("titles"), Qt::CaseInsensitive) == 0) {
+                    statusBar()->showMessage(
+                        tr("Dropped «%1» — Titles & Text").arg(name.isEmpty() ? tr("Sample Text") : name),
+                        3000);
+                } else {
+                    statusBar()->showMessage(
+                        tr("Dropped media at %1").arg(m_project.formatRulerTime(timeSec)), 3000);
+                }
             });
 }
 
@@ -3610,6 +3629,51 @@ void MainWindow::onVideoEventFx(int eventId)
     m_videoEventFx->activateWindow();
 }
 
+void MainWindow::openTitlesTextEditor(TrackEvent *ev)
+{
+    if (!ev) {
+        return;
+    }
+    if (!m_titlesTextEditor) {
+        m_titlesTextEditor = new TitlesTextEditorDialog(this);
+        connect(m_titlesTextEditor, &TitlesTextEditorDialog::previewInvalidated, this, [this] {
+            refreshPreviewFrame(m_project.playheadSec());
+        });
+        connect(m_titlesTextEditor, &TitlesTextEditorDialog::durationChanged, this, [this] {
+            if (m_timeline) {
+                m_timeline->update();
+            }
+        });
+        connect(m_titlesTextEditor, &QDialog::finished, this, [this](int) {
+            commitDocumentEdit(tr("Titles & Text"));
+            if (m_timeline) {
+                m_timeline->update();
+            }
+        });
+    } else if (m_titlesTextEditor->isVisible()) {
+        commitDocumentEdit(tr("Titles & Text"));
+    }
+
+    beginDocumentEdit();
+    m_titlesTextEditor->setEvent(ev, m_project.frameWidth(), m_project.frameHeight());
+    m_titlesTextEditor->show();
+    m_titlesTextEditor->raise();
+    m_titlesTextEditor->activateWindow();
+}
+
+void MainWindow::createTitlesTextEvent(const QString &animationKey, const QString &sampleText)
+{
+    int newEventId = -1;
+    runDocumentEdit(tr("Add Titles & Text"), [this, &newEventId, &animationKey, &sampleText]() {
+        newEventId = m_project.addTitlesTextEvent(animationKey, sampleText);
+    });
+    refreshTimeline();
+    TrackEvent *ev = m_project.findEvent(newEventId);
+    if (ev) {
+        openTitlesTextEditor(ev);
+    }
+}
+
 void MainWindow::ensureAudioFxDialog()
 {
     if (m_audioEventFx) {
@@ -3943,6 +4007,10 @@ void MainWindow::openEventProperties(int eventId)
 {
     TrackEvent *ev = m_project.findEvent(eventId);
     if (!ev) {
+        return;
+    }
+    if (!ev->fxChain.isEmpty() && isTitlesTextName(ev->fxChain.first().displayName)) {
+        openTitlesTextEditor(ev);
         return;
     }
     EventPropertiesDialog dlg(this);

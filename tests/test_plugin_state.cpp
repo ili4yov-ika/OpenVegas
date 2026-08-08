@@ -161,3 +161,50 @@ TEST_CASE("VegReader converts Track Motion rotationZ from turns to radians",
     const double rotationZ = veg.trackMotion.motionKeyframes.first().rotationZ;
     REQUIRE(rotationZ == Catch::Approx(2.0 * M_PI).epsilon(1e-6));
 }
+
+TEST_CASE("VegReader recovers VEGAS Titles & Text generator instances",
+          "[plugins][state][veg][titles-and-text]")
+{
+    const QString root = SamplePaths::vegProjectDir();
+    if (root.isEmpty()) {
+        SKIP("SAMPLES/veg_project not available");
+    }
+    const QString path =
+        QDir(root).filePath(QStringLiteral("project_big--buck-bunny_titles-and-text.veg"));
+    if (!QFile::exists(path)) {
+        SKIP("Titles & Text sample .veg missing");
+    }
+    QString err;
+    const VegOpenResult veg = VegReader::open(path, &err);
+    REQUIRE(err.isEmpty());
+
+    // Reverse-engineered against the real file: 55 real generator instances (a second,
+    // param-less echo of the plugin id per instance is filtered out — see
+    // VegReader::parseVideoTitlesText). Timing is a best-effort order-correlation
+    // heuristic against the binary timeline scan (documented as such, not a structural
+    // guarantee), and parseTimelineEvents itself occasionally yields a slightly
+    // overlapping match on real files — so timing is checked loosely (a handful of
+    // small/rare gaps is fine; a systemic breakdown is not), while text/font recovery,
+    // which has no such excuse, is checked exactly.
+    REQUIRE(veg.titlesAndText.size() >= 40);
+
+    bool foundSampleText1 = false;
+    double prevEnd = -1.0;
+    int badGaps = 0;
+    for (const VegTitleTextInfo &t : veg.titlesAndText) {
+        REQUIRE_FALSE(t.text.isEmpty());
+        REQUIRE_FALSE(t.text.contains(QLatin1Char('\\'))); // no leftover RTF control words
+        REQUIRE(t.lengthSec > 0.0);
+        if (t.startSec + 0.5 < prevEnd) {
+            ++badGaps;
+        }
+        prevEnd = t.startSec + t.lengthSec;
+        if (t.text.contains(QStringLiteral("Sample Text 1"))) {
+            foundSampleText1 = true;
+            REQUIRE(t.fontFamily.compare(QStringLiteral("Verdana"), Qt::CaseInsensitive) == 0);
+            REQUIRE(t.fontSize == Catch::Approx(48.0));
+        }
+    }
+    REQUIRE(foundSampleText1);
+    REQUIRE(badGaps <= 2);
+}

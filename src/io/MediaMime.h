@@ -25,9 +25,19 @@ public:
     /** Build MIME for timeline / bin (openvegas + text + urls). */
     static QMimeData *fromLocalPaths(const QStringList &paths);
 
-    /** Parse drag payload into parallel lists (filtered to media when possible). */
+    /**
+     * Build MIME for a path-less synthetic drag source (e.g. a Media Generator preset).
+     * extra carries kind-specific payload — e.g. a Titles & Text animation key.
+     */
+    static QMimeData *fromSynthetic(const QString &kind, const QString &name,
+                                    const QString &extra = QString());
+
+    /**
+     * Parse drag payload into parallel lists (filtered to media when possible).
+     * extras carries the synthetic per-entry payload (e.g. animation key) when present.
+     */
     static void parse(const QMimeData *md, QStringList *names, QStringList *kinds, QStringList *paths,
-                      QVector<double> *lengths);
+                      QVector<double> *lengths, QStringList *extras = nullptr);
 
     static bool hasMediaPayload(const QMimeData *md);
 };

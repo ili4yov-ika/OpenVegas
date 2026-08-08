@@ -628,6 +628,7 @@ void VegReader::parseTimelineEvents(const QByteArray &data, VegOpenResult *resul
         ev.startSec = static_cast<double>(startTicks) / static_cast<double>(kTicksPerSec);
         ev.lengthSec = static_cast<double>(lengthTicks) / static_cast<double>(kTicksPerSec);
         ev.playbackRate = rate;
+        ev.offset = off - 8;
         raw.push_back(ev);
     }
 
@@ -833,6 +834,7 @@ VegOpenResult VegReader::open(const QString &path, QString *error)
     parseTrackMotion(data, &result);
     parsePanCrop(data, &result);
     parseColorGrading(data, &result);
+    parseVideoTitlesText(data, &result);
     parseFxStateChunks(data, &result);
     assignEventNames(&result);
 
@@ -1350,6 +1352,277 @@ void VegReader::parseColorGrading(const QByteArray &data, VegOpenResult *result)
     }
     if (curve.size() >= 2) {
         result->colorGradingParams.insert(QStringLiteral("curve.rgb"), curve);
+    }
+}
+
+void VegReader::parseVideoTitlesText(const QByteArray &data, VegOpenResult *result)
+{
+    if (!result || data.size() < 64) {
+        return;
+    }
+
+    auto toUtf16Le = [](const QString &s) -> QByteArray {
+        QByteArray n;
+        n.resize(s.size() * 2);
+        for (int i = 0; i < s.size(); ++i) {
+            const ushort c = s.at(i).unicode();
+            n[i * 2] = char(c & 0xFF);
+            n[i * 2 + 1] = char((c >> 8) & 0xFF);
+        }
+        return n;
+    };
+
+    const QByteArray marker =
+        toUtf16Le(QStringLiteral("{Svfx:com.vegascreativesoftware:titlesandtext}"));
+    if (!data.contains(marker)) {
+        return;
+    }
+
+    /*
+     * Each instance stores params as a sequence of named-property records:
+     *   int32 valueByteLen; int32 nameByteLen; UTF-16LE name[nameByteLen] (incl. NUL);
+     *   value[valueByteLen] (ends in a trailing int32, 0 in every static sample seen —
+     *   likely a keyframe/curve-point count; animated params aren't handled here).
+     * Vegas also echoes the plugin id a second time per instance with no properties of
+     * its own (a class/preset-id reference) — findNameValue()'s window bound plus the
+     * "has a decodable Text" filter below naturally skips it without an explicit rule.
+     */
+    constexpr int kWindow = 2000;
+    auto findNameValue = [&](const QString &name, int from) -> QByteArray {
+        const QByteArray nameBytes = toUtf16Le(name);
+        const int searchEnd = int(std::min<qsizetype>(data.size(), from + kWindow));
+        const int idx = data.indexOf(nameBytes, from);
+        if (idx < 0 || idx >= searchEnd || idx < 8) {
+            return {};
+        }
+        const auto *base = reinterpret_cast<const uchar *>(data.constData());
+        const qint32 valueLen = qFromLittleEndian<qint32>(base + idx - 8);
+        const qint32 nameLen = qFromLittleEndian<qint32>(base + idx - 4);
+        const qint32 expectedNameLen = qint32((name.size() + 1) * 2);
+        if (nameLen != expectedNameLen || valueLen < 0) {
+            return {};
+        }
+        const int valueStart = idx + nameLen;
+        if (valueStart + valueLen > data.size()) {
+            return {};
+        }
+        return data.mid(valueStart, valueLen);
+    };
+    auto readDouble = [&](const QString &name, int from, double def) {
+        const QByteArray v = findNameValue(name, from);
+        if (v.size() < 8) {
+            return def;
+        }
+        const double d = qFromLittleEndian<double>(reinterpret_cast<const uchar *>(v.constData()));
+        return std::isfinite(d) ? d : def;
+    };
+    auto readInt = [&](const QString &name, int from, int def) {
+        const QByteArray v = findNameValue(name, from);
+        return v.size() < 4
+                   ? def
+                   : qFromLittleEndian<qint32>(reinterpret_cast<const uchar *>(v.constData()));
+    };
+    auto readBool = [&](const QString &name, int from, bool def) {
+        return readInt(name, from, def ? 1 : 0) != 0;
+    };
+    auto readColor = [&](const QString &name, int from, QColor def) {
+        const QByteArray v = findNameValue(name, from);
+        if (v.size() < 32) {
+            return def;
+        }
+        const auto *p = reinterpret_cast<const uchar *>(v.constData());
+        auto c01 = [](double x) { return std::clamp(x, 0.0, 1.0); };
+        QColor c;
+        c.setRgbF(c01(qFromLittleEndian<double>(p)), c01(qFromLittleEndian<double>(p + 8)),
+                 c01(qFromLittleEndian<double>(p + 16)), c01(qFromLittleEndian<double>(p + 24)));
+        return c;
+    };
+    auto readString = [&](const QString &name, int from, const QString &def) {
+        const QByteArray v = findNameValue(name, from);
+        if (v.size() < 4) {
+            return def;
+        }
+        const qint32 strLen =
+            qFromLittleEndian<qint32>(reinterpret_cast<const uchar *>(v.constData()));
+        if (strLen < 0 || 4 + strLen > v.size()) {
+            return def;
+        }
+        QString s = QString::fromUtf16(reinterpret_cast<const char16_t *>(v.constData() + 4),
+                                       strLen / 2);
+        while (!s.isEmpty() && s.endsWith(QChar(u'\0'))) {
+            s.chop(1);
+        }
+        return s;
+    };
+
+    // RTF-lite: single uniform run assumed for font/size/bold/alignment (matches the
+    // dialog's own toolbar — one font, one size, Bold/Italic, one alignment); every
+    // \parN-terminated segment's plain text is still joined so multi-line titles (e.g.
+    // headline + subtitle, each its own run) keep their full text even though the
+    // per-line formatting difference is lost.
+    auto parseRtf = [](const QString &rtf, QString *outText, QString *outFont, double *outSize,
+                       bool *outBold, int *outAlign) {
+        *outFont = QStringLiteral("Verdana");
+        *outSize = 48.0;
+        *outBold = false;
+        *outAlign = 0;
+        outText->clear();
+        if (rtf.isEmpty()) {
+            return;
+        }
+
+        static const QRegularExpression fontRe(QStringLiteral("\\\\fcharset\\d+\\s+([^;]+);"));
+        const auto fontMatch = fontRe.match(rtf);
+        if (fontMatch.hasMatch()) {
+            *outFont = fontMatch.captured(1).trimmed();
+        }
+        static const QRegularExpression sizeRe(QStringLiteral("\\\\fs(\\d+)"));
+        const auto sizeMatch = sizeRe.match(rtf);
+        if (sizeMatch.hasMatch()) {
+            *outSize = sizeMatch.captured(1).toDouble() / 2.0;
+        }
+        if (rtf.contains(QLatin1String("\\b ")) || rtf.contains(QLatin1String("\\b\\"))) {
+            *outBold = true;
+        }
+        if (rtf.contains(QLatin1String("\\qc"))) {
+            *outAlign = 1;
+        } else if (rtf.contains(QLatin1String("\\qr"))) {
+            *outAlign = 2;
+        }
+
+        QString body = rtf;
+        const int tblStart = body.indexOf(QLatin1String("{\\fonttbl"));
+        if (tblStart >= 0) {
+            int depth = 0;
+            int i = tblStart;
+            for (; i < body.size(); ++i) {
+                if (body.at(i) == QLatin1Char('{')) {
+                    ++depth;
+                } else if (body.at(i) == QLatin1Char('}')) {
+                    --depth;
+                    if (depth == 0) {
+                        ++i;
+                        break;
+                    }
+                }
+            }
+            body.remove(tblStart, i - tblStart);
+        }
+
+        // Word-boundary-anchored: a plain "\par" substring replace would also match
+        // (and mangle) "\pard", which starts with the same four characters.
+        static const QRegularExpression parBreak(QStringLiteral("\\\\par\\b"));
+        body.replace(parBreak, QStringLiteral("\n"));
+        static const QRegularExpression ctrlWord(QStringLiteral("\\\\[a-zA-Z]+-?\\d*\\s?"));
+        body.remove(ctrlWord);
+        body.remove(QLatin1Char('{'));
+        body.remove(QLatin1Char('}'));
+        body.remove(QLatin1Char('\r'));
+        *outText = body.trimmed();
+    };
+
+    // Every marker occurrence with a decodable "Text" property nearby is a real
+    // instance; the plugin-id echo (see comment above) has none and is skipped.
+    QVector<int> instanceOffsets;
+    for (int pos = 0;;) {
+        const int idx = data.indexOf(marker, pos);
+        if (idx < 0) {
+            break;
+        }
+        pos = idx + 1;
+        if (!findNameValue(QStringLiteral("Text"), idx).isEmpty()) {
+            instanceOffsets.push_back(idx);
+        }
+    }
+    if (instanceOffsets.isEmpty()) {
+        return;
+    }
+
+    // Video-kind timeline records, ascending by offset, excluding gross length outliers
+    // (the full-span background video clip this demo project's titles sit over — not a
+    // title itself, and far longer than any of them).
+    QVector<VegEventInfo> videoTimings;
+    for (const VegEventInfo &ev : result->events) {
+        if (ev.kind == VegEventInfo::Kind::Video && ev.offset >= 0) {
+            videoTimings.push_back(ev);
+        }
+    }
+    std::sort(videoTimings.begin(), videoTimings.end(),
+              [](const VegEventInfo &a, const VegEventInfo &b) { return a.offset < b.offset; });
+    if (videoTimings.size() > 2) {
+        QVector<double> lens;
+        lens.reserve(videoTimings.size());
+        for (const VegEventInfo &e : videoTimings) {
+            lens.push_back(e.lengthSec);
+        }
+        std::sort(lens.begin(), lens.end());
+        const double median = lens[lens.size() / 2];
+        QVector<VegEventInfo> filtered;
+        for (const VegEventInfo &e : videoTimings) {
+            if (e.lengthSec <= median * 3.0 + 1.0) {
+                filtered.push_back(e);
+            }
+        }
+        if (!filtered.isEmpty()) {
+            videoTimings = filtered;
+        }
+    }
+
+    // Pair instances with timing records by ascending order (verified against a real
+    // sample project — not a structural guarantee). Any instance beyond the available
+    // timing records falls back to sequential default-length placement.
+    double fallbackStart = 0.0;
+    result->titlesAndText.reserve(instanceOffsets.size());
+    for (int i = 0; i < instanceOffsets.size(); ++i) {
+        const int off = instanceOffsets[i];
+        VegTitleTextInfo t;
+
+        const QString rtf = readString(QStringLiteral("Text"), off, QString());
+        QString font, plainText;
+        double fontSize = 48.0;
+        bool bold = false;
+        int align = 0;
+        parseRtf(rtf, &plainText, &font, &fontSize, &bold, &align);
+        t.text = plainText.isEmpty() ? QStringLiteral("Sample Text") : plainText;
+        t.fontFamily = font;
+        t.fontSize = fontSize;
+        t.bold = bold;
+        t.alignment = align;
+
+        t.textColor = readColor(QStringLiteral("TextColor"), off, t.textColor);
+        t.animationName = readString(QStringLiteral("AnimationName"), off, t.animationName);
+        t.scale = readDouble(QStringLiteral("Scale"), off, t.scale);
+        {
+            const QByteArray loc = findNameValue(QStringLiteral("Location"), off);
+            if (loc.size() >= 16) {
+                const auto *p = reinterpret_cast<const uchar *>(loc.constData());
+                t.locationX = qFromLittleEndian<double>(p);
+                t.locationY = qFromLittleEndian<double>(p + 8);
+            }
+        }
+        t.cropBackgroundToText =
+            readBool(QStringLiteral("FitBackgroundColor"), off, t.cropBackgroundToText);
+        t.backgroundColor = readColor(QStringLiteral("Background"), off, t.backgroundColor);
+        t.tracking = readDouble(QStringLiteral("Tracking"), off, t.tracking);
+        t.lineSpacing = readDouble(QStringLiteral("LineSpacing"), off, t.lineSpacing);
+        t.outlineWidth = readDouble(QStringLiteral("OutlineWidth"), off, t.outlineWidth);
+        t.outlineColor = readColor(QStringLiteral("OutlineColor"), off, t.outlineColor);
+        t.shadowEnable = readBool(QStringLiteral("ShadowEnable"), off, t.shadowEnable);
+        t.shadowColor = readColor(QStringLiteral("ShadowColor"), off, t.shadowColor);
+        t.shadowOffsetX = readDouble(QStringLiteral("ShadowOffsetX"), off, t.shadowOffsetX);
+        t.shadowOffsetY = readDouble(QStringLiteral("ShadowOffsetY"), off, t.shadowOffsetY);
+        t.shadowBlur = readDouble(QStringLiteral("ShadowBlur"), off, t.shadowBlur);
+
+        if (i < videoTimings.size()) {
+            t.startSec = videoTimings[i].startSec;
+            t.lengthSec = videoTimings[i].lengthSec;
+        } else {
+            t.startSec = fallbackStart;
+            t.lengthSec = 10.0;
+        }
+        fallbackStart = t.startSec + t.lengthSec;
+
+        result->titlesAndText.push_back(t);
     }
 }
 

@@ -74,6 +74,8 @@ signals:
     void eventContextMenuRequested(int eventId, const QPoint &globalPos);
     void eventPanCropRequested(int eventId);
     void eventFxRequested(int eventId);
+    /** Leftmost chrome button on a generated-media event (e.g. Titles & Text). */
+    void eventGeneratorRequested(int eventId);
     /** Right-click on event chrome "fx" button. */
     void eventFxMenuRequested(int eventId, const QPoint &globalPos);
     void eventMoreMenuRequested(int eventId, const QPoint &globalPos);
@@ -96,9 +98,13 @@ signals:
     void scrollMetricsChanged();
     void scrollOffsetChanged();
     void playingChanged(bool playing);
-    /** Drop from Project Media (or files): place at timeline time on optional track. */
+    /**
+     * Drop from Project Media (or files): place at timeline time on optional track.
+     * extra carries synthetic per-kind payload (e.g. a Titles & Text animation key)
+     * for path-less generator drops.
+     */
     void mediaDropRequested(const QString &name, const QString &kind, double timeSec, int trackIndex,
-                            double lengthSec, const QString &path);
+                            double lengthSec, const QString &path, const QString &extra = QString());
     /** Document mutation about to begin / finished (for Undo). */
     void documentEditBegan();
     void documentEditCommitted(const QString &text);
@@ -141,6 +147,7 @@ private:
 
     enum class EventChromeButton {
         None,
+        Generator,
         PanCrop,
         Fx,
         More
@@ -234,6 +241,7 @@ private:
     void paintSlider(QPainter &p, const QRect &r, const QString &label, const QString &value,
                      double normalized);
     void paintCropGlyph(QPainter &p, const QRect &r) const;
+    void paintGeneratorGlyph(QPainter &p, const QRect &r) const;
     void ensureContentWidth();
     void updateHoverCursor(const QPoint &pos);
     void updateEventChromeTooltip(const QPoint &pos);

@@ -921,6 +921,14 @@ public:
     bool moveEventToTrack(int eventId, int toTrackIndex);
     /** Append a new track of the given kind; returns its index. */
     int addTrack(TrackKind kind);
+    /**
+     * Create a VEGAS Titles & Text generator event at the playhead on the topmost
+     * "Titles & Text" video track (created if absent). animationKey/sampleText
+     * default to "_None"/"Sample Text" (the "(Default)" preset) when empty. Returns
+     * the new event's id.
+     */
+    int addTitlesTextEvent(const QString &animationKey = QString(),
+                           const QString &sampleText = QString());
     bool removeTrackIfEmpty(int trackIndex);
     bool removeEvent(int eventId);
     /** Remove event; if grouped and grouping is honored, removes the whole group. */
@@ -987,11 +995,13 @@ public:
                           double fadeInSec = 0.0, double fadeOutSec = 0.0, int preferTrack = -1,
                           const QString &mediaPath = {});
 
-    /** Drop/import helper: video → A/V group; still → video track (5 s default); audio → audio track.
-     *  @param lengthSec 0 = use Vegas-style default for the kind (still 5 s, else 8 s).
-     *  @param preferTrack track index, -1 = first matching / create, -2 = always create new track(s). */
+    /** Drop/import helper: video → A/V group; still → video track (5 s default); audio → audio track;
+     *  titles → VEGAS Titles & Text generator event (path-less; see addTitlesTextEvent()).
+     *  @param lengthSec 0 = use Vegas-style default for the kind (still 5 s, titles 10 s, else 8 s).
+     *  @param preferTrack track index, -1 = first matching / create, -2 = always create new track(s).
+     *  @param extra kind == "titles" only: animation key (name doubles as the sample text). */
     int addMediaAt(const QString &name, const QString &kind, double startSec, double lengthSec = 0.0,
-                   int preferTrack = -1, const QString &mediaPath = {});
+                   int preferTrack = -1, const QString &mediaPath = {}, const QString &extra = {});
 
     /**
      * Apply File→Import interchange events (EDL / FCP / FCPXML) with fades, gain,
@@ -1028,6 +1038,8 @@ private:
     void applyColorGradingFromVeg(const VegOpenResult &veg);
     /** Attach recovered Video Track FX (e.g. Sepia + Soft Contrast) onto first video track. */
     void applyVideoTrackFxFromVeg(const VegOpenResult &veg);
+    /** Recreate VEGAS Titles & Text generator events on a new top-most video track. */
+    void applyTitlesTextFromVeg(const VegOpenResult &veg);
     /** Attach UTF-16 Audio Event FX names onto audio clip events (if chain empty). */
     void applyAudioEventFxFromVeg(const VegOpenResult &veg);
     /**

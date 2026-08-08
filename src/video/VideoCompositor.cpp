@@ -3,6 +3,7 @@
 #include "audio/FadeCurves.h"
 #include "video/ColorCorrectorApply.h"
 #include "video/PanCropApply.h"
+#include "video/TitlesTextApply.h"
 #include "video/TrackMotionApply.h"
 #include "video/VideoFrameCache.h"
 #include "video/VideoKeyframeEval.h"
@@ -129,15 +130,26 @@ QImage VideoCompositor::compose(const ProjectModel &model, double t, const QSize
             }
             ++hitCount;
             const QString path = model.mediaPathForEvent(ev);
-            if (path.isEmpty()) {
-                continue;
-            }
             const double eventLocal = std::max(0.0, ev.eventLocalSec(t));
             const double mediaTime = ev.sourceTimeSec(t);
-            const bool still = ev.mediaKind == EventMediaKind::Still
-                               || ev.mediaKind == EventMediaKind::Title;
-            QImage src = VideoFrameCache::instance().frameIfReady(path, mediaTime, sz, still,
-                                                                  softRealtime);
+
+            QImage src;
+            if (!path.isEmpty()) {
+                const bool still = ev.mediaKind == EventMediaKind::Still
+                                   || ev.mediaKind == EventMediaKind::Title;
+                src = VideoFrameCache::instance().frameIfReady(path, mediaTime, sz, still,
+                                                                softRealtime);
+            } else {
+                // No media file: a generator event synthesizes its own picture.
+                for (const FxSlot &slot : ev.fxChain) {
+                    if (isTitlesTextName(slot.displayName)) {
+                        const double progress =
+                            std::clamp(eventLocal / std::max(0.05, ev.lengthSec), 0.0, 1.0);
+                        src = renderTitlesText(titlesTextFromSlot(slot), sz, progress);
+                        break;
+                    }
+                }
+            }
             if (src.isNull()) {
                 continue;
             }

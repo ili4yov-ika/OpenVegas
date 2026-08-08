@@ -34,6 +34,7 @@ class TimelineView;
 class TrimmerWindow;
 class MixingConsoleWindow;
 class VideoEventFxDialogExact;
+class TitlesTextEditorDialog;
 class VideoTrackFxDialog;
 class AudioEventFxDialog;
 class ExplorerPane;
@@ -74,6 +75,11 @@ public slots:
     void onPluginChooser();
     /** Open Video Event FX dialog for a video/still event (FX button / menu). */
     void onVideoEventFx(int eventId);
+    /** Open the VEGAS Titles & Text property window for a generator event. */
+    void openTitlesTextEditor(TrackEvent *ev);
+    /** Create a new Titles & Text generator event at the playhead and open its editor. */
+    void createTitlesTextEvent(const QString &animationKey = QString(),
+                               const QString &sampleText = QString());
     void onAudioEventFx(int eventId);
     void onTrackFx(int trackIndex);
     /** Add Color Grading to a video track FX chain and open Video Track FX. */
@@ -214,6 +220,7 @@ private:
     TrimmerWindow *m_trimmer = nullptr;
     MixingConsoleWindow *m_mixingConsole = nullptr;
     VideoEventFxDialogExact *m_videoEventFx = nullptr;
+    TitlesTextEditorDialog *m_titlesTextEditor = nullptr;
     VideoTrackFxDialog *m_videoTrackFx = nullptr;
     AudioEventFxDialog *m_audioEventFx = nullptr;
     QString m_audioFxCommitLabel;

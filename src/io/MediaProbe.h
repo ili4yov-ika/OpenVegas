@@ -48,7 +48,8 @@ public:
 
     /**
      * Length to use when inserting media on the timeline.
-     * hintSec wins when > 0.05; else probed duration; else kind defaults (still=5s, other=8s).
+     * hintSec wins when > 0.05; else probed duration; else kind defaults
+     * (still=5s, titles=10s, other=8s).
      */
     static double lengthForInsert(const QString &path, const QString &kind, double hintSec = 0.0);
 };
