@@ -61,6 +61,7 @@ private:
     explicit VideoFrameCache(QObject *parent = nullptr);
 
     static QString frameKey(const QString &path, qint64 timeBucket, const QSize &size);
+    static QString activeBurstKey(const QString &path, const QSize &size);
     void requestFrame(const QString &path, qint64 timeBucket, const QSize &size, bool still);
     void requestBurst(const QString &path, qint64 startBucket, int count, const QSize &size);
     QImage nearestLocked(const QString &path, qint64 bucket, const QSize &size, int maxDelta) const;
@@ -69,6 +70,19 @@ private:
     QHash<QString, QImage> m_frames;
     QHash<QString, bool> m_inflight;
     int m_inflightCount = 0;
+    /**
+     * activeBurstKey(path, size) -> exclusive end bucket of the one in-flight burst for that
+     * path+size, if any. Keyed by path+size (matching frameKey's granularity) since different
+     * call sites prefetch the same path at different sizes (e.g. render/export vs. live
+     * preview) and a path-only key would incorrectly suppress a legitimate concurrent burst at
+     * another size.
+     * BurstDecodeJob only inserts frames into m_frames once the *whole* burst finishes, so a
+     * naive "is this range already cached" check can't see a burst that's still decoding —
+     * without this, prefetch() (called on nearly every audio-clock tick while playing) would
+     * keep spawning new, overlapping ffmpeg processes for the same range every tick until the
+     * first one finally completes, starving real frame requests of thread-pool/CPU capacity.
+     */
+    QHash<QString, qint64> m_activeBurstEnd;
 };
 
 } // namespace openvegas

@@ -11,6 +11,7 @@
 #include <QMutexLocker>
 
 #include <algorithm>
+#include <atomic>
 #include <cmath>
 #include <cstdarg>
 #include <cstdlib>
@@ -18,6 +19,7 @@
 #include <map>
 #include <memory>
 #include <string>
+#include <thread>
 #include <vector>
 
 #ifdef _WIN32
@@ -32,7 +34,9 @@ extern "C" {
 #include <ofxImageEffect.h>
 #include <ofxMemory.h>
 #include <ofxMessage.h>
+#include <ofxMultiThread.h>
 #include <ofxParam.h>
+#include <ofxParametricParam.h>
 #include <ofxProperty.h>
 }
 
@@ -725,6 +729,142 @@ OfxStatus messageFn(void *, const char *, const char *, const char *, ...)
 
 OfxMessageSuiteV1 g_messageSuite = {messageFn};
 
+// ---------------------------------------------------------------------------
+// Multi-thread suite — real plug-ins (Vegas's OFX bundles included) treat this
+// as a required feature at kOfxActionLoad and bail with
+// kOfxStatErrMissingHostFeature if fetchSuite("OfxMultiThreadSuite", 1)
+// returns null. A straightforward std::thread-backed implementation.
+// ---------------------------------------------------------------------------
+
+struct OfxMutexImpl {
+    QMutex m;
+};
+
+thread_local bool t_isSpawnedThread = false;
+thread_local unsigned int t_threadIndex = 0;
+std::atomic<bool> g_multiThreadBusy{false};
+
+unsigned int mtCpuCount()
+{
+    return std::max(1u, std::thread::hardware_concurrency());
+}
+
+OfxStatus mtMultiThread(OfxThreadFunctionV1 func, unsigned int nThreads, void *customArg)
+{
+    if (!func) {
+        return kOfxStatFailed;
+    }
+    bool expected = false;
+    if (!g_multiThreadBusy.compare_exchange_strong(expected, true)) {
+        return kOfxStatErrExists; // multiThread cannot be called recursively (OFX spec)
+    }
+    const unsigned int actual = std::clamp(nThreads, 1u, mtCpuCount());
+    try {
+        if (actual == 1) {
+            const bool prevSpawned = t_isSpawnedThread;
+            const unsigned int prevIndex = t_threadIndex;
+            t_isSpawnedThread = true;
+            t_threadIndex = 0;
+            func(0, 1, customArg);
+            t_isSpawnedThread = prevSpawned;
+            t_threadIndex = prevIndex;
+        } else {
+            std::vector<std::thread> workers;
+            workers.reserve(actual);
+            for (unsigned int i = 0; i < actual; ++i) {
+                workers.emplace_back([func, i, actual, customArg]() {
+                    t_isSpawnedThread = true;
+                    t_threadIndex = i;
+                    func(i, actual, customArg);
+                });
+            }
+            for (std::thread &t : workers) {
+                t.join();
+            }
+        }
+    } catch (...) {
+        g_multiThreadBusy = false;
+        return kOfxStatFailed;
+    }
+    g_multiThreadBusy = false;
+    return kOfxStatOK;
+}
+
+OfxStatus mtNumCPUs(unsigned int *nCPUs)
+{
+    if (!nCPUs) {
+        return kOfxStatFailed;
+    }
+    *nCPUs = mtCpuCount();
+    return kOfxStatOK;
+}
+
+OfxStatus mtThreadIndex(unsigned int *threadIndex)
+{
+    if (!threadIndex) {
+        return kOfxStatFailed;
+    }
+    *threadIndex = t_threadIndex;
+    return kOfxStatOK;
+}
+
+int mtIsSpawnedThread()
+{
+    return t_isSpawnedThread ? 1 : 0;
+}
+
+OfxStatus mtMutexCreate(OfxMutexHandle *mutex, int lockCount)
+{
+    if (!mutex) {
+        return kOfxStatErrBadHandle;
+    }
+    auto *impl = new OfxMutexImpl();
+    for (int i = 0; i < lockCount; ++i) {
+        impl->m.lock();
+    }
+    *mutex = reinterpret_cast<OfxMutexHandle>(impl);
+    return kOfxStatOK;
+}
+
+OfxStatus mtMutexDestroy(const OfxMutexHandle mutex)
+{
+    if (!mutex) {
+        return kOfxStatErrBadHandle;
+    }
+    delete reinterpret_cast<OfxMutexImpl *>(mutex);
+    return kOfxStatOK;
+}
+
+OfxStatus mtMutexLock(const OfxMutexHandle mutex)
+{
+    if (!mutex) {
+        return kOfxStatErrBadHandle;
+    }
+    reinterpret_cast<OfxMutexImpl *>(mutex)->m.lock();
+    return kOfxStatOK;
+}
+
+OfxStatus mtMutexUnLock(const OfxMutexHandle mutex)
+{
+    if (!mutex) {
+        return kOfxStatErrBadHandle;
+    }
+    reinterpret_cast<OfxMutexImpl *>(mutex)->m.unlock();
+    return kOfxStatOK;
+}
+
+OfxStatus mtMutexTryLock(const OfxMutexHandle mutex)
+{
+    if (!mutex) {
+        return kOfxStatErrBadHandle;
+    }
+    return reinterpret_cast<OfxMutexImpl *>(mutex)->m.tryLock() ? kOfxStatOK : kOfxStatFailed;
+}
+
+OfxMultiThreadSuiteV1 g_multiThreadSuite = {
+    mtMultiThread, mtNumCPUs, mtThreadIndex, mtIsSpawnedThread,
+    mtMutexCreate, mtMutexDestroy, mtMutexLock, mtMutexUnLock, mtMutexTryLock};
+
 // Parameter suite
 OfxStatus paramDefine(OfxParamSetHandle paramSet, const char *paramType, const char *name,
                       OfxPropertySetHandle *propertySet)
@@ -1076,6 +1216,9 @@ const void *fetchSuite(OfxPropertySetHandle, const char *suiteName, int suiteVer
     if (std::strcmp(suiteName, kOfxImageEffectSuite) == 0 && suiteVersion == 1) {
         return &g_imageEffectSuite;
     }
+    if (std::strcmp(suiteName, kOfxMultiThreadSuite) == 0 && suiteVersion == 1) {
+        return &g_multiThreadSuite;
+    }
     return nullptr;
 }
 
@@ -1091,7 +1234,12 @@ void initHostProps()
     setString(&g_hostProps, kOfxPropLabel, 0, "OpenVegas");
     setInt(&g_hostProps, kOfxPropAPIVersion, 0, 1);
     setInt(&g_hostProps, kOfxPropAPIVersion, 1, 4);
+    setInt(&g_hostProps, kOfxPropVersion, 0, 1);
+    setInt(&g_hostProps, kOfxPropVersion, 1, 0);
+    setInt(&g_hostProps, kOfxPropVersion, 2, 0);
+    setString(&g_hostProps, kOfxPropVersionLabel, 0, "1.0");
     setInt(&g_hostProps, kOfxImageEffectHostPropIsBackground, 0, 0);
+    setInt(&g_hostProps, kOfxImageEffectPropSupportsOverlays, 0, 0);
     setInt(&g_hostProps, kOfxImageEffectPropSupportsTiles, 0, 0);
     setInt(&g_hostProps, kOfxImageEffectPropSupportsMultiResolution, 0, 0);
     setInt(&g_hostProps, kOfxImageEffectPropTemporalClipAccess, 0, 0);
@@ -1099,7 +1247,13 @@ void initHostProps()
     setInt(&g_hostProps, "OfxImageEffectPropSupportsMultipleClipPARs", 0, 0);
     setInt(&g_hostProps, "OfxImageEffectPropSetableFrameRate", 0, 0);
     setInt(&g_hostProps, "OfxImageEffectPropSetableFielding", 0, 0);
+    setInt(&g_hostProps, kOfxImageEffectInstancePropSequentialRender, 0, 1);
     setInt(&g_hostProps, kOfxParamHostPropSupportsCustomInteract, 0, 0);
+    setInt(&g_hostProps, kOfxParamHostPropSupportsStringAnimation, 0, 0);
+    setInt(&g_hostProps, kOfxParamHostPropSupportsBooleanAnimation, 0, 0);
+    setInt(&g_hostProps, kOfxParamHostPropSupportsChoiceAnimation, 0, 0);
+    setInt(&g_hostProps, kOfxParamHostPropSupportsCustomAnimation, 0, 0);
+    setInt(&g_hostProps, kOfxParamHostPropSupportsParametricAnimation, 0, 0);
     setInt(&g_hostProps, kOfxParamHostPropMaxParameters, 0, 1000);
     setInt(&g_hostProps, kOfxParamHostPropMaxPages, 0, 10);
     setInt(&g_hostProps, kOfxParamHostPropPageRowColumnCount, 0, 10);
@@ -1288,30 +1442,52 @@ struct OfxHost::Impl {
             mod->descriptorParams = descFx.params;
             mod->described = true;
 
-            // DescribeInContext(Filter)
-            PropSet inArgs;
-            setString(&inArgs, kOfxImageEffectPropContext, 0, kOfxImageEffectContextFilter);
-            EffectRec ctxFx;
-            ctxFx.module = mod.get();
-            ctxFx.props = mod->descriptorProps;
-            ctxFx.params = mod->descriptorParams;
-            st = plug->mainEntry(kOfxImageEffectActionDescribeInContext,
-                                 reinterpret_cast<OfxImageEffectHandle>(&ctxFx),
-                                 reinterpret_cast<OfxPropertySetHandle>(&inArgs), nullptr);
-            if (!statusOk(st)) {
+            // DescribeInContext — try the contexts the plugin itself declared via
+            // kOfxImageEffectPropSupportedContexts (populated during kOfxActionDescribe)
+            // first. Vegas's own OFX bundles leave that property unset during plain
+            // Describe, so fall back to the contexts Vegas's own resource manifests
+            // (Contents/Resources/*.xml) are known to use, in order, when it's empty.
+            std::vector<std::string> contextsToTry;
+            const auto supportedContextsIt =
+                descFx.props.props.find(kOfxImageEffectPropSupportedContexts);
+            if (supportedContextsIt != descFx.props.props.end()
+                && supportedContextsIt->second.kind == PropValue::String) {
+                for (const std::string &context : supportedContextsIt->second.strings) {
+                    if (!context.empty()) {
+                        contextsToTry.push_back(context);
+                    }
+                }
+            }
+            if (contextsToTry.empty()) {
+                contextsToTry = {kOfxImageEffectContextFilter, kOfxImageEffectContextGeneral,
+                                 kOfxImageEffectContextGenerator};
+            }
+            for (const std::string &context : contextsToTry) {
+                PropSet inArgs;
+                setString(&inArgs, kOfxImageEffectPropContext, 0, context.c_str());
+                EffectRec ctxFx;
+                ctxFx.module = mod.get();
+                ctxFx.props = mod->descriptorProps;
+                ctxFx.params = mod->descriptorParams;
+                st = plug->mainEntry(kOfxImageEffectActionDescribeInContext,
+                                     reinterpret_cast<OfxImageEffectHandle>(&ctxFx),
+                                     reinterpret_cast<OfxPropertySetHandle>(&inArgs), nullptr);
+                if (statusOk(st)) {
+                    mod->descriptorClips = ctxFx.clips;
+                    mod->descriptorParams = ctxFx.params;
+                    mod->describedInContext = true;
+                    break;
+                }
                 // Soft: some plugs may still process via emulation
                 if (errorOut) {
                     *errorOut = QStringLiteral(
-                                    "OFX DescribeInContext failed (status %1) for \"%2\" — "
+                                    "OFX DescribeInContext(%1) failed (status %2) for \"%3\" — "
                                     "load accepted for entry points only")
+                                    .arg(QString::fromStdString(context))
                                     .arg(st)
                                     .arg(path);
                 }
                 // Still consider load success if Load+Describe worked
-            } else {
-                mod->descriptorClips = ctxFx.clips;
-                mod->descriptorParams = ctxFx.params;
-                mod->describedInContext = true;
             }
 
             modules[modKey] = mod;

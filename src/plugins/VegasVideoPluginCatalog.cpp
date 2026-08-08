@@ -485,9 +485,20 @@ QVector<OfxParamInfo> VegasVideoPluginCatalog::paramsInfoForSlot(const FxSlot &s
         add(QObject::tr("Vertical pixels"), QStringLiteral("radiusV"), 2.0, 1.0, 24.0);
     } else if (n.contains(QLatin1String("glint"), Qt::CaseInsensitive)
                || n.contains(QLatin1String("мерцание"), Qt::CaseInsensitive)) {
-        add(QObject::tr("Threshold"), QStringLiteral("threshold"), 67.0, 0.0, 100.0);
-        add(QObject::tr("Boost"), QStringLiteral("boost"), -40.0, -100.0, 100.0);
-        add(QObject::tr("Gain"), QStringLiteral("gain"), 1.0, 0.0, 4.0);
+        // Real params (com.vegascreativesoftware:glintvelvetmatter), from the <Glint> VEG XML
+        // schema — matches the real Vegas "Glint" dialog's Effect tab (Mask sub-tab out of
+        // scope for this flat fallback list).
+        add(QObject::tr("Threshold"), QStringLiteral("Threshold"), 67.0, 0.0, 100.0);
+        add(QObject::tr("Boost"), QStringLiteral("Boost"), -40.0, -100.0, 100.0);
+        add(QObject::tr("Horizontal radius"), QStringLiteral("HorizontalRadius"), 50.0, 0.0, 100.0);
+        add(QObject::tr("Vertical radius"), QStringLiteral("VerticalRadius"), 50.0, 0.0, 100.0);
+        add(QObject::tr("Hue"), QStringLiteral("Hue"), 0.0, 0.0, 360.0);
+        add(QObject::tr("Hue sweep"), QStringLiteral("HueSweep"), 30.0, 0.0, 360.0);
+        add(QObject::tr("Saturation"), QStringLiteral("Saturation"), 100.0, 0.0, 100.0);
+        add(QObject::tr("Orientation"), QStringLiteral("Rotation"), 0.0, 0.0, 360.0);
+        add(QObject::tr("Streaks"), QStringLiteral("Streaks"), 4.0, 0.0, 10.0);
+        add(QObject::tr("Reduce flicker"), QStringLiteral("ReduceFlicker"), 0.0, 0.0, 1.0);
+        add(QObject::tr("Effect only"), QStringLiteral("EffectOnly"), 0.0, 0.0, 1.0);
     } else if (n.contains(QLatin1String("brightness"), Qt::CaseInsensitive)) {
         add(QObject::tr("Brightness"), QStringLiteral("brightness"), 0.0, -1.0, 1.0);
         add(QObject::tr("Contrast"), QStringLiteral("contrast"), 1.0, 0.0, 2.0);

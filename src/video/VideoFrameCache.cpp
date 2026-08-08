@@ -169,6 +169,12 @@ QString VideoFrameCache::frameKey(const QString &path, qint64 timeBucket, const 
            + QString::number(size.width()) + QLatin1Char('x') + QString::number(size.height());
 }
 
+QString VideoFrameCache::activeBurstKey(const QString &path, const QSize &size)
+{
+    return path + QLatin1Char('|') + QString::number(size.width()) + QLatin1Char('x')
+           + QString::number(size.height());
+}
+
 void VideoFrameCache::invalidate(const QString &path)
 {
     QMutexLocker lock(&m_mutex);
@@ -255,6 +261,13 @@ void VideoFrameCache::requestBurst(const QString &path, qint64 startBucket, int 
         if (m_inflight.value(burstKey, false) || m_inflightCount >= kMaxInflight) {
             return;
         }
+        // An already-running burst for this path+size will populate the cache soon; spawning
+        // an overlapping ffmpeg process just contends with it for CPU (see m_activeBurstEnd doc).
+        const QString activeKey = activeBurstKey(path, size);
+        const auto activeIt = m_activeBurstEnd.constFind(activeKey);
+        if (activeIt != m_activeBurstEnd.constEnd() && startBucket < activeIt.value()) {
+            return;
+        }
         // Skip if most of the range is already cached.
         int missing = 0;
         for (int i = 0; i < count; ++i) {
@@ -267,6 +280,7 @@ void VideoFrameCache::requestBurst(const QString &path, qint64 startBucket, int 
         }
         m_inflight.insert(burstKey, true);
         ++m_inflightCount;
+        m_activeBurstEnd.insert(activeKey, startBucket + count);
     }
     QThreadPool::globalInstance()->start(
         new BurstDecodeJob(this, path, startBucket, count, size));
@@ -321,7 +335,8 @@ void VideoFrameCache::prefetch(const QString &path, double timeSec, const QSize 
 
     // Burst decode forward from current bucket (one ffmpeg process, sequential read).
     const int burstCount = int(std::min<qint64>(45, ahead + 1));
-    if (burstCount >= 4) {
+    const bool burstCoversForward = burstCount >= 4;
+    if (burstCoversForward) {
         requestBurst(path, center, burstCount, target);
     }
 
@@ -336,8 +351,10 @@ void VideoFrameCache::prefetch(const QString &path, double timeSec, const QSize 
                 continue;
             }
         }
-        // Individual fills only a few behind / near; burst covers ahead.
-        if (b <= center + 2) {
+        // Individual fills cover behind (burst never reaches backwards); forward-of-center
+        // only when there was no burst to cover it (small aheadSec) — otherwise this would
+        // spawn a redundant ffmpeg process racing the burst for the same frames every tick.
+        if (b < center || !burstCoversForward) {
             requestFrame(path, b, target, false);
         }
     }
@@ -377,6 +394,15 @@ void VideoFrameCache::finishBurstJob(const QString &path, qint64 startBucket, co
         }
         if (m_inflight.remove(burstKey)) {
             m_inflightCount = std::max(0, m_inflightCount - 1);
+        }
+        // Only clear if this is still the tracked burst for this path+size (the gate in
+        // requestBurst means a newer one shouldn't have started while this was active, but
+        // stay defensive).
+        const QString activeKey = activeBurstKey(path, size);
+        const auto activeIt = m_activeBurstEnd.constFind(activeKey);
+        if (activeIt != m_activeBurstEnd.constEnd()
+            && activeIt.value() == startBucket + qint64(frames.size())) {
+            m_activeBurstEnd.remove(activeKey);
         }
     }
     QMetaObject::invokeMethod(

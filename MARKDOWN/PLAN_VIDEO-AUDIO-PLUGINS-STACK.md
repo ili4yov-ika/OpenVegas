@@ -6,9 +6,11 @@
 См. также: [`ISSUES_AND_PLANS.md`](ISSUES_AND_PLANS.md), `SAMPLES/veg_project/README.md`.
 
 **Обновлено:** 2026-08-07 (реальный каталог видеоплагинов VEGAS, real-param UI + keyframe lanes для
-Video Event/Track FX, VEG Track FX recovery — Sepia + Soft Contrast, DLL search path fix, находка
-`kOfxStatErrMissingHostFeature`). Ранее: 2026-08-03 — P1–P6 + VST3 `IPlugView` editor, Event FX UX,
-VEG Glint/AutoFrame fix, editor stretch.
+Video Event/Track FX, VEG Track FX recovery — Sepia + Soft Contrast, DLL search path fix, находка и
+частичное исправление `kOfxStatErrMissingHostFeature`: `OfxMultiThreadSuite` + недостающие host-
+свойства чинят `Load`/`Describe`; `DescribeInContext` — новый, более глубокий барьер, разобран через
+gdb/objdump/Ghidra с RTTI, точная причина не найдена). Ранее: 2026-08-03 — P1–P6 + VST3 `IPlugView`
+editor, Event FX UX, VEG Glint/AutoFrame fix, editor stretch.
 
 ---
 
@@ -224,17 +226,58 @@ ProjectModel (TrackEvent/Track/Bus .fxChain + panCrop/motion)
   `ScopedOfxDllDirectory` + `ofxInstallRootForBinary` в `OfxHost.cpp` — временно добавляют корень
   инсталляции в DLL search path на время `LoadLibrary`. См. `[video-fx][ofx][vegas-video]` тест
   `effectIndexMap resolves real effect identifiers in Vfx1.ofx`.
-- [ ] **Новый, более точный найденный барьер:** даже после фикса путей, `Vfx1.ofx`
-  (Chroma Blur/Glint/…) отвечает на `kOfxActionLoad` статусом `kOfxStatErrMissingHostFeature` —
-  минимальный host не объявляет какую-то фичу/suite, которую ждёт настоящий Vegas-плагин
-  (кандидаты: доп. suites — multithread/OpenGL/parametric/interact, либо `kOfxImageEffectProp*`
-  host-свойства сверх текущего минимального набора в `initHostProps()`). Из-за этого `Describe`
-  никогда не выполняется для настоящих Vegas OFX бинарников — `OfxHost::paramsForSlot`/
-  `processFrame` **всегда** тихо уходят в CPU-эмуляцию (`processEmulated`), даже когда бинарник
-  успешно найден и проиндексирован. Реальный рендер через подлинный Vegas OFX не работал никогда
-  (ни в этой сессии, ни раньше) — то, что тесты "успешно обрабатывают кадр", проверяло emulated
-  fallback, не настоящий плагин. Точный список недостающих host-свойств неизвестен без дизасма
-  (`kOfxActionLoad` — решение самого плагина, снаружи не видно). Backlog, отдельная задача от UI-фикса.
+- [x] **`kOfxActionLoad`/`kOfxActionDescribe` теперь проходят (2026-08-07).** Диагностика
+  (инструментированный `fetchSuite`/`propGet*` + лог в файл) нашла точную причину:
+  минимальный host не реализовывал `OfxMultiThreadSuite` (обязательный suite — без него плагин
+  сразу возвращает `kOfxStatErrMissingHostFeature` на `kOfxActionLoad`) и не объявлял часть
+  OFX 1.4 host-свойств, которые `Vfx1.ofx` проверяет при загрузке: `kOfxPropVersion`,
+  `kOfxPropVersionLabel`, `kOfxImageEffectPropSupportsOverlays`,
+  `kOfxImageEffectInstancePropSequentialRender`, animation-support флаги параметров
+  (`kOfxParamHostPropSupports{String,Boolean,Choice,Custom,Parametric}Animation`). Исправлено:
+  `OfxMultiThreadSuiteV1` (`std::thread`-backed, mutex primitives) + полный набор свойств в
+  `initHostProps()`. Результат подтверждён живьём (Chroma Blur, `Vfx1.ofx`) — `Load` → `status=0`,
+  `Describe` → `status=0`, впервые в проекте. Regression-тест:
+  `OfxHost::load Load+Describe succeed for a real Vegas OFX plug-in`.
+- [x] Заодно: `DescribeInContext` вызывался с одним жёстко заданным контекстом (`Filter`) — не
+  подходит для суб-эффектов `Vfx1.ofx`, объявляющих `Generator`/`General`. `ensureModule` теперь
+  перебирает `Filter → General → Generator`, пока один не пройдёт (общее исправление хоста,
+  не специфично для найденного ниже барьера).
+- [ ] **Новый, более глубокий барьер (2026-08-07, не исправлен):** даже после фикса `Load`/`Describe`,
+  `kOfxImageEffectActionDescribeInContext` для `Vfx1.ofx` (Chroma Blur, но, вероятно, тот же
+  механизм у всех суб-эффектов бандла) объявляет **только** `Source`-клип и сразу после этого
+  возвращает `kOfxStatErrMissingHostFeature` — ни `Output`-клип (обязателен для Filter/General),
+  ни один из параметров (`HorizontalPixels`/`VerticalPixels`) не объявляются. Не зависит от
+  выбора контекста (Filter/General/Generator — все одинаково проваливаются), от
+  `kOfxImageEffectPropSupportsTiles`/`SupportsMultiResolution`, от наличия левой заглушки
+  `OfxVegasEffectSuite`, от валидного HWND в `kOfxPropHostOSHandle`.
+
+  **Глубокий разбор (gdb + objdump + Ghidra, с любезно предоставленными пользователем Ghidra 12.1.2
+  и JDK 21 — сеть в этом окружении недоступна для самостоятельной установки):**
+  - Живой gdb-трейс (breakpoint на собственный `clipDefine`/`paramDefine`, лог по всем 3 контекстам)
+    железно подтверждает: `clipDefine("Source")` вызывается ровно один раз за попытку,
+    `clipDefine("Output")` и `paramDefine` — никогда, статус всегда `4`.
+  - `Vfx1.ofx` экспортирует полные MSVC-мангленные символы (не stripped) — статический дизасм
+    (`objdump`) нашёл точную ветку диспетчера действий: сравнение длины (`0x25`=37 байт) + `memcmp`
+    против `"OfxImageEffectActionDescribeInContext"`, однозначно подтверждена нужная ветка.
+  - Ghidra (headless, `analyzeHeadless` + Decompiler API) восстановила RTTI — у каждого суб-
+    эффекта бандла свой C++-класс на базе внутреннего `OFX::`-SDK (`OFX::ImageEffectDescriptor`,
+    `OFX::PropertySet`, `OFX::ParamSetDescriptor`); для Chroma Blur найден класс `chromablurPlugin`
+    с восстановленной vtable. Его декомпилированный конструктор объявляет ровно то, что показывает
+    настоящий Vegas UI — `Source`, `Output`, `HorizontalPixels`, `VerticalPixels`, без видимого
+    пути отказа в самом теле функции.
+  - Однако точная привязка live-стека к этому классу через `gdb up`/`bt` оказалась ненадёжной
+    (несовершенный unwinding на этом PE-бинарнике — тот же класс проблем, что и с `finish` раньше);
+    промежуточная функция-обёртка (`FUN_1804623a0`, которую конструктор `chromablurPlugin` вызывает
+    для обоих клипов) оказалась просто кэш-проверкой существования клипа (`clipGetHandle`, не
+    `clipDefine`) — то есть реальная точка вызова `clipDefine`/точка отказа осталась на один-два
+    уровня глубже, чем удалось пройти за разумное время.
+  - **Вывод:** барьер реален, воспроизводим, не зависит ни от одного публичного OFX 1.x
+    host-свойства/suite, которые мы можем предоставить — это не пробел в реализации хоста (в отличие
+    от `Load`/`Describe` выше), а что-то внутреннее в `Vfx1.ofx` (возможно license/version gate,
+    возможно баг конкретной сборки). Дальнейший RE отложен — нужен либо намного более медленный
+    построчный live-разбор через несколько дополнительных уровней вызовов, либо признание, что
+    причина в принципе не устранима со стороны host. Приоритет смещён на точность emulated fallback
+    (см. `ISSUES_AND_PLANS.md`).
 - [ ] Status-bar warning UI при crash/plugin error — backlog.
 
 ---
@@ -301,4 +344,4 @@ ProjectModel (TrackEvent/Track/Bus .fxChain + panCrop/motion)
 
 **Работает:** Builtin Delay/Reverb; VST2 E2E + stretch; VST3 process/state/**IPlugView**/stretch; OFX+emulated+video chain; Mixing Console FX; VEG Glint/Chroma Blur (без лишнего AutoFrame) + **VEG Track FX (Sepia + Soft Contrast)**; немодальные Event FX окна; реальный каталог видеоплагинов VEGAS (`VegasVideoPluginCatalog`); real-param + keyframe lanes UI для Video Event FX **и** Video Track FX (`VideoTrackFxDialog`, общий `KeyframeLaneWidgets.h`).
 
-**Backlog:** open-source `.vst3` в CI; soft bypass fade; полный reverse VEG OFX/VST3 blobs; Shadow/Glow/blend; status-bar OFX errors; реальный рендер через настоящие Vegas OFX бинарники (блокер — `kOfxStatErrMissingHostFeature` на `kOfxActionLoad`, нужен дизасм).
+**Backlog:** open-source `.vst3` в CI; soft bypass fade; полный reverse VEG OFX/VST3 blobs; Shadow/Glow/blend; status-bar OFX errors; реальный рендер через настоящие Vegas OFX бинарники — `Load`/`Describe` теперь проходят (`OfxMultiThreadSuite` + host-свойства), но `DescribeInContext` останавливается на одном `Source`-клипе; точная причина не найдена даже после Ghidra RE с восстановлением RTTI (`chromablurPlugin`), отложено в пользу точности emulated fallback.

@@ -121,6 +121,37 @@ TEST_CASE("videoFxSlotFromName Color Corrector stays builtin", "[video-fx][vegas
     REQUIRE(cc.pluginId == QStringLiteral("builtin:Color Corrector"));
 }
 
+TEST_CASE("Glint fallback params match the real com.vegascreativesoftware:glintvelvetmatter set",
+         "[video-fx][vegas-video]")
+{
+    // Without the real Vegas samples discovered, paramsInfoForSlot() falls back to the
+    // approximate table (OfxHost::paramsForSlot() has nothing to resolve against). Locks in
+    // the full <Glint> VEG XML schema — was Threshold/Boost/Gain (Gain isn't even a real
+    // param) before this fix; see MARKDOWN/ISSUES_AND_PLANS.md.
+    int argc = 1;
+    char arg0[] = "test";
+    char *argv[] = {arg0, nullptr};
+    ensureQtApp(argc, argv);
+
+    const FxSlot glint = videoFxSlotFromName(QStringLiteral("Glint"));
+    const QVector<OfxParamInfo> params = VegasVideoPluginCatalog::paramsInfoForSlot(glint);
+
+    QStringList names;
+    for (const OfxParamInfo &p : params) {
+        names << p.name;
+    }
+    const QStringList expected = {QStringLiteral("Threshold"),   QStringLiteral("Boost"),
+                                  QStringLiteral("HorizontalRadius"), QStringLiteral("VerticalRadius"),
+                                  QStringLiteral("Hue"),          QStringLiteral("HueSweep"),
+                                  QStringLiteral("Saturation"),   QStringLiteral("Rotation"),
+                                  QStringLiteral("Streaks"),      QStringLiteral("ReduceFlicker"),
+                                  QStringLiteral("EffectOnly")};
+    for (const QString &key : expected) {
+        REQUIRE(names.contains(key));
+    }
+    REQUIRE_FALSE(names.contains(QStringLiteral("gain")));
+}
+
 TEST_CASE("Real VEGAS Chroma Blur OFX plugin loads and processes a frame", "[video-fx][ofx][vegas-video]")
 {
     int argc = 1;
@@ -177,6 +208,44 @@ TEST_CASE("OfxHost::effectIndexMap resolves real effect identifiers in Vfx1.ofx"
     REQUIRE(e->pluginIndex == idxMap.value(QStringLiteral("com.vegascreativesoftware:chromablur")));
 }
 
+TEST_CASE("OfxHost::load Load+Describe succeed for a real Vegas OFX plug-in",
+         "[video-fx][ofx][vegas-video]")
+{
+    int argc = 1;
+    char arg0[] = "test";
+    char *argv[] = {arg0, nullptr};
+    ensureQtApp(argc, argv);
+    const QString root = samplesVegasRoot();
+    if (root.isEmpty() || !QDir(root).exists()) {
+        SKIP("SAMPLES/VEGAS-PRO-22-PROGRAM-FILES not available");
+    }
+    VegasVideoPluginCatalog::invalidateCache();
+    VegasVideoPluginCatalog::discover({root});
+    const VegasVideoPluginEntry *e = VegasVideoPluginCatalog::findByEffectId(
+        QStringLiteral("com.vegascreativesoftware:chromablur"));
+    REQUIRE(e != nullptr);
+    REQUIRE(e->hasBinary);
+
+    OfxPluginDesc desc;
+    desc.path = e->binaryPath;
+    desc.bundlePath = e->bundlePath;
+    desc.effectId = e->effectId;
+    desc.pluginIndex = e->pluginIndex;
+    desc.hasBinary = true;
+
+    QString err;
+    // Regression guard: this used to answer kOfxActionLoad with
+    // kOfxStatErrMissingHostFeature because OfxMultiThreadSuite and several OFX 1.4 host
+    // properties (kOfxPropVersion, kOfxImageEffectPropSupportsOverlays,
+    // kOfxImageEffectInstancePropSequentialRender, the param animation-support flags) were
+    // never declared. Both kOfxActionLoad and kOfxActionDescribe now succeed against this
+    // host — see MARKDOWN/ISSUES_AND_PLANS.md for what's still blocked past this point
+    // (kOfxImageEffectActionDescribeInContext).
+    REQUIRE(OfxHost::load(desc, &err));
+    REQUIRE_FALSE(err.contains(QStringLiteral("OFX Load failed")));
+    REQUIRE_FALSE(err.contains(QStringLiteral("OFX Describe failed")));
+}
+
 TEST_CASE("OfxHost::paramsForSlot fails soft when a real Vegas OFX plug-in can't fully Load",
          "[video-fx][ofx][vegas-video]")
 {
@@ -195,12 +264,20 @@ TEST_CASE("OfxHost::paramsForSlot fails soft when a real Vegas OFX plug-in can't
 
     const FxSlot raw = videoFxSlotFromName(QStringLiteral("Chroma Blur"));
     const QVector<OfxParamInfo> params = OfxHost::instance().paramsForSlot(raw);
-    // Vfx1.ofx answers kOfxActionLoad with kOfxStatErrMissingHostFeature against
-    // this minimal host, so Describe never runs and no real params are available
-    // (see MARKDOWN/ISSUES_AND_PLANS.md). This locks in fail-soft behavior — no
-    // crash, just empty — so callers (VideoEventFxDialogExact) must keep an
-    // approximate fallback. If this ever starts failing, the host gained the
-    // missing feature and paramsInfoForSlot()'s real-vs-fallback branch should be
-    // re-verified against the new real param set.
+    // kOfxActionLoad and kOfxActionDescribe now succeed against this host (fixed by
+    // implementing OfxMultiThreadSuite and declaring the OFX 1.4 host properties Vfx1.ofx
+    // checks — see MARKDOWN/ISSUES_AND_PLANS.md). kOfxImageEffectActionDescribeInContext
+    // still refuses with kOfxStatErrMissingHostFeature for every context Vegas's own
+    // resource manifests use (Filter/General/Generator), and does so without touching any
+    // host suite or property we can inspect or provide — no clipDefine("Output"), no
+    // paramDefine, no propGet/propSet beyond reading the requested context back out of
+    // inArgs. That rules out a standard-OFX compliance gap and points at an internal,
+    // undocumented Sony/Magix check (observed: unaffected by kOfxImageEffectPropSupportsTiles/
+    // SupportsMultiResolution, by which context is requested, by a non-null stub
+    // "OfxVegasEffectSuite", and by supplying a real HWND for kOfxPropHostOSHandle).
+    // This locks in fail-soft behavior — no crash, just empty — so callers
+    // (VideoEventFxDialogExact) must keep an approximate fallback. If this ever starts
+    // failing, the host cleared that gate and paramsInfoForSlot()'s real-vs-fallback branch
+    // should be re-verified against the new real param set.
     REQUIRE(params.isEmpty());
 }

@@ -910,8 +910,12 @@ void VegReader::parseTrackMotion(const QByteArray &data, VegOpenResult *result)
                 kf.height = 1.0;
             }
             kf.smoothness = qFromLittleEndian<double>(r + 96);
-            kf.rotationZ = qFromLittleEndian<double>(r + 144);
-            kf.orientationZ = qFromLittleEndian<double>(r + 168);
+            // Stored on disk as turns (1.0 == one full 360° revolution, indistinguishable from
+            // no rotation), not radians — convert to radians here so the rest of the app (which
+            // treats TrackMotionKeyframe::rotationZ/orientationZ as radians throughout, see
+            // TrackMotionDialog's kRadToDeg/kDegToRad) doesn't need special-casing.
+            kf.rotationZ = qFromLittleEndian<double>(r + 144) * 2.0 * M_PI;
+            kf.orientationZ = qFromLittleEndian<double>(r + 168) * 2.0 * M_PI;
             const double typeCode = qFromLittleEndian<double>(r + 104);
             // Vegas stores type loosely; 1.0 ≈ Linear in our sample
             if (typeCode > 1.5) {

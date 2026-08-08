@@ -10,6 +10,8 @@
 #include <QDir>
 #include <QFile>
 
+#include <cmath>
+
 using namespace openvegas;
 
 TEST_CASE("FxSlot state chunk pack/unpack round-trip", "[plugins][state]")
@@ -160,4 +162,30 @@ TEST_CASE("Opening the FX sample .veg puts Sepia + Soft Contrast on the video tr
         break; // first video track
     }
     REQUIRE(foundVideoTrack);
+}
+
+TEST_CASE("VegReader converts Track Motion rotationZ from turns to radians",
+          "[plugins][state][veg][video-fx]")
+{
+    // Regression guard: the on-disk value (1.0) is a whole-turn count (1.0 == 360°, visually
+    // identical to no rotation at all — which is what real Vegas Pro's preview shows for this
+    // sample), not radians as TrackMotionKeyframe::rotationZ is documented and used everywhere
+    // else in the app (TrackMotionDialog's kRadToDeg/kDegToRad, TrackMotionApply's rotate()).
+    // Before the fix this parsed as 1.0 rad (~57°), spinning the preview visibly.
+    const QString root = SamplePaths::vegProjectDir();
+    if (root.isEmpty()) {
+        SKIP("SAMPLES/veg_project not available");
+    }
+    const QString path =
+        QDir(root).filePath(QStringLiteral("project_big--buck-bunny_4x3-preview-reverse-fades-fx.veg"));
+    if (!QFile::exists(path)) {
+        SKIP("FX sample .veg missing");
+    }
+    QString err;
+    const VegOpenResult veg = VegReader::open(path, &err);
+    REQUIRE(err.isEmpty());
+    REQUIRE(veg.hasTrackMotion);
+    REQUIRE(veg.trackMotion.motionKeyframes.size() == 1);
+    const double rotationZ = veg.trackMotion.motionKeyframes.first().rotationZ;
+    REQUIRE(rotationZ == Catch::Approx(2.0 * M_PI).epsilon(1e-6));
 }
