@@ -736,10 +736,6 @@ OfxMessageSuiteV1 g_messageSuite = {messageFn};
 // returns null. A straightforward std::thread-backed implementation.
 // ---------------------------------------------------------------------------
 
-struct OfxMutexImpl {
-    QMutex m;
-};
-
 thread_local bool t_isSpawnedThread = false;
 thread_local unsigned int t_threadIndex = 0;
 std::atomic<bool> g_multiThreadBusy{false};
@@ -759,24 +755,24 @@ OfxStatus mtMultiThread(OfxThreadFunctionV1 func, unsigned int nThreads, void *c
         return kOfxStatErrExists; // multiThread cannot be called recursively (OFX spec)
     }
     const unsigned int actual = std::clamp(nThreads, 1u, mtCpuCount());
+    auto invoke = [func, actual, customArg](unsigned int i) {
+        t_isSpawnedThread = true;
+        t_threadIndex = i;
+        func(i, actual, customArg);
+    };
     try {
         if (actual == 1) {
+            // Fast path: skip OS thread creation for the common single-thread case.
             const bool prevSpawned = t_isSpawnedThread;
             const unsigned int prevIndex = t_threadIndex;
-            t_isSpawnedThread = true;
-            t_threadIndex = 0;
-            func(0, 1, customArg);
+            invoke(0);
             t_isSpawnedThread = prevSpawned;
             t_threadIndex = prevIndex;
         } else {
             std::vector<std::thread> workers;
             workers.reserve(actual);
             for (unsigned int i = 0; i < actual; ++i) {
-                workers.emplace_back([func, i, actual, customArg]() {
-                    t_isSpawnedThread = true;
-                    t_threadIndex = i;
-                    func(i, actual, customArg);
-                });
+                workers.emplace_back(invoke, i);
             }
             for (std::thread &t : workers) {
                 t.join();
@@ -818,11 +814,11 @@ OfxStatus mtMutexCreate(OfxMutexHandle *mutex, int lockCount)
     if (!mutex) {
         return kOfxStatErrBadHandle;
     }
-    auto *impl = new OfxMutexImpl();
+    auto *m = new QMutex();
     for (int i = 0; i < lockCount; ++i) {
-        impl->m.lock();
+        m->lock();
     }
-    *mutex = reinterpret_cast<OfxMutexHandle>(impl);
+    *mutex = reinterpret_cast<OfxMutexHandle>(m);
     return kOfxStatOK;
 }
 
@@ -831,7 +827,7 @@ OfxStatus mtMutexDestroy(const OfxMutexHandle mutex)
     if (!mutex) {
         return kOfxStatErrBadHandle;
     }
-    delete reinterpret_cast<OfxMutexImpl *>(mutex);
+    delete reinterpret_cast<QMutex *>(mutex);
     return kOfxStatOK;
 }
 
@@ -840,7 +836,7 @@ OfxStatus mtMutexLock(const OfxMutexHandle mutex)
     if (!mutex) {
         return kOfxStatErrBadHandle;
     }
-    reinterpret_cast<OfxMutexImpl *>(mutex)->m.lock();
+    reinterpret_cast<QMutex *>(mutex)->lock();
     return kOfxStatOK;
 }
 
@@ -849,7 +845,7 @@ OfxStatus mtMutexUnLock(const OfxMutexHandle mutex)
     if (!mutex) {
         return kOfxStatErrBadHandle;
     }
-    reinterpret_cast<OfxMutexImpl *>(mutex)->m.unlock();
+    reinterpret_cast<QMutex *>(mutex)->unlock();
     return kOfxStatOK;
 }
 
@@ -858,7 +854,7 @@ OfxStatus mtMutexTryLock(const OfxMutexHandle mutex)
     if (!mutex) {
         return kOfxStatErrBadHandle;
     }
-    return reinterpret_cast<OfxMutexImpl *>(mutex)->m.tryLock() ? kOfxStatOK : kOfxStatFailed;
+    return reinterpret_cast<QMutex *>(mutex)->tryLock() ? kOfxStatOK : kOfxStatFailed;
 }
 
 OfxMultiThreadSuiteV1 g_multiThreadSuite = {

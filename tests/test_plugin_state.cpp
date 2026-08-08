@@ -14,6 +14,32 @@
 
 using namespace openvegas;
 
+namespace {
+
+// Shared by the VegReader test cases below: they all exercise the same FX sample .veg,
+// skipping (not failing) when the sample tree isn't present in this checkout.
+VegOpenResult openFxSampleVeg(QString *outPath = nullptr)
+{
+    const QString root = SamplePaths::vegProjectDir();
+    if (root.isEmpty()) {
+        SKIP("SAMPLES/veg_project not available");
+    }
+    const QString path =
+        QDir(root).filePath(QStringLiteral("project_big--buck-bunny_4x3-preview-reverse-fades-fx.veg"));
+    if (!QFile::exists(path)) {
+        SKIP("FX sample .veg missing");
+    }
+    QString err;
+    const VegOpenResult veg = VegReader::open(path, &err);
+    REQUIRE(err.isEmpty());
+    if (outPath) {
+        *outPath = path;
+    }
+    return veg;
+}
+
+} // namespace
+
 TEST_CASE("FxSlot state chunk pack/unpack round-trip", "[plugins][state]")
 {
     FxSlot slot = makeFxSlot(QStringLiteral("Demo VST"), PluginFormat::Vst3,
@@ -40,18 +66,7 @@ TEST_CASE("FxSlot state chunk pack/unpack round-trip", "[plugins][state]")
 
 TEST_CASE("VegReader recovers CcnK FX chunks best-effort", "[plugins][state][veg]")
 {
-    const QString root = SamplePaths::vegProjectDir();
-    if (root.isEmpty()) {
-        SKIP("SAMPLES/veg_project not available");
-    }
-    const QString path =
-        QDir(root).filePath(QStringLiteral("project_big--buck-bunny_4x3-preview-reverse-fades-fx.veg"));
-    if (!QFile::exists(path)) {
-        SKIP("FX sample .veg missing");
-    }
-    QString err;
-    const VegOpenResult veg = VegReader::open(path, &err);
-    REQUIRE(err.isEmpty());
+    const VegOpenResult veg = openFxSampleVeg();
     // Sample embeds VST2 CcnK near "Fresh Air".
     if (veg.fxStateChunks.isEmpty()) {
         WARN("No FX chunks recovered — format may have changed");
@@ -70,18 +85,7 @@ TEST_CASE("VegReader recovers CcnK FX chunks best-effort", "[plugins][state][veg
 TEST_CASE("VegReader video Event FX matches Vegas chain (no Auto Frame)",
           "[plugins][state][veg][video-fx]")
 {
-    const QString root = SamplePaths::vegProjectDir();
-    if (root.isEmpty()) {
-        SKIP("SAMPLES/veg_project not available");
-    }
-    const QString path =
-        QDir(root).filePath(QStringLiteral("project_big--buck-bunny_4x3-preview-reverse-fades-fx.veg"));
-    if (!QFile::exists(path)) {
-        SKIP("FX sample .veg missing");
-    }
-    QString err;
-    const VegOpenResult veg = VegReader::open(path, &err);
-    REQUIRE(err.isEmpty());
+    const VegOpenResult veg = openFxSampleVeg();
     REQUIRE(veg.eventFxNames.size() == 2);
     REQUIRE(veg.eventFxNames.at(0).contains(QStringLiteral("chromablur"), Qt::CaseInsensitive));
     REQUIRE(veg.eventFxNames.at(1).contains(QStringLiteral("glint"), Qt::CaseInsensitive));
@@ -98,18 +102,7 @@ TEST_CASE("VegReader video Event FX matches Vegas chain (no Auto Frame)",
 TEST_CASE("VegReader recovers Video Track FX (Sepia + Soft Contrast)",
           "[plugins][state][veg][video-fx]")
 {
-    const QString root = SamplePaths::vegProjectDir();
-    if (root.isEmpty()) {
-        SKIP("SAMPLES/veg_project not available");
-    }
-    const QString path =
-        QDir(root).filePath(QStringLiteral("project_big--buck-bunny_4x3-preview-reverse-fades-fx.veg"));
-    if (!QFile::exists(path)) {
-        SKIP("FX sample .veg missing");
-    }
-    QString err;
-    const VegOpenResult veg = VegReader::open(path, &err);
-    REQUIRE(err.isEmpty());
+    const VegOpenResult veg = openFxSampleVeg();
     // The Sepia + Soft Contrast tail is excluded from Event FX (see the test above)
     // but is real Video Track FX data, not noise — recovered separately here.
     REQUIRE(veg.videoTrackFxNames.size() == 2);
@@ -125,18 +118,8 @@ TEST_CASE("VegReader recovers Video Track FX (Sepia + Soft Contrast)",
 TEST_CASE("Opening the FX sample .veg puts Sepia + Soft Contrast on the video track",
           "[plugins][state][veg][video-fx]")
 {
-    const QString root = SamplePaths::vegProjectDir();
-    if (root.isEmpty()) {
-        SKIP("SAMPLES/veg_project not available");
-    }
-    const QString path =
-        QDir(root).filePath(QStringLiteral("project_big--buck-bunny_4x3-preview-reverse-fades-fx.veg"));
-    if (!QFile::exists(path)) {
-        SKIP("FX sample .veg missing");
-    }
-    QString err;
-    const VegOpenResult veg = VegReader::open(path, &err);
-    REQUIRE(err.isEmpty());
+    QString path;
+    const VegOpenResult veg = openFxSampleVeg(&path);
 
     ProjectModel model;
     model.applyVegImport(veg, path);
@@ -172,18 +155,7 @@ TEST_CASE("VegReader converts Track Motion rotationZ from turns to radians",
     // sample), not radians as TrackMotionKeyframe::rotationZ is documented and used everywhere
     // else in the app (TrackMotionDialog's kRadToDeg/kDegToRad, TrackMotionApply's rotate()).
     // Before the fix this parsed as 1.0 rad (~57°), spinning the preview visibly.
-    const QString root = SamplePaths::vegProjectDir();
-    if (root.isEmpty()) {
-        SKIP("SAMPLES/veg_project not available");
-    }
-    const QString path =
-        QDir(root).filePath(QStringLiteral("project_big--buck-bunny_4x3-preview-reverse-fades-fx.veg"));
-    if (!QFile::exists(path)) {
-        SKIP("FX sample .veg missing");
-    }
-    QString err;
-    const VegOpenResult veg = VegReader::open(path, &err);
-    REQUIRE(err.isEmpty());
+    const VegOpenResult veg = openFxSampleVeg();
     REQUIRE(veg.hasTrackMotion);
     REQUIRE(veg.trackMotion.motionKeyframes.size() == 1);
     const double rotationZ = veg.trackMotion.motionKeyframes.first().rotationZ;
