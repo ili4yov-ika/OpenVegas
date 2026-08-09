@@ -5,6 +5,7 @@
 #include "video/TitlesTextApply.h"
 
 #include <QAbstractButton>
+#include <QApplication>
 #include <QButtonGroup>
 #include <QCursor>
 #include <QDateTime>
@@ -16,6 +17,7 @@
 #include <QListWidget>
 #include <QListView>
 #include <QMimeData>
+#include <QMouseEvent>
 #include <QPainter>
 #include <QPixmap>
 #include <QPushButton>
@@ -46,13 +48,21 @@ constexpr int kDragNameRole = Qt::UserRole + 21;
 constexpr int kDragExtraRole = Qt::UserRole + 22;
 
 /** Drag-out only list widget: emits a MediaMime synthetic payload (kind/name/extra
- *  from item data) so the timeline can create the matching generator event on drop. */
+ *  from item data) so the timeline can create the matching generator event on drop.
+ *
+ *  Drives the press→move→QDrag sequence itself (mousePressEvent/mouseMoveEvent) rather
+ *  than leaning on QAbstractItemView's own automatic drag-start detection
+ *  (dragEnabled()/startDrag()) — that heuristic disambiguates a plain selection click
+ *  from a press-and-drag by tracking internal state that a freshly-clicked, not
+ *  previously-selected IconMode tile doesn't reliably satisfy, so drags out of this
+ *  grid could silently never start. Explicit tracking here matches the same
+ *  press/track-distance/launch pattern TimelineView already uses for its own internal
+ *  clip dragging, so it doesn't depend on that Qt-internal heuristic at all. */
 class GeneratorDragListWidget : public QListWidget {
 public:
     explicit GeneratorDragListWidget(QWidget *parent = nullptr)
         : QListWidget(parent)
     {
-        setDragEnabled(true);
         setDragDropMode(QAbstractItemView::DragOnly);
     }
 
@@ -71,26 +81,45 @@ protected:
                                         item->data(kDragExtraRole).toString());
     }
 
-    void startDrag(Qt::DropActions supportedActions) override
+    void mousePressEvent(QMouseEvent *event) override
     {
-        const QList<QListWidgetItem *> items = selectedItems();
-        if (items.isEmpty()) {
+        if (event->button() == Qt::LeftButton) {
+            m_pressItem = itemAt(event->pos());
+            m_pressPos = event->pos();
+        }
+        QListWidget::mousePressEvent(event);
+    }
+
+    void mouseMoveEvent(QMouseEvent *event) override
+    {
+        if (!m_pressItem || !(event->buttons() & Qt::LeftButton)) {
+            QListWidget::mouseMoveEvent(event);
             return;
         }
-        QMimeData *md = mimeData(items);
+        if ((event->pos() - m_pressPos).manhattanLength() < QApplication::startDragDistance()) {
+            QListWidget::mouseMoveEvent(event);
+            return;
+        }
+        QListWidgetItem *item = m_pressItem;
+        m_pressItem = nullptr; // one-shot: don't re-arm until the next press
+        QMimeData *md = mimeData({item});
         if (!md) {
             return;
         }
         auto *drag = new QDrag(this);
         drag->setMimeData(md);
-        const QIcon icon = items.first()->icon();
+        const QIcon icon = item->icon();
         if (!icon.isNull()) {
             const QPixmap pm = icon.pixmap(QSize(80, 50));
             drag->setPixmap(pm);
             drag->setHotSpot(QPoint(pm.width() / 2, pm.height() / 2));
         }
-        drag->exec(supportedActions, Qt::CopyAction);
+        drag->exec(Qt::CopyAction, Qt::CopyAction);
     }
+
+private:
+    QListWidgetItem *m_pressItem = nullptr;
+    QPoint m_pressPos;
 };
 
 MediaGeneratorPane::Preset makePreset(const QString &name, MediaGeneratorPattern pat,
