@@ -8,6 +8,7 @@
 #include "plugins/BuiltinAudioCatalog.h"
 #include "plugins/VegasVideoPluginCatalog.h"
 #include "audio/BuiltinDsp.h"
+#include "video/MediaGeneratorApply.h"
 #include "video/TitlesTextApply.h"
 
 #include <QFileInfo>
@@ -888,19 +889,48 @@ int ProjectModel::addMediaAt(const QString &name, const QString &kind, double st
         TitlesTextParams p; // defaults: "Sample Text", Verdana 48pt, white, centered, no animation
         if (!extra.isEmpty()) {
             p.animationName = extra;
+            // Real Vegas starting text/background color / scale for this preset (see
+            // video/TitlesTextApply.h's titlesTextPresetVisuals()).
+            const TitlesTextPresetVisuals visuals = titlesTextPresetVisuals(extra);
+            p.textColor = visuals.textColor;
+            p.backgroundColor = visuals.backgroundColor;
+            p.scale = visuals.scale;
         }
         if (!name.isEmpty()) {
             p.text = name;
         }
         TrackEvent te;
         te.id = m_nextEventId++;
-        te.name = name.isEmpty() ? QStringLiteral("VEGAS Titles & Text") : name;
+        // Track/tooltip label stays single-line even when the preset's real sample text
+        // (e.g. a Title-N marketing line) spans multiple lines.
+        te.name = name.isEmpty() ? QStringLiteral("VEGAS Titles & Text")
+                                 : name.section(QLatin1Char('\n'), 0, 0).left(60);
         te.startSec = std::max(0.0, startSec);
         te.lengthSec = std::max(0.05, resolvedLen);
         te.mediaKind = EventMediaKind::Title;
         te.fxChain = {titlesTextSlotFor(p)};
         m_tracks[vi].events.push_back(te);
         return te.id;
+    }
+    if (k == QLatin1String("generator")) {
+        // Non-text Media Generator preset (Checkerboard, Color Gradient, …) — same
+        // path-less placement rule as "titles": new/existing video track, no paired audio.
+        int vi = preferTrack;
+        if (preferTrack == kDropCreateNewTracks) {
+            vi = addTrack(TrackKind::Video);
+        } else if (vi < 0 || vi >= m_tracks.size() || m_tracks[vi].kind != TrackKind::Video) {
+            vi = ensureTrack(TrackKind::Video);
+        }
+        const MediaGeneratorParams gp = mediaGeneratorParamsFromPayload(extra);
+        TrackEvent ge;
+        ge.id = m_nextEventId++;
+        ge.name = name.isEmpty() ? gp.pluginName : name;
+        ge.startSec = std::max(0.0, startSec);
+        ge.lengthSec = std::max(0.05, resolvedLen);
+        ge.mediaKind = EventMediaKind::Title; // generated-media family — see isVideoFamily()
+        ge.fxChain = {mediaGeneratorSlotFor(gp)};
+        m_tracks[vi].events.push_back(ge);
+        return ge.id;
     }
     if (k == QLatin1String("still") || k == QLatin1String("image")) {
         // Images always land on a video track (Vegas still events)
@@ -1954,7 +1984,7 @@ void ProjectModel::applyTitlesTextFromVeg(const VegOpenResult &veg)
     // of generators, so it exports each Titles & Text instance as a plain empty VIDEO
     // clip. Converting in place keeps the EDL's real start/length/crossfades, which is
     // strictly better than the binary scan's own heuristic timing (see VegTitleTextInfo
-    // doc) used by the fallback below.
+    // doc) used below only when there are no placeholders at all.
     QVector<TrackEvent *> candidates;
     for (Track &tr : m_tracks) {
         if (tr.kind != TrackKind::Video) {
@@ -1969,26 +1999,40 @@ void ProjectModel::applyTitlesTextFromVeg(const VegOpenResult &veg)
     std::sort(candidates.begin(), candidates.end(),
               [](const TrackEvent *a, const TrackEvent *b) { return a->startSec < b->startSec; });
 
-    if (candidates.size() >= veg.titlesAndText.size()) {
-        for (int i = 0; i < veg.titlesAndText.size(); ++i) {
-            const TitlesTextParams p = titlesTextParamsFromVeg(veg.titlesAndText[i]);
-            TrackEvent *ev = candidates[i];
-            ev->mediaKind = EventMediaKind::Title;
-            ev->fxChain = {titlesTextSlotFor(p)};
-            if (ev->name.isEmpty() || ev->name == QStringLiteral("Video")) {
-                ev->name = p.text.section(QLatin1Char('\n'), 0, 0).left(60);
-            }
+    const int convertCount = std::min(candidates.size(), veg.titlesAndText.size());
+    for (int i = 0; i < convertCount; ++i) {
+        const TitlesTextParams p = titlesTextParamsFromVeg(veg.titlesAndText[i]);
+        TrackEvent *ev = candidates[i];
+        ev->mediaKind = EventMediaKind::Title;
+        ev->fxChain = {titlesTextSlotFor(p)};
+        if (ev->name.isEmpty() || ev->name == QStringLiteral("Video")) {
+            ev->name = p.text.section(QLatin1Char('\n'), 0, 0).left(60);
         }
+    }
+    if (!candidates.isEmpty()) {
+        // There WERE real timeline position anchors (an EDL sidecar, or this project's
+        // own "Video kind" binary timeline scan) — trust their count over the generator
+        // parameter blocks' own. Vegas appears to store more titlesandtext parameter
+        // blocks in the file than real timeline instances exist (55 extra on the sample
+        // project, exactly the same count as this file's real instances — almost
+        // certainly a cached/default copy per used preset, not a second on-timeline
+        // occurrence: real Vegas's own EDL export, authoritative for its timeline, has
+        // exactly as many events as there are real placeholders here, not one more).
+        // Treating every recovered block as a placeable instance regardless produced a
+        // second, ~9-minute-longer pass appended after the real ~4.5-minute timeline —
+        // wrong duration, still on one track. Any leftover blocks beyond the real
+        // placeholder count are discarded rather than guessed at.
         return;
     }
 
-    // Fallback: no (or too few) placeholder events to convert — e.g. an import path
-    // that doesn't pre-create per-instance events. One dedicated track holding every
-    // recovered instance, inserted at the front so it composites on top of the existing
-    // video per VideoCompositor's "index 0 = topmost" convention.
-    const int vi = addTrack(TrackKind::Video);
-    m_tracks[vi].name = QStringLiteral("Titles & Text");
-    m_tracks.move(vi, 0);
+    // No real timeline position anchors at all — e.g. a fresh import path that doesn't
+    // pre-create per-instance events — so there is nothing better to trust than the
+    // binary scan's own heuristic timing (see VegTitleTextInfo doc). One dedicated
+    // track holding every recovered instance, inserted at the front so it composites on
+    // top of the existing video per VideoCompositor's "index 0 = topmost" convention.
+    const int newTrack = addTrack(TrackKind::Video);
+    m_tracks[newTrack].name = QStringLiteral("Titles & Text");
+    m_tracks.move(newTrack, 0);
 
     for (const VegTitleTextInfo &src : veg.titlesAndText) {
         const TitlesTextParams p = titlesTextParamsFromVeg(src);
@@ -2032,6 +2076,10 @@ int ProjectModel::addTitlesTextEvent(const QString &animationKey, const QString 
     TitlesTextParams p; // defaults: "Sample Text", Verdana 48pt, white, centered, no animation
     if (!animationKey.isEmpty()) {
         p.animationName = animationKey;
+        const TitlesTextPresetVisuals visuals = titlesTextPresetVisuals(animationKey);
+        p.textColor = visuals.textColor;
+        p.backgroundColor = visuals.backgroundColor;
+        p.scale = visuals.scale;
     }
     if (!sampleText.isEmpty()) {
         p.text = sampleText;
@@ -2042,7 +2090,7 @@ int ProjectModel::addTitlesTextEvent(const QString &animationKey, const QString 
 
     TrackEvent ev;
     ev.id = m_nextEventId++;
-    ev.name = p.text;
+    ev.name = p.text.section(QLatin1Char('\n'), 0, 0).left(60);
     ev.startSec = startSec;
     ev.lengthSec = 10.0;
     ev.mediaKind = EventMediaKind::Title;

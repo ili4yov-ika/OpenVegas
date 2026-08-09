@@ -2,6 +2,7 @@
 
 #include "audio/FadeCurves.h"
 #include "video/ColorCorrectorApply.h"
+#include "video/MediaGeneratorApply.h"
 #include "video/PanCropApply.h"
 #include "video/TitlesTextApply.h"
 #include "video/TrackMotionApply.h"
@@ -146,6 +147,10 @@ QImage VideoCompositor::compose(const ProjectModel &model, double t, const QSize
                         const double progress =
                             std::clamp(eventLocal / std::max(0.05, ev.lengthSec), 0.0, 1.0);
                         src = renderTitlesText(titlesTextFromSlot(slot), sz, progress);
+                        break;
+                    }
+                    if (isMediaGeneratorPluginId(slot.pluginId)) {
+                        src = renderMediaGeneratorPattern(mediaGeneratorFromSlot(slot), sz);
                         break;
                     }
                 }

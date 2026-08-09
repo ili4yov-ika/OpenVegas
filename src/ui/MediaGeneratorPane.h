@@ -1,5 +1,7 @@
 #pragma once
 
+#include "video/MediaGeneratorApply.h"
+
 #include <QWidget>
 #include <QString>
 #include <QVector>
@@ -26,24 +28,9 @@ public:
     void saveSettings() const;
     void restoreSettings();
 
-    enum class Pattern {
-        Gradient,
-        Checker,
-        HBlinds,
-        VBlinds,
-        Grille,
-        Fence,
-        Ridges,
-        Bumps,
-        Plaid,
-        Letterbox,
-        SplitScreen,
-        Horizon
-    };
-
     struct Preset {
         QString name;
-        Pattern pattern = Pattern::Gradient;
+        MediaGeneratorPattern pattern = MediaGeneratorPattern::Gradient;
         QColor c0;
         QColor c1;
         int tile = 8;
@@ -53,6 +40,14 @@ public:
          * for these instead of the abstract pattern above.
          */
         QString animationKey;
+        /**
+         * Real placed/preview text when it differs from the catalog caption `name`
+         * (only the 25 Title-N presets — Vegas captions them "Title01" etc. but each
+         * places its own real marketing sample line, e.g. "UNIQUE\n\nTYPOGRAPHY").
+         * Empty ⇒ falls back to `name` (true for every other Titles & Text preset,
+         * where the caption already equals its real sample text).
+         */
+        QString sampleText;
     };
 
     struct Plugin {

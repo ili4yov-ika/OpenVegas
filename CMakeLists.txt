@@ -109,6 +109,7 @@ endif()
     src/video/TrackMotionApply.cpp
     src/video/ColorCorrectorApply.cpp
     src/video/TitlesTextApply.cpp
+    src/video/MediaGeneratorApply.cpp
     src/video/VideoCompositor.cpp
     resources/resources.qrc
 )
@@ -197,6 +198,7 @@ set(OPENVGAS_HEADERS
     src/video/TrackMotionApply.h
     src/video/ColorCorrectorApply.h
     src/video/TitlesTextApply.h
+    src/video/MediaGeneratorApply.h
     src/video/VideoCompositor.h
 )
 
@@ -397,6 +399,7 @@ if(OPENVGAS_BUILD_TESTS)
         tests/test_video_preview.cpp
         tests/test_video_fx_chain.cpp
         tests/test_vegas_video_catalog.cpp
+        tests/test_titles_text.cpp
         tests/stub_media_path_for_event.cpp
         src/audio/FadeCurves.cpp
         src/io/SamplePaths.cpp
@@ -408,6 +411,7 @@ if(OPENVGAS_BUILD_TESTS)
         src/video/TrackMotionApply.cpp
         src/video/ColorCorrectorApply.cpp
         src/video/TitlesTextApply.cpp
+        src/video/MediaGeneratorApply.cpp
         src/video/VideoCompositor.cpp
         src/video/VideoFrameCache.cpp
         src/io/FFmpegStreamDecoder.cpp
@@ -447,6 +451,7 @@ if(OPENVGAS_BUILD_TESTS)
         tests/test_project_interchange.cpp
         tests/test_plugin_state.cpp
         tests/test_vegas_video_catalog.cpp
+        tests/test_media_generator.cpp
         src/io/FFmpegEncoder.cpp
         src/io/FFmpegStreamDecoder.cpp
         src/io/MediaFilmstripCache.cpp
@@ -468,6 +473,7 @@ if(OPENVGAS_BUILD_TESTS)
         src/audio/FadeCurves.cpp
         src/video/VideoKeyframeEval.cpp
         src/video/TitlesTextApply.cpp
+        src/video/MediaGeneratorApply.cpp
         src/io/RenderTemplateCatalog.cpp
     )
     target_include_directories(openvegas_media_tests PRIVATE

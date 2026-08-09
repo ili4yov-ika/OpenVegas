@@ -6,6 +6,7 @@
 #include "io/SamplePaths.h"
 #include "model/ProjectModel.h"
 #include "plugins/AudioPluginTypes.h"
+#include "video/TitlesTextApply.h"
 
 #include <QDir>
 #include <QFile>
@@ -178,15 +179,22 @@ TEST_CASE("VegReader recovers VEGAS Titles & Text generator instances",
     const VegOpenResult veg = VegReader::open(path, &err);
     REQUIRE(err.isEmpty());
 
-    // Reverse-engineered against the real file: 55 real generator instances (a second,
-    // param-less echo of the plugin id per instance is filtered out — see
-    // VegReader::parseVideoTitlesText). Timing is a best-effort order-correlation
-    // heuristic against the binary timeline scan (documented as such, not a structural
-    // guarantee), and parseTimelineEvents itself occasionally yields a slightly
-    // overlapping match on real files — so timing is checked loosely (a handful of
-    // small/rare gaps is fine; a systemic breakdown is not), while text/font recovery,
-    // which has no such excuse, is checked exactly.
-    REQUIRE(veg.titlesAndText.size() >= 40);
+    // Reverse-engineered against the real file: 55 real generator instances. Vegas
+    // stores each one's parameters TWICE, back-to-back (110 raw marker occurrences,
+    // every adjacent pair byte-identical in AnimationName+Text with zero exceptions —
+    // a cached/default copy alongside the live one, not a second on-timeline
+    // occurrence); parseVideoTitlesText() collapses verified adjacent duplicates before
+    // returning. findNameValue() itself also used to under-read: a short property name
+    // (e.g. "Background") can occur as a literal substring of a longer one earlier in
+    // the same record ("FitBackgroundColor"), and the old single-shot search gave up on
+    // that false match instead of continuing past it, so this file's true raw-marker
+    // count (110) was previously only half-recovered too. Timing is a best-effort
+    // order-correlation heuristic against the binary timeline scan (documented as such,
+    // not a structural guarantee), and parseTimelineEvents itself occasionally yields a
+    // slightly overlapping match on real files — so timing is checked loosely (a
+    // handful of small/rare gaps is fine; a systemic breakdown is not), while text/font
+    // recovery, which has no such excuse, is checked exactly.
+    REQUIRE(veg.titlesAndText.size() >= 50);
 
     bool foundSampleText1 = false;
     double prevEnd = -1.0;
@@ -207,4 +215,109 @@ TEST_CASE("VegReader recovers VEGAS Titles & Text generator instances",
     }
     REQUIRE(foundSampleText1);
     REQUIRE(badGaps <= 2);
+}
+
+TEST_CASE("Real VEG-recovered Titles & Text events keep their animation on import",
+          "[plugins][state][veg][titles-and-text]")
+{
+    // Regression guard: titlesTextMotionForPreset() used to derive its lookup key from the
+    // preset's display label ("Drop Split" -> "_DropSplit"), which never matches Vegas's
+    // real AnimationName format ("_Drop_split") recovered here — every multi-word named
+    // preset silently lost its animation (fell back to None) on import. See
+    // ISSUES_AND_PLANS.md 2026-08-08 and tests/test_titles_text.cpp for the isolated
+    // registry-level coverage of the same bug.
+    const QString root = SamplePaths::vegProjectDir();
+    if (root.isEmpty()) {
+        SKIP("SAMPLES/veg_project not available");
+    }
+    const QString path =
+        QDir(root).filePath(QStringLiteral("project_titles-and-text.veg"));
+    if (!QFile::exists(path)) {
+        SKIP("Titles & Text sample .veg missing");
+    }
+    QString err;
+    const VegOpenResult veg = VegReader::open(path, &err);
+    REQUIRE(err.isEmpty());
+
+    ProjectModel model;
+    REQUIRE(model.applyVegImport(veg, path));
+
+    // Regression guard for a third bug found the same day: real Vegas keeps every
+    // Titles & Text clip on ONE video track spanning ~4.5 minutes (confirmed against a
+    // real Vegas Pro screenshot of this exact project, and against its own EDL sidecar
+    // export — 56 events, authoritative for the real timeline). Before
+    // VegReader::parseVideoTitlesText() collapsed the verified duplicate parameter
+    // blocks described above, applyTitlesTextFromVeg() saw 110 "instances" against only
+    // 56 real timeline placeholders; its fallback for the shortfall (append the leftover
+    // half using the binary scan's own best-effort sequential timing) kept everything on
+    // one track but stretched it to a bogus ~13-minute tail. With the dedup fix, real
+    // instance count (55) and real placeholder count (56) are back in near-lockstep, so
+    // this should hold with real, non-fabricated timing throughout.
+    int videoTrackCount = 0;
+    double maxEnd = 0.0;
+    for (const Track &tr : model.tracks()) {
+        if (tr.kind != TrackKind::Video) {
+            continue;
+        }
+        ++videoTrackCount;
+        for (const TrackEvent &ev : tr.events) {
+            maxEnd = std::max(maxEnd, ev.startSec + ev.lengthSec);
+        }
+    }
+    REQUIRE(videoTrackCount == 1);
+    REQUIRE(maxEnd < 400.0); // real timeline is ~273s; old bug stretched this to ~805s
+
+    int titleEventCount = 0;
+    int namedAnimationCount = 0;
+    int namedAnimationResolvedCount = 0;
+    int dropSplitCount = 0;
+    int menaceCount = 0;
+    int roughDayCount = 0;
+    for (const Track &tr : model.tracks()) {
+        if (tr.kind != TrackKind::Video) {
+            continue;
+        }
+        for (const TrackEvent &ev : tr.events) {
+            if (ev.mediaKind != EventMediaKind::Title || ev.fxChain.isEmpty()) {
+                continue;
+            }
+            ++titleEventCount;
+            const TitlesTextParams p = titlesTextFromSlot(ev.fxChain.first());
+            if (p.animationName.isEmpty() || p.animationName == QStringLiteral("_None")) {
+                continue;
+            }
+            ++namedAnimationCount;
+            if (titlesTextMotionForPreset(p.animationName).kind != TitlesTextMotion::None) {
+                ++namedAnimationResolvedCount;
+            }
+
+            // Regression guard for a second bug found the same day: VegReader's
+            // findNameValue() matched "Background" as a literal substring of the earlier
+            // "FitBackgroundColor" property, failed its length check, and gave up instead
+            // of continuing the search — silently defaulting every instance's real
+            // Background to transparent. Only 3 of the 51 presets actually have an opaque
+            // one; verify VEG import now recovers all three correctly, and that an
+            // ordinary transparent preset doesn't get a bogus fill.
+            if (p.animationName == QStringLiteral("_Drop_split")) {
+                ++dropSplitCount;
+                CHECK(p.backgroundColor == QColor(0, 255, 255, 255));
+            } else if (p.animationName == QStringLiteral("_Menace")) {
+                ++menaceCount;
+                CHECK(p.backgroundColor == QColor(255, 255, 255, 255));
+            } else if (p.animationName == QStringLiteral("_Rough_Day")) {
+                ++roughDayCount;
+                CHECK(p.backgroundColor == QColor(255, 255, 0, 255));
+            } else {
+                CHECK(p.backgroundColor.alpha() == 0);
+            }
+        }
+    }
+    REQUIRE(titleEventCount >= 40);
+    REQUIRE(namedAnimationCount >= 20); // most of this sample's instances name a real preset
+    // Before the fix, this was 0/namedAnimationCount (every named preset silently fell
+    // back to None) — now every real recovered key must resolve.
+    REQUIRE(namedAnimationResolvedCount == namedAnimationCount);
+    REQUIRE(dropSplitCount >= 1);
+    REQUIRE(menaceCount >= 1);
+    REQUIRE(roughDayCount >= 1);
 }

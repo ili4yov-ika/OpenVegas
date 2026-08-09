@@ -5,6 +5,7 @@
 #include <QDataStream>
 #include <QFont>
 #include <QFontMetricsF>
+#include <QHash>
 #include <QIODevice>
 #include <QPainter>
 #include <QPainterPath>
@@ -178,58 +179,99 @@ double easeShape(double t)
 
 struct PresetDef {
     QString label;
+    /** Real Vegas AnimationName value (see SAMPLES/veg_project/project_titles-and-text.veg) —
+     *  NOT derivable from label (Vegas's own scheme mixes Title_Case and lower_case words:
+     *  "_Drop_split", "_Fly_in_from_Right", …), so every key is spelled out explicitly. */
+    QString key;
     TitlesTextMotionSpec spec;
+    /** Real recovered TextColor; alpha 0 means "not reliably recovered" → falls back to white. */
+    QColor textColor = QColor(255, 255, 255, 255);
+    /** Real recovered Background; transparent (the default) for 48 of the 51 presets —
+     *  only Drop Split/Menace/Rough Day have a real opaque fill. */
+    QColor backgroundColor = QColor(0, 0, 0, 0);
+    double scale = 1.0;
 };
 
-QString presetKeyFromLabel(const QString &label)
-{
-    QString key = label;
-    key.remove(QLatin1Char(' '));
-    return QLatin1Char('_') + key;
-}
-
 /**
- * Real Vegas preset names (confirmed against the real app's Animation dropdown), mapped
- * to a small set of hand-crafted motion families — Vegas's exact per-preset curves
- * aren't reverse-engineerable without the real plugin binary, so this is a functional
- * approximation (same status as the color picker), not a byte-exact replica. The 25
- * Title-N presets round-robin over the same kind set since their individual real
- * motions are unknown.
+ * Real Vegas preset names AND AnimationName keys (recovered from
+ * SAMPLES/veg_project/project_titles-and-text.veg — every one of its 51 distinct
+ * AnimationName values, cross-checked against the real Animation dropdown / Media
+ * Generator catalog screenshots). TextColor/Scale are real recovered defaults; the
+ * motion CURVE itself is still a hand-crafted functional approximation (same status as
+ * the color picker) since Vegas's exact per-preset easing isn't reverse-engineerable
+ * without the plugin binary. The 25 Title-N presets round-robin over a small motion set
+ * since their individual real motions are unknown (their text/scale are real).
  */
 const QVector<PresetDef> &presetTable()
 {
     static const QVector<PresetDef> table = [] {
         QVector<PresetDef> t;
-        auto add = [&](const char *label, TitlesTextMotion kind,
-                       TitlesTextDirection dir = TitlesTextDirection::None) {
-            t.push_back({QString::fromLatin1(label), TitlesTextMotionSpec{kind, dir}});
+        auto add = [&](const char *label, const char *key, TitlesTextMotion kind,
+                       TitlesTextDirection dir = TitlesTextDirection::None,
+                       QColor textColor = QColor(255, 255, 255, 255), double scale = 1.0,
+                       QColor backgroundColor = QColor(0, 0, 0, 0)) {
+            t.push_back({QString::fromLatin1(label), QString::fromLatin1(key),
+                        TitlesTextMotionSpec{kind, dir}, textColor, backgroundColor, scale});
         };
-        add("None", TitlesTextMotion::None);
-        add("Action Flip", TitlesTextMotion::PopIn);
-        add("Bounce", TitlesTextMotion::PopIn);
-        add("Coming at You", TitlesTextMotion::PopIn);
-        add("Double Flash Glow", TitlesTextMotion::Flicker);
-        add("Drop Split", TitlesTextMotion::DropIn);
-        add("Dropping Words", TitlesTextMotion::DropIn);
-        add("Earthquake", TitlesTextMotion::Shake);
-        add("Fall Down", TitlesTextMotion::SlideIn, TitlesTextDirection::Up);
-        add("Float and Pop", TitlesTextMotion::PopIn);
-        add("Fly In", TitlesTextMotion::SlideIn, TitlesTextDirection::Down);
-        add("Fly in from Right", TitlesTextMotion::SlideIn, TitlesTextDirection::Right);
-        add("Jump", TitlesTextMotion::PopIn);
-        add("Menace", TitlesTextMotion::Shake);
-        add("Popup", TitlesTextMotion::PopIn);
-        add("Rolling Glow and Enlarge", TitlesTextMotion::TwistIn);
-        add("Rough Day", TitlesTextMotion::Shake);
-        add("Scroll", TitlesTextMotion::Scroll, TitlesTextDirection::Up);
-        add("Scroll Left", TitlesTextMotion::Scroll, TitlesTextDirection::Left);
-        add("Slide", TitlesTextMotion::SlideIn, TitlesTextDirection::Left);
-        add("Slide Down", TitlesTextMotion::SlideIn, TitlesTextDirection::Up);
-        add("Slide Left", TitlesTextMotion::SlideIn, TitlesTextDirection::Right);
-        add("Slide Right", TitlesTextMotion::SlideIn, TitlesTextDirection::Left);
-        add("Slide Up", TitlesTextMotion::SlideIn, TitlesTextDirection::Down);
-        add("Speedy", TitlesTextMotion::SlideIn, TitlesTextDirection::Right);
-        add("Twist In", TitlesTextMotion::TwistIn);
+        add("None", "_None", TitlesTextMotion::None);
+        add("Action Flip", "_Action_Flip", TitlesTextMotion::PopIn, TitlesTextDirection::None,
+            QColor(255, 0, 0));
+        add("Bounce", "_Bounce", TitlesTextMotion::PopIn, TitlesTextDirection::None,
+            QColor(0, 128, 0));
+        add("Coming at You", "_Coming_at_You", TitlesTextMotion::PopIn, TitlesTextDirection::None,
+            QColor(255, 255, 0));
+        add("Double Flash Glow", "_Double_Flash_Glow", TitlesTextMotion::Flicker,
+            TitlesTextDirection::None, QColor(255, 0, 255));
+        // Real recovered Background — one of only 3 presets (with Menace/Rough Day) that
+        // isn't transparent; fixed alongside the VegReader "Background"/"FitBackgroundColor"
+        // substring-collision bug that was hiding it on VEG import (see findNameValue()).
+        add("Drop Split", "_Drop_split", TitlesTextMotion::DropIn, TitlesTextDirection::None,
+            QColor(0, 0, 0), 1.0, QColor(0, 255, 255));
+        add("Dropping Words", "_Dropping_words", TitlesTextMotion::DropIn,
+            TitlesTextDirection::None, QColor(255, 255, 255));
+        add("Earthquake", "_Earthquake", TitlesTextMotion::Shake, TitlesTextDirection::None,
+            QColor(39, 16, 231));
+        add("Fall Down", "_Fall_Down", TitlesTextMotion::SlideIn, TitlesTextDirection::Up,
+            QColor(0, 255, 255));
+        add("Float and Pop", "_Float_and_pop", TitlesTextMotion::PopIn, TitlesTextDirection::None,
+            QColor(255, 0, 128));
+        add("Fly In", "_Fly_in", TitlesTextMotion::SlideIn, TitlesTextDirection::Down,
+            QColor(255, 255, 255), 0.75);
+        add("Fly in from Right", "_Fly_in_from_Right", TitlesTextMotion::SlideIn,
+            TitlesTextDirection::Right, QColor(128, 0, 128));
+        add("Jump", "_Jump", TitlesTextMotion::PopIn, TitlesTextDirection::None,
+            QColor(255, 0, 255));
+        // Real recovered Background (see Drop Split's note above).
+        add("Menace", "_Menace", TitlesTextMotion::Shake, TitlesTextDirection::None,
+            QColor(0, 0, 0), 1.0, QColor(255, 255, 255));
+        add("Popup", "_Popup", TitlesTextMotion::PopIn, TitlesTextDirection::None,
+            QColor(255, 255, 255));
+        add("Rolling Glow and Enlarge", "_Rolling_Glow_and_Enlarge", TitlesTextMotion::TwistIn,
+            TitlesTextDirection::None, QColor(0, 128, 0));
+        // Real recovered TextColor is fully transparent (alpha 0, confirmed — not a
+        // read bug like the Background one above: no other property name collides with
+        // "TextColor") — unusable as-is (invisible text), approximated as black like its
+        // Menace/Drop Split shake/drop siblings. Background is real: opaque yellow.
+        add("Rough Day", "_Rough_Day", TitlesTextMotion::Shake, TitlesTextDirection::None,
+            QColor(0, 0, 0), 1.0, QColor(255, 255, 0));
+        add("Scroll", "_Scroll", TitlesTextMotion::Scroll, TitlesTextDirection::Up,
+            QColor(255, 255, 255));
+        add("Scroll Left", "_Scroll_Left", TitlesTextMotion::Scroll, TitlesTextDirection::Left,
+            QColor(255, 64, 64));
+        add("Slide", "_Slide", TitlesTextMotion::SlideIn, TitlesTextDirection::Left,
+            QColor(0, 255, 255), 0.5);
+        add("Slide Down", "_Slide_Down", TitlesTextMotion::SlideIn, TitlesTextDirection::Up,
+            QColor(0, 128, 255), 0.75);
+        add("Slide Left", "_Slide_Left", TitlesTextMotion::SlideIn, TitlesTextDirection::Right,
+            QColor(0, 128, 128));
+        add("Slide Right", "_Slide_Right", TitlesTextMotion::SlideIn, TitlesTextDirection::Left,
+            QColor(0, 0, 255));
+        add("Slide Up", "_Slide_Up", TitlesTextMotion::SlideIn, TitlesTextDirection::Down,
+            QColor(0, 0, 128));
+        add("Speedy", "_Speedy", TitlesTextMotion::SlideIn, TitlesTextDirection::Right,
+            QColor(255, 255, 0));
+        add("Twist In", "_Twist_In", TitlesTextMotion::TwistIn, TitlesTextDirection::None,
+            QColor(255, 255, 0));
 
         static const TitlesTextMotionSpec kTitleCycle[] = {
             {TitlesTextMotion::FadeIn, TitlesTextDirection::None},
@@ -243,23 +285,34 @@ const QVector<PresetDef> &presetTable()
             {TitlesTextMotion::Shake, TitlesTextDirection::None},
             {TitlesTextMotion::Flicker, TitlesTextDirection::None},
         };
+        // Real recovered Scale per Title-N preset; every other Title-N is 1.0.
+        static const QHash<int, double> kTitleScale = {{3, 1.3}, {8, 1.125}};
         for (int i = 1; i <= 25; ++i) {
             const QString label = QStringLiteral("Title%1").arg(i, 2, 10, QLatin1Char('0'));
-            t.push_back({label, kTitleCycle[(i - 1) % 10]});
+            t.push_back({label, QLatin1Char('_') + label, kTitleCycle[(i - 1) % 10],
+                        QColor(255, 255, 255), QColor(0, 0, 0, 0), kTitleScale.value(i, 1.0)});
         }
         return t;
     }();
     return table;
 }
 
+const PresetDef *presetByKey(const QString &animationKey)
+{
+    for (const PresetDef &def : presetTable()) {
+        if (def.key == animationKey) {
+            return &def;
+        }
+    }
+    return nullptr;
+}
+
 } // namespace
 
 TitlesTextMotionSpec titlesTextMotionForPreset(const QString &animationKey)
 {
-    for (const PresetDef &def : presetTable()) {
-        if (presetKeyFromLabel(def.label) == animationKey) {
-            return def.spec;
-        }
+    if (const PresetDef *def = presetByKey(animationKey)) {
+        return def->spec;
     }
     return {};
 }
@@ -269,9 +322,18 @@ QVector<TitlesTextPresetEntry> titlesTextAnimationPresets()
     QVector<TitlesTextPresetEntry> out;
     out.reserve(presetTable().size());
     for (const PresetDef &def : presetTable()) {
-        out.push_back({def.label, presetKeyFromLabel(def.label)});
+        out.push_back({def.label, def.key});
     }
     return out;
+}
+
+TitlesTextPresetVisuals titlesTextPresetVisuals(const QString &animationKey)
+{
+    if (const PresetDef *def = presetByKey(animationKey);
+        def && def->textColor.alpha() > 0) {
+        return {def->textColor, def->backgroundColor, def->scale};
+    }
+    return {};
 }
 
 TitlesTextAnimKeyframe evaluateTitlesTextAnimation(const TitlesTextMotionSpec &spec, double progress)

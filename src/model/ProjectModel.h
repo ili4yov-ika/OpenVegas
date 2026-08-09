@@ -996,10 +996,14 @@ public:
                           const QString &mediaPath = {});
 
     /** Drop/import helper: video → A/V group; still → video track (5 s default); audio → audio track;
-     *  titles → VEGAS Titles & Text generator event (path-less; see addTitlesTextEvent()).
-     *  @param lengthSec 0 = use Vegas-style default for the kind (still 5 s, titles 10 s, else 8 s).
+     *  titles → VEGAS Titles & Text generator event (path-less; see addTitlesTextEvent());
+     *  generator → non-text Media Generator event (Checkerboard, Color Gradient, …; path-less,
+     *  see video/MediaGeneratorApply.h).
+     *  @param lengthSec 0 = use Vegas-style default for the kind (still 5 s, titles/generator 10 s,
+     *  else 8 s).
      *  @param preferTrack track index, -1 = first matching / create, -2 = always create new track(s).
-     *  @param extra kind == "titles" only: animation key (name doubles as the sample text). */
+     *  @param extra kind == "titles": animation key (name doubles as the sample text).
+     *  kind == "generator": MediaGeneratorParams payload (mediaGeneratorParamsToPayload()). */
     int addMediaAt(const QString &name, const QString &kind, double startSec, double lengthSec = 0.0,
                    int preferTrack = -1, const QString &mediaPath = {}, const QString &extra = {});
 

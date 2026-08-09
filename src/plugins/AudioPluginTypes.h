@@ -286,6 +286,14 @@ inline bool isTitlesTextName(const QString &displayName)
            || n.contains(QLatin1String("titlesandtext"), Qt::CaseInsensitive);
 }
 
+/** True for a non-text Media Generator instance (Checkerboard, Color Gradient, …) —
+ *  see MediaGeneratorApply.h's mediaGeneratorSlotFor(). Matched on pluginId (a stable
+ *  internal id), not displayName, since displayName holds the human-readable plugin name. */
+inline bool isMediaGeneratorPluginId(const QString &pluginId)
+{
+    return pluginId.startsWith(QLatin1String("builtin:MediaGenerator:"), Qt::CaseInsensitive);
+}
+
 /** Descriptor for discovery / Plug-In Chooser (not an instance). */
 struct AudioPluginDesc {
     QString id;

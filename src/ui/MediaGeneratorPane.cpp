@@ -1,6 +1,7 @@
 #include "ui/MediaGeneratorPane.h"
 
 #include "io/MediaMime.h"
+#include "video/MediaGeneratorApply.h"
 #include "video/TitlesTextApply.h"
 
 #include <QAbstractButton>
@@ -12,14 +13,12 @@
 #include <QHBoxLayout>
 #include <QLabel>
 #include <QLineEdit>
-#include <QLinearGradient>
 #include <QListWidget>
 #include <QListView>
 #include <QMimeData>
 #include <QPainter>
 #include <QPixmap>
 #include <QPushButton>
-#include <QRadialGradient>
 #include <QScrollArea>
 #include <QSettings>
 #include <QSplitter>
@@ -37,9 +36,10 @@ QColor c(int r, int g, int b) { return QColor(r, g, b); }
 
 /**
  * Drag-out payload roles for the plugin list / preset grid (see
- * GeneratorDragListWidget below). kDragKindRole is left unset for entries with
- * no real render backend (everything except Titles & Text today), so they
- * simply don't drag — matching the double-click fallback (status-bar toast).
+ * GeneratorDragListWidget below). Every plugin row / preset tile carries a
+ * payload — kind "titles" for Titles & Text (extra = animation key), kind
+ * "generator" for everything else (extra = MediaGeneratorParams payload, see
+ * mediaGeneratorParamsToPayload()).
  */
 constexpr int kDragKindRole = Qt::UserRole + 20;
 constexpr int kDragNameRole = Qt::UserRole + 21;
@@ -93,7 +93,7 @@ protected:
     }
 };
 
-MediaGeneratorPane::Preset makePreset(const QString &name, MediaGeneratorPane::Pattern pat,
+MediaGeneratorPane::Preset makePreset(const QString &name, MediaGeneratorPattern pat,
                                       QColor a = c(0x22, 0x22, 0x22), QColor b = c(0xee, 0xee, 0xee),
                                       int tile = 8)
 {
@@ -119,21 +119,52 @@ QString animationKeyForLabel(const QString &label)
 }
 
 /**
- * c0 = background, c1 = text color; presetIcon() renders real animated text for these
- * (see the animationKey doc on MediaGeneratorPane::Preset). animationLabel defaults to
- * displayName when omitted (the common case: a preset named "Bounce" uses the "Bounce"
- * animation) — pass it explicitly for the default preset, which Vegas displays as
- * "Sample Text" in the grid but maps to the "None" animation.
+ * fg = text color; presetIcon() renders real animated text for these (see the
+ * animationKey doc on MediaGeneratorPane::Preset). Background comes from
+ * titlesTextPresetVisuals() (real recovered data), not a caller-supplied argument, so
+ * the catalog can never drift from the same source video/TitlesTextApply.cpp uses to
+ * build the actual placed event: transparent for 48 of the 51 presets, real opaque
+ * fills for Drop Split (#00FFFF)/Menace (#FFFFFF)/Rough Day (#FFFF00) — presetIcon()
+ * shows either honestly, via a checkerboard for the transparent ones. animationLabel
+ * defaults to displayName when omitted (the common case: a preset named "Bounce" uses
+ * the "Bounce" animation) — pass it explicitly for the default preset, which Vegas
+ * displays as "Sample Text" in the grid but maps to the "None" animation. sampleText is
+ * for the 25 Title-N presets only, whose caption ("Title01") differs from their real
+ * placed text — see Preset::sampleText.
  */
-MediaGeneratorPane::Preset makeTitlesTextPreset(const QString &displayName, QColor bg, QColor fg,
-                                                const QString &animationLabel = QString())
+MediaGeneratorPane::Preset makeTitlesTextPreset(const QString &displayName, QColor fg,
+                                                const QString &animationLabel = QString(),
+                                                const QString &sampleText = QString())
 {
     MediaGeneratorPane::Preset p;
     p.name = displayName;
     p.animationKey = animationKeyForLabel(animationLabel.isEmpty() ? displayName : animationLabel);
-    p.c0 = bg;
+    p.c0 = titlesTextPresetVisuals(p.animationKey).backgroundColor;
     p.c1 = fg;
+    p.sampleText = sampleText;
     return p;
+}
+
+/** Tileable alpha checkerboard — light gray / dark gray, matching the real Vegas Pro
+ *  Media Generator browser's own transparency checkerboard (not the near-white/near-
+ *  black pairing TimelineView's small "generated media" chrome glyph uses — that one's
+ *  a tiny 2x2 icon glyph, not meant to be tiled at thumbnail scale). Backdrop for
+ *  Titles & Text preset previews, whose real generator events always start with a
+ *  transparent background. */
+QImage checkerboardBackground(const QSize &size)
+{
+    QImage img(size, QImage::Format_ARGB32_Premultiplied);
+    QPainter painter(&img);
+    painter.setPen(Qt::NoPen);
+    constexpr int kTile = 8;
+    for (int y = 0; y < size.height(); y += kTile) {
+        for (int x = 0; x < size.width(); x += kTile) {
+            const bool light = ((x / kTile) + (y / kTile)) % 2 == 0;
+            painter.setBrush(light ? QColor(120, 120, 120) : QColor(85, 85, 85));
+            painter.drawRect(x, y, kTile, kTile);
+        }
+    }
+    return img;
 }
 
 } // namespace
@@ -165,25 +196,25 @@ void MediaGeneratorPane::loadCatalog()
         p.description = QStringLiteral("From Magix Computer Products Intl. Co.");
         p.gpu = true;
         p.presets = {
-            makePreset(QStringLiteral("(Default)"), Pattern::Checker, c(0x11, 0x11, 0x11), c(0xee, 0xee, 0xee), 12),
-            makePreset(QStringLiteral("Large Tiles"), Pattern::Checker, c(0x11, 0x11, 0x11), c(0xee, 0xee, 0xee), 20),
-            makePreset(QStringLiteral("Small Tiles"), Pattern::Checker, c(0x11, 0x11, 0x11), c(0xee, 0xee, 0xee), 6),
-            makePreset(QStringLiteral("Horizontal Blinds"), Pattern::HBlinds),
-            makePreset(QStringLiteral("Vertical Blinds"), Pattern::VBlinds),
-            makePreset(QStringLiteral("Grille"), Pattern::Grille),
-            makePreset(QStringLiteral("Fence"), Pattern::Fence),
-            makePreset(QStringLiteral("Ridges"), Pattern::Ridges),
-            makePreset(QStringLiteral("Bumps"), Pattern::Bumps),
-            makePreset(QStringLiteral("Plaid"), Pattern::Plaid),
-            makePreset(QStringLiteral("Letterbox"), Pattern::Letterbox),
-            makePreset(QStringLiteral("Split Screen"), Pattern::SplitScreen),
-            makePreset(QStringLiteral("Horizon"), Pattern::Horizon),
+            makePreset(QStringLiteral("(Default)"), MediaGeneratorPattern::Checker, c(0x11, 0x11, 0x11), c(0xee, 0xee, 0xee), 12),
+            makePreset(QStringLiteral("Large Tiles"), MediaGeneratorPattern::Checker, c(0x11, 0x11, 0x11), c(0xee, 0xee, 0xee), 20),
+            makePreset(QStringLiteral("Small Tiles"), MediaGeneratorPattern::Checker, c(0x11, 0x11, 0x11), c(0xee, 0xee, 0xee), 6),
+            makePreset(QStringLiteral("Horizontal Blinds"), MediaGeneratorPattern::HBlinds),
+            makePreset(QStringLiteral("Vertical Blinds"), MediaGeneratorPattern::VBlinds),
+            makePreset(QStringLiteral("Grille"), MediaGeneratorPattern::Grille),
+            makePreset(QStringLiteral("Fence"), MediaGeneratorPattern::Fence),
+            makePreset(QStringLiteral("Ridges"), MediaGeneratorPattern::Ridges),
+            makePreset(QStringLiteral("Bumps"), MediaGeneratorPattern::Bumps),
+            makePreset(QStringLiteral("Plaid"), MediaGeneratorPattern::Plaid),
+            makePreset(QStringLiteral("Letterbox"), MediaGeneratorPattern::Letterbox),
+            makePreset(QStringLiteral("Split Screen"), MediaGeneratorPattern::SplitScreen),
+            makePreset(QStringLiteral("Horizon"), MediaGeneratorPattern::Horizon),
         };
         add(std::move(p));
     }
 
-    auto simple = [&](const QString &name, const QStringList &cats, const QString &desc, Pattern pat,
-                      QColor a, QColor b, bool gpu = false) {
+    auto simple = [&](const QString &name, const QStringList &cats, const QString &desc,
+                      MediaGeneratorPattern pat, QColor a, QColor b, bool gpu = false) {
         Plugin p;
         p.name = name;
         p.categories = cats;
@@ -196,19 +227,19 @@ void MediaGeneratorPane::loadCatalog()
     };
 
     simple(QStringLiteral("Color Gradient"), {QStringLiteral("Creative"), QStringLiteral("Utility")},
-           QStringLiteral("Linear and radial color gradients."), Pattern::Gradient,
+           QStringLiteral("Linear and radial color gradients."), MediaGeneratorPattern::Gradient,
            c(0x20, 0x40, 0x80), c(0xc0, 0x60, 0x30), true);
     simple(QStringLiteral("Credit Roll"), {QStringLiteral("Titles and Text")},
-           QStringLiteral("Scrolling credit / title roll."), Pattern::Gradient,
+           QStringLiteral("Scrolling credit / title roll."), MediaGeneratorPattern::Gradient,
            c(0x10, 0x10, 0x10), c(0x40, 0x40, 0x50));
     simple(QStringLiteral("Noise Texture"), {QStringLiteral("Creative"), QStringLiteral("Utility")},
-           QStringLiteral("Procedural noise texture generator."), Pattern::Bumps,
+           QStringLiteral("Procedural noise texture generator."), MediaGeneratorPattern::Bumps,
            c(0x30, 0x30, 0x30), c(0x90, 0x90, 0x90), true);
     simple(QStringLiteral("Solid Color"), {QStringLiteral("Utility")},
-           QStringLiteral("Solid color media event."), Pattern::Gradient,
+           QStringLiteral("Solid color media event."), MediaGeneratorPattern::Gradient,
            c(0x00, 0x78, 0xd7), c(0x00, 0x78, 0xd7));
     simple(QStringLiteral("Test Pattern"), {QStringLiteral("Utility")},
-           QStringLiteral("Broadcast / calibration test patterns."), Pattern::Grille,
+           QStringLiteral("Broadcast / calibration test patterns."), MediaGeneratorPattern::Grille,
            c(0x11, 0x11, 0x11), c(0xee, 0xee, 0xee));
     {
         Plugin p;
@@ -218,29 +249,104 @@ void MediaGeneratorPane::loadCatalog()
         p.version = QStringLiteral("1.0");
         p.description = QStringLiteral("Titles and text overlays.");
         p.gpu = true;
+        // All 53 real Vegas presets (catalog grid order: Default, Title01–25, then the 25
+        // named animations alphabetically, then Placeholder/Subtitles) — recovered from
+        // SAMPLES/veg_project/project_titles-and-text.veg (real AnimationName + TextColor
+        // + Background + Scale + sample text per instance; see
+        // video/TitlesTextApply.cpp's presetTable() for the same data feeding the actual
+        // placed event, and makeTitlesTextPreset() for where the background comes from —
+        // no bg argument here: transparent for 48 of the 51 presets (shown via a real
+        // checkerboard, not an invented solid fill), real opaque fills for Drop
+        // Split/Menace/Rough Day.
         p.presets = {
-            makeTitlesTextPreset(QStringLiteral("Sample Text"), c(0x1a, 0x1a, 0x28),
-                                 c(0xf0, 0xf0, 0xf0), QStringLiteral("None")),
-            makeTitlesTextPreset(QStringLiteral("Bounce"), c(0xff, 0xd0, 0x40), c(0x10, 0x10, 0x10)),
-            makeTitlesTextPreset(QStringLiteral("Earthquake"), c(0x30, 0x50, 0xc0), c(0xf0, 0xf0, 0xf0)),
-            makeTitlesTextPreset(QStringLiteral("Fly In"), c(0x20, 0x80, 0x40), c(0xf0, 0xf0, 0xf0)),
-            makeTitlesTextPreset(QStringLiteral("Fly in from Right"), c(0x80, 0x30, 0x30),
-                                 c(0xf0, 0xf0, 0xf0)),
-            makeTitlesTextPreset(QStringLiteral("Slide Left"), c(0x00, 0xc0, 0xd0), c(0x10, 0x10, 0x10)),
-            makeTitlesTextPreset(QStringLiteral("Slide Right"), c(0x40, 0x40, 0x40), c(0xf0, 0xf0, 0xf0)),
-            makeTitlesTextPreset(QStringLiteral("Slide Up"), c(0x10, 0x10, 0x10), c(0xf0, 0xf0, 0xf0)),
-            makeTitlesTextPreset(QStringLiteral("Slide Down"), c(0xe0, 0xe0, 0xe0), c(0x10, 0x10, 0x10)),
-            makeTitlesTextPreset(QStringLiteral("Speedy"), c(0xff, 0xe0, 0x00), c(0x10, 0x10, 0x10)),
-            makeTitlesTextPreset(QStringLiteral("Twist In"), c(0x60, 0x20, 0x80), c(0xf0, 0xf0, 0xf0)),
-            makeTitlesTextPreset(QStringLiteral("Drop Split"), c(0x00, 0xd0, 0xd0), c(0x10, 0x10, 0x10)),
-            makeTitlesTextPreset(QStringLiteral("Popup"), c(0x10, 0x10, 0x10), c(0xf0, 0xf0, 0xf0)),
-            makeTitlesTextPreset(QStringLiteral("Scroll"), c(0x20, 0x20, 0x30), c(0xf0, 0xf0, 0xf0)),
-            makeTitlesTextPreset(QStringLiteral("Menace"), c(0xf0, 0xf0, 0xf0), c(0x10, 0x10, 0x10)),
-            makeTitlesTextPreset(QStringLiteral("Rough Day"), c(0xff, 0xe0, 0x20), c(0x10, 0x10, 0x10)),
-            makeTitlesTextPreset(QStringLiteral("Coming at You"), c(0x30, 0x30, 0x30),
-                                 c(0xf0, 0xf0, 0xf0)),
-            makeTitlesTextPreset(QStringLiteral("Double Flash Glow"), c(0x20, 0x20, 0x20),
-                                 c(0xf0, 0xf0, 0xf0)),
+            makeTitlesTextPreset(QStringLiteral("Sample Text"), c(0xff, 0xff, 0xff),
+                                 QStringLiteral("None")),
+            makeTitlesTextPreset(QStringLiteral("Title01"), c(0xff, 0xff, 0xff), {},
+                                 QStringLiteral("UNIQUE\n\nTYPOGRAPHY")),
+            makeTitlesTextPreset(QStringLiteral("Title02"), c(0xff, 0xff, 0xff), {},
+                                 QStringLiteral("DREAM BIG\n\nAND DARE\n\nTO FAIL")),
+            makeTitlesTextPreset(QStringLiteral("Title03"), c(0xff, 0xff, 0xff), {},
+                                 QStringLiteral("FREE CUSTOMER\n\nSUPPORT")),
+            makeTitlesTextPreset(
+                QStringLiteral("Title04"), c(0xff, 0xff, 0xff), {},
+                QStringLiteral("The timeline editing tools make editing fast and easy.\n\n"
+                               "But more importantly, they bring out your creativity,\n\n"
+                               "because ideas flow freely when you're not\n\n"
+                               "preoccupied by clumsy editing tools.")),
+            makeTitlesTextPreset(QStringLiteral("Title05"), c(0xff, 0xff, 0xff), {},
+                                 QStringLiteral("THE\n\nWORLD\n\nFASHION\n\nFESTIVAL 2022")),
+            makeTitlesTextPreset(QStringLiteral("Title06"), c(0xff, 0xff, 0xff), {},
+                                 QStringLiteral("VERY\n\nEASY\nTO USE")),
+            makeTitlesTextPreset(QStringLiteral("Title07"), c(0xff, 0xff, 0xff), {},
+                                 QStringLiteral("VEGAS TITLES\n\n TITLES & TEXT PACK")),
+            makeTitlesTextPreset(QStringLiteral("Title08"), c(0xff, 0xff, 0xff), {},
+                                 QStringLiteral("20:00\n\nLIVE\n\nSTREAM")),
+            makeTitlesTextPreset(QStringLiteral("Title09"), c(0xff, 0xff, 0xff), {},
+                                 QStringLiteral("WELL\nORGANIZED\nPRESETS")),
+            makeTitlesTextPreset(QStringLiteral("Title10"), c(0xff, 0xff, 0xff), {},
+                                 QStringLiteral("BUSINESS CORPORATE\nTitle Presets Pack")),
+            makeTitlesTextPreset(QStringLiteral("Title11"), c(0xff, 0xff, 0xff), {},
+                                 QStringLiteral("AWESOME\nTYPOGRAPHY\nfor Titles & Text")),
+            makeTitlesTextPreset(QStringLiteral("Title12"), c(0xff, 0xff, 0xff), {},
+                                 QStringLiteral("SMOOTH\nMOVEMENT\n\nAND CLEAN\n  DESIGN")),
+            makeTitlesTextPreset(
+                QStringLiteral("Title13"), c(0xff, 0xff, 0xff), {},
+                QStringLiteral("HAPPY          \nHOLIDAYS\n   CELEBRATION\n OPEN NOW!")),
+            makeTitlesTextPreset(QStringLiteral("Title14"), c(0xff, 0xff, 0xff), {},
+                                 QStringLiteral("SMOOTH TITLE\nANIMATION\nPACKAGE")),
+            makeTitlesTextPreset(QStringLiteral("Title15"), c(0xff, 0xff, 0xff), {},
+                                 QStringLiteral("#ONLY ON\n\nTitles & Text")),
+            makeTitlesTextPreset(QStringLiteral("Title16"), c(0xff, 0xff, 0xff), {},
+                                 QStringLiteral("UNIQUE TITLES\nFOR YOUR PROJECTS")),
+            makeTitlesTextPreset(QStringLiteral("Title17"), c(0xff, 0xff, 0xff), {},
+                                 QStringLiteral("VEGAS MARKET\nCREATIVE COMMUNITY")),
+            makeTitlesTextPreset(QStringLiteral("Title18"), c(0xff, 0xff, 0xff), {},
+                                 QStringLiteral("VEGAS LIBRARY\nTitles & Text Pack")),
+            makeTitlesTextPreset(QStringLiteral("Title19"), c(0xff, 0xff, 0xff), {},
+                                 QStringLiteral("DREAM BIG\n\nAND DARE\n\nTO FAIL")),
+            makeTitlesTextPreset(QStringLiteral("Title20"), c(0xff, 0xff, 0xff), {},
+                                 QStringLiteral("TITLES & TEXT\nPACK FOR\nYOUR PROJECTS")),
+            makeTitlesTextPreset(QStringLiteral("Title21"), c(0xff, 0xff, 0xff), {},
+                                 QStringLiteral("The Good\n\nDesign\n\nAwards\n\n2022")),
+            makeTitlesTextPreset(QStringLiteral("Title22"), c(0xff, 0xff, 0xff), {},
+                                 QStringLiteral("VEGAS\n\nPRESENTS")),
+            makeTitlesTextPreset(QStringLiteral("Title23"), c(0xff, 0xff, 0xff), {},
+                                 QStringLiteral("MODERN\n\nUNIQUE\n\nDESIGN")),
+            makeTitlesTextPreset(QStringLiteral("Title24"), c(0xff, 0xff, 0xff), {},
+                                 QStringLiteral("FOR YOUR\nPROMO")),
+            makeTitlesTextPreset(QStringLiteral("Title25"), c(0xff, 0xff, 0xff), {},
+                                 QStringLiteral("EVENT")),
+            makeTitlesTextPreset(QStringLiteral("Action Flip"), c(0xff, 0x00, 0x00)),
+            makeTitlesTextPreset(QStringLiteral("Bounce"), c(0x00, 0x80, 0x00)),
+            makeTitlesTextPreset(QStringLiteral("Coming at You"), c(0xff, 0xff, 0x00)),
+            makeTitlesTextPreset(QStringLiteral("Double Flash Glow"), c(0xff, 0x00, 0xff)),
+            makeTitlesTextPreset(QStringLiteral("Drop Split"), c(0x00, 0x00, 0x00)),
+            makeTitlesTextPreset(QStringLiteral("Dropping Words"), c(0xff, 0xff, 0xff)),
+            makeTitlesTextPreset(QStringLiteral("Earthquake"), c(0x27, 0x10, 0xe7)),
+            makeTitlesTextPreset(QStringLiteral("Fall Down"), c(0x00, 0xff, 0xff)),
+            makeTitlesTextPreset(QStringLiteral("Float and Pop"), c(0xff, 0x00, 0x80)),
+            makeTitlesTextPreset(QStringLiteral("Fly In"), c(0xff, 0xff, 0xff)),
+            makeTitlesTextPreset(QStringLiteral("Fly in from Right"), c(0x80, 0x00, 0x80)),
+            makeTitlesTextPreset(QStringLiteral("Jump"), c(0xff, 0x00, 0xff)),
+            makeTitlesTextPreset(QStringLiteral("Menace"), c(0x00, 0x00, 0x00)),
+            makeTitlesTextPreset(QStringLiteral("Popup"), c(0xff, 0xff, 0xff)),
+            makeTitlesTextPreset(QStringLiteral("Rolling Glow and Enlarge"), c(0x00, 0x80, 0x00)),
+            // Real recovered TextColor came back fully transparent (alpha 0) — approximated
+            // black like its Menace/Drop Split shake/drop siblings (see TitlesTextApply.cpp).
+            makeTitlesTextPreset(QStringLiteral("Rough Day"), c(0x00, 0x00, 0x00)),
+            makeTitlesTextPreset(QStringLiteral("Scroll"), c(0xff, 0xff, 0xff)),
+            makeTitlesTextPreset(QStringLiteral("Scroll Left"), c(0xff, 0x40, 0x40)),
+            makeTitlesTextPreset(QStringLiteral("Slide"), c(0x00, 0xff, 0xff)),
+            makeTitlesTextPreset(QStringLiteral("Slide Down"), c(0x00, 0x80, 0xff)),
+            makeTitlesTextPreset(QStringLiteral("Slide Left"), c(0x00, 0x80, 0x80)),
+            makeTitlesTextPreset(QStringLiteral("Slide Right"), c(0x00, 0x00, 0xff)),
+            makeTitlesTextPreset(QStringLiteral("Slide Up"), c(0x00, 0x00, 0x80)),
+            makeTitlesTextPreset(QStringLiteral("Speedy"), c(0xff, 0xff, 0x00)),
+            makeTitlesTextPreset(QStringLiteral("Twist In"), c(0xff, 0xff, 0x00)),
+            makeTitlesTextPreset(QStringLiteral("Placeholder"), c(0xff, 0x00, 0x00),
+                                 QStringLiteral("None")),
+            makeTitlesTextPreset(QStringLiteral("Subtitles"), c(0xff, 0xff, 0xff),
+                                 QStringLiteral("None")),
         };
         add(std::move(p));
     }
@@ -413,10 +519,14 @@ void MediaGeneratorPane::buildUi()
         }
         const int row = m_presetGrid->row(item);
         const QVector<Preset> &presets = m_plugins[m_currentIndex].presets;
-        const QString animationKey = (row >= 0 && row < presets.size())
-                                         ? presets[row].animationKey
-                                         : QString();
-        emit presetActivated(m_plugins[m_currentIndex].name, item->text(), animationKey);
+        const bool valid = row >= 0 && row < presets.size();
+        const QString animationKey = valid ? presets[row].animationKey : QString();
+        // Title-N presets place their real (possibly multi-line) sample text, not the
+        // "Title01" catalog caption — see Preset::sampleText.
+        const QString content = (valid && !presets[row].sampleText.isEmpty())
+                                    ? presets[row].sampleText
+                                    : item->text();
+        emit presetActivated(m_plugins[m_currentIndex].name, content, animationKey);
     });
     connect(m_pluginList, &QListWidget::itemPressed, this, [this](QListWidgetItem *item) {
         if (!item) {
@@ -452,123 +562,56 @@ void MediaGeneratorPane::buildUi()
 QIcon MediaGeneratorPane::presetIcon(const Preset &p, double progress) const
 {
     if (!p.animationKey.isEmpty()) {
+        const QString previewText = p.sampleText.isEmpty() ? p.name : p.sampleText;
         TitlesTextParams tp;
-        tp.text = p.name;
+        tp.text = previewText;
         tp.fontFamily = QStringLiteral("Verdana");
         // Authored against a 1080-tall reference frame (see renderTitlesText) — scale
-        // inversely with name length so longer preset names don't overflow the 100x62
-        // icon too badly.
-        tp.fontSize = std::clamp(3200.0 / std::max(4, int(p.name.size())), 150.0, 420.0);
+        // inversely with both the longest line (width) and the line count (height) so
+        // preset text stays small with real margin around it, like Vegas's own preset
+        // grid, instead of stretching edge-to-edge.
+        int longestLine = 4;
+        int lineCount = 0;
+        for (const QString &line : previewText.split(QLatin1Char('\n'))) {
+            longestLine = std::max(longestLine, int(line.size()));
+            ++lineCount;
+        }
+        lineCount = std::max(1, lineCount);
+        tp.fontSize = std::clamp(std::min(1400.0 / longestLine, 620.0 / lineCount), 40.0, 170.0);
         tp.bold = true;
         tp.alignment = TitlesTextAlignment::Center;
         tp.anchor = TitlesTextAnchor::MiddleCenter;
         tp.locationX = 0.5;
         tp.locationY = 0.5;
         tp.textColor = p.c1;
+        // p.c0 is real recovered data (titlesTextPresetVisuals(), via makeTitlesTextPreset())
+        // — opaque only for Drop Split/Menace/Rough Day, so renderTitlesText() paints that
+        // fill itself below; the other 48 presets are genuinely transparent, composited
+        // over a checkerboard here so the preview shows that honestly.
         tp.backgroundColor = p.c0;
         tp.animationName = p.animationKey;
-        const QImage img = renderTitlesText(tp, QSize(100, 62), progress);
+        if (p.c0.alpha() > 0) {
+            return QIcon(QPixmap::fromImage(renderTitlesText(tp, QSize(100, 62), progress)));
+        }
+        QImage img = checkerboardBackground(QSize(100, 62));
+        QPainter compositor(&img);
+        compositor.drawImage(0, 0, renderTitlesText(tp, QSize(100, 62), progress));
+        compositor.end();
         return QIcon(QPixmap::fromImage(img));
     }
 
-    QPixmap pm(100, 62);
+    // Same renderer the timeline uses for the real event (video/MediaGeneratorApply.h) —
+    // the thumbnail is guaranteed to match what a drag/drop actually produces.
+    MediaGeneratorParams gp;
+    gp.pattern = p.pattern;
+    gp.c0 = p.c0;
+    gp.c1 = p.c1;
+    gp.tile = p.tile;
+    const QImage img = renderMediaGeneratorPattern(gp, QSize(100, 62));
+    QPixmap pm = QPixmap::fromImage(img);
+
     QPainter painter(&pm);
     painter.setRenderHint(QPainter::Antialiasing, false);
-
-    auto fillGrad = [&]() {
-        QLinearGradient g(0, 0, 100, 62);
-        g.setColorAt(0, p.c0);
-        g.setColorAt(1, p.c1);
-        painter.fillRect(pm.rect(), g);
-    };
-
-    switch (p.pattern) {
-    case Pattern::Checker: {
-        const int t = qMax(4, p.tile);
-        for (int y = 0; y < 62; y += t) {
-            for (int x = 0; x < 100; x += t) {
-                const bool dark = ((x / t) + (y / t)) % 2 == 0;
-                painter.fillRect(x, y, t, t, dark ? p.c0 : p.c1);
-            }
-        }
-        break;
-    }
-    case Pattern::HBlinds:
-        for (int y = 0; y < 62; y += 8) {
-            painter.fillRect(0, y, 100, 4, p.c0);
-            painter.fillRect(0, y + 4, 100, 4, p.c1);
-        }
-        break;
-    case Pattern::VBlinds:
-        for (int x = 0; x < 100; x += 8) {
-            painter.fillRect(x, 0, 4, 62, p.c0);
-            painter.fillRect(x + 4, 0, 4, 62, p.c1);
-        }
-        break;
-    case Pattern::Grille:
-        painter.fillRect(pm.rect(), p.c1);
-        for (int x = 0; x < 100; x += 6) {
-            painter.fillRect(x, 0, 2, 62, p.c0);
-        }
-        break;
-    case Pattern::Fence:
-        painter.fillRect(pm.rect(), QColor(0xaa, 0xaa, 0xaa));
-        for (int y = 0; y < 62; y += 8) {
-            painter.fillRect(0, y, 100, 3, QColor(0x33, 0x33, 0x33));
-        }
-        break;
-    case Pattern::Ridges: {
-        QLinearGradient g(0, 0, 100, 0);
-        g.setColorAt(0, QColor(0x1a, 0x1a, 0x1a));
-        g.setColorAt(0.5, QColor(0x88, 0x88, 0x88));
-        g.setColorAt(1, QColor(0x1a, 0x1a, 0x1a));
-        painter.fillRect(pm.rect(), g);
-        break;
-    }
-    case Pattern::Bumps: {
-        painter.fillRect(pm.rect(), QColor(0x22, 0x22, 0x22));
-        for (int y = 8; y < 62; y += 16) {
-            for (int x = 8; x < 100; x += 16) {
-                QRadialGradient g(x, y, 10);
-                g.setColorAt(0, QColor(0xcc, 0xcc, 0xcc));
-                g.setColorAt(1, QColor(0x22, 0x22, 0x22));
-                painter.setPen(Qt::NoPen);
-                painter.setBrush(g);
-                painter.drawEllipse(QPointF(x, y), 8, 8);
-            }
-        }
-        break;
-    }
-    case Pattern::Plaid:
-        for (int x = 0; x < 100; x += 16) {
-            painter.fillRect(x, 0, 8, 62, QColor(0x20, 0x40, 0x60));
-            painter.fillRect(x + 8, 0, 8, 62, QColor(0x80, 0x20, 0x40));
-        }
-        break;
-    case Pattern::Letterbox:
-        painter.fillRect(pm.rect(), QColor(0xcc, 0xcc, 0xcc));
-        painter.fillRect(0, 0, 100, 11, Qt::black);
-        painter.fillRect(0, 51, 100, 11, Qt::black);
-        break;
-    case Pattern::SplitScreen:
-        painter.fillRect(0, 0, 50, 62, QColor(0x20, 0x60, 0xa0));
-        painter.fillRect(50, 0, 50, 62, QColor(0xa0, 0x40, 0x20));
-        break;
-    case Pattern::Horizon: {
-        QLinearGradient g(0, 0, 0, 62);
-        g.setColorAt(0, QColor(0x40, 0x60, 0xa0));
-        g.setColorAt(0.45, QColor(0x40, 0x60, 0xa0));
-        g.setColorAt(0.55, QColor(0xc0, 0x80, 0x40));
-        g.setColorAt(1, QColor(0xc0, 0x80, 0x40));
-        painter.fillRect(pm.rect(), g);
-        break;
-    }
-    case Pattern::Gradient:
-    default:
-        fillGrad();
-        break;
-    }
-
     painter.setPen(QColor(0x33, 0x33, 0x33));
     painter.setBrush(Qt::NoBrush);
     painter.drawRect(0, 0, 99, 61);
@@ -605,11 +648,24 @@ void MediaGeneratorPane::applySearchAndCategory()
         auto *item = new QListWidgetItem(QStringLiteral("%1  %2").arg(star, p.name), m_pluginList);
         item->setData(Qt::UserRole, i);
         item->setToolTip(p.description);
-        if (p.name.compare(QStringLiteral("Titles & Text"), Qt::CaseInsensitive) == 0) {
-            // Drag the plugin row itself → default (Sample Text / None) preset.
-            item->setData(kDragKindRole, QStringLiteral("titles"));
-            item->setData(kDragNameRole, QString());
-            item->setData(kDragExtraRole, QString());
+        // Drag the plugin row itself → its default (first) preset.
+        if (!p.presets.isEmpty()) {
+            const Preset &def = p.presets.first();
+            if (!def.animationKey.isEmpty()) {
+                item->setData(kDragKindRole, QStringLiteral("titles"));
+                item->setData(kDragNameRole, QString());
+                item->setData(kDragExtraRole, QString());
+            } else {
+                MediaGeneratorParams gp;
+                gp.pluginName = p.name;
+                gp.pattern = def.pattern;
+                gp.c0 = def.c0;
+                gp.c1 = def.c1;
+                gp.tile = def.tile;
+                item->setData(kDragKindRole, QStringLiteral("generator"));
+                item->setData(kDragNameRole, QString());
+                item->setData(kDragExtraRole, mediaGeneratorParamsToPayload(gp));
+            }
             item->setFlags(item->flags() | Qt::ItemIsDragEnabled);
         }
     }
@@ -649,10 +705,20 @@ void MediaGeneratorPane::showPlugin(int catalogIndex)
         item->setSizeHint(QSize(108, 88));
         if (!pr.animationKey.isEmpty()) {
             item->setData(kDragKindRole, QStringLiteral("titles"));
-            item->setData(kDragNameRole, pr.name);
+            item->setData(kDragNameRole, pr.sampleText.isEmpty() ? pr.name : pr.sampleText);
             item->setData(kDragExtraRole, pr.animationKey);
-            item->setFlags(item->flags() | Qt::ItemIsDragEnabled);
+        } else {
+            MediaGeneratorParams gp;
+            gp.pluginName = p.name;
+            gp.pattern = pr.pattern;
+            gp.c0 = pr.c0;
+            gp.c1 = pr.c1;
+            gp.tile = pr.tile;
+            item->setData(kDragKindRole, QStringLiteral("generator"));
+            item->setData(kDragNameRole, pr.name);
+            item->setData(kDragExtraRole, mediaGeneratorParamsToPayload(gp));
         }
+        item->setFlags(item->flags() | Qt::ItemIsDragEnabled);
     }
     if (m_presetGrid->count() > 0) {
         m_presetGrid->setCurrentRow(0);

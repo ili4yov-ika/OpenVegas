@@ -1391,22 +1391,29 @@ void VegReader::parseVideoTitlesText(const QByteArray &data, VegOpenResult *resu
     auto findNameValue = [&](const QString &name, int from) -> QByteArray {
         const QByteArray nameBytes = toUtf16Le(name);
         const int searchEnd = int(std::min<qsizetype>(data.size(), from + kWindow));
-        const int idx = data.indexOf(nameBytes, from);
-        if (idx < 0 || idx >= searchEnd || idx < 8) {
-            return {};
-        }
         const auto *base = reinterpret_cast<const uchar *>(data.constData());
-        const qint32 valueLen = qFromLittleEndian<qint32>(base + idx - 8);
-        const qint32 nameLen = qFromLittleEndian<qint32>(base + idx - 4);
         const qint32 expectedNameLen = qint32((name.size() + 1) * 2);
-        if (nameLen != expectedNameLen || valueLen < 0) {
-            return {};
+        // A short property name can occur as a literal substring of a longer one that
+        // happens to sit earlier in the record (e.g. "Background" inside
+        // "FitBackgroundColor") — the first raw byte match there is a false positive
+        // that fails the length-prefix check below, so keep scanning past it instead of
+        // giving up (which silently returned the caller's default for every instance).
+        for (int searchFrom = from;;) {
+            const int idx = data.indexOf(nameBytes, searchFrom);
+            if (idx < 0 || idx >= searchEnd || idx < 8) {
+                return {};
+            }
+            const qint32 valueLen = qFromLittleEndian<qint32>(base + idx - 8);
+            const qint32 nameLen = qFromLittleEndian<qint32>(base + idx - 4);
+            if (nameLen == expectedNameLen && valueLen >= 0) {
+                const int valueStart = idx + nameLen;
+                if (valueStart + valueLen > data.size()) {
+                    return {};
+                }
+                return data.mid(valueStart, valueLen);
+            }
+            searchFrom = idx + 1;
         }
-        const int valueStart = idx + nameLen;
-        if (valueStart + valueLen > data.size()) {
-            return {};
-        }
-        return data.mid(valueStart, valueLen);
     };
     auto readDouble = [&](const QString &name, int from, double def) {
         const QByteArray v = findNameValue(name, from);
@@ -1568,13 +1575,9 @@ void VegReader::parseVideoTitlesText(const QByteArray &data, VegOpenResult *resu
         }
     }
 
-    // Pair instances with timing records by ascending order (verified against a real
-    // sample project — not a structural guarantee). Any instance beyond the available
-    // timing records falls back to sequential default-length placement.
-    double fallbackStart = 0.0;
-    result->titlesAndText.reserve(instanceOffsets.size());
-    for (int i = 0; i < instanceOffsets.size(); ++i) {
-        const int off = instanceOffsets[i];
+    QVector<VegTitleTextInfo> extracted;
+    extracted.reserve(instanceOffsets.size());
+    for (int off : instanceOffsets) {
         VegTitleTextInfo t;
 
         const QString rtf = readString(QStringLiteral("Text"), off, QString());
@@ -1613,6 +1616,35 @@ void VegReader::parseVideoTitlesText(const QByteArray &data, VegOpenResult *resu
         t.shadowOffsetY = readDouble(QStringLiteral("ShadowOffsetY"), off, t.shadowOffsetY);
         t.shadowBlur = readDouble(QStringLiteral("ShadowBlur"), off, t.shadowBlur);
 
+        extracted.push_back(t);
+    }
+
+    // Vegas stores each real timeline instance's parameters TWICE, back-to-back (a
+    // cached/default copy alongside the live one, or similar internal bookkeeping) —
+    // verified against a real sample project: every adjacent pair had byte-identical
+    // AnimationName+Text, zero exceptions across 55 pairs, and treating all 110 as
+    // separate placeable instances invented a bogus second ~9-minute timeline pass (see
+    // ProjectModel::applyTitlesTextFromVeg). Collapse verified duplicates — only an
+    // exact adjacent AnimationName+Text match collapses, so a differently-structured
+    // file (no duplication, or duplicates that aren't byte-identical) keeps every
+    // instance rather than silently losing real content.
+    QVector<VegTitleTextInfo> deduped;
+    deduped.reserve(extracted.size());
+    for (const VegTitleTextInfo &t : extracted) {
+        if (!deduped.isEmpty() && deduped.last().animationName == t.animationName
+            && deduped.last().text == t.text) {
+            continue;
+        }
+        deduped.push_back(t);
+    }
+
+    // Pair instances with timing records by ascending order (verified against a real
+    // sample project — not a structural guarantee). Any instance beyond the available
+    // timing records falls back to sequential default-length placement.
+    double fallbackStart = 0.0;
+    result->titlesAndText.reserve(deduped.size());
+    for (int i = 0; i < deduped.size(); ++i) {
+        VegTitleTextInfo t = deduped[i];
         if (i < videoTimings.size()) {
             t.startSec = videoTimings[i].startSec;
             t.lengthSec = videoTimings[i].lengthSec;

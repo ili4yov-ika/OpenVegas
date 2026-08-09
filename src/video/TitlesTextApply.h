@@ -105,6 +105,21 @@ struct TitlesTextPresetEntry {
  */
 QVector<TitlesTextPresetEntry> titlesTextAnimationPresets();
 
+/** Starting text/background color / scale for a known preset key, reverse-engineered
+ *  from a real Vegas sample project (SAMPLES/veg_project/project_titles-and-text.veg —
+ *  51 distinct AnimationName values recovered and cross-checked against their
+ *  TextColor/Background/Scale properties). Applied when a preset is placed on the
+ *  timeline (drag/drop or double-click) so the result matches what real Vegas starts
+ *  you with. Unknown keys (including "_None") fall back to TitlesTextParams's own
+ *  defaults (white text, transparent background, scale 1.0) — true for 48 of the 51
+ *  presets; only Drop Split/Menace/Rough Day have a real opaque background. */
+struct TitlesTextPresetVisuals {
+    QColor textColor = QColor(255, 255, 255, 255);
+    QColor backgroundColor = QColor(0, 0, 0, 0);
+    double scale = 1.0;
+};
+TitlesTextPresetVisuals titlesTextPresetVisuals(const QString &animationKey);
+
 /** Offsets/scale/opacity/rotation added on top of the static layout for one instant. */
 struct TitlesTextAnimKeyframe {
     double offsetX = 0.0; // normalized, added to locationX

@@ -177,7 +177,7 @@
 Также `BuiltinAudioCatalog.cpp:141-155` — «Third Party» (Auto-Key, GClip, GGate, GMulti, GNormal, GSnap) и «5.1 FX» (Surround Panner) существуют только чтобы список чузера выглядел полным — без DSP.
 
 ### Transitions / Media Generator / Video FX панели — активация косметическая
-**Обновление 2026-08-08:** для `MediaGeneratorPane` эта находка закрыта — см. `ISSUES_AND_PLANS.md` («Исправлено»). Double-click теперь создаёт настоящий timeline-event для Titles & Text (единственный генератор с реальным рендер-бэкендом), и добавлен Drag'n'Drop (плагин-строка + пресет-тайлы → `mimeData`/`startDrag` в `GeneratorDragListWidget`, `dragEnterEvent`/`dropEvent` уже были в `TimelineView` для media-дропов). Остальные генераторы (Checkerboard, Color Gradient, …) и обе других панели (`TransitionsPane`, `VideoFxPane`) — по-прежнему как описано ниже (косметическая активация, drag-and-drop не реализован).
+**Обновление 2026-08-08:** для `MediaGeneratorPane` эта находка закрыта — см. `ISSUES_AND_PLANS.md` («Исправлено»). Double-click создаёт настоящий timeline-event для Titles & Text, и добавлен Drag'n'Drop (плагин-строка + пресет-тайлы → `mimeData`/`startDrag` в `GeneratorDragListWidget`, `dragEnterEvent`/`dropEvent` уже были в `TimelineView` для media-дропов). **Обновление 2026-08-08 (2):** Drag'n'Drop теперь работает для всех Media Generator плагинов, не только Titles & Text — Checkerboard, Color Gradient, Credit Roll, Noise Texture, Solid Color и Test Pattern получили реальный (паттерн-based) рендер-бэкенд, `video/MediaGeneratorApply.h`; double-click на них по-прежнему показывает toast (не переведён на insert-по-клику, только DnD). Обе других панели (`TransitionsPane`, `VideoFxPane`) — по-прежнему как описано ниже (косметическая активация, drag-and-drop не реализован).
 
 `MainWindow.cpp:1553-1601` — во всех трёх панелях активация элемента (даблклик/Enter) подключена одинаково:
 ```cpp
@@ -196,7 +196,7 @@ connect(m_transitions, &TransitionsPane::transitionActivated, this, [this](const
 
 - `ExplorerPane.cpp` — Rename/Cut/Copy/Remove в контекстном меню пустой области disabled — это ожидаемо (нет выделения), не баг.
 - `MediaThumbCache` — плейсхолдеры превью — легитимный паттерн асинхронной подгрузки.
-- Explorer/Transitions панели как таковые уже отмечены в `ISSUES_AND_PLANS.md` («Неработающие / backlog») как «Placeholders» — этот файл уточняет: панели **визуально не заглушки** (полноценный UI), проблема именно в отсутствии insert-действия. (Media Generator для Titles & Text из этого списка исключён — 2026-08-08, insert-действие есть.)
+- Explorer/Transitions панели как таковые уже отмечены в `ISSUES_AND_PLANS.md` («Неработающие / backlog») как «Placeholders» — этот файл уточняет: панели **визуально не заглушки** (полноценный UI), проблема именно в отсутствии insert-действия. (Media Generator из этого списка исключён — 2026-08-08, Drag'n'Drop insert-действие есть для всех плагинов; double-click остаётся toast для всех, кроме Titles & Text.)
 - Shadow/Glow/blend/mask interpolate, soft bypass fade, `.prproj`/`.veg` write — уже в roadmap `PLAN_VIDEOAUDIOSTACK.md`/`PLAN_VIDEO-AUDIO-PLUGINS-STACK.md`.
 
 ---

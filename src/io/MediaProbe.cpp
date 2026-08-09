@@ -402,7 +402,7 @@ double MediaProbe::lengthForInsert(const QString &path, const QString &kind, dou
     if (k == QLatin1String("still") || k == QLatin1String("image")) {
         return hintSec > 0.05 ? hintSec : 5.0; // Vegas still default
     }
-    if (k == QLatin1String("titles")) {
+    if (k == QLatin1String("titles") || k == QLatin1String("generator")) {
         return hintSec > 0.05 ? hintSec : 10.0; // Vegas generator default
     }
     // Prefer probed media duration over UI placeholders (e.g. bin card default 8s).
