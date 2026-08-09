@@ -535,6 +535,25 @@ void MediaGeneratorPane::buildUi()
     m_hoverTimer->setInterval(66); // ~15 fps — cheap for a single 100x62 icon re-render
     connect(m_hoverTimer, &QTimer::timeout, this, &MediaGeneratorPane::onHoverTick);
     connect(m_presetGrid, &QListWidget::entered, this, &MediaGeneratorPane::onPresetHoverEntered);
+    // A press that turns into a drag-out must hand startDrag() a stable, static pixmap —
+    // and must not have the model mutating under Qt's press-to-drag distance tracking in
+    // between. The hover timer does both (repaints the icon to a mid-tween animation
+    // frame every 66ms) for as long as the cursor sits over an animated tile, which is
+    // exactly the window where a press-and-hold-to-drag gesture starts. Stop it the
+    // instant the tile is pressed and restore the resting frame.
+    connect(m_presetGrid, &QListWidget::itemPressed, this, [this](QListWidgetItem *item) {
+        if (!m_hoverTimer->isActive()) {
+            return;
+        }
+        m_hoverTimer->stop();
+        if (item && m_hoverRow >= 0 && m_currentIndex >= 0 && m_currentIndex < m_plugins.size()) {
+            const QVector<Preset> &presets = m_plugins[m_currentIndex].presets;
+            if (m_hoverRow < presets.size()) {
+                item->setIcon(presetIcon(presets[m_hoverRow], 1.0));
+            }
+        }
+        m_hoverRow = -1;
+    });
 }
 
 QIcon MediaGeneratorPane::presetIcon(const Preset &p, double progress) const
@@ -631,8 +650,8 @@ void MediaGeneratorPane::applySearchAndCategory()
             const Preset &def = p.presets.first();
             if (!def.animationKey.isEmpty()) {
                 item->setData(kDragKindRole, QStringLiteral("titles"));
-                item->setData(kDragNameRole, QString());
-                item->setData(kDragExtraRole, QString());
+                item->setData(kDragNameRole, def.sampleText.isEmpty() ? def.name : def.sampleText);
+                item->setData(kDragExtraRole, def.animationKey);
             } else {
                 MediaGeneratorParams gp;
                 gp.pluginName = p.name;

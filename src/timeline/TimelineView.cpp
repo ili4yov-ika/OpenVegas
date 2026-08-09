@@ -2294,6 +2294,50 @@ void TimelineView::paintEventChrome(QPainter &p, const Track &track, const Track
     p.setRenderHint(QPainter::Antialiasing, false);
 }
 
+double TimelineView::edgeMagnetThresholdSec() const
+{
+    const double pps = m_model ? std::max(1.0, m_model->pixelsPerSecond()) : 40.0;
+    constexpr double kMagnetPx = 8.0;
+    return kMagnetPx / pps;
+}
+
+double TimelineView::nearestLeftNeighborEndSec(const Track &track, int excludeId, double refStart) const
+{
+    double best = -1.0;
+    for (const TrackEvent &other : track.events) {
+        if (other.id == excludeId || other.startSec >= refStart - 1e-6) {
+            continue;
+        }
+        const double end = other.startSec + other.lengthSec;
+        if (end > best) {
+            best = end;
+        }
+    }
+    return best;
+}
+
+double TimelineView::nearestRightNeighborStartSec(const Track &track, int excludeId, double refEnd) const
+{
+    double best = -1.0;
+    for (const TrackEvent &other : track.events) {
+        if (other.id == excludeId || other.startSec <= refEnd + 1e-6) {
+            continue;
+        }
+        if (best < 0.0 || other.startSec < best) {
+            best = other.startSec;
+        }
+    }
+    return best;
+}
+
+double TimelineView::magnetSnapToNeighbor(double rawSec, double touchSec) const
+{
+    if (touchSec < 0.0) {
+        return rawSec;
+    }
+    return std::abs(rawSec - touchSec) <= edgeMagnetThresholdSec() ? touchSec : rawSec;
+}
+
 double TimelineView::overlapSec(const TrackEvent &a, const TrackEvent &b) const
 {
     const double a0 = a.startSec;
@@ -3165,6 +3209,7 @@ void TimelineView::mouseMoveEvent(QMouseEvent *event)
                 }
                 emitDocumentEditBegan();
                 m_dragging = true;
+                setCursor(Qt::ClosedHandCursor);
             }
             int fromTrack = -1;
             TrackEvent *cur = m_model->findEvent(m_dragEventId, &fromTrack);
@@ -3191,18 +3236,49 @@ void TimelineView::mouseMoveEvent(QMouseEvent *event)
                 if (toTrack != fromTrack) {
                     if (canPlaceEventOnTrack(cur->mediaKind, dst.kind)) {
                         m_model->moveEventToTrack(m_dragEventId, toTrack);
-                        setCursor(Qt::ArrowCursor);
+                        setCursor(Qt::ClosedHandCursor);
                     } else {
                         setCursor(Qt::ForbiddenCursor);
                     }
                 } else {
-                    setCursor(Qt::ArrowCursor);
+                    setCursor(Qt::ClosedHandCursor);
+                }
+            }
+            // Magnet: resist crossing the point where the dragged clip's edge would sit
+            // exactly flush against a same-track neighbor — the whole group moves rigidly
+            // together, so this is computed once off the primary dragged clip and applied
+            // as a shared delta, same as the raw (unsnapped) delta below it replaces.
+            double moveDeltaSec = deltaSec;
+            {
+                int primaryTrack = -1;
+                TrackEvent *primary = m_model->findEvent(m_dragEventId, &primaryTrack);
+                if (primary && primaryTrack >= 0 && primaryTrack < m_model->tracks().size()) {
+                    const double origin = m_dragGroupOrigins.value(m_dragEventId, primary->startSec);
+                    const double rawStart = std::max(0.0, origin + deltaSec);
+                    const Track &track = m_model->tracks()[primaryTrack];
+                    const double leftTouch =
+                        nearestLeftNeighborEndSec(track, m_dragEventId, rawStart);
+                    const double rightNeighborStart = nearestRightNeighborStartSec(
+                        track, m_dragEventId, rawStart + primary->lengthSec);
+                    const double rightTouch =
+                        rightNeighborStart >= 0.0 ? rightNeighborStart - primary->lengthSec : -1.0;
+
+                    double adjustedStart = rawStart;
+                    double bestDiff = edgeMagnetThresholdSec();
+                    if (leftTouch >= 0.0 && std::abs(rawStart - leftTouch) <= bestDiff) {
+                        bestDiff = std::abs(rawStart - leftTouch);
+                        adjustedStart = leftTouch;
+                    }
+                    if (rightTouch >= 0.0 && std::abs(rawStart - rightTouch) <= bestDiff) {
+                        adjustedStart = rightTouch;
+                    }
+                    moveDeltaSec = adjustedStart - origin;
                 }
             }
             for (auto it = m_dragGroupOrigins.constBegin(); it != m_dragGroupOrigins.constEnd();
                  ++it) {
                 if (TrackEvent *m = m_model->findEvent(it.key())) {
-                    m->startSec = std::max(0.0, it.value() + deltaSec);
+                    m->startSec = std::max(0.0, it.value() + moveDeltaSec);
                 }
             }
             if (event->pos().y() < rulerHeight() + 24) {
@@ -3213,6 +3289,20 @@ void TimelineView::mouseMoveEvent(QMouseEvent *event)
             break;
         }
         case EventEditMode::TrimStart: {
+            // Magnet: resist crossing the point where the trimmed start would sit exactly
+            // flush against the preceding same-track neighbor's end.
+            double trimStartDeltaSec = deltaSec;
+            {
+                int primaryTrack = -1;
+                TrackEvent *primary = m_model->findEvent(m_dragEventId, &primaryTrack);
+                if (primary && primaryTrack >= 0 && primaryTrack < m_model->tracks().size()) {
+                    const double origin = m_dragGroupOrigins.value(m_dragEventId, primary->startSec);
+                    const double rawStart = origin + deltaSec;
+                    const double leftTouch = nearestLeftNeighborEndSec(
+                        m_model->tracks()[primaryTrack], m_dragEventId, rawStart);
+                    trimStartDeltaSec = magnetSnapToNeighbor(rawStart, leftTouch) - origin;
+                }
+            }
             // Same time delta for every member of the group (Vegas-like).
             for (auto it = m_dragGroupOrigins.constBegin(); it != m_dragGroupOrigins.constEnd();
                  ++it) {
@@ -3222,8 +3312,8 @@ void TimelineView::mouseMoveEvent(QMouseEvent *event)
                 }
                 const double originStart = it.value();
                 const double originLen = m_dragGroupLengths.value(it.key(), m->lengthSec);
-                double newStart = originStart + deltaSec;
-                double newLen = originLen - deltaSec;
+                double newStart = originStart + trimStartDeltaSec;
+                double newLen = originLen - trimStartDeltaSec;
                 if (newLen < minEventLengthSec()) {
                     newLen = minEventLengthSec();
                     newStart = originStart + originLen - newLen;
@@ -3239,13 +3329,29 @@ void TimelineView::mouseMoveEvent(QMouseEvent *event)
             break;
         }
         case EventEditMode::TrimEnd: {
+            // Magnet: resist crossing the point where the trimmed end would sit exactly
+            // flush against the following same-track neighbor's start.
+            double trimEndDeltaSec = deltaSec;
+            {
+                int primaryTrack = -1;
+                TrackEvent *primary = m_model->findEvent(m_dragEventId, &primaryTrack);
+                if (primary && primaryTrack >= 0 && primaryTrack < m_model->tracks().size()) {
+                    const double originLen =
+                        m_dragGroupLengths.value(m_dragEventId, primary->lengthSec);
+                    const double rawEnd = primary->startSec + originLen + deltaSec;
+                    const double rightTouch = nearestRightNeighborStartSec(
+                        m_model->tracks()[primaryTrack], m_dragEventId, rawEnd);
+                    trimEndDeltaSec =
+                        magnetSnapToNeighbor(rawEnd, rightTouch) - primary->startSec - originLen;
+                }
+            }
             for (auto it = m_dragGroupLengths.constBegin(); it != m_dragGroupLengths.constEnd();
                  ++it) {
                 TrackEvent *m = m_model->findEvent(it.key());
                 if (!m) {
                     continue;
                 }
-                m->lengthSec = std::max(minEventLengthSec(), it.value() + deltaSec);
+                m->lengthSec = std::max(minEventLengthSec(), it.value() + trimEndDeltaSec);
                 clampEventFades(*m);
             }
             break;
@@ -3796,7 +3902,12 @@ void TimelineView::paintDropGhost(QPainter &p)
     const QString kind = m_dropGhostKind.toLower();
     const bool isAudio = (kind == QLatin1String("audio"));
     const bool isStill = (kind == QLatin1String("still") || kind == QLatin1String("image"));
-    const bool isVideo = !isAudio && !isStill;
+    // Titles & Text / other Media Generator presets place on a video track with no
+    // paired audio (ProjectModel::addMediaAt's "titles"/"generator" branches) — same
+    // single-track placement rule as a still image, so they must not fall into the
+    // isVideo A/V-pair ghost below.
+    const bool isGenerator = (kind == QLatin1String("titles") || kind == QLatin1String("generator"));
+    const bool isVideo = !isAudio && !isStill && !isGenerator;
 
     auto paintGhostOnTrack = [&](int ti, const QColor &fill, const QColor &stroke) {
         if (ti < 0 || ti >= m_model->tracks().size()) {
@@ -3822,6 +3933,31 @@ void TimelineView::paintDropGhost(QPainter &p)
         p.drawRect(r.adjusted(0, 0, -1, -1));
     };
 
+    // Plain white outline, no fill — the exact future clip footprint for a generator
+    // drop, distinct from the tinted A/V-style ghosts above (there's no audio to pair).
+    auto paintGhostOutlineOnTrack = [&](int ti) {
+        if (ti < 0 || ti >= m_model->tracks().size()) {
+            return;
+        }
+        const int y = trackY(ti);
+        const int h = m_model->tracks()[ti].height;
+        if (m_dropGhostStartSec <= 0.001) {
+            p.fillRect(0, y, headerWidth(), h, QColor(0, 120, 215, 50));
+        }
+        if (x1 <= m_headerWidth) {
+            return;
+        }
+        QRect r(x0, y, std::max(8, x1 - x0), h);
+        r = r.intersected(QRect(m_headerWidth, rulerHeight(), width() - m_headerWidth,
+                                height() - rulerHeight()));
+        if (r.width() < 2) {
+            return;
+        }
+        p.setPen(QPen(QColor(255, 255, 255, 235), 2));
+        p.setBrush(Qt::NoBrush);
+        p.drawRect(r.adjusted(1, 1, -2, -2));
+    };
+
     if (m_dropGhostTrack == kDropCreateNewTracks) {
         const int y = std::max(tracksBottomY(), rulerHeight());
         if (isAudio) {
@@ -3832,6 +3968,15 @@ void TimelineView::paintDropGhost(QPainter &p)
                 p.fillRect(ar, QColor(160, 120, 100, 80));
                 p.setPen(QPen(QColor(255, 200, 160, 220), 1, Qt::DashLine));
                 p.drawRect(ar.adjusted(0, 0, -1, -1));
+            }
+        } else if (isGenerator) {
+            const int vh = defaultTrackHeight(TrackKind::Video);
+            p.fillRect(0, y, headerWidth(), vh, QColor(0, 120, 215, 45));
+            if (x1 > m_headerWidth) {
+                QRect vr(x0, y, std::max(8, x1 - x0), vh);
+                p.setPen(QPen(QColor(255, 255, 255, 235), 2));
+                p.setBrush(Qt::NoBrush);
+                p.drawRect(vr.adjusted(1, 1, -2, -2));
             }
         } else if (isStill) {
             const int vh = defaultTrackHeight(TrackKind::Video);
@@ -3904,6 +4049,16 @@ void TimelineView::paintDropGhost(QPainter &p)
             }
         }
         paintGhostOnTrack(ti, QColor(160, 120, 100, 80), QColor(255, 200, 160, 220));
+    } else if (isGenerator) {
+        if (ti < 0 || ti >= m_model->tracks().size() || m_model->tracks()[ti].kind != TrackKind::Video) {
+            for (int i = 0; i < m_model->tracks().size(); ++i) {
+                if (m_model->tracks()[i].kind == TrackKind::Video) {
+                    ti = i;
+                    break;
+                }
+            }
+        }
+        paintGhostOutlineOnTrack(ti);
     } else {
         if (ti < 0 || ti >= m_model->tracks().size() || m_model->tracks()[ti].kind != TrackKind::Video) {
             for (int i = 0; i < m_model->tracks().size(); ++i) {

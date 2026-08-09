@@ -214,6 +214,23 @@ private:
     double overlapSec(const TrackEvent &a, const TrackEvent &b) const;
     double incomingCrossfadeSec(const Track &track, const TrackEvent &ev) const;
     double outgoingCrossfadeSec(const Track &track, const TrackEvent &ev) const;
+    /** Screen-space "resistance" radius (converted to seconds via current zoom) that a
+     *  dragged clip edge must clear before it's allowed to cross a neighbor's touching
+     *  edge — i.e. the extra mouse "effort" needed to open/close a crossfade instead of
+     *  the two clips just sitting flush. See magnetSnapToNeighbor(). */
+    double edgeMagnetThresholdSec() const;
+    /** Nearest event on `track` (excluding `excludeId`) that starts before `refStart` —
+     *  its end is the "touching" position for a clip's start edge. -1 if none. */
+    double nearestLeftNeighborEndSec(const Track &track, int excludeId, double refStart) const;
+    /** Nearest event on `track` (excluding `excludeId`) that starts after `refEnd` — its
+     *  start is the "touching" position for a clip's end edge. -1 if none. */
+    double nearestRightNeighborStartSec(const Track &track, int excludeId, double refEnd) const;
+    /** If `touchSec` is valid and within edgeMagnetThresholdSec() of `rawSec`, returns
+     *  `touchSec` (clip edge sticks flush to the neighbor); otherwise returns `rawSec`
+     *  unchanged. Symmetric by construction: works the same whether the edge is
+     *  approaching from a gap (about to open a crossfade) or from an overlap (about to
+     *  pull apart into a gap). */
+    double magnetSnapToNeighbor(double rawSec, double touchSec) const;
     /** Left inset (px) so title/level/buttons clear an incoming crossfade. */
     int eventChromeLeftInset(const Track &track, const TrackEvent &ev) const;
     int eventChromeRightInset(const Track &track, const TrackEvent &ev) const;
