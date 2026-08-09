@@ -207,6 +207,7 @@ private:
     void emitDocumentEditCommitted(const QString &text);
     void paintVideoThumbs(QPainter &p, const QRect &body, const TrackEvent &ev);
     void paintStillImage(QPainter &p, const QRect &body, const TrackEvent &ev);
+    void paintTitlesTextThumb(QPainter &p, const QRect &body, const TrackEvent &ev);
     void paintAudioWave(QPainter &p, const QRect &body, const TrackEvent &ev);
     void paintEventMediaMarkers(QPainter &p, const TrackEvent &ev, const QRect &body);
     QString eventMediaPath(const TrackEvent &ev) const;

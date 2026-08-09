@@ -6,6 +6,7 @@
 #include "io/MediaThumbCache.h"
 #include "io/MediaWaveformCache.h"
 #include "io/MediaFilmstripCache.h"
+#include "video/TitlesTextApply.h"
 
 #include <QPainter>
 #include <QPainterPath>
@@ -1765,6 +1766,33 @@ void TimelineView::paintStillImage(QPainter &p, const QRect &body, const TrackEv
     p.drawPixmap(body, drawn, QRect(ox, oy, body.width(), body.height()));
 }
 
+void TimelineView::paintTitlesTextThumb(QPainter &p, const QRect &body, const TrackEvent &ev)
+{
+    // Titles & Text events have no real media file to thumbnail (unlike still images) —
+    // render the actual generator content instead, the same renderer VideoCompositor uses
+    // for the real preview and MediaGeneratorPane uses for its preset icons, so what you
+    // see here is what the clip actually plays.
+    if (body.width() < 2 || body.height() < 2) {
+        return;
+    }
+    if (ev.fxChain.isEmpty()) {
+        p.fillRect(body, QColor(0x2a, 0x2a, 0x2a));
+        return;
+    }
+    const TitlesTextParams params = titlesTextFromSlot(ev.fxChain.first());
+    // Transparent/semi-transparent background (almost every real Vegas preset — only 3 of
+    // 51 have an opaque fill) → same checkerboard backdrop MediaGeneratorPane's preset
+    // tiles use, so the thumbnail honestly shows what compositing will let through instead
+    // of hiding it behind an opaque color that never actually plays.
+    if (params.backgroundColor.alpha() < 255 || params.cropBackgroundToText) {
+        p.drawImage(body.topLeft(), checkerboardBackground(body.size()));
+    } else {
+        p.fillRect(body, QColor(0x2a, 0x2a, 0x2a));
+    }
+    const QImage img = renderTitlesText(params, body.size(), 1.0);
+    p.drawImage(body.topLeft(), img);
+}
+
 void TimelineView::paintAudioWave(QPainter &p, const QRect &body, const TrackEvent &ev)
 {
     // Background already painted by paintEventBlock (track display color).
@@ -2104,7 +2132,9 @@ void TimelineView::paintEventBlock(QPainter &p, const Track &track, const TrackE
     }
 
     const QRect body(r.left(), r.top() + titleH, r.width(), r.height() - titleH);
-    if (isStill) {
+    if (ev.mediaKind == EventMediaKind::Title) {
+        paintTitlesTextThumb(p, body, ev);
+    } else if (isStill) {
         paintStillImage(p, body, ev);
     } else if (isVideo) {
         paintVideoThumbs(p, body, ev);
@@ -3336,6 +3366,11 @@ void TimelineView::mouseReleaseEvent(QMouseEvent *)
     }
     if (finishedReorder) {
         moveTrack(m_reorderingTrack, m_reorderInsertBefore);
+    }
+    if (finishedMoveDrag && m_model && m_model->automaticCrossfades()) {
+        for (auto it = m_dragGroupOrigins.constBegin(); it != m_dragGroupOrigins.constEnd(); ++it) {
+            m_model->applyAutomaticCrossfade(it.key());
+        }
     }
     m_dragging = false;
     m_draggingPlayhead = false;

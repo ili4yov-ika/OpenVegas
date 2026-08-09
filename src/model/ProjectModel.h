@@ -793,9 +793,13 @@ public:
     /**
      * Apply VegReader result into media pool + timeline.
      * Prefers Vegas EDL CSV sidecar when present; else binary timings; else heuristics.
+     * @param allowEdlSidecar Set false to force the non-EDL paths even when a sidecar is
+     *        found beside openedPath — test-only seam for auditing that .veg still opens
+     *        correctly without one (real Vegas users may not have any EDL sidecar at all).
      * @return true if timeline came from EDL sidecar.
      */
-    bool applyVegImport(const VegOpenResult &veg, const QString &openedPath);
+    bool applyVegImport(const VegOpenResult &veg, const QString &openedPath,
+                        bool allowEdlSidecar = true);
 
     QVector<Track> &tracks() { return m_tracks; }
     const QVector<Track> &tracks() const { return m_tracks; }
@@ -851,6 +855,7 @@ public:
     const QVector<TimelineMarker> &markers() const { return m_markers; }
 
     QString projectPath() const { return m_projectPath; }
+    void setProjectPath(const QString &path) { m_projectPath = path; }
     QString projectTitle() const;
 
     double frameRate() const { return m_frameRate; }
@@ -953,8 +958,19 @@ public:
     bool trimSelectedEndTo(double timeSec);
     void selectAllEvents();
 
+    /** Vegas "Automatic Crossfades": sizes fadeOut/fadeIn on eventId and its
+     *  immediate same-track neighbor(s) to match however much they now overlap.
+     *  Only grows fades from a fresh overlap; never shrinks an existing solo fade
+     *  when clips are pulled apart. Returns true if any fade changed. */
+    bool applyAutomaticCrossfade(int eventId);
+
     bool ignoreEventGrouping() const { return m_ignoreEventGrouping; }
     void setIgnoreEventGrouping(bool on) { m_ignoreEventGrouping = on; }
+
+    /** When on, dragging an event over a neighbor on the same track sizes
+     *  fadeOut/fadeIn on both to the resulting overlap (Vegas "Automatic Crossfades"). */
+    bool automaticCrossfades() const { return m_automaticCrossfades; }
+    void setAutomaticCrossfades(bool on) { m_automaticCrossfades = on; }
 
     bool anyTrackSoloed() const;
     /** True when the track is not muted and not silenced by another track's Solo. */
@@ -1079,6 +1095,7 @@ private:
     int m_nextMixerBusId = 1;
     int m_nextMixerInputBusId = 1;
     bool m_ignoreEventGrouping = false;
+    bool m_automaticCrossfades = true;
     bool m_loopPlayback = true;
     bool m_snappingEnabled = true;
     bool m_snapToGrid = false;

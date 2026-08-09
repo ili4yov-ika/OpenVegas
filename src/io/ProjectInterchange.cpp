@@ -550,9 +550,16 @@ InterchangeResult ProjectInterchange::importFinalCutXml(const QString &path, QSt
                 ++sequenceDepth;
             }
 
-            // FCPX spine clips
-            if (name == QLatin1String("video") || name == QLatin1String("asset-clip")
-                || name == QLatin1String("audio")) {
+            // FCPX spine clips (<video ref="r4" .../>, <asset-clip ref="..." .../>,
+            // <audio ref="..." .../>) always carry a ref to the asset they place.
+            // FCP7 XMEML's <video>/<audio> are unrelated same-named elements — plain
+            // per-kind track containers straight under <media>, never carrying ref —
+            // so gate on ref here or every FCP7 export gets its whole video/audio
+            // section swallowed as one phantom 8-second "Clip" instead of parsing
+            // the real <track>/<clipitem> children underneath.
+            if ((name == QLatin1String("video") || name == QLatin1String("asset-clip")
+                || name == QLatin1String("audio"))
+                && !xml2.attributes().value(QLatin1String("ref")).isEmpty()) {
                 fillFcpxClip(xml2, name);
                 continue;
             }
@@ -865,6 +872,37 @@ bool ProjectInterchange::exportFinalCutXml(const ProjectModel &model, const QStr
         w.writeEndElement(); // clipitem
     };
 
+    auto writeTransition = [&](int startFrame, int endFrame, const QString &alignment,
+                               const QString &mediaType) {
+        const QString effectName = mediaType == QStringLiteral("audio")
+            ? QStringLiteral("Cross Fade (0dB)")
+            : QStringLiteral("Cross Dissolve");
+        w.writeStartElement(QStringLiteral("transitionitem"));
+        w.writeTextElement(QStringLiteral("start"), QString::number(startFrame));
+        w.writeTextElement(QStringLiteral("end"), QString::number(endFrame));
+        w.writeTextElement(QStringLiteral("alignment"), alignment);
+        w.writeStartElement(QStringLiteral("effect"));
+        w.writeTextElement(QStringLiteral("name"), effectName);
+        w.writeTextElement(QStringLiteral("effectid"), effectName);
+        w.writeTextElement(QStringLiteral("effecttype"), QStringLiteral("transition"));
+        w.writeTextElement(QStringLiteral("mediatype"), mediaType);
+        w.writeEndElement();
+        w.writeEndElement();
+    };
+
+    auto writeClipWithFades = [&](const TrackEvent &ev, const QString &mediaType) {
+        if (ev.fadeInSec > 1e-3) {
+            writeTransition(toFrames(ev.startSec), toFrames(ev.startSec + ev.fadeInSec),
+                            QStringLiteral("start"), mediaType);
+        }
+        writeClipItem(ev, mediaType);
+        if (ev.fadeOutSec > 1e-3) {
+            const double fadeStart = ev.startSec + ev.lengthSec - ev.fadeOutSec;
+            writeTransition(toFrames(fadeStart), toFrames(ev.startSec + ev.lengthSec),
+                            QStringLiteral("end"), mediaType);
+        }
+    };
+
     w.writeStartElement(QStringLiteral("video"));
     for (const Track &t : model.tracks()) {
         if (t.kind != TrackKind::Video) {
@@ -872,36 +910,7 @@ bool ProjectInterchange::exportFinalCutXml(const ProjectModel &model, const QStr
         }
         w.writeStartElement(QStringLiteral("track"));
         for (const TrackEvent &ev : t.events) {
-            if (ev.fadeInSec > 1e-3) {
-                w.writeStartElement(QStringLiteral("transitionitem"));
-                w.writeTextElement(QStringLiteral("start"), QString::number(toFrames(ev.startSec)));
-                w.writeTextElement(QStringLiteral("end"),
-                                   QString::number(toFrames(ev.startSec + ev.fadeInSec)));
-                w.writeTextElement(QStringLiteral("alignment"), QStringLiteral("start"));
-                w.writeStartElement(QStringLiteral("effect"));
-                w.writeTextElement(QStringLiteral("name"), QStringLiteral("Cross Dissolve"));
-                w.writeTextElement(QStringLiteral("effectid"), QStringLiteral("Cross Dissolve"));
-                w.writeTextElement(QStringLiteral("effecttype"), QStringLiteral("transition"));
-                w.writeTextElement(QStringLiteral("mediatype"), QStringLiteral("video"));
-                w.writeEndElement();
-                w.writeEndElement();
-            }
-            writeClipItem(ev, QStringLiteral("video"));
-            if (ev.fadeOutSec > 1e-3) {
-                const double fadeStart = ev.startSec + ev.lengthSec - ev.fadeOutSec;
-                w.writeStartElement(QStringLiteral("transitionitem"));
-                w.writeTextElement(QStringLiteral("start"), QString::number(toFrames(fadeStart)));
-                w.writeTextElement(QStringLiteral("end"),
-                                   QString::number(toFrames(ev.startSec + ev.lengthSec)));
-                w.writeTextElement(QStringLiteral("alignment"), QStringLiteral("end"));
-                w.writeStartElement(QStringLiteral("effect"));
-                w.writeTextElement(QStringLiteral("name"), QStringLiteral("Cross Dissolve"));
-                w.writeTextElement(QStringLiteral("effectid"), QStringLiteral("Cross Dissolve"));
-                w.writeTextElement(QStringLiteral("effecttype"), QStringLiteral("transition"));
-                w.writeTextElement(QStringLiteral("mediatype"), QStringLiteral("video"));
-                w.writeEndElement();
-                w.writeEndElement();
-            }
+            writeClipWithFades(ev, QStringLiteral("video"));
         }
         w.writeEndElement(); // track
     }
@@ -914,7 +923,7 @@ bool ProjectInterchange::exportFinalCutXml(const ProjectModel &model, const QStr
         }
         w.writeStartElement(QStringLiteral("track"));
         for (const TrackEvent &ev : t.events) {
-            writeClipItem(ev, QStringLiteral("audio"));
+            writeClipWithFades(ev, QStringLiteral("audio"));
         }
         w.writeEndElement();
     }
@@ -1588,6 +1597,104 @@ InterchangeResult ProjectInterchange::importClosedCaptions(const QString &path, 
     return r;
 }
 
+namespace {
+
+QJsonObject fxSlotToJson(const FxSlot &s)
+{
+    QJsonObject o;
+    o.insert(QStringLiteral("pluginId"), s.pluginId);
+    o.insert(QStringLiteral("displayName"), s.displayName);
+    o.insert(QStringLiteral("format"), static_cast<int>(s.format));
+    o.insert(QStringLiteral("bypass"), s.bypass);
+    // Opaque per-plugin parameter blob (e.g. Titles & Text / Media Generator params,
+    // OFX/VST state) — preserved byte-for-byte via base64, never interpreted here.
+    o.insert(QStringLiteral("state"), QString::fromLatin1(s.state.toBase64()));
+    o.insert(QStringLiteral("hostKey"), s.hostKey);
+    return o;
+}
+
+QJsonArray fxChainToJson(const QVector<FxSlot> &chain)
+{
+    QJsonArray arr;
+    for (const FxSlot &s : chain) {
+        arr.append(fxSlotToJson(s));
+    }
+    return arr;
+}
+
+// v1 archive scope covers position keyframes (the common case) but not mask keyframes —
+// see MARKDOWN doc for the full list of fields not yet in the archive format.
+QJsonObject eventPanCropToJson(const EventPanCropState &pc)
+{
+    QJsonObject o;
+    QJsonArray kfs;
+    for (const PanCropKeyframe &k : pc.positionKeyframes) {
+        QJsonObject ko;
+        ko.insert(QStringLiteral("timeSec"), k.timeSec);
+        ko.insert(QStringLiteral("width"), k.width);
+        ko.insert(QStringLiteral("height"), k.height);
+        ko.insert(QStringLiteral("xCenter"), k.xCenter);
+        ko.insert(QStringLiteral("yCenter"), k.yCenter);
+        ko.insert(QStringLiteral("angleDeg"), k.angleDeg);
+        ko.insert(QStringLiteral("rotationXCenter"), k.rotationXCenter);
+        ko.insert(QStringLiteral("rotationYCenter"), k.rotationYCenter);
+        ko.insert(QStringLiteral("smoothness"), k.smoothness);
+        ko.insert(QStringLiteral("type"), static_cast<int>(k.type));
+        kfs.append(ko);
+    }
+    o.insert(QStringLiteral("positionKeyframes"), kfs);
+    o.insert(QStringLiteral("maintainAspectRatio"), pc.maintainAspectRatio);
+    o.insert(QStringLiteral("stretchToFillFrame"), pc.stretchToFillFrame);
+    return o;
+}
+
+EventPanCropState eventPanCropFromJson(const QJsonObject &o)
+{
+    EventPanCropState pc;
+    for (const QJsonValue &v : o.value(QStringLiteral("positionKeyframes")).toArray()) {
+        const QJsonObject ko = v.toObject();
+        PanCropKeyframe k;
+        k.timeSec = ko.value(QStringLiteral("timeSec")).toDouble();
+        k.width = ko.value(QStringLiteral("width")).toDouble(1920.0);
+        k.height = ko.value(QStringLiteral("height")).toDouble(1080.0);
+        k.xCenter = ko.value(QStringLiteral("xCenter")).toDouble(960.0);
+        k.yCenter = ko.value(QStringLiteral("yCenter")).toDouble(540.0);
+        k.angleDeg = ko.value(QStringLiteral("angleDeg")).toDouble();
+        k.rotationXCenter = ko.value(QStringLiteral("rotationXCenter")).toDouble(k.xCenter);
+        k.rotationYCenter = ko.value(QStringLiteral("rotationYCenter")).toDouble(k.yCenter);
+        k.smoothness = ko.value(QStringLiteral("smoothness")).toDouble();
+        k.type = static_cast<VideoKeyframeType>(ko.value(QStringLiteral("type")).toInt());
+        pc.positionKeyframes.push_back(k);
+    }
+    pc.maintainAspectRatio = o.value(QStringLiteral("maintainAspectRatio")).toBool(true);
+    pc.stretchToFillFrame = o.value(QStringLiteral("stretchToFillFrame")).toBool(true);
+    return pc;
+}
+
+FxSlot fxSlotFromJson(const QJsonObject &o)
+{
+    FxSlot s;
+    s.pluginId = o.value(QStringLiteral("pluginId")).toString();
+    s.displayName = o.value(QStringLiteral("displayName")).toString();
+    s.format = static_cast<PluginFormat>(o.value(QStringLiteral("format")).toInt());
+    s.bypass = o.value(QStringLiteral("bypass")).toBool();
+    s.state = QByteArray::fromBase64(o.value(QStringLiteral("state")).toString().toLatin1());
+    s.hostKey = o.value(QStringLiteral("hostKey")).toString();
+    return s;
+}
+
+QVector<FxSlot> fxChainFromJson(const QJsonArray &arr)
+{
+    QVector<FxSlot> chain;
+    chain.reserve(arr.size());
+    for (const QJsonValue &v : arr) {
+        chain.push_back(fxSlotFromJson(v.toObject()));
+    }
+    return chain;
+}
+
+} // namespace
+
 bool ProjectInterchange::exportProjectArchive(const ProjectModel &model, const QString &dirPath,
                                               bool copyMedia, QString *error)
 {
@@ -1601,7 +1708,11 @@ bool ProjectInterchange::exportProjectArchive(const ProjectModel &model, const Q
 
     QJsonObject root;
     root.insert(QStringLiteral("format"), QStringLiteral("OpenVegasArchive"));
-    root.insert(QStringLiteral("version"), 1);
+    // v2: full TrackEvent/Track/FxSlot round-trip (fxChain, media path, mediaKind, pan/crop
+    // position keyframes, markers) — v1 only kept timing, so re-opening a v1 archive lost
+    // every generator/effect. See MARKDOWN/PROJECT_ARCHIVE_FORMAT.md for exact coverage and
+    // known gaps (track motion, mixer console, automation lanes, mask keyframes: not yet).
+    root.insert(QStringLiteral("version"), 2);
     root.insert(QStringLiteral("title"), model.projectTitle());
     root.insert(QStringLiteral("frameRate"), model.frameRate());
     root.insert(QStringLiteral("sampleRate"), static_cast<qint64>(model.sampleRate()));
@@ -1609,6 +1720,16 @@ bool ProjectInterchange::exportProjectArchive(const ProjectModel &model, const Q
     root.insert(QStringLiteral("width"), model.frameWidth());
     root.insert(QStringLiteral("height"), model.frameHeight());
     root.insert(QStringLiteral("sourceProject"), model.projectPath());
+
+    QJsonArray markersArr;
+    for (const TimelineMarker &mk : model.markers()) {
+        QJsonObject mko;
+        mko.insert(QStringLiteral("number"), mk.number);
+        mko.insert(QStringLiteral("timeSec"), mk.timeSec);
+        mko.insert(QStringLiteral("label"), mk.label);
+        markersArr.append(mko);
+    }
+    root.insert(QStringLiteral("markers"), markersArr);
 
     QJsonArray mediaArr;
     QStringList mediaLines;
@@ -1642,16 +1763,42 @@ bool ProjectInterchange::exportProjectArchive(const ProjectModel &model, const Q
         to.insert(QStringLiteral("name"), t.name);
         to.insert(QStringLiteral("kind"),
                   t.kind == TrackKind::Audio ? QStringLiteral("audio") : QStringLiteral("video"));
+        to.insert(QStringLiteral("height"), t.height);
+        to.insert(QStringLiteral("muted"), t.muted);
+        to.insert(QStringLiteral("solo"), t.solo);
+        to.insert(QStringLiteral("volumeDb"), t.volumeDb);
+        to.insert(QStringLiteral("pan"), double(t.pan));
+        to.insert(QStringLiteral("busId"), t.busId);
+        to.insert(QStringLiteral("automationMode"), static_cast<int>(t.automationMode));
+        if (t.displayColor.isValid()) {
+            to.insert(QStringLiteral("displayColor"), t.displayColor.name(QColor::HexArgb));
+        }
+        to.insert(QStringLiteral("fxChain"), fxChainToJson(t.fxChain));
+
         QJsonArray evArr;
         for (const TrackEvent &ev : t.events) {
             QJsonObject eo;
             eo.insert(QStringLiteral("id"), ev.id);
             eo.insert(QStringLiteral("name"), ev.name);
+            eo.insert(QStringLiteral("mediaPath"), ev.mediaPath);
             eo.insert(QStringLiteral("startSec"), ev.startSec);
             eo.insert(QStringLiteral("lengthSec"), ev.lengthSec);
+            eo.insert(QStringLiteral("mediaStartSec"), ev.mediaStartSec);
+            eo.insert(QStringLiteral("mediaLengthSec"), ev.mediaLengthSec);
+            eo.insert(QStringLiteral("looped"), ev.looped);
+            eo.insert(QStringLiteral("reversed"), ev.reversed);
             eo.insert(QStringLiteral("fadeInSec"), ev.fadeInSec);
             eo.insert(QStringLiteral("fadeOutSec"), ev.fadeOutSec);
+            eo.insert(QStringLiteral("fadeInCurve"), static_cast<int>(ev.fadeInCurve));
+            eo.insert(QStringLiteral("fadeOutCurve"), static_cast<int>(ev.fadeOutCurve));
+            eo.insert(QStringLiteral("opacity"), ev.opacity);
+            eo.insert(QStringLiteral("gainDb"), ev.gainDb);
+            eo.insert(QStringLiteral("mediaKind"), static_cast<int>(ev.mediaKind));
             eo.insert(QStringLiteral("groupId"), ev.groupId);
+            eo.insert(QStringLiteral("firstChannel"), ev.firstChannel);
+            eo.insert(QStringLiteral("channelCount"), ev.channelCount);
+            eo.insert(QStringLiteral("fxChain"), fxChainToJson(ev.fxChain));
+            eo.insert(QStringLiteral("panCrop"), eventPanCropToJson(ev.panCrop));
             evArr.append(eo);
         }
         to.insert(QStringLiteral("events"), evArr);
@@ -1683,6 +1830,136 @@ bool ProjectInterchange::exportProjectArchive(const ProjectModel &model, const Q
     exportVegasCsvEdl(model,
                       QDir(dirPath).filePath(model.projectTitle() + QStringLiteral(".txt")),
                       nullptr);
+    return true;
+}
+
+bool ProjectInterchange::isProjectArchive(const QString &dirPath)
+{
+    QFile f(QDir(dirPath).filePath(QStringLiteral("project.json")));
+    if (!f.open(QIODevice::ReadOnly)) {
+        return false;
+    }
+    const QJsonObject root = QJsonDocument::fromJson(f.readAll()).object();
+    return root.value(QStringLiteral("format")).toString() == QLatin1String("OpenVegasArchive");
+}
+
+bool ProjectInterchange::importProjectArchive(const QString &dirPath, ProjectModel *model,
+                                              QString *error)
+{
+    if (!model) {
+        if (error) {
+            *error = QStringLiteral("No project model to populate");
+        }
+        return false;
+    }
+    QFile f(QDir(dirPath).filePath(QStringLiteral("project.json")));
+    if (!f.open(QIODevice::ReadOnly)) {
+        if (error) {
+            *error = QStringLiteral("Cannot open project.json in %1").arg(dirPath);
+        }
+        return false;
+    }
+    QJsonParseError perr;
+    const QJsonDocument doc = QJsonDocument::fromJson(f.readAll(), &perr);
+    if (perr.error != QJsonParseError::NoError || !doc.isObject()) {
+        if (error) {
+            *error = QStringLiteral("Invalid project.json: %1").arg(perr.errorString());
+        }
+        return false;
+    }
+    const QJsonObject root = doc.object();
+    if (root.value(QStringLiteral("format")).toString() != QLatin1String("OpenVegasArchive")) {
+        if (error) {
+            *error = QStringLiteral("Not an OpenVegas project archive");
+        }
+        return false;
+    }
+
+    model->loadEmptyProject();
+    model->setFrameRate(root.value(QStringLiteral("frameRate")).toDouble(29.97));
+    model->setSampleRate(static_cast<quint32>(
+        root.value(QStringLiteral("sampleRate")).toVariant().toLongLong()));
+    model->setTempoBpm(root.value(QStringLiteral("tempoBpm")).toDouble(120.0));
+    model->setFrameSize(root.value(QStringLiteral("width")).toInt(1920),
+                        root.value(QStringLiteral("height")).toInt(1080));
+
+    for (const QJsonValue &v : root.value(QStringLiteral("media")).toArray()) {
+        const QJsonObject mo = v.toObject();
+        MediaItem item;
+        // archivedPath (relative to dirPath) wins when the original path no longer
+        // resolves — same "portable archive" intent as copyMedia in the exporter.
+        const QString archived = mo.value(QStringLiteral("archivedPath")).toString();
+        const QString original = mo.value(QStringLiteral("path")).toString();
+        item.path = (!archived.isEmpty() && !QFileInfo::exists(original))
+                       ? QDir(dirPath).filePath(archived)
+                       : original;
+        item.displayName = mo.value(QStringLiteral("displayName")).toString();
+        item.kind = mo.value(QStringLiteral("kind")).toString();
+        item.missing = !QFileInfo::exists(item.path);
+        model->mediaPool().push_back(item);
+    }
+
+    for (const QJsonValue &v : root.value(QStringLiteral("markers")).toArray()) {
+        const QJsonObject mko = v.toObject();
+        TimelineMarker mk;
+        mk.number = mko.value(QStringLiteral("number")).toInt();
+        mk.timeSec = mko.value(QStringLiteral("timeSec")).toDouble();
+        mk.label = mko.value(QStringLiteral("label")).toString();
+        model->markers().push_back(mk);
+    }
+
+    for (const QJsonValue &tv : root.value(QStringLiteral("tracks")).toArray()) {
+        const QJsonObject to = tv.toObject();
+        const TrackKind kind = to.value(QStringLiteral("kind")).toString() == QLatin1String("audio")
+                                   ? TrackKind::Audio
+                                   : TrackKind::Video;
+        const int ti = model->addTrack(kind);
+        Track &t = model->tracks()[ti];
+        t.name = to.value(QStringLiteral("name")).toString();
+        t.height = to.value(QStringLiteral("height")).toInt(t.height);
+        t.muted = to.value(QStringLiteral("muted")).toBool();
+        t.solo = to.value(QStringLiteral("solo")).toBool();
+        t.volumeDb = to.value(QStringLiteral("volumeDb")).toDouble();
+        t.pan = float(to.value(QStringLiteral("pan")).toDouble());
+        t.busId = to.value(QStringLiteral("busId")).toInt(-1);
+        t.automationMode =
+            static_cast<AutomationWriteMode>(to.value(QStringLiteral("automationMode")).toInt());
+        if (to.contains(QStringLiteral("displayColor"))) {
+            t.displayColor = QColor(to.value(QStringLiteral("displayColor")).toString());
+        }
+        t.fxChain = fxChainFromJson(to.value(QStringLiteral("fxChain")).toArray());
+
+        for (const QJsonValue &ev2 : to.value(QStringLiteral("events")).toArray()) {
+            const QJsonObject eo = ev2.toObject();
+            TrackEvent ev;
+            ev.id = eo.value(QStringLiteral("id")).toInt();
+            ev.name = eo.value(QStringLiteral("name")).toString();
+            ev.mediaPath = eo.value(QStringLiteral("mediaPath")).toString();
+            ev.startSec = eo.value(QStringLiteral("startSec")).toDouble();
+            ev.lengthSec = eo.value(QStringLiteral("lengthSec")).toDouble(1.0);
+            ev.mediaStartSec = eo.value(QStringLiteral("mediaStartSec")).toDouble();
+            ev.mediaLengthSec = eo.value(QStringLiteral("mediaLengthSec")).toDouble();
+            ev.looped = eo.value(QStringLiteral("looped")).toBool(true);
+            ev.reversed = eo.value(QStringLiteral("reversed")).toBool();
+            ev.fadeInSec = eo.value(QStringLiteral("fadeInSec")).toDouble();
+            ev.fadeOutSec = eo.value(QStringLiteral("fadeOutSec")).toDouble();
+            ev.fadeInCurve =
+                static_cast<FadeCurveType>(eo.value(QStringLiteral("fadeInCurve")).toInt());
+            ev.fadeOutCurve =
+                static_cast<FadeCurveType>(eo.value(QStringLiteral("fadeOutCurve")).toInt());
+            ev.opacity = eo.value(QStringLiteral("opacity")).toDouble(1.0);
+            ev.gainDb = eo.value(QStringLiteral("gainDb")).toDouble();
+            ev.mediaKind = static_cast<EventMediaKind>(eo.value(QStringLiteral("mediaKind")).toInt());
+            ev.groupId = eo.value(QStringLiteral("groupId")).toInt();
+            ev.firstChannel = eo.value(QStringLiteral("firstChannel")).toInt();
+            ev.channelCount = eo.value(QStringLiteral("channelCount")).toInt();
+            ev.fxChain = fxChainFromJson(eo.value(QStringLiteral("fxChain")).toArray());
+            ev.panCrop = eventPanCropFromJson(eo.value(QStringLiteral("panCrop")).toObject());
+            t.events.push_back(ev);
+        }
+    }
+
+    model->setProjectPath(QDir(dirPath).filePath(QStringLiteral("project.json")));
     return true;
 }
 

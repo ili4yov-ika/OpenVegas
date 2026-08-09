@@ -1322,7 +1322,8 @@ QString ProjectModel::mediaPathForEvent(const TrackEvent &ev) const
     return ev.mediaPath;
 }
 
-bool ProjectModel::applyVegImport(const VegOpenResult &veg, const QString &openedPath)
+bool ProjectModel::applyVegImport(const VegOpenResult &veg, const QString &openedPath,
+                                  bool allowEdlSidecar)
 {
     loadEmptyProject();
     m_projectPath = openedPath;
@@ -1444,7 +1445,8 @@ bool ProjectModel::applyVegImport(const VegOpenResult &veg, const QString &opene
     if (!veg.projectPathHint.isEmpty()) {
         edlAltNames << veg.projectPathHint;
     }
-    const QString edlPath = SamplePaths::sidecarEdlPath(openedPath, edlAltNames);
+    const QString edlPath =
+        allowEdlSidecar ? SamplePaths::sidecarEdlPath(openedPath, edlAltNames) : QString();
     if (!edlPath.isEmpty()) {
         const InterchangeResult edl = ProjectInterchange::importVegasCsvEdl(edlPath, nullptr);
         for (const InterchangeMediaRef &m : edl.media) {
@@ -1682,6 +1684,24 @@ bool ProjectModel::applyVegImport(const VegOpenResult &veg, const QString &opene
             }
         }
 
+        // A "Video kind" timing record with no name isn't necessarily a real video clip —
+        // Titles & Text generator instances (and other non-file events) share the same
+        // binary timeline position records, and parseVideoTitlesText() pairs each
+        // recovered instance with one of them by ascending start time (see
+        // VegTitleTextInfo doc). Guessing a pooled video file for those positions was
+        // wrong on two counts: it mislabeled generator-only projects as having real video
+        // clips, and it gave applyTitlesTextFromVeg() no blank ("no media") placeholder to
+        // convert in place, so it fell back to a second, separate video track for every
+        // instance — the same "2 tracks instead of 1" bug already fixed for the EDL
+        // sidecar path, just reachable here too when no sidecar exists.
+        auto isGeneratorSlot = [&](double startSec) {
+            for (const VegTitleTextInfo &t : veg.titlesAndText) {
+                if (std::abs(t.startSec - startSec) < 0.05) {
+                    return true;
+                }
+            }
+            return false;
+        };
         for (int vi = 0; vi < videoEv.size(); ++vi) {
             const VegEventInfo &ve = videoEv[vi];
             int matchAi = -1;
@@ -1696,8 +1716,15 @@ bool ProjectModel::applyVegImport(const VegOpenResult &veg, const QString &opene
                     break;
                 }
             }
+            // Real-clip-or-not can't be told from ve.name alone: VegReader's own timeline
+            // scan (assignEventNames) already guesses a pooled media filename for every
+            // "Video kind" position regardless of whether it's a real clip, so an empty
+            // name here would never actually happen. Position match against the recovered
+            // generator instances is the only reliable signal.
+            const bool generatorSlot = matchAi < 0 && isGeneratorSlot(ve.startSec);
 
-            const QString name = !ve.name.isEmpty() ? ve.name
+            const QString name = generatorSlot ? QStringLiteral("Video")
+                                 : !ve.name.isEmpty() ? ve.name
                                  : (!videoFiles.isEmpty() ? videoFiles[vi % videoFiles.size()]
                                                          : QStringLiteral("Video %1").arg(vi + 1));
             if (matchAi >= 0) {
@@ -1709,7 +1736,7 @@ bool ProjectModel::applyVegImport(const VegOpenResult &veg, const QString &opene
                 TrackEvent te;
                 te.id = m_nextEventId++;
                 te.name = name;
-                te.mediaPath = pathForName(name);
+                te.mediaPath = generatorSlot ? QString() : pathForName(name);
                 te.startSec = ve.startSec;
                 te.lengthSec = std::max(0.05, ve.lengthSec);
                 te.fadeInSec = vFadeIn[vi];
@@ -1722,6 +1749,35 @@ bool ProjectModel::applyVegImport(const VegOpenResult &veg, const QString &opene
                     }
                 }
                 m_tracks[track].events.push_back(te);
+            }
+        }
+
+        // Unmatched (audio-only) events all land on the same first audio track
+        // (ensureTrack always returns it), so overlap-based crossfade recovery
+        // mirrors the video pass above: any two neighboring standalone clips
+        // that overlap on the timeline get a fade sized to that overlap.
+        QVector<int> unmatchedAudio;
+        for (int ai = 0; ai < audioEv.size(); ++ai) {
+            if (!audioUsed[ai]) {
+                unmatchedAudio.push_back(ai);
+            }
+        }
+        std::sort(unmatchedAudio.begin(), unmatchedAudio.end(), [&](int a, int b) {
+            return audioEv[a].startSec < audioEv[b].startSec;
+        });
+        QVector<double> aFadeIn(audioEv.size(), 0.0);
+        QVector<double> aFadeOut(audioEv.size(), 0.0);
+        for (int k = 0; k + 1 < unmatchedAudio.size(); ++k) {
+            const int curIdx = unmatchedAudio[k];
+            const int nextIdx = unmatchedAudio[k + 1];
+            const VegEventInfo &cur = audioEv[curIdx];
+            const VegEventInfo &next = audioEv[nextIdx];
+            const double curEnd = cur.startSec + cur.lengthSec;
+            const double overlap = curEnd - next.startSec;
+            if (overlap > 0.05) {
+                const double fade = std::min(overlap, std::min(cur.lengthSec, next.lengthSec) * 0.5);
+                aFadeOut[curIdx] = fade;
+                aFadeIn[nextIdx] = fade;
             }
         }
 
@@ -1739,6 +1795,8 @@ bool ProjectModel::applyVegImport(const VegOpenResult &veg, const QString &opene
             te.mediaPath = pathForName(te.name);
             te.startSec = ae.startSec;
             te.lengthSec = std::max(0.05, ae.lengthSec);
+            te.fadeInSec = aFadeIn[ai];
+            te.fadeOutSec = aFadeOut[ai];
             te.mediaKind = EventMediaKind::Audio;
             for (const QString &fx : veg.audioEventFxNames) {
                 te.fxChain.push_back(fxSlotFromVegWithState(fx, veg));
@@ -2841,6 +2899,78 @@ bool ProjectModel::trimSelectedEndTo(double timeSec)
         any = trimEventEndTo(id, timeSec) || any;
     }
     return any;
+}
+
+bool ProjectModel::applyAutomaticCrossfade(int eventId)
+{
+    int trackIndex = -1;
+    TrackEvent *ev = findEvent(eventId, &trackIndex);
+    if (!ev || trackIndex < 0 || trackIndex >= m_tracks.size()) {
+        return false;
+    }
+
+    auto overlapOf = [](const TrackEvent &a, const TrackEvent &b) {
+        const double o0 = std::max(a.startSec, b.startSec);
+        const double o1 = std::min(a.startSec + a.lengthSec, b.startSec + b.lengthSec);
+        return o1 > o0 ? (o1 - o0) : 0.0;
+    };
+    auto clampFades = [](TrackEvent &e) {
+        const double maxFade = std::max(0.0, e.lengthSec - 0.05);
+        e.fadeInSec = std::clamp(e.fadeInSec, 0.0, maxFade);
+        e.fadeOutSec = std::clamp(e.fadeOutSec, 0.0, maxFade);
+        if (e.fadeInSec + e.fadeOutSec > e.lengthSec) {
+            const double scale = e.lengthSec / (e.fadeInSec + e.fadeOutSec);
+            e.fadeInSec *= scale;
+            e.fadeOutSec *= scale;
+        }
+    };
+
+    Track &track = m_tracks[trackIndex];
+    TrackEvent *prevNeighbor = nullptr;
+    TrackEvent *nextNeighbor = nullptr;
+    for (TrackEvent &other : track.events) {
+        if (other.id == ev->id) {
+            continue;
+        }
+        if (other.startSec < ev->startSec - 1e-6) {
+            if (!prevNeighbor || other.startSec > prevNeighbor->startSec) {
+                prevNeighbor = &other;
+            }
+        } else if (other.startSec > ev->startSec + 1e-6) {
+            if (!nextNeighbor || other.startSec < nextNeighbor->startSec) {
+                nextNeighbor = &other;
+            }
+        }
+    }
+
+    bool changed = false;
+    if (prevNeighbor) {
+        const double ov = overlapOf(*prevNeighbor, *ev);
+        if (ov > 0.05) {
+            prevNeighbor->fadeOutSec = ov;
+            ev->fadeInSec = ov;
+            changed = true;
+        }
+    }
+    if (nextNeighbor) {
+        const double ov = overlapOf(*ev, *nextNeighbor);
+        if (ov > 0.05) {
+            ev->fadeOutSec = ov;
+            nextNeighbor->fadeInSec = ov;
+            changed = true;
+        }
+    }
+
+    if (changed) {
+        clampFades(*ev);
+        if (prevNeighbor) {
+            clampFades(*prevNeighbor);
+        }
+        if (nextNeighbor) {
+            clampFades(*nextNeighbor);
+        }
+    }
+    return changed;
 }
 
 void ProjectModel::setLoopRegion(double startSec, double endSec)

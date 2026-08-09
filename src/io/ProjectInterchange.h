@@ -88,9 +88,17 @@ public:
     /**
      * OpenVegas project archive folder:
      *   <name>/project.json + media_list.txt (+ optional Media/ copies when copyMedia).
+     * v2 round-trips fxChain (Titles & Text, Media Generator, OFX/VST state — opaque,
+     * preserved byte-for-byte), pan/crop position keyframes, and markers; see
+     * MARKDOWN/PROJECT_ARCHIVE_FORMAT.md for exact coverage and known gaps.
      */
     static bool exportProjectArchive(const ProjectModel &model, const QString &dirPath, bool copyMedia,
                                      QString *error = nullptr);
+    /** Inverse of exportProjectArchive() — populates *model in place (like a fresh open). */
+    static bool importProjectArchive(const QString &dirPath, ProjectModel *model,
+                                     QString *error = nullptr);
+    /** True if dirPath/project.json exists and declares format "OpenVegasArchive". */
+    static bool isProjectArchive(const QString &dirPath);
 
     static QString guessKind(const QString &pathOrName);
     static QString formatTimecode(double sec, double fps, bool dropFrame = false);

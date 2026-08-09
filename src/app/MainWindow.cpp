@@ -54,6 +54,7 @@
 
 #include <QMessageBox>
 #include <QFileDialog>
+#include <QInputDialog>
 #include <QCoreApplication>
 #include <QEventLoop>
 #include <QFileInfo>
@@ -445,6 +446,11 @@ void MainWindow::restoreUiSettings()
     m_project.setSnapToMarkers(s.value(QStringLiteral("timeline/snapToMarkers"), true).toBool());
     m_project.setSnapToAllEvents(
         s.value(QStringLiteral("timeline/snapToAllEvents"), true).toBool());
+    m_project.setAutomaticCrossfades(
+        s.value(QStringLiteral("timeline/automaticCrossfades"), true).toBool());
+    if (m_tlAutoCfBtn) {
+        m_tlAutoCfBtn->setChecked(m_project.automaticCrossfades());
+    }
     m_project.setQuantizeToFrames(
         s.value(QStringLiteral("timeline/quantizeToFrames"), true).toBool());
     {
@@ -473,6 +479,7 @@ void MainWindow::saveUiSettings()
     s.setValue(QStringLiteral("timeline/snapToGrid"), m_project.snapToGrid());
     s.setValue(QStringLiteral("timeline/snapToMarkers"), m_project.snapToMarkers());
     s.setValue(QStringLiteral("timeline/snapToAllEvents"), m_project.snapToAllEvents());
+    s.setValue(QStringLiteral("timeline/automaticCrossfades"), m_project.automaticCrossfades());
     s.setValue(QStringLiteral("timeline/quantizeToFrames"), m_project.quantizeToFrames());
     s.setValue(QStringLiteral("timeline/gridSpacing"), static_cast<int>(m_project.gridSpacing()));
     if (m_timeline) {
@@ -537,7 +544,7 @@ void MainWindow::setupToolbar()
 
     add(tr("New Project"), IconFactory::svgNew(), &MainWindow::onNewProject);
     add(tr("Open"), IconFactory::svgOpen(), &MainWindow::onOpenProject);
-    add(tr("Save"), IconFactory::svgSave(), []() {});
+    add(tr("Save"), IconFactory::svgSave(), &MainWindow::onSaveProject);
     add(tr("Render As"), IconFactory::svgRender(), &MainWindow::onRenderAs);
     add(tr("Project Properties"), IconFactory::svgGear(), &MainWindow::onProjectProperties);
     addToolbarSep(layout);
@@ -1218,8 +1225,13 @@ void MainWindow::setupTimelineTools()
     addToolbarSep(restLay);
 
     restLay->addWidget(IconFactory::toolButton(rest, tr("Enable Snapping"), IconFactory::svgSnap(), true, true));
-    restLay->addWidget(
-        IconFactory::toolButton(rest, tr("Automatic Crossfades"), IconFactory::svgAutoCf(), true, true));
+    auto *autoCfBtn = IconFactory::toolButton(rest, tr("Automatic Crossfades"), IconFactory::svgAutoCf(),
+                                              true, m_project.automaticCrossfades());
+    connect(autoCfBtn, &QToolButton::toggled, this, [this](bool on) {
+        m_project.setAutomaticCrossfades(on);
+    });
+    restLay->addWidget(autoCfBtn);
+    m_tlAutoCfBtn = autoCfBtn;
     restLay->addWidget(IconFactory::toolButton(rest, tr("Auto Ripple"), IconFactory::svgAutoRipple()));
     restLay->addWidget(
         IconFactory::toolButton(rest, tr("Lock Envelopes"), IconFactory::svgLockEnvelopes(), true, true));
@@ -2481,6 +2493,7 @@ void MainWindow::refreshPreviewProjectMeta()
 void MainWindow::onNewProject()
 {
     clearUndoHistory();
+    m_currentArchivePath.clear();
     m_project.loadEmptyProject();
     ui->mediaGrid->clear();
     refreshMediaEmptyState();
@@ -2561,7 +2574,7 @@ void MainWindow::onOpenProject()
     }
     const QString path = QFileDialog::getOpenFileName(
         this, tr("Open Project"), startDir,
-        tr("Vegas Project (*.veg);;OpenVegas (*.ovp);;All files (*.*)"));
+        tr("Vegas Project (*.veg);;OpenVegas Project Archive (project.json);;All files (*.*)"));
     if (path.isEmpty()) {
         return;
     }
@@ -2571,6 +2584,33 @@ void MainWindow::onOpenProject()
 
 void MainWindow::openProjectPath(const QString &path)
 {
+    // OpenVegas's own project archive is a folder (project.json + media_list.txt — see
+    // MARKDOWN/PROJECT_ARCHIVE_FORMAT.md); "Open" lets you pick either the folder itself
+    // or the project.json manifest inside it.
+    const QFileInfo fi(path);
+    const QString archiveDir =
+        fi.fileName().compare(QStringLiteral("project.json"), Qt::CaseInsensitive) == 0
+            ? fi.absolutePath()
+            : path;
+    if (ProjectInterchange::isProjectArchive(archiveDir)) {
+        QString archiveError;
+        if (!ProjectInterchange::importProjectArchive(archiveDir, &m_project, &archiveError)) {
+            QMessageBox::warning(this, tr("Open Project"), archiveError);
+            return;
+        }
+        m_currentArchivePath = archiveDir;
+        clearUndoHistory();
+        applyProjectToUi();
+        rememberRecentFile(archiveDir);
+        if (m_project.hasMixerExtras()) {
+            onMixingConsole();
+        }
+        setWindowTitle(tr("%1 - OpenVegas").arg(m_project.projectTitle()));
+        statusBar()->showMessage(tr("Opened project archive: %1").arg(archiveDir), 8000);
+        return;
+    }
+    m_currentArchivePath.clear(); // a .veg is a different, read-only source — see onSaveProject()
+
     const QString resolved = SamplePaths::resolveProjectPath(path);
     QString error;
     const VegOpenResult veg = VegReader::open(resolved, &error);
@@ -2981,6 +3021,59 @@ void MainWindow::onExportProjectArchive()
                              tr("Archive created:\n%1\n\nContains project.json, media_list.txt%2.")
                                  .arg(QDir::toNativeSeparators(archiveDir),
                                       copyMedia ? tr(", and Media/") : QString()));
+}
+
+void MainWindow::onSaveProject()
+{
+    if (m_currentArchivePath.isEmpty()) {
+        onSaveProjectAs();
+        return;
+    }
+    QString error;
+    if (!ProjectInterchange::exportProjectArchive(m_project, m_currentArchivePath,
+                                                  /*copyMedia=*/false, &error)) {
+        QMessageBox::warning(this, tr("Save Project"), error);
+        return;
+    }
+    statusBar()->showMessage(tr("Saved: %1").arg(m_currentArchivePath), 5000);
+}
+
+void MainWindow::onSaveProjectAs()
+{
+    // The native format is a folder (project.json + media_list.txt, not a single file —
+    // see MARKDOWN/PROJECT_ARCHIVE_FORMAT.md), so "Save As" is a destination folder plus a
+    // name, the same two-step shape onExportProjectArchive() already uses.
+    QSettings settings(QStringLiteral("OpenVegas"), QStringLiteral("OpenVegas"));
+    QString startDir = settings.value(QStringLiteral("paths/lastSaveDir")).toString();
+    if (startDir.isEmpty() || !QDir(startDir).exists()) {
+        startDir = QFileInfo(m_project.projectPath()).absolutePath();
+    }
+    const QString dir =
+        QFileDialog::getExistingDirectory(this, tr("Save Project — choose destination folder"), startDir);
+    if (dir.isEmpty()) {
+        return;
+    }
+    settings.setValue(QStringLiteral("paths/lastSaveDir"), dir);
+
+    bool ok = false;
+    const QString defaultName =
+        m_project.projectTitle().isEmpty() ? QStringLiteral("Untitled") : m_project.projectTitle();
+    const QString name = QInputDialog::getText(this, tr("Save Project"), tr("Project folder name:"),
+                                               QLineEdit::Normal, defaultName, &ok);
+    if (!ok || name.trimmed().isEmpty()) {
+        return;
+    }
+    const QString archiveDir = QDir(dir).filePath(name.trimmed());
+
+    QString error;
+    if (!ProjectInterchange::exportProjectArchive(m_project, archiveDir, /*copyMedia=*/false,
+                                                  &error)) {
+        QMessageBox::warning(this, tr("Save Project"), error);
+        return;
+    }
+    m_currentArchivePath = archiveDir;
+    setWindowTitle(tr("%1 - OpenVegas").arg(m_project.projectTitle()));
+    statusBar()->showMessage(tr("Saved: %1").arg(archiveDir), 5000);
 }
 
 void MainWindow::onExportPremiere()

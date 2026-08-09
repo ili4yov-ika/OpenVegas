@@ -622,4 +622,20 @@ QImage renderTitlesText(const TitlesTextParams &p, const QSize &size, double pro
     return img;
 }
 
+QImage checkerboardBackground(const QSize &size)
+{
+    QImage img(size, QImage::Format_ARGB32_Premultiplied);
+    QPainter painter(&img);
+    painter.setPen(Qt::NoPen);
+    constexpr int kTile = 8;
+    for (int y = 0; y < size.height(); y += kTile) {
+        for (int x = 0; x < size.width(); x += kTile) {
+            const bool light = ((x / kTile) + (y / kTile)) % 2 == 0;
+            painter.setBrush(light ? QColor(120, 120, 120) : QColor(85, 85, 85));
+            painter.drawRect(x, y, kTile, kTile);
+        }
+    }
+    return img;
+}
+
 } // namespace openvegas

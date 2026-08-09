@@ -142,4 +142,13 @@ TitlesTextAnimKeyframe evaluateTitlesTextAnimation(const TitlesTextMotionSpec &s
  */
 QImage renderTitlesText(const TitlesTextParams &p, const QSize &size, double progress = 1.0);
 
+/**
+ * Tileable alpha checkerboard — light gray / dark gray, matching the real Vegas Pro
+ * Media Generator browser's own transparency checkerboard. Shared backdrop for any
+ * Titles & Text preview (preset tiles, timeline thumbnails) whose background is
+ * transparent or semi-transparent, so what you see honestly reflects what compositing
+ * will actually show through.
+ */
+QImage checkerboardBackground(const QSize &size);
+
 } // namespace openvegas

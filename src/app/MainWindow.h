@@ -52,6 +52,8 @@ public:
 public slots:
     void onNewProject();
     void onOpenProject();
+    void onSaveProject();
+    void onSaveProjectAs();
     void onImportMedia();
     void onImportMediaFromProject();
     void onImportPremiere();
@@ -208,6 +210,13 @@ private:
 
     Ui::MainWindow *ui = nullptr;
     ProjectModel m_project;
+    /**
+     * Folder from the last successful Save / Save As / archive Open this session — empty
+     * until one of those happens. "Save" re-exports here silently; empty routes it to
+     * "Save As" instead. Deliberately separate from m_project.projectPath(), which tracks
+     * the .veg a project was opened from (a different, read-only concern).
+     */
+    QString m_currentArchivePath;
     PluginScanner m_pluginScanner;
     QUndoStack *m_undoStack = nullptr;
     QAction *m_undoAction = nullptr;
@@ -271,6 +280,7 @@ private:
     QToolButton *m_tlGoEndBtn = nullptr;
     QToolButton *m_tlPrevFrameBtn = nullptr;
     QToolButton *m_tlNextFrameBtn = nullptr;
+    QToolButton *m_tlAutoCfBtn = nullptr;
 
     QImage m_lastPreviewFrame;
     qint64 m_lastAvSyncFrame = -1;

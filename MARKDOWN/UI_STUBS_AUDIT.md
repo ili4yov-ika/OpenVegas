@@ -40,9 +40,9 @@
 
 | Пункт | Место | Статус | Заметка |
 |-------|-------|--------|---------|
-| Save | `MenuBuilder.cpp:58` | DEAD | Ctrl+S ничего не делает. **В проекте вообще нет функции записи `.veg`/`.ovp`** — есть только `VegReader` (чтение). Единственный путь сохранения — File → Export → «VEGAS Project Archive (*.veg)…», который пишет папку с `project.json`, не полноценный round-trip формат. |
-| Save As… | `MenuBuilder.cpp:60` | DEAD | То же. |
-| Incremental Save | `MenuBuilder.cpp:62` | DEAD | То же. |
+| Save | `MenuBuilder.cpp:58` | ✅ Implemented (2026-08-09) | `MainWindow::onSaveProject()`. `.veg` по-прежнему нельзя писать (закрытый бинарный формат) — сохраняет в собственный round-trip формат «OpenVegas Project Archive» (`project.json`, теперь с полным `fxChain`/Pan-Crop/маркерами — v1 хранил только тайминг). Первый Save в сессии ведёт себя как Save As; далее — тихая перезапись. См. [`PROJECT_ARCHIVE_FORMAT.md`](PROJECT_ARCHIVE_FORMAT.md). |
+| Save As… | `MenuBuilder.cpp:60` | ✅ Implemented (2026-08-09) | `MainWindow::onSaveProjectAs()` — диалог папки-назначения + имя проекта. |
+| Incremental Save | `MenuBuilder.cpp:62` | DEAD | Всё ещё стаб — авто-нумерация имени при каждом Save не реализована. |
 | Close | `MenuBuilder.cpp:55-56` | STUB | Подключено к `MainWindow::onNewProject` — по факту это «New», а не «Close»: нет запроса на сохранение несохранённых изменений. |
 | Real-Time Render… | `MenuBuilder.cpp:67` | DEAD | — |
 | Capture… | `MenuBuilder.cpp:99` | DEAD | Соответствует отсутствию pipeline захвата (см. §2). |
@@ -203,7 +203,7 @@ connect(m_transitions, &TransitionsPane::transitionActivated, this, [this](const
 
 ## Приоритеты (предложение)
 
-1. **File → Save/Save As** — сейчас это самая заметная дыра: пункты меню выглядят как рабочие (со стандартными Ctrl+S/Ctrl+Shift+S шорткатами через `addStub`, хоть шорткаты и не назначаются — см. комментарий в коде), но ничего не сохраняют. Либо реализовать запись, либо явно задизейблить/переименовать, чтобы не вводить в заблуждение.
+1. ~~**File → Save/Save As**~~ — реализовано 2026-08-09 (родной round-trip формат «OpenVegas Project Archive», не `.veg` — см. [`PROJECT_ARCHIVE_FORMAT.md`](PROJECT_ARCHIVE_FORMAT.md)). Track Motion / Mixing Console / Automation Lanes всё ещё не входят в архив — задокументированный, не тихий пробел.
 2. **Transitions/Video FX panes** — insert-по-двойному-клику или drag&drop на таймлайн; сейчас полностью готовый браузер контента ни на что не годен, кроме просмотра превью. (Media Generator для Titles & Text уже сделан — 2026-08-08.)
 3. **VEGAS Shared `CatalogOnly` эффекты** — либо пометить в UI чузера (например суффиксом «(no DSP)»), либо скрыть из списка до реализации.
 4. **Video Event FX (`VideoEventFxDialog`, старый)** — проверить, не является ли он мёртвым кодом, если весь flow уже идёт через `VideoEventFxDialogExact`; если мёртв — удалить, а не оставлять диалог с фейковыми параметрами.

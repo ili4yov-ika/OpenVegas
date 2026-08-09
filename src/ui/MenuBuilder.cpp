@@ -55,10 +55,11 @@ void MenuBuilder::build(MainWindow *window, QMenuBar *menuBar)
     fileMenu->addAction(QObject::tr("Close"), QKeySequence(QStringLiteral("Ctrl+F4")), window,
                         &MainWindow::onNewProject);
     fileMenu->addSeparator();
-    addStub(fileMenu, QObject::tr("Save"), QKeySequence::Save)
-        ->setIcon(IconFactory::iconFromSvgBody(IconFactory::svgSave()));
-    addStub(fileMenu, QObject::tr("Save As…"), QKeySequence(QStringLiteral("Ctrl+Shift+S")))
-        ->setIcon(IconFactory::iconFromSvgBody(IconFactory::svgSave()));
+    fileMenu->addAction(IconFactory::iconFromSvgBody(IconFactory::svgSave()), QObject::tr("Save"),
+                        QKeySequence::Save, window, &MainWindow::onSaveProject);
+    fileMenu->addAction(IconFactory::iconFromSvgBody(IconFactory::svgSave()), QObject::tr("Save As…"),
+                        QKeySequence(QStringLiteral("Ctrl+Shift+S")), window,
+                        &MainWindow::onSaveProjectAs);
     addStub(fileMenu, QObject::tr("Incremental Save"), QKeySequence(QStringLiteral("Ctrl+Alt+S")));
     fileMenu->addSeparator();
     fileMenu->addAction(IconFactory::iconFromSvgBody(IconFactory::svgRender()), QObject::tr("Render As…"),

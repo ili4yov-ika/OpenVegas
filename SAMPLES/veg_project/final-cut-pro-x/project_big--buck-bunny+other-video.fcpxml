@@ -1,0 +1,34 @@
+﻿<?xml version="1.0"?>
+<fcpxml version="1.2">
+	<project name="Untitled Project 1">
+		<resources>
+			<format id="r1" name="FFVideoFormatRateUndefined" frameDuration="100/6000s" width="3840" height="2160" />
+			<projectRef id="r2" name="Untitled Project 1" />
+			<format id="r3" frameDuration="100/6000s" width="1920" height="1080" />
+			<asset id="r4" name="Kdenlive" projectRef="r2" src="file://localhost/D:/Devs/C++/OpenVegas/SAMPLES/veg_project/final-cut-pro-x/Kdenlive.mp4" start="0/6000s" hasVideo="1" hasAudio="1" />
+			<format id="r5" frameDuration="100/6000s" width="3840" height="2160" />
+			<asset id="r6" name="big-buck-bunny_video-60fps-4k-8" projectRef="r2" src="file://localhost/D:/Devs/C++/OpenVegas/SAMPLES/veg_project/final-cut-pro-x/big-buck-bunny_video-60fps-4k-8.mp4" start="0/6000s" hasVideo="1" hasAudio="1" />
+			<effect id="r7" name="Cross Dissolve" uid="FxPlug:4731E73A-8DAC-4113-9A30-AE85B1761265" />
+		</resources>
+		<sequence duration="446100/6000s" format="r1" tcFormat="NDF" audioLayout="stereo" audioRate="48k">
+			<spine>
+				<clip duration="0s">
+					<spine lane="-1">
+						<audio ref="r4" duration="172400/6000s" start="0/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="147500/6000s" ref="r7" name="Cross Dissolve" duration="49800/6000s" />
+						<audio offset="172400/6000s" ref="r6" duration="273700/6000s" start="24900/6000s" srcID="1" srcCh="1, 2" />
+					</spine>
+				</clip>
+				<video ref="r4" duration="172400/6000s" start="0/6000s" />
+				<transition offset="147500/6000s" ref="r7" name="Cross Dissolve" duration="49800/6000s" />
+				<video offset="172400/6000s" ref="r6" duration="273700/6000s" start="24900/6000s">
+					<adjust-blend>
+						<param name="amount">
+							<fadeOut type="linear" duration="78500/6000s" />
+						</param>
+					</adjust-blend>
+				</video>
+			</spine>
+		</sequence>
+	</project>
+</fcpxml>

@@ -10,6 +10,7 @@
 
 #include <QDir>
 #include <QFile>
+#include <QTemporaryDir>
 
 #include <cmath>
 
@@ -320,4 +321,91 @@ TEST_CASE("Real VEG-recovered Titles & Text events keep their animation on impor
     REQUIRE(dropSplitCount >= 1);
     REQUIRE(menaceCount >= 1);
     REQUIRE(roughDayCount >= 1);
+}
+
+TEST_CASE("Titles & Text project imports onto one video track without an EDL sidecar",
+          "[plugins][state][veg][titles-and-text]")
+{
+    // Regression guard for a fourth bug found the same day as the EDL-path "2 tracks"
+    // fix above: the "Binary timeline timings" (no-EDL) import path has the identical
+    // symptom for a completely different reason. VegReader's own timeline-name heuristic
+    // (assignEventNames) guesses a pooled media filename for EVERY "Video kind" position
+    // record, real clip or not — so applyTitlesTextFromVeg() never finds a blank
+    // ("no media") placeholder to convert in place and falls back to a second, separate
+    // video track for every recovered instance. Fixed by recognizing a "Video kind"
+    // position as a generator slot when it lines up with one of the recovered Titles &
+    // Text instances' own start times (parseVideoTitlesText() already pairs them the
+    // same way) — independent of whatever name VegReader guessed for it.
+    //
+    // Built as a fully synthetic VegOpenResult (not a real sample file) so this test
+    // can't be sidestepped by SamplePaths::sidecarEdlPath()'s embedded-projectPathHint
+    // fallback (real Vegas copies embed their original save path, and a plain renamed
+    // copy of a real sample still resolves back to its real EDL through that hint), and
+    // so it never has to touch real sample assets to exercise the no-EDL path.
+    QTemporaryDir tmpDir;
+    REQUIRE(tmpDir.isValid());
+    const QString path = tmpDir.filePath(QStringLiteral("synthetic_no_edl.veg"));
+    {
+        QFile f(path);
+        REQUIRE(f.open(QIODevice::WriteOnly));
+    }
+    REQUIRE(SamplePaths::sidecarEdlPath(path).isEmpty());
+
+    VegOpenResult veg;
+    veg.hasTimelineTimings = true;
+    // 3 generator-claimed positions + 1 real trailing video clip, mirroring the real
+    // sample's shape (many short generator slots, one real clip at the end).
+    auto addVideoEvent = [&](double start, double len, const QString &name) {
+        VegEventInfo e;
+        e.kind = VegEventInfo::Kind::Video;
+        e.startSec = start;
+        e.lengthSec = len;
+        e.name = name; // VegReader always guesses a name — never actually empty
+        e.offset = veg.events.size();
+        veg.events.push_back(e);
+    };
+    addVideoEvent(0.0, 5.0, QStringLiteral("clip"));
+    addVideoEvent(5.0, 5.0, QStringLiteral("clip 2"));
+    addVideoEvent(10.0, 5.0, QStringLiteral("clip 3"));
+    addVideoEvent(15.0, 8.0, QStringLiteral("clip 4"));
+
+    auto addTitle = [&](double start, double len, const QString &text) {
+        VegTitleTextInfo t;
+        t.text = text;
+        t.animationName = QStringLiteral("_None");
+        t.startSec = start;
+        t.lengthSec = len;
+        veg.titlesAndText.push_back(t);
+    };
+    addTitle(0.0, 5.0, QStringLiteral("Sample Text"));
+    addTitle(5.0, 5.0, QStringLiteral("Second Title"));
+    addTitle(10.0, 5.0, QStringLiteral("Third Title"));
+    // Position 15..23 has no matching titlesAndText entry — it's the one real clip.
+
+    ProjectModel model;
+    const bool usedEdl = model.applyVegImport(veg, path);
+    REQUIRE_FALSE(usedEdl);
+
+    int videoTrackCount = 0;
+    int titleEventCount = 0;
+    int realVideoEventCount = 0;
+    double maxEnd = 0.0;
+    for (const Track &tr : model.tracks()) {
+        if (tr.kind != TrackKind::Video) {
+            continue;
+        }
+        ++videoTrackCount;
+        for (const TrackEvent &ev : tr.events) {
+            maxEnd = std::max(maxEnd, ev.startSec + ev.lengthSec);
+            if (ev.mediaKind == EventMediaKind::Title) {
+                ++titleEventCount;
+            } else {
+                ++realVideoEventCount;
+            }
+        }
+    }
+    REQUIRE(videoTrackCount == 1);
+    REQUIRE(titleEventCount == 3);
+    REQUIRE(realVideoEventCount == 1);
+    REQUIRE(maxEnd == Catch::Approx(23.0));
 }
