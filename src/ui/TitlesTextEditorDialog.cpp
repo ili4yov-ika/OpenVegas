@@ -355,6 +355,11 @@ void TitlesTextEditorDialog::setEvent(TrackEvent *ev, int frameWidth, int frameH
     loadFromEvent();
 }
 
+void TitlesTextEditorDialog::refreshFromEvent()
+{
+    loadFromEvent();
+}
+
 void TitlesTextEditorDialog::loadFromEvent()
 {
     if (!m_event || m_event->fxChain.isEmpty()) {

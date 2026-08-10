@@ -204,9 +204,15 @@ private:
     void refreshPreviewFrame(double sec);
     /** Show an already-composed render frame in Video Preview (letterboxed). */
     void showRenderPreviewFrame(const QImage &frame, double sec);
+    /** Letterbox/pillarbox content rect (project-aspect frame within the viewport) for a
+     *  previewViewport of the given size — shared by refreshPreviewFrame,
+     *  showRenderPreviewFrame, and the Titles & Text on-canvas edit overlay so all three
+     *  agree on exactly where the composed frame lands. */
+    QRect previewContentRect(int viewportW, int viewportH) const;
     void syncTransportUi(bool playing);
     void syncPreviewOverlays();
     void updateOverlaysButton();
+    void syncTitlesTextOverlayGeometry();
 
     Ui::MainWindow *ui = nullptr;
     ProjectModel m_project;
@@ -240,6 +246,7 @@ private:
     ProjectNotesPane *m_notes = nullptr;
     QWidget *m_rateCol = nullptr;
     QWidget *m_previewOverlay = nullptr;
+    QWidget *m_titlesTextOverlay = nullptr;
     QToolButton *m_overlaysBtn = nullptr;
     QAction *m_overlayGridAct = nullptr;
     QAction *m_overlaySafeAct = nullptr;

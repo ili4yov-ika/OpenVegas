@@ -4,6 +4,7 @@
 
 #include <QColor>
 #include <QImage>
+#include <QRectF>
 #include <QSize>
 #include <QString>
 #include <QVariantMap>
@@ -141,6 +142,15 @@ TitlesTextAnimKeyframe evaluateTitlesTextAnimation(const TitlesTextMotionSpec &s
  * settled/static; pass the event's local-time fraction to play the preset's animation.
  */
 QImage renderTitlesText(const TitlesTextParams &p, const QSize &size, double progress = 1.0);
+
+/**
+ * Bounding box (frame pixel coordinates, origin top-left, size = the render target) of
+ * the text block at its settled/static pose (progress=1.0, no animation offset) — the
+ * same block-layout math renderTitlesText() uses internally, kept here so callers that
+ * need the geometry without rendering pixels (e.g. an on-canvas move/resize overlay)
+ * don't duplicate it. Empty rect when there's no text to lay out.
+ */
+QRectF titlesTextBoundingBox(const TitlesTextParams &p, const QSize &size);
 
 /**
  * Tileable alpha checkerboard — light gray / dark gray, matching the real Vegas Pro

@@ -954,6 +954,9 @@ public:
     int pasteEventsAt(double timeSec);
     bool deleteSelectedEvents();
     bool splitSelectedAt(double timeSec);
+    /** Splits every event on every track whose span contains timeSec, regardless of
+     *  selection — Vegas's "just press S" behavior when nothing is explicitly selected. */
+    bool splitAllAt(double timeSec);
     bool trimSelectedStartTo(double timeSec);
     bool trimSelectedEndTo(double timeSec);
     void selectAllEvents();

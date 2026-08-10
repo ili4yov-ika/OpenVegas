@@ -3,9 +3,34 @@
 
 #include "video/TitlesTextApply.h"
 
+#include <QCoreApplication>
+#include <QGuiApplication>
 #include <QSet>
 
 using namespace openvegas;
+
+namespace {
+
+// titlesTextBoundingBox() touches QFont/QFontMetricsF, which qFatal()-crash the whole
+// process if used before any QGuiApplication exists — this test binary is otherwise a
+// plain Catch2 console app with no Qt application instance at all (nothing else in it
+// calls into the font database). -platform offscreen keeps it headless-safe.
+void ensureQtGuiApp()
+{
+    if (QCoreApplication::instance()) {
+        return;
+    }
+    if (qEnvironmentVariableIsEmpty("QT_QPA_PLATFORM")) {
+        qputenv("QT_QPA_PLATFORM", "offscreen");
+    }
+    static int argc = 1;
+    static char appName[] = "openvegas_video_tests";
+    static char *argv[] = {appName, nullptr};
+    static QGuiApplication app(argc, argv);
+    Q_UNUSED(app);
+}
+
+} // namespace
 
 // Regression coverage for a real bug: titlesTextMotionForPreset() used to derive its
 // lookup key from the display label ("Drop Split" -> "_DropSplit"), which does NOT match
@@ -98,4 +123,87 @@ TEST_CASE("titlesTextPresetVisuals returns real recovered colors/scale", "[video
     REQUIRE(none.scale == Catch::Approx(1.0));
     const TitlesTextPresetVisuals unknown = titlesTextPresetVisuals(QStringLiteral("_NotARealKey"));
     REQUIRE(unknown.textColor == QColor(255, 255, 255, 255));
+}
+
+// titlesTextBoundingBox() backs the on-canvas Video Preview move/resize overlay —
+// these guard the exact geometry the overlay's hit-test/drag math depends on.
+
+TEST_CASE("titlesTextBoundingBox is empty for blank text", "[video][titles-text]")
+{
+    ensureQtGuiApp();
+    TitlesTextParams p;
+    p.text = QStringLiteral("   \n  ");
+    CHECK(titlesTextBoundingBox(p, QSize(1920, 1080)).isEmpty());
+}
+
+TEST_CASE("titlesTextBoundingBox centers on locationX/Y for MiddleCenter anchor",
+         "[video][titles-text]")
+{
+    ensureQtGuiApp();
+    TitlesTextParams p;
+    p.text = QStringLiteral("Sample Text");
+    p.anchor = TitlesTextAnchor::MiddleCenter;
+    p.locationX = 0.5;
+    p.locationY = 0.5;
+    const QSize size(1920, 1080);
+    const QRectF box = titlesTextBoundingBox(p, size);
+    REQUIRE_FALSE(box.isEmpty());
+    CHECK(box.center().x() == Catch::Approx(size.width() * 0.5).margin(0.5));
+    CHECK(box.center().y() == Catch::Approx(size.height() * 0.5).margin(0.5));
+}
+
+TEST_CASE("titlesTextBoundingBox anchors its top-left corner for TopLeft anchor",
+         "[video][titles-text]")
+{
+    ensureQtGuiApp();
+    TitlesTextParams p;
+    p.text = QStringLiteral("Sample Text");
+    p.anchor = TitlesTextAnchor::TopLeft;
+    p.locationX = 0.2;
+    p.locationY = 0.3;
+    const QSize size(1920, 1080);
+    const QRectF box = titlesTextBoundingBox(p, size);
+    REQUIRE_FALSE(box.isEmpty());
+    CHECK(box.left() == Catch::Approx(size.width() * 0.2).margin(0.5));
+    CHECK(box.top() == Catch::Approx(size.height() * 0.3).margin(0.5));
+}
+
+TEST_CASE("titlesTextBoundingBox moves 1:1 with locationX/Y — the on-canvas drag formula",
+         "[video][titles-text]")
+{
+    ensureQtGuiApp();
+    TitlesTextParams p;
+    p.text = QStringLiteral("Move Me");
+    p.anchor = TitlesTextAnchor::MiddleCenter;
+    p.locationX = 0.5;
+    p.locationY = 0.5;
+    const QSize size(1920, 1080);
+    const QRectF box1 = titlesTextBoundingBox(p, size);
+    p.locationX = 0.6;
+    p.locationY = 0.4;
+    const QRectF box2 = titlesTextBoundingBox(p, size);
+    CHECK(box2.left() - box1.left() == Catch::Approx(0.1 * size.width()).margin(0.5));
+    CHECK(box2.top() - box1.top() == Catch::Approx(-0.1 * size.height()).margin(0.5));
+}
+
+TEST_CASE("titlesTextBoundingBox scales around a fixed anchor point", "[video][titles-text]")
+{
+    ensureQtGuiApp();
+    TitlesTextParams p;
+    p.text = QStringLiteral("Resize Me");
+    p.anchor = TitlesTextAnchor::MiddleCenter;
+    p.locationX = 0.5;
+    p.locationY = 0.5;
+    p.scale = 1.0;
+    const QSize size(1920, 1080);
+    const QRectF box1 = titlesTextBoundingBox(p, size);
+    p.scale = 2.0;
+    const QRectF box2 = titlesTextBoundingBox(p, size);
+    // MiddleCenter anchor sits at the box's own center, so the center must stay put
+    // while the box grows around it — exactly what the corner-handle uniform resize
+    // (scale about the anchor) on the Video Preview overlay depends on.
+    CHECK(box2.center().x() == Catch::Approx(box1.center().x()).margin(0.5));
+    CHECK(box2.center().y() == Catch::Approx(box1.center().y()).margin(0.5));
+    CHECK(box2.width() > box1.width());
+    CHECK(box2.height() > box1.height());
 }

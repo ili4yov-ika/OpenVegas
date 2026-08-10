@@ -36,6 +36,10 @@ public:
 
     void setEvent(TrackEvent *ev, int frameWidth, int frameHeight);
     TrackEvent *event() const { return m_event; }
+    /** Re-reads the current event's params into every field — for external edits (the
+     *  on-canvas Video Preview move/resize overlay) that write straight to the event
+     *  and bypass this dialog's own widgets. */
+    void refreshFromEvent();
 
 signals:
     /** Emitted after any edit that should repaint the Video Preview. */

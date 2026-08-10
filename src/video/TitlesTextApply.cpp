@@ -622,6 +622,37 @@ QImage renderTitlesText(const TitlesTextParams &p, const QSize &size, double pro
     return img;
 }
 
+QRectF titlesTextBoundingBox(const TitlesTextParams &p, const QSize &size)
+{
+    if (size.width() < 1 || size.height() < 1 || p.text.trimmed().isEmpty()) {
+        return QRectF();
+    }
+
+    const double refHeight = 1080.0;
+    const double px = (size.height() / refHeight) * std::max(0.01, p.scale);
+
+    QFont font(p.fontFamily);
+    font.setPointSizeF(std::max(1.0, p.fontSize * px));
+    font.setBold(p.bold);
+    font.setItalic(p.italic);
+    if (std::abs(p.tracking) > 1e-6) {
+        font.setLetterSpacing(QFont::AbsoluteSpacing, p.tracking * px);
+    }
+
+    const QStringList lines = p.text.split(QLatin1Char('\n'));
+    const QFontMetricsF fm(font);
+    const double lineHeight = fm.height() * std::max(0.1, p.lineSpacing);
+    double blockW = 0.0;
+    for (const QString &line : lines) {
+        blockW = std::max(blockW, double(fm.horizontalAdvance(line)));
+    }
+    const double blockH = lineHeight * lines.size();
+
+    const double originX = p.locationX * size.width() - anchorFracX(p.anchor) * blockW;
+    const double originY = p.locationY * size.height() - anchorFracY(p.anchor) * blockH;
+    return QRectF(originX, originY, blockW, blockH);
+}
+
 QImage checkerboardBackground(const QSize &size)
 {
     QImage img(size, QImage::Format_ARGB32_Premultiplied);

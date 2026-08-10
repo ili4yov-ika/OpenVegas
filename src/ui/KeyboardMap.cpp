@@ -175,6 +175,15 @@ QVector<KeyboardCommand> KeyboardMap::defaultCatalog()
             playFromStartKeys = {QStringLiteral("Shift+F12")};
             playToggleKeys = {QStringLiteral("F12"), QStringLiteral("Ctrl+Space"),
                               QStringLiteral("Space")};
+            // J/K/L shuttle — same keys as TrackView/Trimmer above. These were already
+            // whitelisted in MainWindow::applyKeyboardMap() and fully wired in
+            // invokeKeyboardCommand(), but silently unreachable from any keypress because
+            // this Global case never actually set scrubL/scrubP/scrubR (TrackView/TrackList/
+            // Explorer contexts are cataloged but never turned into live QShortcuts at all —
+            // Global is the only context that is).
+            scrubL = {QStringLiteral("J")};
+            scrubP = {QStringLiteral("K")};
+            scrubR = {QStringLiteral("L")};
             break;
         }
 
@@ -386,6 +395,12 @@ QVector<KeyboardCommand> KeyboardMap::defaultCatalog()
     c.push_back(cmd("Edit.Split", KC::Global, {QStringLiteral("S")}));
     c.push_back(cmd("Edit.SmartSplit", KC::Global, {QStringLiteral("Alt+S")}));
     c.push_back(cmd("Select.All", KC::Global, {QStringLiteral("Ctrl+A")}));
+    // TrackView/TrackList already catalog these (G / Ctrl+U), but only Global ever
+    // becomes a real live QShortcut (see applyKeyboardMap()) — without a Global entry
+    // too, Group/Ungroup were keyboard-dead everywhere except the right-click submenu's
+    // own transient (menu-lifetime-only) QAction shortcuts.
+    c.push_back(cmd("Group.CreateNew", KC::Global, {QStringLiteral("G")}));
+    c.push_back(cmd("Group.Clear", KC::Global, {QStringLiteral("Ctrl+U")}));
     c.push_back(cmd("CursorTo.Home", KC::Global, {QStringLiteral("Home"), QStringLiteral("W")}));
     c.push_back(cmd("CursorTo.End", KC::Global, {QStringLiteral("End"), QStringLiteral("E")}));
     c.push_back(cmd("CursorTo.LeftByFrame", KC::Global, {QStringLiteral("Alt+Left")}));

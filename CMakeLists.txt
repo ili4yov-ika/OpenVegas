@@ -451,6 +451,7 @@ if(OPENVGAS_BUILD_TESTS)
         tests/test_project_interchange.cpp
         tests/test_plugin_state.cpp
         tests/test_automatic_crossfade.cpp
+        tests/test_split.cpp
         tests/test_vegas_video_catalog.cpp
         tests/test_media_generator.cpp
         tests/test_veg_no_edl_audit.cpp

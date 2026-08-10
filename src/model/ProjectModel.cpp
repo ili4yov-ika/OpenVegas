@@ -2881,6 +2881,22 @@ bool ProjectModel::splitSelectedAt(double timeSec)
     return any;
 }
 
+bool ProjectModel::splitAllAt(double timeSec)
+{
+    QVector<int> ids;
+    for (const Track &t : m_tracks) {
+        for (const TrackEvent &ev : t.events) {
+            ids.push_back(ev.id);
+        }
+    }
+    // Copy ids first - splitEventAt mutates m_tracks (inserts new right-half events).
+    bool any = false;
+    for (int id : ids) {
+        any = splitEventAt(id, timeSec) || any;
+    }
+    return any;
+}
+
 bool ProjectModel::trimSelectedStartTo(double timeSec)
 {
     const QVector<int> ids = selectedEventIds();

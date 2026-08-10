@@ -41,6 +41,7 @@
 #include "audio/CompositePluginHost.h"
 #include "video/VideoCompositor.h"
 #include "video/VideoFrameCache.h"
+#include "video/TitlesTextApply.h"
 #include "io/VegReader.h"
 #include "io/ProjectInterchange.h"
 #include "io/SamplePaths.h"
@@ -69,11 +70,13 @@
 #include <QLabel>
 #include <QSettings>
 #include <QHBoxLayout>
+#include <QMouseEvent>
 #include <QPainter>
 #include <QPixmap>
 #include <QUndoStack>
 #include <QTimer>
 #include <cmath>
+#include <functional>
 #include <QVBoxLayout>
 #include <QStackedWidget>
 #include <QFrame>
@@ -242,6 +245,249 @@ protected:
 private:
     bool m_grid = false;
     bool m_safe = false;
+};
+
+/**
+ * Vegas-style on-canvas move/resize handles for the Titles & Text event currently open
+ * in TitlesTextEditorDialog. Geometry is set to exactly the letterboxed content rect
+ * (see MainWindow::previewContentRect) so the widget's own local coordinates already
+ * equal frame pixel coordinates — no separate offset math needed for hit-testing/paint.
+ *
+ * Only a uniform scale + move are supported (4 corner handles, no edge/side handles, no
+ * rotation) because TitlesTextParams has no separate scaleX/scaleY or angle — matching
+ * what's actually adjustable in the property dialog.
+ */
+class TitlesTextOverlayLayer : public QWidget {
+public:
+    explicit TitlesTextOverlayLayer(QWidget *parent = nullptr)
+        : QWidget(parent)
+    {
+        setObjectName(QStringLiteral("titlesTextOverlayLayer"));
+        setAttribute(Qt::WA_NoSystemBackground);
+        setAttribute(Qt::WA_TranslucentBackground);
+        setMouseTracking(true);
+        hide();
+    }
+
+    std::function<void()> onEdited;
+
+    void setActiveEvent(ProjectModel *project, int eventId)
+    {
+        m_project = project;
+        m_eventId = eventId;
+        m_dragging = false;
+        m_hit = Hit::None;
+        setVisible(m_project && m_eventId >= 0);
+        update();
+    }
+
+    void clearActiveEvent()
+    {
+        m_project = nullptr;
+        m_eventId = -1;
+        m_dragging = false;
+        m_hit = Hit::None;
+        hide();
+    }
+
+protected:
+    void paintEvent(QPaintEvent *) override
+    {
+        const TitlesTextParams params = currentParams();
+        const QRectF box = titlesTextBoundingBox(params, size());
+        if (box.isEmpty()) {
+            return;
+        }
+        QPainter p(this);
+        p.setRenderHint(QPainter::Antialiasing, false);
+        QPen pen(QColor(255, 255, 255, 235));
+        pen.setWidth(1);
+        pen.setCosmetic(true);
+        p.setPen(pen);
+        p.setBrush(Qt::NoBrush);
+        p.drawRect(box);
+
+        p.setBrush(QColor(255, 255, 255, 235));
+        for (const QPointF &h : cornerHandles(box)) {
+            p.drawRect(QRectF(h.x() - 4, h.y() - 4, 8, 8));
+        }
+    }
+
+    void mousePressEvent(QMouseEvent *event) override
+    {
+        if (event->button() != Qt::LeftButton) {
+            return;
+        }
+        TrackEvent *ev = currentEvent();
+        if (!ev || ev->fxChain.isEmpty()) {
+            return;
+        }
+        m_pressParams = titlesTextFromSlot(ev->fxChain.first());
+        m_pressBox = titlesTextBoundingBox(m_pressParams, size());
+        m_hit = hitTest(event->pos(), m_pressBox);
+        if (m_hit == Hit::None) {
+            return;
+        }
+        m_dragging = true;
+        m_pressPos = event->pos();
+    }
+
+    void mouseMoveEvent(QMouseEvent *event) override
+    {
+        if (!m_dragging) {
+            const QRectF box = titlesTextBoundingBox(currentParams(), size());
+            updateHoverCursor(hitTest(event->pos(), box));
+            return;
+        }
+        applyDrag(event->pos());
+    }
+
+    void mouseReleaseEvent(QMouseEvent *event) override
+    {
+        if (event->button() != Qt::LeftButton || !m_dragging) {
+            return;
+        }
+        applyDrag(event->pos());
+        m_dragging = false;
+        m_hit = Hit::None;
+        updateHoverCursor(hitTest(event->pos(), titlesTextBoundingBox(currentParams(), size())));
+    }
+
+    void leaveEvent(QEvent *) override
+    {
+        if (!m_dragging) {
+            unsetCursor();
+        }
+    }
+
+private:
+    enum class Hit { None, Move, TopLeft, TopRight, BottomLeft, BottomRight };
+
+    TrackEvent *currentEvent() const
+    {
+        if (!m_project || m_eventId < 0) {
+            return nullptr;
+        }
+        return m_project->findEvent(m_eventId);
+    }
+
+    TitlesTextParams currentParams() const
+    {
+        const TrackEvent *ev = currentEvent();
+        if (!ev || ev->fxChain.isEmpty()) {
+            return TitlesTextParams();
+        }
+        return titlesTextFromSlot(ev->fxChain.first());
+    }
+
+    static QVector<QPointF> cornerHandles(const QRectF &box)
+    {
+        return {box.topLeft(), box.topRight(), box.bottomLeft(), box.bottomRight()};
+    }
+
+    Hit hitTest(const QPoint &pos, const QRectF &box) const
+    {
+        if (box.isEmpty()) {
+            return Hit::None;
+        }
+        constexpr double kHandleRadius = 7.0;
+        auto near = [&](const QPointF &pt) {
+            return std::hypot(pt.x() - pos.x(), pt.y() - pos.y()) <= kHandleRadius;
+        };
+        if (near(box.topLeft())) {
+            return Hit::TopLeft;
+        }
+        if (near(box.topRight())) {
+            return Hit::TopRight;
+        }
+        if (near(box.bottomLeft())) {
+            return Hit::BottomLeft;
+        }
+        if (near(box.bottomRight())) {
+            return Hit::BottomRight;
+        }
+        if (box.contains(pos)) {
+            return Hit::Move;
+        }
+        return Hit::None;
+    }
+
+    void updateHoverCursor(Hit hit)
+    {
+        switch (hit) {
+        case Hit::TopLeft:
+        case Hit::BottomRight:
+            setCursor(Qt::SizeFDiagCursor);
+            break;
+        case Hit::TopRight:
+        case Hit::BottomLeft:
+            setCursor(Qt::SizeBDiagCursor);
+            break;
+        case Hit::Move:
+            setCursor(Qt::SizeAllCursor);
+            break;
+        default:
+            unsetCursor();
+            break;
+        }
+    }
+
+    void applyDrag(const QPoint &pos)
+    {
+        TrackEvent *ev = currentEvent();
+        if (!ev || ev->fxChain.isEmpty()) {
+            return;
+        }
+        TitlesTextParams p = m_pressParams;
+        if (m_hit == Hit::Move) {
+            const double dx = double(pos.x() - m_pressPos.x()) / std::max(1, width());
+            const double dy = double(pos.y() - m_pressPos.y()) / std::max(1, height());
+            p.locationX = std::clamp(m_pressParams.locationX + dx, -2.0, 3.0);
+            p.locationY = std::clamp(m_pressParams.locationY + dy, -2.0, 3.0);
+        } else {
+            // Uniform scale about the anchor point (locationX/Y): compare the drag
+            // point's distance from the anchor to the same corner's original distance.
+            const QPointF anchorPt(m_pressParams.locationX * width(),
+                                   m_pressParams.locationY * height());
+            QPointF corner;
+            switch (m_hit) {
+            case Hit::TopLeft:
+                corner = m_pressBox.topLeft();
+                break;
+            case Hit::TopRight:
+                corner = m_pressBox.topRight();
+                break;
+            case Hit::BottomLeft:
+                corner = m_pressBox.bottomLeft();
+                break;
+            case Hit::BottomRight:
+                corner = m_pressBox.bottomRight();
+                break;
+            default:
+                return;
+            }
+            const double origDist = std::hypot(corner.x() - anchorPt.x(), corner.y() - anchorPt.y());
+            if (origDist < 4.0) {
+                return; // anchor sits ~on this corner — no stable ratio to scale by
+            }
+            const double newDist = std::hypot(pos.x() - anchorPt.x(), pos.y() - anchorPt.y());
+            p.scale = std::clamp(m_pressParams.scale * (newDist / origDist), 0.01, 20.0);
+        }
+
+        titlesTextSaveToSlot(&ev->fxChain[0], p);
+        update();
+        if (onEdited) {
+            onEdited();
+        }
+    }
+
+    ProjectModel *m_project = nullptr;
+    int m_eventId = -1;
+    bool m_dragging = false;
+    Hit m_hit = Hit::None;
+    QPoint m_pressPos;
+    QRectF m_pressBox;
+    TitlesTextParams m_pressParams;
 };
 
 } // namespace
@@ -510,6 +756,7 @@ bool MainWindow::eventFilter(QObject *watched, QEvent *event)
                 m_previewOverlay->setGeometry(ui->previewViewport->rect());
                 m_previewOverlay->raise();
             }
+            syncTitlesTextOverlayGeometry();
             updatePreviewDisplayMeta(m_project.playheadSec());
         } else if (event->type() == QEvent::ContextMenu) {
             auto *ce = static_cast<QContextMenuEvent *>(event);
@@ -839,6 +1086,19 @@ void MainWindow::setupPreviewChrome()
         layer->raise();
         layer->hide();
     }
+    {
+        auto *layer = new TitlesTextOverlayLayer(ui->previewViewport);
+        m_titlesTextOverlay = layer;
+        layer->onEdited = [this] {
+            refreshPreviewFrame(m_project.playheadSec());
+            if (m_titlesTextEditor) {
+                m_titlesTextEditor->refreshFromEvent();
+            }
+        };
+        layer->raise();
+        layer->hide();
+    }
+    syncTitlesTextOverlayGeometry();
     refreshPreviewProjectMeta();
     updatePreviewDisplayMeta(0.0);
 }
@@ -2294,6 +2554,26 @@ void MainWindow::syncTransportUi(bool playing)
     setEnabledPair(m_previewPlayBtn, m_previewPauseBtn);
 }
 
+QRect MainWindow::previewContentRect(int viewportW, int viewportH) const
+{
+    const int w = std::max(1, viewportW);
+    const int h = std::max(1, viewportH);
+    const double ar = m_project.frameHeight() > 0
+                          ? double(m_project.frameWidth()) / double(m_project.frameHeight())
+                          : 16.0 / 9.0;
+    int contentW = w;
+    int contentH = h;
+    const double viewAr = double(w) / double(h);
+    if (viewAr > ar) {
+        contentW = int(h * ar);
+    } else {
+        contentH = int(w / ar);
+    }
+    const int ox = (w - contentW) / 2;
+    const int oy = (h - contentH) / 2;
+    return QRect(ox, oy, contentW, contentH);
+}
+
 void MainWindow::refreshPreviewFrame(double sec)
 {
     if (!ui->previewLabel) {
@@ -2329,20 +2609,7 @@ void MainWindow::refreshPreviewFrame(double sec)
     p.setRenderHint(QPainter::SmoothPixmapTransform, true);
 
     if (!composed.isNull()) {
-        const double ar = m_project.frameHeight() > 0
-                              ? double(m_project.frameWidth()) / double(m_project.frameHeight())
-                              : 16.0 / 9.0;
-        int contentW = w;
-        int contentH = h;
-        const double viewAr = double(w) / double(std::max(1, h));
-        if (viewAr > ar) {
-            contentW = int(h * ar);
-        } else {
-            contentH = int(w / ar);
-        }
-        const int ox = (w - contentW) / 2;
-        const int oy = (h - contentH) / 2;
-        p.drawImage(QRect(ox, oy, contentW, contentH), composed);
+        p.drawImage(previewContentRect(w, h), composed);
     } else {
         p.setPen(QColor(90, 90, 100));
         QFont f = p.font();
@@ -2420,6 +2687,16 @@ void MainWindow::updateOverlaysButton()
     const bool any = m_overlayGrid || m_overlaySafeAreas;
     QSignalBlocker block(m_overlaysBtn);
     m_overlaysBtn->setChecked(any);
+}
+
+void MainWindow::syncTitlesTextOverlayGeometry()
+{
+    if (!m_titlesTextOverlay || !ui->previewViewport) {
+        return;
+    }
+    const QSize vp = ui->previewViewport->size();
+    m_titlesTextOverlay->setGeometry(previewContentRect(vp.width(), vp.height()));
+    m_titlesTextOverlay->raise();
 }
 
 QString MainWindow::formatPreviewFps() const
@@ -3313,21 +3590,7 @@ void MainWindow::showRenderPreviewFrame(const QImage &frame, double sec)
     px.fill(QColor(0x1e, 0x1e, 0x1e));
     QPainter p(&px);
     p.setRenderHint(QPainter::SmoothPixmapTransform, true);
-
-    const double ar = m_project.frameHeight() > 0
-                          ? double(m_project.frameWidth()) / double(m_project.frameHeight())
-                          : 16.0 / 9.0;
-    int contentW = w;
-    int contentH = h;
-    const double viewAr = double(w) / double(std::max(1, h));
-    if (viewAr > ar) {
-        contentW = int(h * ar);
-    } else {
-        contentH = int(w / ar);
-    }
-    const int ox = (w - contentW) / 2;
-    const int oy = (h - contentH) / 2;
-    p.drawImage(QRect(ox, oy, contentW, contentH), frame);
+    p.drawImage(previewContentRect(w, h), frame);
     p.end();
 
     ui->previewLabel->setPixmap(px);
@@ -3431,11 +3694,14 @@ void MainWindow::applyKeyboardMap()
         QStringLiteral("CursorTo.RightByPixel"),
         QStringLiteral("Options.LoopPlayback"),
         QStringLiteral("Options.IgnoreEventGrouping"),
+        QStringLiteral("Options.EnableSnapping"),
         QStringLiteral("Marker.Insert"),
         QStringLiteral("LoopRegion.Insert"),
         QStringLiteral("Track.ToggleMute"),
         QStringLiteral("Track.ToggleSolo"),
         QStringLiteral("Edit.Split"),
+        QStringLiteral("Group.CreateNew"),
+        QStringLiteral("Group.Clear"),
         QStringLiteral("Help.CustomizeKeyboard"),
         QStringLiteral("View.MixingConsole"),
         QStringLiteral("View.EventMediaMarkers"),
@@ -3583,6 +3849,31 @@ void MainWindow::invokeKeyboardCommand(const QString &commandId)
         onEditSplit();
         return;
     }
+    if (commandId == QLatin1String("Group.CreateNew")) {
+        runDocumentEdit(tr("Group"), [this]() { m_project.groupSelectedEvents(); });
+        refreshTimeline();
+        return;
+    }
+    if (commandId == QLatin1String("Group.Clear")) {
+        // Global hotkey has no single right-clicked event to anchor on (unlike the
+        // context menu's per-event "Clear") — dissolve the group of every selected event.
+        QSet<int> groupIds;
+        for (int id : m_project.selectedEventIds()) {
+            if (const TrackEvent *ev = m_project.findEvent(id); ev && ev->groupId > 0) {
+                groupIds.insert(ev->groupId);
+            }
+        }
+        if (groupIds.isEmpty()) {
+            return;
+        }
+        runDocumentEdit(tr("Clear Group"), [this, &groupIds]() {
+            for (int gid : groupIds) {
+                m_project.clearGroup(gid);
+            }
+        });
+        refreshTimeline();
+        return;
+    }
     if (commandId == QLatin1String("Select.All") || commandId == QLatin1String("Edit.SelectAll")) {
         onSelectAll();
         return;
@@ -3609,6 +3900,10 @@ void MainWindow::invokeKeyboardCommand(const QString &commandId)
     }
     if (commandId == QLatin1String("Options.IgnoreEventGrouping")) {
         m_project.setIgnoreEventGrouping(!m_project.ignoreEventGrouping());
+        return;
+    }
+    if (commandId == QLatin1String("Options.EnableSnapping")) {
+        m_project.setSnappingEnabled(!m_project.snappingEnabled());
         return;
     }
     if (commandId == QLatin1String("Marker.Insert")) {
@@ -3739,6 +4034,9 @@ void MainWindow::openTitlesTextEditor(TrackEvent *ev)
         });
         connect(m_titlesTextEditor, &QDialog::finished, this, [this](int) {
             commitDocumentEdit(tr("Titles & Text"));
+            if (m_titlesTextOverlay) {
+                static_cast<TitlesTextOverlayLayer *>(m_titlesTextOverlay)->clearActiveEvent();
+            }
             if (m_timeline) {
                 m_timeline->update();
             }
@@ -3752,6 +4050,11 @@ void MainWindow::openTitlesTextEditor(TrackEvent *ev)
     m_titlesTextEditor->show();
     m_titlesTextEditor->raise();
     m_titlesTextEditor->activateWindow();
+
+    if (m_titlesTextOverlay) {
+        syncTitlesTextOverlayGeometry();
+        static_cast<TitlesTextOverlayLayer *>(m_titlesTextOverlay)->setActiveEvent(&m_project, ev->id);
+    }
 }
 
 void MainWindow::createTitlesTextEvent(const QString &animationKey, const QString &sampleText)
@@ -4042,9 +4345,16 @@ void MainWindow::onEditDelete()
 void MainWindow::onEditSplit()
 {
     bool ok = false;
-    runDocumentEdit(tr("Split"), [this, &ok]() { ok = m_project.splitSelectedAt(m_project.playheadSec()); });
+    runDocumentEdit(tr("Split"), [this, &ok]() {
+        const double t = m_project.playheadSec();
+        // Vegas: with an explicit selection, split just that; with nothing selected
+        // (the common "position the cursor and hit S" workflow), split every event
+        // under the cursor across every track instead of requiring a click first.
+        ok = m_project.selectedEventIds().isEmpty() ? m_project.splitAllAt(t)
+                                                     : m_project.splitSelectedAt(t);
+    });
     if (!ok) {
-        statusBar()->showMessage(tr("Split: place playhead inside a selected event"), 2500);
+        statusBar()->showMessage(tr("Split: place the cursor inside a clip"), 2500);
         return;
     }
     refreshTimeline();
