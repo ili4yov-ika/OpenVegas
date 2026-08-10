@@ -303,6 +303,18 @@ private:
     int m_resizeTrackOriginY = 0;
     int m_hoverResizeTrack = -1;
     int m_dragEventId = -1;
+    /** Last plain- or Ctrl-clicked event; a following Shift-click range-selects between
+     *  this and the newly clicked event. Shift-clicks never move it, so repeated
+     *  Shift-clicks keep extending/shrinking the same range (Explorer/file-manager
+     *  convention). Not persisted in ProjectModel — it's transient view state, not
+     *  something Undo/serialization needs to know about. */
+    int m_selectionAnchorEventId = -1;
+    /** Set on a plain (no-modifier) press over a clip that's already part of a
+     *  multi-selection: the selection-collapse-to-just-this-clip is deferred until
+     *  mouseReleaseEvent, so a press-and-drag on any selected clip moves the whole
+     *  selection, while a plain click-and-release still narrows down to one clip
+     *  (Explorer/every-NLE convention). -1 when no collapse is pending. */
+    int m_deferredSingleSelectEventId = -1;
     double m_dragOriginStart = 0.0;
     double m_dragOriginLength = 0.0;
     double m_dragOriginFadeIn = 0.0;

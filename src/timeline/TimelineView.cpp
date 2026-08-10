@@ -3036,6 +3036,7 @@ void TimelineView::mousePressEvent(QMouseEvent *event)
             const EventChromeButton btn = eventButtonAt(event->pos(), &btnHit);
             if (btn != EventChromeButton::None && btnHit.eventId >= 0) {
                 m_model->selectEvent(btnHit.eventId, event->modifiers() & Qt::ControlModifier);
+                m_selectionAnchorEventId = btnHit.eventId;
                 update();
                 switch (btn) {
                 case EventChromeButton::Generator:
@@ -3061,6 +3062,7 @@ void TimelineView::mousePressEvent(QMouseEvent *event)
         const EventEditMode edgeMode = eventEditModeAt(event->pos(), &edgeHit);
         if (edgeMode != EventEditMode::None && edgeHit.eventId >= 0) {
             m_model->selectEvent(edgeHit.eventId, event->modifiers() & Qt::ControlModifier);
+            m_selectionAnchorEventId = edgeHit.eventId;
             TrackEvent *ev = m_model->findEvent(edgeHit.eventId);
             if (!ev) {
                 return;
@@ -3121,7 +3123,35 @@ void TimelineView::mousePressEvent(QMouseEvent *event)
         }
         if (hit && hit->eventId >= 0) {
             m_model->clearMarkerSelection();
-            m_model->selectEvent(hit->eventId, event->modifiers() & Qt::ControlModifier);
+            m_deferredSingleSelectEventId = -1;
+            if (event->modifiers() & Qt::ShiftModifier) {
+                // Range-select from the last plain/Ctrl-clicked event to this one;
+                // repeated Shift-clicks re-extend from that SAME anchor rather than
+                // chaining, matching Explorer/file-manager Shift-click behavior.
+                if (m_selectionAnchorEventId >= 0 && m_model->findEvent(m_selectionAnchorEventId)) {
+                    m_model->selectRange(m_selectionAnchorEventId, hit->eventId);
+                } else {
+                    m_model->selectEvent(hit->eventId, false);
+                    m_selectionAnchorEventId = hit->eventId;
+                }
+            } else if (event->modifiers() & Qt::ControlModifier) {
+                m_model->selectEvent(hit->eventId, true);
+                m_selectionAnchorEventId = hit->eventId;
+            } else {
+                // Plain click on a clip that's already part of a multi-selection: don't
+                // collapse the selection yet — a press-and-drag from here should move the
+                // whole selection. Only narrow it down to just this clip if the press
+                // resolves as a plain click (no drag), decided in mouseReleaseEvent.
+                const TrackEvent *clicked = m_model->findEvent(hit->eventId);
+                const bool partOfMultiSelect =
+                    clicked && clicked->selected && m_model->selectedEventIds().size() > 1;
+                if (partOfMultiSelect) {
+                    m_deferredSingleSelectEventId = hit->eventId;
+                } else {
+                    m_model->selectEvent(hit->eventId, false);
+                }
+                m_selectionAnchorEventId = hit->eventId;
+            }
             // Arm Move, but defer undo + actual drag until the mouse moves past a
             // small threshold so a plain click can seek without starting a Move edit.
             m_eventEditMode = EventEditMode::Move;
@@ -3133,7 +3163,33 @@ void TimelineView::mousePressEvent(QMouseEvent *event)
                 m_dragOriginLength = ev->lengthSec;
                 m_dragOriginFadeIn = ev->fadeInSec;
                 m_dragOriginFadeOut = ev->fadeOutSec;
-                if (!m_model->ignoreEventGrouping() && ev->groupId > 0) {
+                const QVector<int> selectedIds = m_model->selectedEventIds();
+                if (ev->selected && selectedIds.size() > 1) {
+                    // Multi-select drag: move every selected clip (and, group members of
+                    // any of them) together as one rigid group, not just this clip's own
+                    // A/V group.
+                    for (int id : selectedIds) {
+                        if (const TrackEvent *m = m_model->findEvent(id)) {
+                            m_dragGroupOrigins.insert(id, m->startSec);
+                        }
+                    }
+                    if (!m_model->ignoreEventGrouping()) {
+                        for (int id : selectedIds) {
+                            const TrackEvent *sel = m_model->findEvent(id);
+                            if (!sel || sel->groupId <= 0) {
+                                continue;
+                            }
+                            for (int gid : m_model->eventIdsInGroup(sel->groupId)) {
+                                if (m_dragGroupOrigins.contains(gid)) {
+                                    continue;
+                                }
+                                if (const TrackEvent *m = m_model->findEvent(gid)) {
+                                    m_dragGroupOrigins.insert(gid, m->startSec);
+                                }
+                            }
+                        }
+                    }
+                } else if (!m_model->ignoreEventGrouping() && ev->groupId > 0) {
                     for (int id : m_model->eventIdsInGroup(ev->groupId)) {
                         if (const TrackEvent *m = m_model->findEvent(id)) {
                             m_dragGroupOrigins.insert(id, m->startSec);
@@ -3151,6 +3207,8 @@ void TimelineView::mousePressEvent(QMouseEvent *event)
         } else {
             m_model->clearSelection();
             m_model->clearMarkerSelection();
+            m_selectionAnchorEventId = -1;
+            m_deferredSingleSelectEventId = -1;
             update();
         }
     }
@@ -3461,6 +3519,16 @@ void TimelineView::mouseReleaseEvent(QMouseEvent *)
     const EventEditMode finishedMode = m_eventEditMode;
     const bool finishedMoveDrag = finishedEventEdit && finishedMode == EventEditMode::Move
                                   && m_dragging;
+    // A plain click (not a drag) on a clip that was already part of a multi-selection
+    // resolves here: narrow the selection down to just that clip. If a real drag
+    // happened instead, the multi-selection stays intact — it just got dragged together.
+    if (m_deferredSingleSelectEventId >= 0) {
+        if (!finishedMoveDrag && m_model) {
+            m_model->selectEvent(m_deferredSingleSelectEventId, false);
+            update();
+        }
+        m_deferredSingleSelectEventId = -1;
+    }
     const bool finishedMarker = m_rulerDrag == RulerDragMode::Marker;
     const bool finishedLoop = m_rulerDrag == RulerDragMode::LoopCreate
                               || m_rulerDrag == RulerDragMode::LoopMove

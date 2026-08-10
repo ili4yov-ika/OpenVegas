@@ -2676,15 +2676,82 @@ void ProjectModel::selectEvent(int eventId, bool additive)
     }
     if (!additive) {
         clearSelection();
+        if (!m_ignoreEventGrouping && ev->groupId > 0) {
+            for (int id : eventIdsInGroup(ev->groupId)) {
+                if (TrackEvent *m = findEvent(id)) {
+                    m->selected = true;
+                }
+            }
+        } else {
+            ev->selected = true;
+        }
+        return;
     }
+    // Ctrl-click: real toggle in/out of the existing selection (every other app's
+    // convention) rather than only ever adding — flip the whole A/V group together so
+    // it stays consistent with the non-additive branch above and with selectRange().
+    const bool nowSelected = !ev->selected;
     if (!m_ignoreEventGrouping && ev->groupId > 0) {
         for (int id : eventIdsInGroup(ev->groupId)) {
             if (TrackEvent *m = findEvent(id)) {
-                m->selected = true;
+                m->selected = nowSelected;
             }
         }
     } else {
-        ev->selected = true;
+        ev->selected = nowSelected;
+    }
+}
+
+void ProjectModel::selectRange(int anchorEventId, int targetEventId)
+{
+    int anchorTrack = -1;
+    TrackEvent *anchorEv = findEvent(anchorEventId, &anchorTrack);
+    int targetTrack = -1;
+    TrackEvent *targetEv = findEvent(targetEventId, &targetTrack);
+    if (!targetEv) {
+        return;
+    }
+    if (!anchorEv) {
+        // Anchor vanished (undo, delete, …) since it was recorded — degrade to a plain
+        // select of the target rather than doing nothing.
+        selectEvent(targetEventId, false);
+        return;
+    }
+
+    const int trackLo = std::min(anchorTrack, targetTrack);
+    const int trackHi = std::max(anchorTrack, targetTrack);
+    const double timeLo = std::min(anchorEv->startSec, targetEv->startSec);
+    const double timeHi = std::max(anchorEv->startSec + anchorEv->lengthSec,
+                                   targetEv->startSec + targetEv->lengthSec);
+
+    clearSelection();
+    for (int ti = trackLo; ti <= trackHi && ti < m_tracks.size(); ++ti) {
+        for (TrackEvent &ev : m_tracks[ti].events) {
+            const double evEnd = ev.startSec + ev.lengthSec;
+            if (evEnd > timeLo + 1e-6 && ev.startSec < timeHi - 1e-6) {
+                ev.selected = true;
+            }
+        }
+    }
+    // Touching-but-not-overlapping edges (e.g. a zero-gap neighbor exactly at timeLo)
+    // can miss the strict overlap test above — always include the two clicked events.
+    anchorEv->selected = true;
+    targetEv->selected = true;
+
+    // Keep A/V groups whole: if any member of a group fell inside the range, pull in
+    // the rest of that group too (same rule plain/Ctrl-click selection already follows).
+    if (!m_ignoreEventGrouping) {
+        for (int id : selectedEventIds()) {
+            const TrackEvent *ev = findEvent(id);
+            if (!ev || ev->groupId <= 0) {
+                continue;
+            }
+            for (int gid : eventIdsInGroup(ev->groupId)) {
+                if (TrackEvent *m = findEvent(gid)) {
+                    m->selected = true;
+                }
+            }
+        }
     }
 }
 

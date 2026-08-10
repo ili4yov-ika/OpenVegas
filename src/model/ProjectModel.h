@@ -942,7 +942,13 @@ public:
     bool trimEventStartTo(int eventId, double timeSec);
     bool trimEventEndTo(int eventId, double timeSec);
     void clearSelection();
+    /** additive=false replaces the selection with eventId's (group); additive=true
+     *  toggles it in/out of the existing selection (Ctrl-click). */
     void selectEvent(int eventId, bool additive);
+    /** Shift-click range select: replaces the selection with every event whose track
+     *  falls between anchorEventId's and targetEventId's tracks (inclusive) and whose
+     *  time span overlaps the time span between the two events. */
+    void selectRange(int anchorEventId, int targetEventId);
     QVector<int> selectedEventIds() const;
 
     /** Edit clipboard (Vegas-style event Cut/Copy/Paste). */
