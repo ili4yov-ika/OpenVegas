@@ -18,6 +18,67 @@ QImage solid(int r, int g, int b)
 
 } // namespace
 
+// A Titles & Text / Media Generator event's own content lives in fxChain[0] — it IS
+// the event, not a video effect stacked on top of it. Opening Video Event FX / Pan-Crop
+// on such an event used to call ensureFxFirst(), which unconditionally chain.prepend()ed
+// Pan/Crop, silently shoving the generator to index 1 — corrupting every fxChain[0] /
+// fxChain.first()-based lookup (TitlesTextEditorDialog, TimelineView's generator
+// thumbnail, MainWindow's Fx-button routing) and making the generator show up as a
+// removable/draggable node in VideoEventFxDialogExact's plugin chain UI.
+TEST_CASE("ensureFxFirst inserts Pan/Crop after a generator's slot 0 instead of displacing it",
+         "[video][plugins]")
+{
+    QVector<FxSlot> chain;
+    chain.push_back(makeFxSlot(QStringLiteral("VEGAS Titles & Text"), PluginFormat::Builtin));
+
+    ensureFxFirst(chain, QStringLiteral("Pan/Crop"), PluginFormat::Builtin);
+
+    REQUIRE(chain.size() == 2);
+    CHECK(chain[0].displayName == QStringLiteral("VEGAS Titles & Text"));
+    CHECK(chain[1].displayName == QStringLiteral("Pan/Crop"));
+}
+
+TEST_CASE("ensureFxFirst on a generator event is idempotent across repeat calls",
+         "[video][plugins]")
+{
+    QVector<FxSlot> chain;
+    chain.push_back(makeFxSlot(QStringLiteral("VEGAS Titles & Text"), PluginFormat::Builtin));
+
+    ensureFxFirst(chain, QStringLiteral("Pan/Crop"), PluginFormat::Builtin);
+    ensureFxFirst(chain, QStringLiteral("Pan/Crop"), PluginFormat::Builtin);
+
+    REQUIRE(chain.size() == 2);
+    CHECK(chain[0].displayName == QStringLiteral("VEGAS Titles & Text"));
+    CHECK(chain[1].displayName == QStringLiteral("Pan/Crop"));
+}
+
+TEST_CASE("ensureFxFirst still prepends normally for a plain (non-generator) video event",
+         "[video][plugins]")
+{
+    QVector<FxSlot> chain;
+    chain.push_back(makeFxSlot(QStringLiteral("Sepia"), PluginFormat::Ofx));
+
+    ensureFxFirst(chain, QStringLiteral("Pan/Crop"), PluginFormat::Builtin);
+
+    REQUIRE(chain.size() == 2);
+    CHECK(chain[0].displayName == QStringLiteral("Pan/Crop"));
+    CHECK(chain[1].displayName == QStringLiteral("Sepia"));
+}
+
+TEST_CASE("ensureFxFirst also preserves a non-text Media Generator slot at index 0",
+         "[video][plugins]")
+{
+    QVector<FxSlot> chain;
+    chain.push_back(makeFxSlot(QStringLiteral("Checkerboard"), PluginFormat::Builtin,
+                               QStringLiteral("builtin:MediaGenerator:Checkerboard")));
+
+    ensureFxFirst(chain, QStringLiteral("Pan/Crop"), PluginFormat::Builtin);
+
+    REQUIRE(chain.size() == 2);
+    CHECK(chain[0].pluginId == QStringLiteral("builtin:MediaGenerator:Checkerboard"));
+    CHECK(chain[1].displayName == QStringLiteral("Pan/Crop"));
+}
+
 TEST_CASE("applyVideoFxChain skips bypass and Pan/Crop", "[video][plugins]")
 {
     QImage img = solid(40, 50, 60);

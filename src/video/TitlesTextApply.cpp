@@ -457,6 +457,7 @@ TitlesTextParams titlesTextFromMap(const QVariantMap &m)
     p.shadowOffsetY = mapGet(m, QStringLiteral("shadowOffsetY"), p.shadowOffsetY);
     p.shadowBlur = std::clamp(mapGet(m, QStringLiteral("shadowBlur"), p.shadowBlur), 0.0, 20.0);
     p.textColorExpanded = mapGetBool(m, QStringLiteral("textColorExpanded"), p.textColorExpanded);
+    p.locationExpanded = mapGetBool(m, QStringLiteral("locationExpanded"), p.locationExpanded);
     p.advancedExpanded = mapGetBool(m, QStringLiteral("advancedExpanded"), p.advancedExpanded);
     p.outlineExpanded = mapGetBool(m, QStringLiteral("outlineExpanded"), p.outlineExpanded);
     p.shadowExpanded = mapGetBool(m, QStringLiteral("shadowExpanded"), p.shadowExpanded);
@@ -490,6 +491,7 @@ QVariantMap titlesTextToMap(const TitlesTextParams &p)
         {QStringLiteral("shadowOffsetY"), p.shadowOffsetY},
         {QStringLiteral("shadowBlur"), p.shadowBlur},
         {QStringLiteral("textColorExpanded"), p.textColorExpanded},
+        {QStringLiteral("locationExpanded"), p.locationExpanded},
         {QStringLiteral("advancedExpanded"), p.advancedExpanded},
         {QStringLiteral("outlineExpanded"), p.outlineExpanded},
         {QStringLiteral("shadowExpanded"), p.shadowExpanded},

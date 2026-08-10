@@ -88,11 +88,26 @@ inline void removeFxByName(QVector<FxSlot> &chain, const QString &name)
     }
 }
 
+// Forward decls: a Media Generator / Titles & Text event's own content lives in
+// chain[0] (see isTitlesTextName/isMediaGeneratorPluginId below) — ensureFxFirst needs
+// to recognize and preserve it, so it can't just always prepend at index 0.
+inline bool isTitlesTextName(const QString &displayName);
+inline bool isMediaGeneratorPluginId(const QString &pluginId);
+
 inline void ensureFxFirst(QVector<FxSlot> &chain, const QString &name,
                           PluginFormat format = PluginFormat::Builtin)
 {
     removeFxByName(chain, name);
-    chain.prepend(makeFxSlot(name, format));
+    // chain[0] on a generator event IS the event's own picture, not a stacked video
+    // effect — every fxChain.first()/fxChain[0]-based lookup (TitlesTextEditorDialog,
+    // TimelineView's generator-thumbnail detection, MainWindow's Fx-button routing,
+    // VideoCompositor's render) depends on it staying at index 0. Insert right after it
+    // instead of displacing it, so it also doesn't show up as a movable/removable node
+    // in VideoEventFxDialogExact's plugin chain UI (see firstPluginChainIndex()).
+    const bool hasGenerator = !chain.isEmpty()
+        && (isTitlesTextName(chain.first().displayName)
+            || isMediaGeneratorPluginId(chain.first().pluginId));
+    chain.insert(hasGenerator ? 1 : 0, makeFxSlot(name, format));
 }
 
 inline PluginFormat pluginFormatFromVegName(const QString &raw)

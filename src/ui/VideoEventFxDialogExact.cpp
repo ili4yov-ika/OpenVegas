@@ -1192,7 +1192,7 @@ void VideoEventFxDialogExact::setEvent(TrackEvent *ev, int frameW, int frameH, d
     loadMediaPreview();
     pushCanvasSpaces();
     rebuildChain();
-    selectPlugin(0);
+    selectPlugin(firstPluginChainIndex());
 }
 
 void VideoEventFxDialogExact::resolvePanCropSpace()
@@ -1314,6 +1314,16 @@ bool VideoEventFxDialogExact::isColorCorrectorSlot(int index) const
         return false;
     }
     return isColorCorrectorName(m_event->fxChain[index].displayName);
+}
+
+int VideoEventFxDialogExact::firstPluginChainIndex() const
+{
+    if (!m_event || m_event->fxChain.isEmpty()) {
+        return 0;
+    }
+    const FxSlot &first = m_event->fxChain.first();
+    return (isTitlesTextName(first.displayName) || isMediaGeneratorPluginId(first.pluginId)) ? 1
+                                                                                              : 0;
 }
 
 QString VideoEventFxDialogExact::fxMasterAutomationId(const FxSlot &slot) const
@@ -2360,8 +2370,9 @@ void VideoEventFxDialogExact::rebuildChain()
     startLine->setObjectName(QStringLiteral("aefxChainLine"));
     startLine->setFixedSize(10, 1);
     m_chainLay->addWidget(startLine, 0, Qt::AlignVCenter);
-    for (int i = 0; i < m_event->fxChain.size(); ++i) {
-        if (i > 0) {
+    const int firstIdx = firstPluginChainIndex();
+    for (int i = firstIdx; i < m_event->fxChain.size(); ++i) {
+        if (i > firstIdx) {
             auto *line = new QFrame(m_chainHost);
             line->setObjectName(QStringLiteral("aefxChainLine"));
             line->setFixedSize(12, 1);
@@ -2383,8 +2394,8 @@ void VideoEventFxDialogExact::rebuildChain()
     endDot->setFixedSize(8, 8);
     m_chainLay->addWidget(endDot, 0, Qt::AlignVCenter);
     m_chainLay->addStretch(1);
-    if (m_selectedFx < 0 || m_selectedFx >= m_event->fxChain.size()) {
-        m_selectedFx = 0;
+    if (m_selectedFx < firstIdx || m_selectedFx >= m_event->fxChain.size()) {
+        m_selectedFx = firstIdx;
     }
     for (FxChainNodeWidget *n : m_nodes) {
         n->setSelected(n->index() == m_selectedFx);
@@ -2394,7 +2405,7 @@ void VideoEventFxDialogExact::rebuildChain()
 
 void VideoEventFxDialogExact::selectPlugin(int index)
 {
-    if (!m_event || index < 0 || index >= m_event->fxChain.size()) {
+    if (!m_event || index < firstPluginChainIndex() || index >= m_event->fxChain.size()) {
         return;
     }
     m_selectedFx = index;
@@ -2575,7 +2586,9 @@ void VideoEventFxDialogExact::movePlugin(int from, int insertBefore)
     if (!m_event || from < 0 || from >= m_event->fxChain.size()) {
         return;
     }
-    insertBefore = std::clamp(insertBefore, 0, int(m_event->fxChain.size()));
+    // Never let a drag-reorder land before (or displace) a generator's own slot at
+    // chain[0] — it isn't a chain node to begin with (see firstPluginChainIndex()).
+    insertBefore = std::clamp(insertBefore, firstPluginChainIndex(), int(m_event->fxChain.size()));
     if (insertBefore == from || insertBefore == from + 1) {
         return;
     }
@@ -2610,7 +2623,8 @@ void VideoEventFxDialogExact::addPlugins()
 
 void VideoEventFxDialogExact::removeSelected()
 {
-    if (!m_event || m_selectedFx < 0 || m_selectedFx >= m_event->fxChain.size()) {
+    if (!m_event || m_selectedFx < firstPluginChainIndex()
+        || m_selectedFx >= m_event->fxChain.size()) {
         return;
     }
     if (isPanCropSlot(m_selectedFx) && m_event->fxChain.size() == 1) {

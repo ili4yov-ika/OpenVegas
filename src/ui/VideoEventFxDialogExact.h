@@ -232,6 +232,11 @@ private:
 
     bool isColorCorrectorSlot(int index) const;
 
+    /** chain[0] on a Titles & Text / Media Generator event is the event's own picture,
+     *  not a video effect stacked on top of it — it must never appear as a chain node
+     *  (selectable, draggable, removable) here. Returns 1 when that's the case, else 0. */
+    int firstPluginChainIndex() const;
+
     QString fxMasterAutomationId(const FxSlot &slot) const;
 
     QString fxParamAutomationId(const FxSlot &slot, const QString &paramKey) const;

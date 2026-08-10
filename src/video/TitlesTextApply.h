@@ -62,6 +62,7 @@ struct TitlesTextParams {
 
     /** Persisted section expand/collapse UI state (Vegas's *Group flags). */
     bool textColorExpanded = false;
+    bool locationExpanded = false;
     bool advancedExpanded = false;
     bool outlineExpanded = false;
     bool shadowExpanded = false;

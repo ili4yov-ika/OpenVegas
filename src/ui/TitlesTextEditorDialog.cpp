@@ -17,6 +17,7 @@
 #include <QPlainTextEdit>
 #include <QPushButton>
 #include <QScrollArea>
+#include <QSlider>
 #include <QSpinBox>
 #include <QToolButton>
 #include <QVBoxLayout>
@@ -118,6 +119,34 @@ void TitlesTextEditorDialog::buildUi()
     auto *body = new QWidget(scroll);
     auto *bodyLay = new QVBoxLayout(body);
 
+    // Vegas pairs every numeric parameter row with a slider next to its spinbox — this
+    // dialog only ever had the spinboxes. Wrap an existing QDoubleSpinBox with a
+    // QSlider that mirrors it bidirectionally; the spinbox's own valueChanged (already
+    // wired to saveToEvent() below) stays the single source of truth, so no matter which
+    // control the user drags, the same "apply" path runs exactly once.
+    auto sliderSpinRow = [](QDoubleSpinBox *spin) -> QWidget * {
+        auto *row = new QWidget(spin->parentWidget());
+        auto *lay = new QHBoxLayout(row);
+        lay->setContentsMargins(0, 0, 0, 0);
+        auto *slider = new QSlider(Qt::Horizontal, row);
+        slider->setRange(0, 1000);
+        const double minV = spin->minimum();
+        const double maxV = spin->maximum();
+        const double span = maxV > minV ? (maxV - minV) : 1.0;
+        auto toSliderPos = [minV, span](double v) {
+            return std::clamp(int(std::lround((v - minV) / span * 1000.0)), 0, 1000);
+        };
+        slider->setValue(toSliderPos(spin->value()));
+        connect(slider, &QSlider::valueChanged, spin, [spin, minV, span](int v) {
+            spin->setValue(minV + span * (v / 1000.0));
+        });
+        connect(spin, &QDoubleSpinBox::valueChanged, slider,
+               [slider, toSliderPos](double v) { slider->setValue(toSliderPos(v)); });
+        lay->addWidget(slider, 1);
+        lay->addWidget(spin);
+        return row;
+    };
+
     bodyLay->addWidget(new QLabel(tr("Text:"), body));
     auto *toolbar = new QHBoxLayout();
     m_fontCombo = new QFontComboBox(body);
@@ -168,11 +197,13 @@ void TitlesTextEditorDialog::buildUi()
     m_scaleSpin->setRange(0.01, 20.0);
     m_scaleSpin->setSingleStep(0.05);
     m_scaleSpin->setDecimals(3);
-    scaleRow->addRow(tr("Scale:"), m_scaleSpin);
+    scaleRow->addRow(tr("Scale:"), sliderSpinRow(m_scaleSpin));
     bodyLay->addLayout(scaleRow);
 
-    auto *locRow = new QHBoxLayout();
-    m_locationPad = new LocationPad(body);
+    m_locationSection = new CollapsibleSection(tr("Location"), body);
+    auto *locBody = new QWidget(body);
+    auto *locRow = new QHBoxLayout(locBody);
+    m_locationPad = new LocationPad(locBody);
     m_locationPad->setOnPick([this](double x, double y) {
         if (m_block) {
             return;
@@ -183,18 +214,19 @@ void TitlesTextEditorDialog::buildUi()
     });
     locRow->addWidget(m_locationPad);
     auto *locSpins = new QFormLayout();
-    m_locationXSpin = new QDoubleSpinBox(body);
+    m_locationXSpin = new QDoubleSpinBox(locBody);
     m_locationXSpin->setRange(-2.0, 3.0);
     m_locationXSpin->setDecimals(3);
     m_locationXSpin->setSingleStep(0.01);
-    m_locationYSpin = new QDoubleSpinBox(body);
+    m_locationYSpin = new QDoubleSpinBox(locBody);
     m_locationYSpin->setRange(-2.0, 3.0);
     m_locationYSpin->setDecimals(3);
     m_locationYSpin->setSingleStep(0.01);
     locSpins->addRow(tr("Location X:"), m_locationXSpin);
     locSpins->addRow(tr("Location Y:"), m_locationYSpin);
     locRow->addLayout(locSpins);
-    bodyLay->addLayout(locRow);
+    m_locationSection->setContentWidget(locBody);
+    bodyLay->addWidget(m_locationSection);
 
     auto *anchorRow = new QFormLayout();
     m_anchorCombo = new QComboBox(body);
@@ -215,11 +247,11 @@ void TitlesTextEditorDialog::buildUi()
     m_trackingSpin = new QDoubleSpinBox(advBody);
     m_trackingSpin->setRange(-50.0, 50.0);
     m_trackingSpin->setDecimals(2);
-    advLay->addRow(tr("Tracking:"), m_trackingSpin);
+    advLay->addRow(tr("Tracking:"), sliderSpinRow(m_trackingSpin));
     m_lineSpacingSpin = new QDoubleSpinBox(advBody);
     m_lineSpacingSpin->setRange(0.1, 5.0);
     m_lineSpacingSpin->setDecimals(2);
-    advLay->addRow(tr("Line spacing:"), m_lineSpacingSpin);
+    advLay->addRow(tr("Line spacing:"), sliderSpinRow(m_lineSpacingSpin));
     m_advancedSection->setContentWidget(advBody);
     bodyLay->addWidget(m_advancedSection);
 
@@ -229,7 +261,7 @@ void TitlesTextEditorDialog::buildUi()
     m_outlineWidthSpin = new QDoubleSpinBox(outBody);
     m_outlineWidthSpin->setRange(0.0, 100.0);
     m_outlineWidthSpin->setDecimals(2);
-    outLay->addRow(tr("Outline width:"), m_outlineWidthSpin);
+    outLay->addRow(tr("Outline width:"), sliderSpinRow(m_outlineWidthSpin));
     m_outlineColorPicker = new ColorPickerWidget(outBody);
     outLay->addRow(tr("Outline color:"), m_outlineColorPicker);
     m_outlineSection->setContentWidget(outBody);
@@ -245,15 +277,15 @@ void TitlesTextEditorDialog::buildUi()
     m_shadowOffsetXSpin = new QDoubleSpinBox(shBody);
     m_shadowOffsetXSpin->setRange(-20.0, 20.0);
     m_shadowOffsetXSpin->setDecimals(2);
-    shLay->addRow(tr("Shadow offset X:"), m_shadowOffsetXSpin);
+    shLay->addRow(tr("Shadow offset X:"), sliderSpinRow(m_shadowOffsetXSpin));
     m_shadowOffsetYSpin = new QDoubleSpinBox(shBody);
     m_shadowOffsetYSpin->setRange(-20.0, 20.0);
     m_shadowOffsetYSpin->setDecimals(2);
-    shLay->addRow(tr("Shadow offset Y:"), m_shadowOffsetYSpin);
+    shLay->addRow(tr("Shadow offset Y:"), sliderSpinRow(m_shadowOffsetYSpin));
     m_shadowBlurSpin = new QDoubleSpinBox(shBody);
     m_shadowBlurSpin->setRange(0.0, 20.0);
     m_shadowBlurSpin->setDecimals(2);
-    shLay->addRow(tr("Shadow blur:"), m_shadowBlurSpin);
+    shLay->addRow(tr("Shadow blur:"), sliderSpinRow(m_shadowBlurSpin));
     m_shadowSection->setContentWidget(shBody);
     bodyLay->addWidget(m_shadowSection);
 
@@ -307,6 +339,8 @@ void TitlesTextEditorDialog::buildUi()
     connect(m_animationCombo, QOverload<int>::of(&QComboBox::currentIndexChanged), this,
             [this](int) { saveToEvent(); });
     connect(m_scaleSpin, &QDoubleSpinBox::valueChanged, this, [this](double) { saveToEvent(); });
+    connect(m_locationSection, &CollapsibleSection::expandedChanged, this,
+            [this](bool) { saveToEvent(); });
     connect(m_locationXSpin, &QDoubleSpinBox::valueChanged, this, [this](double) {
         if (!m_block) {
             saveToEvent();
@@ -391,6 +425,7 @@ void TitlesTextEditorDialog::loadFromEvent()
     m_animationCombo->setCurrentIndex(animIdx);
 
     m_scaleSpin->setValue(p.scale);
+    m_locationSection->setExpanded(p.locationExpanded);
     m_locationXSpin->setValue(p.locationX);
     m_locationYSpin->setValue(p.locationY);
     m_locationPad->setPosition(std::clamp(p.locationX, 0.0, 1.0),
@@ -440,6 +475,7 @@ void TitlesTextEditorDialog::saveToEvent()
     p.animationName = m_animationCombo->currentData().toString();
 
     p.scale = m_scaleSpin->value();
+    p.locationExpanded = m_locationSection->isExpanded();
     p.locationX = m_locationXSpin->value();
     p.locationY = m_locationYSpin->value();
     p.anchor = static_cast<TitlesTextAnchor>(

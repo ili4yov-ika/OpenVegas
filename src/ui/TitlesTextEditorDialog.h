@@ -76,6 +76,7 @@ private:
     QComboBox *m_animationCombo = nullptr;
 
     QDoubleSpinBox *m_scaleSpin = nullptr;
+    CollapsibleSection *m_locationSection = nullptr;
     LocationPad *m_locationPad = nullptr;
     QDoubleSpinBox *m_locationXSpin = nullptr;
     QDoubleSpinBox *m_locationYSpin = nullptr;
