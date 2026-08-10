@@ -1,8 +1,14 @@
 #include "ui/TransitionsPane.h"
 
+#include "io/MediaMime.h"
+#include "video/TransitionApply.h"
+
 #include <QAbstractButton>
+#include <QApplication>
 #include <QButtonGroup>
 #include <QCursor>
+#include <QDateTime>
+#include <QDrag>
 #include <QFrame>
 #include <QHBoxLayout>
 #include <QLabel>
@@ -10,12 +16,15 @@
 #include <QLinearGradient>
 #include <QListView>
 #include <QListWidget>
+#include <QMimeData>
+#include <QMouseEvent>
 #include <QPainter>
 #include <QPixmap>
 #include <QPushButton>
 #include <QScrollArea>
 #include <QSettings>
 #include <QSplitter>
+#include <QTimer>
 #include <QVBoxLayout>
 #include <utility>
 
@@ -25,6 +34,68 @@ namespace {
 
 QColor accent() { return QColor(0x1a, 0x4a, 0x8a); }
 QColor light() { return QColor(0xc0, 0xd0, 0xe0); }
+
+/** Preset tiles carry the transition group id + preset name for drag-out. */
+constexpr int kDragPluginIdRole = Qt::UserRole + 20;
+constexpr int kDragPresetRole = Qt::UserRole + 21;
+
+/** Static poster frame of a preset tile — mid-transition, like Vegas's own thumbnails. */
+constexpr double kPosterProgress = 0.45;
+
+/**
+ * Drag-out list for the preset grid. Drives press → move → QDrag by hand rather than
+ * relying on QAbstractItemView's built-in drag detection, which was measured (see
+ * ISSUES_AND_PLANS.md 2026-08-10) never to fire for IconMode tiles like these.
+ */
+class TransitionDragListWidget : public QListWidget {
+public:
+    explicit TransitionDragListWidget(QWidget *parent = nullptr)
+        : QListWidget(parent)
+    {
+        setDragDropMode(QAbstractItemView::DragOnly);
+    }
+
+protected:
+    void mousePressEvent(QMouseEvent *event) override
+    {
+        if (event->button() == Qt::LeftButton) {
+            m_pressItem = itemAt(event->pos());
+            m_pressPos = event->pos();
+        }
+        QListWidget::mousePressEvent(event);
+    }
+
+    void mouseMoveEvent(QMouseEvent *event) override
+    {
+        if (!m_pressItem || !(event->buttons() & Qt::LeftButton)
+            || (event->pos() - m_pressPos).manhattanLength() < QApplication::startDragDistance()) {
+            QListWidget::mouseMoveEvent(event);
+            return;
+        }
+        QListWidgetItem *item = m_pressItem;
+        m_pressItem = nullptr; // one-shot until the next press
+        const QString pluginId = item->data(kDragPluginIdRole).toString();
+        if (pluginId.isEmpty()) {
+            return; // group without a real renderer — nothing to drop yet
+        }
+        // extra = plugin id, name = preset; the timeline turns that into an instance.
+        QMimeData *md = MediaMime::fromSynthetic(QStringLiteral("transition"),
+                                                 item->data(kDragPresetRole).toString(), pluginId);
+        auto *drag = new QDrag(this);
+        drag->setMimeData(md);
+        const QIcon icon = item->icon();
+        if (!icon.isNull()) {
+            const QPixmap pm = icon.pixmap(QSize(96, 58));
+            drag->setPixmap(pm);
+            drag->setHotSpot(QPoint(pm.width() / 2, pm.height() / 2));
+        }
+        drag->exec(Qt::CopyAction, Qt::CopyAction);
+    }
+
+private:
+    QListWidgetItem *m_pressItem = nullptr;
+    QPoint m_pressPos;
+};
 
 TransitionsPane::Preset makePreset(const QString &name, TransitionsPane::Thumb t,
                                    QColor a = accent())
@@ -74,12 +145,17 @@ void TransitionsPane::loadCatalog()
         p.categories = {QStringLiteral("3D Effects"), QStringLiteral("Reveals")};
         p.format = QStringLiteral("DXT");
         p.description = QStringLiteral("3D blinds transition between clips.");
-        p.presets = {
-            makePreset(QStringLiteral("Simple"), Thumb::SimpleBlinds),
-            makePreset(QStringLiteral("Left to Right"), Thumb::LeftToRight),
-            makePreset(QStringLiteral("Slot Machine"), Thumb::SlotMachine),
-            makePreset(QStringLiteral("Spin"), Thumb::Spin),
-        };
+        // The one group with a real renderer: its presets come from the shared catalog
+        // so the dock, the timeline and the properties window can never disagree.
+        p.pluginId = transition3dBlindsId();
+        if (const TransitionPluginInfo *info = transitionPluginById(p.pluginId)) {
+            static const QVector<Thumb> thumbs = {Thumb::SimpleBlinds, Thumb::LeftToRight,
+                                                  Thumb::SlotMachine, Thumb::Spin};
+            for (int i = 0; i < info->presets.size(); ++i) {
+                p.presets.push_back(
+                    makePreset(info->presets[i].name, thumbs.value(i, Thumb::SimpleBlinds)));
+            }
+        }
         add(std::move(p));
     }
 
@@ -231,7 +307,7 @@ void TransitionsPane::buildUi()
     mainLay->setContentsMargins(0, 0, 0, 0);
     mainLay->setSpacing(0);
 
-    m_presetGrid = new QListWidget(mainCol);
+    m_presetGrid = new TransitionDragListWidget(mainCol);
     m_presetGrid->setObjectName(QStringLiteral("fxPresetGrid"));
     m_presetGrid->setViewMode(QListView::IconMode);
     m_presetGrid->setResizeMode(QListView::Adjust);
@@ -242,7 +318,26 @@ void TransitionsPane::buildUi()
     m_presetGrid->setGridSize(QSize(140, 104));
     m_presetGrid->setWordWrap(true);
     m_presetGrid->setSelectionMode(QAbstractItemView::SingleSelection);
+    m_presetGrid->setMouseTracking(true);
     mainLay->addWidget(m_presetGrid, 1);
+
+    // Hovering a tile plays the transition as a looping demo, like Vegas's own dock.
+    m_hoverTimer = new QTimer(this);
+    m_hoverTimer->setInterval(66); // ~15 fps is plenty for a 130x78 thumbnail
+    connect(m_hoverTimer, &QTimer::timeout, this, &TransitionsPane::onHoverTick);
+    connect(m_presetGrid, &QListWidget::entered, this, &TransitionsPane::onPresetHoverEntered);
+    connect(m_presetGrid, &QListWidget::itemPressed, this, [this](QListWidgetItem *item) {
+        // Stop repainting the icon the moment a press might turn into a drag: the drag
+        // pixmap must be a stable frame, and the model must not mutate mid-gesture.
+        if (!m_hoverTimer->isActive()) {
+            return;
+        }
+        m_hoverTimer->stop();
+        if (item && m_hoverRow >= 0) {
+            item->setIcon(presetIconAt(m_hoverRow, kPosterProgress));
+        }
+        m_hoverRow = -1;
+    });
 
     auto *meta = new QWidget(mainCol);
     meta->setObjectName(QStringLiteral("fxMeta"));
@@ -307,6 +402,64 @@ void TransitionsPane::buildUi()
             }
         }
     });
+}
+
+QIcon TransitionsPane::presetIconAt(int row, double progress) const
+{
+    if (m_currentIndex < 0 || m_currentIndex >= m_plugins.size()) {
+        return QIcon();
+    }
+    const Plugin &plugin = m_plugins[m_currentIndex];
+    if (row < 0 || row >= plugin.presets.size()) {
+        return QIcon();
+    }
+    if (plugin.pluginId.isEmpty()) {
+        // Group without a renderer yet — keep the hand-drawn placeholder art.
+        return presetIcon(plugin.presets[row]);
+    }
+    const TransitionInstance t =
+        makeTransitionInstance(plugin.pluginId, plugin.presets[row].name);
+    return QIcon(QPixmap::fromImage(renderTransitionPreview(t, QSize(130, 78), progress)));
+}
+
+void TransitionsPane::onPresetHoverEntered(const QModelIndex &index)
+{
+    if (!index.isValid() || m_currentIndex < 0 || m_currentIndex >= m_plugins.size()) {
+        return;
+    }
+    if (m_plugins[m_currentIndex].pluginId.isEmpty()) {
+        return; // nothing to animate without a real renderer
+    }
+    m_hoverRow = index.row();
+    m_hoverStartMs = QDateTime::currentMSecsSinceEpoch();
+    m_hoverTimer->start();
+}
+
+void TransitionsPane::onHoverTick()
+{
+    if (m_hoverRow < 0 || m_currentIndex < 0 || m_currentIndex >= m_plugins.size()) {
+        m_hoverTimer->stop();
+        return;
+    }
+    QListWidgetItem *item = m_presetGrid->item(m_hoverRow);
+    if (!item) {
+        m_hoverTimer->stop();
+        m_hoverRow = -1;
+        return;
+    }
+    // Ground-truth the cursor each tick instead of trusting enter/leave coverage: moving to
+    // another tile, to empty space, or off the widget all have to restore the poster.
+    const QPoint viewportPos = m_presetGrid->viewport()->mapFromGlobal(QCursor::pos());
+    const QModelIndex under = m_presetGrid->indexAt(viewportPos);
+    if (!under.isValid() || under.row() != m_hoverRow) {
+        item->setIcon(presetIconAt(m_hoverRow, kPosterProgress));
+        m_hoverTimer->stop();
+        m_hoverRow = -1;
+        return;
+    }
+    constexpr qint64 kLoopMs = 1800;
+    const qint64 elapsed = QDateTime::currentMSecsSinceEpoch() - m_hoverStartMs;
+    item->setIcon(presetIconAt(m_hoverRow, double(elapsed % kLoopMs) / double(kLoopMs)));
 }
 
 QIcon TransitionsPane::presetIcon(const Preset &p) const
@@ -533,11 +686,21 @@ void TransitionsPane::showPlugin(int catalogIndex)
     m_currentIndex = catalogIndex;
     const Plugin &p = m_plugins[catalogIndex];
 
+    m_hoverTimer->stop();
+    m_hoverRow = -1;
     m_presetGrid->clear();
-    for (const Preset &pr : p.presets) {
-        auto *item = new QListWidgetItem(presetIcon(pr), pr.name, m_presetGrid);
+    for (int i = 0; i < p.presets.size(); ++i) {
+        const Preset &pr = p.presets[i];
+        auto *item = new QListWidgetItem(pr.name, m_presetGrid);
         item->setTextAlignment(Qt::AlignHCenter | Qt::AlignTop);
         item->setSizeHint(QSize(140, 104));
+        if (!p.pluginId.isEmpty()) {
+            item->setData(kDragPluginIdRole, p.pluginId);
+            item->setData(kDragPresetRole, pr.name);
+            item->setFlags(item->flags() | Qt::ItemIsDragEnabled);
+        }
+        // Set the icon after the drag data so presetIconAt() can read it back.
+        item->setIcon(presetIconAt(i, kPosterProgress));
     }
     if (m_presetGrid->count() > 0) {
         m_presetGrid->setCurrentRow(0);

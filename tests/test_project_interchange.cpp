@@ -3,6 +3,7 @@
 #include "io/VegReader.h"
 #include "model/ProjectModel.h"
 #include "video/TitlesTextApply.h"
+#include "video/TransitionApply.h"
 
 #include <QDir>
 #include <QFile>
@@ -212,6 +213,7 @@ const QStringList &sampleBaseNames()
         QStringLiteral("project_sample_for_project_audio_trims-and-crossfade"),
         QStringLiteral("project_sample_for_project_pictures"),
         QStringLiteral("project_titles-and-text"),
+        QStringLiteral("project_transitions_3d-blinds"),
     };
     return names;
 }
@@ -429,6 +431,10 @@ TEST_CASE("OpenVegas project archive round-trips full state (fxChain, panCrop, m
     tev.panCrop.positionKeyframes.push_back(PanCropKeyframe{});
     tev.panCrop.positionKeyframes[0].timeSec = 0.0;
     tev.panCrop.positionKeyframes[0].xCenter = 500.0;
+    tev.fadeInSec = 1.0;
+    tev.transitionIn =
+        makeTransitionInstance(transition3dBlindsId(), QStringLiteral("Slot Machine"));
+    transitionSetParamValue(&tev.transitionIn, QStringLiteral("stagger"), 0.55);
     vtrack.events.push_back(tev);
 
     const int aid = model.addTrack(TrackKind::Audio);
@@ -482,6 +488,15 @@ TEST_CASE("OpenVegas project archive round-trips full state (fxChain, panCrop, m
     CHECK(backTp.scale == Catch::Approx(1.3));
     REQUIRE(backTev.panCrop.positionKeyframes.size() == 1);
     CHECK(backTev.panCrop.positionKeyframes[0].xCenter == Catch::Approx(500.0));
+    // A transition on the fade must survive the archive — otherwise every transition a
+    // user places would silently vanish on the next save/load.
+    REQUIRE(backTev.transitionIn.isValid());
+    CHECK(backTev.transitionIn.pluginId == transition3dBlindsId());
+    CHECK(transitionParamValue(backTev.transitionIn, QStringLiteral("stagger"))
+          == Catch::Approx(0.55));
+    CHECK(transitionParamValue(backTev.transitionIn, QStringLiteral("extraSpins"))
+          == Catch::Approx(4.0));
+    CHECK_FALSE(backTev.transitionOut.isValid());
 
     const Track &backA = back.tracks()[1];
     CHECK(backA.kind == TrackKind::Audio);
@@ -489,4 +504,59 @@ TEST_CASE("OpenVegas project archive round-trips full state (fxChain, panCrop, m
     REQUIRE(backA.events.size() == 1);
     CHECK(backA.events[0].mediaPath == QStringLiteral("C:/media/clip.wav"));
     CHECK(backA.events[0].gainDb == Catch::Approx(-3.0));
+}
+
+TEST_CASE("Interchange formats carry a transition's fade but not its identity",
+         "[interchange][transitions]")
+{
+    // Verified against Vegas's own exports of SAMPLES/veg_project/
+    // project_transitions_3d-blinds.veg: even real Vegas degrades a 3D Blinds
+    // transition to a generic dissolve — FCP7 XML gets "Cross Dissolve" /
+    // "Fade In Fade Out Dissolve", FCPXML gets <transition name="Cross Dissolve">, the
+    // EDL CSV has no transition column at all, and the .prproj only mentions "3D Blinds"
+    // inside user marker labels. So losing the plug-in identity here is the format's
+    // limit, not a bug — but the fade the transition rides on must still survive, and
+    // the project archive (our own format) must keep the whole thing.
+    ProjectModel model;
+    model.setFrameRate(30.0);
+    const int tid = model.addTrack(TrackKind::Video);
+    TrackEvent ev;
+    ev.id = 1;
+    ev.name = QStringLiteral("clip");
+    ev.mediaKind = EventMediaKind::Video;
+    ev.startSec = 0.0;
+    ev.lengthSec = 6.0;
+    ev.fadeInSec = 1.5;
+    ev.mediaPath = QStringLiteral("C:/media/clip.mp4");
+    ev.transitionIn = makeTransitionInstance(transition3dBlindsId(), QStringLiteral("Spin"));
+    model.tracks()[tid].events.push_back(ev);
+
+    QTemporaryDir tmp;
+    REQUIRE(tmp.isValid());
+    QString err;
+
+    const QString fcp7 = tmp.filePath(QStringLiteral("t.xml"));
+    REQUIRE(ProjectInterchange::exportFinalCutXml(model, fcp7, &err));
+    REQUIRE(err.isEmpty());
+    const InterchangeResult backFcp7 = ProjectInterchange::importFinalCutXml(fcp7, &err);
+    CHECK(err.isEmpty());
+    REQUIRE(backFcp7.events.size() == 1);
+    CHECK(backFcp7.events[0].fadeInSec > 0.0); // the fade survives …
+    QFile f(fcp7);
+    REQUIRE(f.open(QIODevice::ReadOnly | QIODevice::Text));
+    const QString xml = QString::fromUtf8(f.readAll());
+    CHECK(xml.contains(QLatin1String("Cross Dissolve"))); // … as a generic dissolve
+    CHECK_FALSE(xml.contains(QLatin1String("3D Blinds")));
+
+    // Our own archive is the format that must not lose it.
+    const QString archive = tmp.filePath(QStringLiteral("Archive"));
+    REQUIRE(ProjectInterchange::exportProjectArchive(model, archive, /*copyMedia=*/false, &err));
+    ProjectModel back;
+    REQUIRE(ProjectInterchange::importProjectArchive(archive, &back, &err));
+    REQUIRE_FALSE(back.tracks().isEmpty());
+    REQUIRE_FALSE(back.tracks()[0].events.isEmpty());
+    const TransitionInstance &backT = back.tracks()[0].events[0].transitionIn;
+    REQUIRE(backT.isValid());
+    CHECK(backT.presetName == QStringLiteral("Spin"));
+    CHECK(transitionParamValue(backT, QStringLiteral("divisions")) == Catch::Approx(1.0));
 }

@@ -346,6 +346,14 @@ QString IconFactory::svgSplitScreen()
         "d=\"M2.5 13.5L13.5 2.5\" stroke=\"currentColor\" stroke-width=\"1.2\"/><path d=\"M2.5 2.5h11L2.5 "
         "13.5z\" fill=\"currentColor\" opacity=\".35\"/>");
 }
+QString IconFactory::svgMediaProps()
+{
+    return QStringLiteral(
+        "<rect x=\"1.5\" y=\"3\" width=\"13\" height=\"10\" rx=\"1\" fill=\"none\" "
+        "stroke=\"currentColor\" stroke-width=\"1.2\"/>"
+        "<circle cx=\"5\" cy=\"6.5\" r=\"1.2\" fill=\"currentColor\"/>"
+        "<path d=\"M2.5 12l3.5-3.5 2.5 2.5L11 8.5l2.5 3.5H2.5z\" fill=\"currentColor\"/>");
+}
 QString IconFactory::svgOverlays()
 {
     return QStringLiteral(

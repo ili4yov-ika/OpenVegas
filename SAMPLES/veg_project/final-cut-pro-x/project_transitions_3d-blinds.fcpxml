@@ -1,0 +1,132 @@
+﻿<?xml version="1.0"?>
+<fcpxml version="1.2">
+	<project name="Untitled Project 1">
+		<resources>
+			<format id="r1" name="FFVideoFormatRateUndefined" frameDuration="100/6000s" width="3840" height="2160" />
+			<projectRef id="r2" name="Untitled Project 1" />
+			<format id="r3" frameDuration="100/6000s" width="3840" height="2160" />
+			<asset id="r4" name="big-buck-bunny_video-60fps-4k-9" projectRef="r2" src="file://localhost/D:/Devs/C++/OpenVegas/SAMPLES/veg_project/final-cut-pro-x/big-buck-bunny_video-60fps-4k-9.mp4" start="0/6000s" hasVideo="1" hasAudio="1" />
+			<effect id="r5" name="Cross Dissolve" uid="FxPlug:4731E73A-8DAC-4113-9A30-AE85B1761265" />
+		</resources>
+		<sequence duration="2728500/6000s" format="r1" tcFormat="NDF" audioLayout="stereo" audioRate="48k">
+			<spine>
+				<clip duration="0s">
+					<spine lane="-1">
+						<audio ref="r4" duration="180600/6000s" start="324300/6000s" srcID="1" srcCh="1, 2" />
+						<audio offset="180600/6000s" ref="r4" duration="180600/6000s" start="324300/6000s" srcID="1" srcCh="1, 2" />
+						<audio offset="361200/6000s" ref="r4" duration="180600/6000s" start="324300/6000s" srcID="1" srcCh="1, 2" />
+						<audio offset="541800/6000s" ref="r4" duration="180600/6000s" start="324300/6000s" srcID="1" srcCh="1, 2" />
+						<audio offset="810300/6000s" ref="r4" duration="180600/6000s" start="324300/6000s" srcID="1" srcCh="1, 2">
+							<adjust-volume>
+								<param name="amount">
+									<fadeOut type="linear" duration="86100/6000s" />
+								</param>
+							</adjust-volume>
+						</audio>
+						<audio offset="990900/6000s" ref="r4" duration="180600/6000s" start="324300/6000s" srcID="1" srcCh="1, 2">
+							<adjust-volume>
+								<param name="amount">
+									<fadeOut type="linear" duration="86100/6000s" />
+								</param>
+							</adjust-volume>
+						</audio>
+						<audio offset="1171500/6000s" ref="r4" duration="180600/6000s" start="324300/6000s" srcID="1" srcCh="1, 2">
+							<adjust-volume>
+								<param name="amount">
+									<fadeOut type="linear" duration="86100/6000s" />
+								</param>
+							</adjust-volume>
+						</audio>
+						<audio offset="1352100/6000s" ref="r4" duration="180600/6000s" start="324300/6000s" srcID="1" srcCh="1, 2">
+							<adjust-volume>
+								<param name="amount">
+									<fadeOut type="linear" duration="86100/6000s" />
+								</param>
+							</adjust-volume>
+						</audio>
+						<audio offset="1619700/6000s" ref="r4" duration="138600/6000s" start="324300/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="1716300/6000s" ref="r5" name="Cross Dissolve" duration="84000/6000s" />
+						<audio offset="1758300/6000s" ref="r4" duration="138600/6000s" start="366300/6000s" srcID="1" srcCh="1, 2" />
+						<audio offset="1896900/6000s" ref="r4" duration="138600/6000s" start="324300/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="1993500/6000s" ref="r5" name="Cross Dissolve" duration="84000/6000s" />
+						<audio offset="2035500/6000s" ref="r4" duration="138600/6000s" start="366300/6000s" srcID="1" srcCh="1, 2" />
+						<audio offset="2174100/6000s" ref="r4" duration="138600/6000s" start="324300/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="2270700/6000s" ref="r5" name="Cross Dissolve" duration="84000/6000s" />
+						<audio offset="2312700/6000s" ref="r4" duration="138600/6000s" start="366300/6000s" srcID="1" srcCh="1, 2" />
+						<audio offset="2451300/6000s" ref="r4" duration="138600/6000s" start="324300/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="2547900/6000s" ref="r5" name="Cross Dissolve" duration="84000/6000s" />
+						<audio offset="2589900/6000s" ref="r4" duration="138600/6000s" start="366300/6000s" srcID="1" srcCh="1, 2" />
+					</spine>
+				</clip>
+				<video ref="r4" duration="180600/6000s" start="324300/6000s">
+					<adjust-blend>
+						<param name="amount">
+							<fadeIn type="linear" duration="91300/6000s" />
+						</param>
+					</adjust-blend>
+				</video>
+				<video offset="180600/6000s" ref="r4" duration="180600/6000s" start="324300/6000s">
+					<adjust-blend>
+						<param name="amount">
+							<fadeIn type="linear" duration="91300/6000s" />
+						</param>
+					</adjust-blend>
+				</video>
+				<video offset="361200/6000s" ref="r4" duration="180600/6000s" start="324300/6000s">
+					<adjust-blend>
+						<param name="amount">
+							<fadeIn type="linear" duration="91300/6000s" />
+						</param>
+					</adjust-blend>
+				</video>
+				<video offset="541800/6000s" ref="r4" duration="180600/6000s" start="324300/6000s">
+					<adjust-blend>
+						<param name="amount">
+							<fadeIn type="linear" duration="91300/6000s" />
+						</param>
+					</adjust-blend>
+				</video>
+				<video offset="810300/6000s" ref="r4" duration="180600/6000s" start="324300/6000s">
+					<adjust-blend>
+						<param name="amount">
+							<fadeOut type="linear" duration="86100/6000s" />
+						</param>
+					</adjust-blend>
+				</video>
+				<video offset="990900/6000s" ref="r4" duration="180600/6000s" start="324300/6000s">
+					<adjust-blend>
+						<param name="amount">
+							<fadeOut type="linear" duration="86100/6000s" />
+						</param>
+					</adjust-blend>
+				</video>
+				<video offset="1171500/6000s" ref="r4" duration="180600/6000s" start="324300/6000s">
+					<adjust-blend>
+						<param name="amount">
+							<fadeOut type="linear" duration="86100/6000s" />
+						</param>
+					</adjust-blend>
+				</video>
+				<video offset="1352100/6000s" ref="r4" duration="180600/6000s" start="324300/6000s">
+					<adjust-blend>
+						<param name="amount">
+							<fadeOut type="linear" duration="86100/6000s" />
+						</param>
+					</adjust-blend>
+				</video>
+				<video offset="1619700/6000s" ref="r4" duration="138600/6000s" start="324300/6000s" />
+				<transition offset="1716300/6000s" ref="r5" name="Cross Dissolve" duration="84000/6000s" />
+				<video offset="1758300/6000s" ref="r4" duration="138600/6000s" start="366300/6000s" />
+				<video offset="1896900/6000s" ref="r4" duration="138600/6000s" start="324300/6000s" />
+				<transition offset="1993500/6000s" ref="r5" name="Cross Dissolve" duration="84000/6000s" />
+				<video offset="2035500/6000s" ref="r4" duration="138600/6000s" start="366300/6000s" />
+				<video offset="2174100/6000s" ref="r4" duration="138600/6000s" start="324300/6000s" />
+				<transition offset="2270700/6000s" ref="r5" name="Cross Dissolve" duration="84000/6000s" />
+				<video offset="2312700/6000s" ref="r4" duration="138600/6000s" start="366300/6000s" />
+				<video offset="2451300/6000s" ref="r4" duration="138600/6000s" start="324300/6000s" />
+				<transition offset="2547900/6000s" ref="r5" name="Cross Dissolve" duration="84000/6000s" />
+				<video offset="2589900/6000s" ref="r4" duration="138600/6000s" start="366300/6000s" />
+			</spine>
+		</sequence>
+	</project>
+</fcpxml>

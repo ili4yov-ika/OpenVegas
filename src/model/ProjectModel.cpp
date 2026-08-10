@@ -1647,6 +1647,7 @@ bool ProjectModel::applyVegImport(const VegOpenResult &veg, const QString &opene
             applyColorGradingFromVeg(veg);
             applyVideoTrackFxFromVeg(veg);
             applyTitlesTextFromVeg(veg);
+            applyTransitionsFromVeg(veg);
             applyDefaultTrackDisplayColors();
             backfillEventMediaPaths();
             seedSampleAudioBeatMarkersIfNeeded(openedPath);
@@ -1818,6 +1819,7 @@ bool ProjectModel::applyVegImport(const VegOpenResult &veg, const QString &opene
         applyColorGradingFromVeg(veg);
         applyVideoTrackFxFromVeg(veg);
         applyTitlesTextFromVeg(veg);
+        applyTransitionsFromVeg(veg);
         applyDefaultTrackDisplayColors();
         backfillEventMediaPaths();
         seedSampleAudioBeatMarkersIfNeeded(openedPath);
@@ -1886,6 +1888,7 @@ bool ProjectModel::applyVegImport(const VegOpenResult &veg, const QString &opene
     applyColorGradingFromVeg(veg);
     applyVideoTrackFxFromVeg(veg);
     applyTitlesTextFromVeg(veg);
+    applyTransitionsFromVeg(veg);
     applyDefaultTrackDisplayColors();
     backfillEventMediaPaths();
     seedSampleAudioBeatMarkersIfNeeded(openedPath);
@@ -2030,6 +2033,70 @@ FxSlot titlesTextSlotFor(const TitlesTextParams &p)
     return slot;
 }
 } // namespace
+
+void ProjectModel::applyTransitionsFromVeg(const VegOpenResult &veg)
+{
+    if (veg.transitions.isEmpty()) {
+        return;
+    }
+    // Match by the owning event's start time rather than by index: that works the same
+    // whether the events came from the EDL sidecar or from the binary timing blocks.
+    for (const VegTransitionInfo &info : veg.transitions) {
+        if (info.eventStartSec < 0.0) {
+            continue;
+        }
+        TrackEvent *best = nullptr;
+        double bestDelta = 0.0;
+        for (Track &track : m_tracks) {
+            if (track.kind != TrackKind::Video) {
+                continue;
+            }
+            for (TrackEvent &ev : track.events) {
+                if (!isVideoFamily(ev.mediaKind)) {
+                    continue;
+                }
+                const double delta = std::abs(ev.startSec - info.eventStartSec);
+                if (delta > 0.05) {
+                    continue;
+                }
+                if (!best || delta < bestDelta) {
+                    best = &ev;
+                    bestDelta = delta;
+                }
+            }
+        }
+        if (!best) {
+            continue;
+        }
+
+        TransitionInstance t =
+            makeTransitionInstance(transition3dBlindsId(), info.presetName);
+        if (!t.isValid()) {
+            continue;
+        }
+        // Parameters come from the file, not from the preset table: a user may have
+        // tweaked sliders away from the stock preset before saving.
+        transitionSetParamValue(&t, QStringLiteral("divisions"), info.divisions);
+        transitionSetParamValue(&t, QStringLiteral("extraSpins"), info.extraSpins);
+        transitionSetParamValue(&t, QStringLiteral("stagger"), info.stagger);
+        transitionSetParamValue(&t, QStringLiteral("specularLight"), info.specularLight);
+        transitionSetParamValue(&t, QStringLiteral("direction"), info.direction);
+        // transitionSetParamValue clears presetName once anything differs from the stock
+        // preset; restore it when the file's values still match it exactly.
+        if (const TransitionPresetInfo *preset =
+                transitionPreset(transition3dBlindsId(), info.presetName)) {
+            if (preset->params == t.params) {
+                t.presetName = preset->name;
+            }
+        }
+
+        if (info.fadeOut) {
+            best->transitionOut = t;
+        } else {
+            best->transitionIn = t;
+        }
+    }
+}
 
 void ProjectModel::applyTitlesTextFromVeg(const VegOpenResult &veg)
 {

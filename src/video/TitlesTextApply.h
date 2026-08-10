@@ -1,5 +1,8 @@
 #pragma once
 
+// For VideoKeyframeType (keyframe interpolation kind), shared with Pan/Crop and Track
+// Motion so a Titles & Text keyframe means the same thing as every other keyframe.
+#include "model/ProjectModel.h"
 #include "plugins/AudioPluginTypes.h"
 
 #include <QColor>
@@ -24,6 +27,64 @@ enum class TitlesTextAnchor {
     BottomLeft,
     BottomCenter,
     BottomRight
+};
+
+/** Vegas Media Properties → Field order. */
+enum class MediaFieldOrder { ProgressiveScan, UpperFieldFirst, LowerFieldFirst };
+
+/** Vegas Media Properties → Alpha channel. */
+enum class MediaAlphaChannel { Undefined, None, Straight, Premultiplied, PremultipliedDirty };
+
+/** Vegas Media Properties → Rotation. */
+enum class MediaRotation { Deg0, Deg90Clockwise, Deg180, Deg90CounterClockwise };
+
+/**
+ * Vegas "Media Properties" for a generated (file-less) media event — what the Properties
+ * dialog reached from the generator window's toolbar edits. Kept as a member of the
+ * generator's own params so it round-trips through the same opaque FxSlot state blob as
+ * everything else (project archive, undo snapshots) with no extra plumbing.
+ *
+ * Frame rate and length are deliberately NOT here: they belong to the project and to the
+ * TrackEvent respectively, and the dialog reads/writes them there.
+ */
+struct GeneratorMediaProps {
+    QString tapeName;
+    bool useCustomTimecode = false;
+    /** Start timecode (seconds from zero) used when useCustomTimecode. */
+    double customTimecodeSec = 0.0;
+    /** 0 = follow the project frame size, which is what a fresh generator shows. */
+    int frameWidth = 0;
+    int frameHeight = 0;
+    MediaFieldOrder fieldOrder = MediaFieldOrder::ProgressiveScan;
+    double pixelAspect = 1.0;
+    MediaAlphaChannel alphaChannel = MediaAlphaChannel::Premultiplied;
+    QColor backgroundColor = QColor(0, 0, 0, 255);
+    MediaRotation rotation = MediaRotation::Deg0;
+};
+
+/** One keyframe on a Titles & Text parameter lane. */
+struct TitlesTextKeyframe {
+    /** Event-local seconds (0 = event start), matching Vegas's generator timeline. */
+    double timeSec = 0.0;
+    double value = 0.0;
+    /** Interpolation from THIS keyframe to the next one. */
+    VideoKeyframeType type = VideoKeyframeType::Linear;
+
+    bool operator==(const TitlesTextKeyframe &o) const
+    {
+        return qFuzzyCompare(timeSec, o.timeSec) && qFuzzyCompare(value, o.value) && type == o.type;
+    }
+};
+
+/** Keyframes for one animatable parameter; `keys` is kept sorted by timeSec. */
+struct TitlesTextParamLane {
+    QString paramKey; // see titlesTextAnimatableParams()
+    QVector<TitlesTextKeyframe> keys;
+
+    bool operator==(const TitlesTextParamLane &o) const
+    {
+        return paramKey == o.paramKey && keys == o.keys;
+    }
 };
 
 /**
@@ -66,7 +127,47 @@ struct TitlesTextParams {
     bool advancedExpanded = false;
     bool outlineExpanded = false;
     bool shadowExpanded = false;
+
+    /** Media Properties of the generated media (toolbar button in the generator window). */
+    GeneratorMediaProps media;
+
+    /** Parameter automation (the generator window's keyframe pane). Empty = static. */
+    QVector<TitlesTextParamLane> lanes;
 };
+
+/** One row in the generator window's keyframe tree / one animatable parameter. */
+struct TitlesTextAnimatableParam {
+    QString group; // tree parent ("Location"); empty = directly under the root
+    QString label; // tree row text ("X")
+    QString key;   // stable id used by TitlesTextParamLane::paramKey
+    double minValue = 0.0;
+    double maxValue = 1.0;
+};
+
+/** Every parameter the keyframe pane can animate, in Vegas's row order. */
+const QVector<TitlesTextAnimatableParam> &titlesTextAnimatableParams();
+
+/** Current static value of an animatable parameter; 0.0 for an unknown key. */
+double titlesTextParamValue(const TitlesTextParams &p, const QString &key);
+void titlesTextSetParamValue(TitlesTextParams *p, const QString &key, double value);
+
+/** Lane for `key`, or nullptr when that parameter has no keyframes. */
+const TitlesTextParamLane *titlesTextFindLane(const TitlesTextParams &p, const QString &key);
+/** Lane for `key`, created (and kept sorted) if missing. */
+TitlesTextParamLane &titlesTextEnsureLane(TitlesTextParams *p, const QString &key);
+/** Inserts (or replaces, when one already sits at that time) a keyframe. */
+void titlesTextSetKeyframe(TitlesTextParams *p, const QString &key, double timeSec, double value,
+                           VideoKeyframeType type = VideoKeyframeType::Linear);
+/** Removes the keyframe at (or within `epsSec` of) timeSec; drops the lane when emptied. */
+bool titlesTextRemoveKeyframe(TitlesTextParams *p, const QString &key, double timeSec,
+                              double epsSec = 0.02);
+
+/**
+ * Copy of `p` with every keyframed parameter evaluated at `localSec` (event-local
+ * seconds). Parameters with no lane keep their static value, so a generator with no
+ * keyframes at all comes back byte-identical.
+ */
+TitlesTextParams titlesTextAtTime(const TitlesTextParams &p, double localSec);
 
 TitlesTextParams titlesTextFromMap(const QVariantMap &m);
 QVariantMap titlesTextToMap(const TitlesTextParams &p);

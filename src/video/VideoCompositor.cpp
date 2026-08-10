@@ -6,6 +6,7 @@
 #include "video/PanCropApply.h"
 #include "video/TitlesTextApply.h"
 #include "video/TrackMotionApply.h"
+#include "video/TransitionApply.h"
 #include "video/VideoFrameCache.h"
 #include "video/VideoKeyframeEval.h"
 
@@ -123,9 +124,61 @@ QImage VideoCompositor::compose(const ProjectModel &model, double t, const QSize
         std::sort(hits.begin(), hits.end(),
                   [](const TrackEvent *a, const TrackEvent *b) { return a->startSec < b->startSec; });
 
+        // A transition takes over the blend for the region it covers, so the two clips
+        // must be rendered at full strength and combined by the transition itself rather
+        // than alpha-faded into each other.
+        const TrackEvent *transFrom = nullptr;
+        const TrackEvent *transTo = nullptr;
+        TransitionInstance transition;
+        double transProgress = 0.0;
+        for (int i = 0; i + 1 < hits.size(); ++i) {
+            const TrackEvent *a = hits[i];
+            const TrackEvent *b = hits[i + 1];
+            if (!b->transitionIn.isValid()) {
+                continue;
+            }
+            const double ovStart = b->startSec;
+            const double ovEnd =
+                std::min(a->startSec + a->lengthSec, b->startSec + b->lengthSec);
+            if (ovEnd <= ovStart || t < ovStart || t > ovEnd) {
+                continue;
+            }
+            transFrom = a;
+            transTo = b;
+            transition = b->transitionIn;
+            transProgress = (t - ovStart) / std::max(1e-6, ovEnd - ovStart);
+            break;
+        }
+        if (!transTo) {
+            // Solo fade with a transition on it: the other side is empty, so the
+            // transition plays against nothing (Vegas's fade-in/fade-out placement).
+            for (const TrackEvent *evp : hits) {
+                const double local = t - evp->startSec;
+                if (evp->transitionIn.isValid() && evp->fadeInSec > 1e-6
+                    && local <= evp->fadeInSec) {
+                    transTo = evp;
+                    transition = evp->transitionIn;
+                    transProgress = std::clamp(local / evp->fadeInSec, 0.0, 1.0);
+                    break;
+                }
+                const double fromEnd = (evp->startSec + evp->lengthSec) - t;
+                if (evp->transitionOut.isValid() && evp->fadeOutSec > 1e-6
+                    && fromEnd <= evp->fadeOutSec) {
+                    transFrom = evp;
+                    transition = evp->transitionOut;
+                    transProgress = std::clamp(1.0 - fromEnd / evp->fadeOutSec, 0.0, 1.0);
+                    break;
+                }
+            }
+        }
+        QImage transFromLayer;
+
         for (const TrackEvent *evp : hits) {
             const TrackEvent &ev = *evp;
-            const double opacity = eventOpacityAt(ev, t);
+            const bool inTransition = (evp == transFrom || evp == transTo);
+            // Skip the fade-derived alpha for clips the transition is blending: their
+            // fade opacity is 0 exactly where the transition needs them at full strength.
+            const double opacity = inTransition ? ev.opacity : eventOpacityAt(ev, t);
             if (opacity <= 1e-6) {
                 continue;
             }
@@ -146,7 +199,10 @@ QImage VideoCompositor::compose(const ProjectModel &model, double t, const QSize
                     if (isTitlesTextName(slot.displayName)) {
                         const double progress =
                             std::clamp(eventLocal / std::max(0.05, ev.lengthSec), 0.0, 1.0);
-                        src = renderTitlesText(titlesTextFromSlot(slot), sz, progress);
+                        // Parameter keyframes are event-local seconds; the preset's own
+                        // canned animation stays on the 0..1 progress it always used.
+                        src = renderTitlesText(
+                            titlesTextAtTime(titlesTextFromSlot(slot), eventLocal), sz, progress);
                         break;
                     }
                     if (isMediaGeneratorPluginId(slot.pluginId)) {
@@ -171,6 +227,20 @@ QImage VideoCompositor::compose(const ProjectModel &model, double t, const QSize
             // Event then track FX (builtins + OFX / emulated).
             applyVideoFxChain(&layer, ev.fxChain, eventLocal);
             applyVideoFxChain(&layer, track.fxChain, mediaTime);
+
+            if (evp == transFrom && transTo) {
+                // Hold the outgoing clip; it gets painted as part of the blend below.
+                transFromLayer = layer;
+                continue;
+            }
+            if (evp == transTo || (evp == transFrom && !transTo)) {
+                const QImage blended = evp == transTo
+                    ? renderTransition(transFromLayer, layer, transProgress, transition)
+                    : renderTransition(layer, QImage(), transProgress, transition);
+                if (!blended.isNull()) {
+                    layer = blended;
+                }
+            }
             applyTrackMotion(&painter, layer, motionKf, fw, fh, sz.width(), sz.height(), opacity);
             ++paintedCount;
         }

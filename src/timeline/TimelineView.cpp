@@ -7,6 +7,7 @@
 #include "io/MediaWaveformCache.h"
 #include "io/MediaFilmstripCache.h"
 #include "video/TitlesTextApply.h"
+#include "video/TransitionApply.h"
 
 #include <QPainter>
 #include <QPainterPath>
@@ -2404,6 +2405,183 @@ void TimelineView::paintEventFades(QPainter &p, const Track &track, const TrackE
     }
 }
 
+QRect TimelineView::transitionStripRect(const Track &track, const TrackEvent &ev, int trackTop,
+                                        bool fadeIn) const
+{
+    const TransitionInstance &t = fadeIn ? ev.transitionIn : ev.transitionOut;
+    if (!t.isValid() || !m_model) {
+        return QRect();
+    }
+    // The strip spans the region the transition actually covers: the crossfade with the
+    // neighbour when there is one, otherwise the event's own solo fade.
+    double startSec = 0.0;
+    double endSec = 0.0;
+    if (fadeIn) {
+        const double cf = incomingCrossfadeSec(track, ev);
+        const double len = cf > 0.05 ? cf : ev.fadeInSec;
+        if (len <= 0.05) {
+            return QRect();
+        }
+        startSec = ev.startSec;
+        endSec = ev.startSec + len;
+    } else {
+        const double cf = outgoingCrossfadeSec(track, ev);
+        const double len = cf > 0.05 ? cf : ev.fadeOutSec;
+        if (len <= 0.05) {
+            return QRect();
+        }
+        endSec = ev.startSec + ev.lengthSec;
+        startSec = endSec - len;
+    }
+    const int x0 = timeToX(startSec);
+    const int x1 = timeToX(endSec);
+    if (x1 - x0 < 8) {
+        return QRect();
+    }
+    constexpr int kStripH = 15;
+    return QRect(x0, trackTop + 2, x1 - x0, kStripH);
+}
+
+void TimelineView::paintTransitionStrips(QPainter &p, const Track &track, int trackTop)
+{
+    if (!m_model) {
+        return;
+    }
+    for (const TrackEvent &ev : track.events) {
+        for (const bool fadeIn : {true, false}) {
+            const TransitionInstance &t = fadeIn ? ev.transitionIn : ev.transitionOut;
+            const QRect strip = transitionStripRect(track, ev, trackTop, fadeIn);
+            if (strip.isEmpty()) {
+                continue;
+            }
+            if (strip.right() < headerWidth() || strip.left() > width()) {
+                continue;
+            }
+            const QRect clipped = strip.intersected(
+                QRect(headerWidth(), rulerHeight(), width() - headerWidth(), height()));
+            if (clipped.width() < 8) {
+                continue;
+            }
+            // Selected event gets Vegas's yellow strip; otherwise the violet one.
+            const QColor fill = ev.selected ? QColor(0xd8, 0xd0, 0x40) : QColor(0x8a, 0x60, 0xc0);
+            const QColor text = ev.selected ? QColor(0x20, 0x20, 0x20) : QColor(0xff, 0xff, 0xff);
+            p.setRenderHint(QPainter::Antialiasing, false);
+            p.fillRect(clipped, fill);
+            p.setPen(QPen(QColor(0x20, 0x20, 0x20), 1));
+            p.setBrush(Qt::NoBrush);
+            p.drawRect(clipped.adjusted(0, 0, -1, -1));
+
+            const QRect btn = transitionButtonRect(clipped);
+            QFont f = p.font();
+            f.setPointSize(7);
+            p.setFont(f);
+            p.setPen(text);
+            const QString label = transitionPluginById(t.pluginId)
+                                      ? transitionPluginById(t.pluginId)->name
+                                      : t.pluginId;
+            p.drawText(clipped.adjusted(4, 0, -(btn.width() + 4), 0),
+                       Qt::AlignVCenter | Qt::AlignHCenter, label);
+
+            if (btn.width() >= 8) {
+                p.fillRect(btn, QColor(0xf0, 0xf0, 0xf0, 210));
+                p.setPen(QPen(QColor(0x30, 0x30, 0x30), 1));
+                p.drawRect(btn.adjusted(0, 0, -1, -1));
+                // Tiny "properties" glyph: two stacked slider rows.
+                p.drawLine(btn.left() + 3, btn.center().y() - 2, btn.right() - 3,
+                           btn.center().y() - 2);
+                p.drawLine(btn.left() + 3, btn.center().y() + 2, btn.right() - 3,
+                           btn.center().y() + 2);
+            }
+        }
+    }
+}
+
+bool TimelineView::applyTransitionDrop(const QPoint &pos, const QString &pluginId,
+                                       const QString &presetName)
+{
+    if (!m_model || pluginId.isEmpty()) {
+        return false;
+    }
+    const int ti = trackIndexAtY(pos.y());
+    if (ti < 0 || ti >= m_model->tracks().size()) {
+        return false;
+    }
+    Track &track = m_model->tracks()[ti];
+    if (track.kind != TrackKind::Video) {
+        return false; // Vegas transitions are a video-track concept
+    }
+    const double t = xToTime(pos.x());
+
+    // Prefer a crossfade (stored on the incoming clip's fade-in), then any solo fade the
+    // drop landed inside.
+    TrackEvent *target = nullptr;
+    bool fadeIn = true;
+    for (TrackEvent &ev : track.events) {
+        const double cfIn = incomingCrossfadeSec(track, ev);
+        if (cfIn > 0.05 && t >= ev.startSec && t <= ev.startSec + cfIn) {
+            target = &ev;
+            fadeIn = true;
+            break;
+        }
+    }
+    if (!target) {
+        for (TrackEvent &ev : track.events) {
+            if (ev.fadeInSec > 0.05 && t >= ev.startSec && t <= ev.startSec + ev.fadeInSec) {
+                target = &ev;
+                fadeIn = true;
+                break;
+            }
+            const double end = ev.startSec + ev.lengthSec;
+            if (ev.fadeOutSec > 0.05 && t >= end - ev.fadeOutSec && t <= end) {
+                target = &ev;
+                fadeIn = false;
+                break;
+            }
+        }
+    }
+    if (!target) {
+        return false;
+    }
+
+    emitDocumentEditBegan();
+    const TransitionInstance instance = makeTransitionInstance(pluginId, presetName);
+    if (fadeIn) {
+        target->transitionIn = instance;
+    } else {
+        target->transitionOut = instance;
+    }
+    emitDocumentEditCommitted(tr("Add Transition"));
+    update();
+    return true;
+}
+
+int TimelineView::transitionStripAt(const QPoint &pos, bool *outFadeIn, bool *outOnButton) const
+{
+    if (!m_model) {
+        return -1;
+    }
+    for (int ti = 0; ti < m_model->tracks().size(); ++ti) {
+        const Track &track = m_model->tracks()[ti];
+        const int top = trackY(ti);
+        for (const TrackEvent &ev : track.events) {
+            for (const bool fadeIn : {true, false}) {
+                const QRect strip = transitionStripRect(track, ev, top, fadeIn);
+                if (strip.isEmpty() || !strip.contains(pos)) {
+                    continue;
+                }
+                if (outFadeIn) {
+                    *outFadeIn = fadeIn;
+                }
+                if (outOnButton) {
+                    *outOnButton = transitionButtonRect(strip).contains(pos);
+                }
+                return ev.id;
+            }
+        }
+    }
+    return -1;
+}
+
 void TimelineView::paintCrossfades(QPainter &p, const Track &track, int trackTop)
 {
     if (track.events.size() < 2) {
@@ -2827,6 +3005,7 @@ void TimelineView::paintTracks(QPainter &p)
             p.save();
             p.setClipRect(QRect(headerWidth(), bodyTop, width() - headerWidth(), height() - bodyTop));
             paintCrossfades(p, track, y);
+            paintTransitionStrips(p, track, y);
             p.restore();
 
             if (!m_model->isTrackAudible(index)) {
@@ -3027,6 +3206,19 @@ void TimelineView::mousePressEvent(QMouseEvent *event)
                 update();
             }
             return;
+        }
+
+        // Transition strip button — opens that transition's properties window. Checked
+        // before the event chrome so the strip (which overlays the clip's top edge)
+        // wins the click inside its own bounds.
+        {
+            bool stripFadeIn = false;
+            bool onButton = false;
+            const int stripEventId = transitionStripAt(event->pos(), &stripFadeIn, &onButton);
+            if (stripEventId >= 0 && onButton) {
+                emit transitionPropertiesRequested(stripEventId, stripFadeIn);
+                return;
+            }
         }
 
         Hit edgeHit;
@@ -3892,6 +4084,18 @@ void TimelineView::dropEvent(QDropEvent *event)
     MediaMime::parse(event->mimeData(), &names, &kinds, &paths, &lengths, &extras);
     if (names.isEmpty()) {
         event->ignore();
+        return;
+    }
+
+    // A transition is not a clip: it attaches to the fade/crossfade under the cursor
+    // instead of creating anything on the timeline.
+    if (!kinds.isEmpty() && kinds.first() == QLatin1String("transition")) {
+        const bool applied = applyTransitionDrop(pos, extras.value(0), names.value(0));
+        if (applied) {
+            event->acceptProposedAction();
+        } else {
+            event->ignore();
+        }
         return;
     }
 

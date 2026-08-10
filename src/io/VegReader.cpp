@@ -835,10 +835,88 @@ VegOpenResult VegReader::open(const QString &path, QString *error)
     parsePanCrop(data, &result);
     parseColorGrading(data, &result);
     parseVideoTitlesText(data, &result);
+    // After parseTimelineEvents: each transition is resolved to its owning event by
+    // byte offset, so the event list has to exist first.
+    parseTransitions(data, &result);
     parseFxStateChunks(data, &result);
     assignEventNames(&result);
 
     return result;
+}
+
+void VegReader::parseTransitions(const QByteArray &data, VegOpenResult *result)
+{
+    /*
+     * Byte layout, reverse-engineered from SAMPLES/veg_project/
+     * project_transitions_3d-blinds.veg (12 instances = 4 presets x fade-in/fade-out/
+     * crossfade) and cross-checked against the reference screenshots — every recovered
+     * value matches the preset defaults captured there:
+     *
+     *   [int32 placement]            at GUID-36: 0 = fade-out, non-zero = fade-in
+     *   ...
+     *   [int32 chunkSize = 0x38]     at GUID-4
+     *   [16-byte plug-in GUID]       52 a5 43 c8 eb aa 1c 41 84 81 cf 4c 52 a3 36 e3
+     *   [36 bytes of fixed fields]
+     *   [int32 nameLenBytes]         at GUID+48, UTF-16 length incl. null terminator
+     *   [UTF-16 preset name]         at GUID+52
+     *   [int32 divisions][int32 extraSpins][double stagger][double specular][int32 dir]
+     *
+     * Only 3D Blinds is known so far; the GUID identifies that one plug-in, so other
+     * transition groups are simply not recovered rather than mis-parsed.
+     */
+    static const uchar kBlindsGuid[16] = {0x52, 0xa5, 0x43, 0xc8, 0xeb, 0xaa, 0x1c, 0x41,
+                                          0x84, 0x81, 0xcf, 0x4c, 0x52, 0xa3, 0x36, 0xe3};
+    const uchar *base = reinterpret_cast<const uchar *>(data.constData());
+    const int n = data.size();
+
+    for (int off = 36; off + 16 + 52 <= n; ++off) {
+        if (std::memcmp(base + off, kBlindsGuid, 16) != 0) {
+            continue;
+        }
+        const qint32 nameLen = qFromLittleEndian<qint32>(base + off + 48);
+        if (nameLen < 4 || nameLen > 512 || off + 52 + nameLen + 28 > n) {
+            continue;
+        }
+        VegTransitionInfo info;
+        info.offset = off;
+        info.presetName = QString::fromUtf16(
+            reinterpret_cast<const char16_t *>(base + off + 52), (nameLen - 2) / 2);
+        const int p = off + 52 + nameLen;
+        info.divisions = qFromLittleEndian<qint32>(base + p);
+        info.extraSpins = qFromLittleEndian<qint32>(base + p + 4);
+        info.stagger = qFromLittleEndian<double>(base + p + 8);
+        info.specularLight = qFromLittleEndian<double>(base + p + 16);
+        info.direction = qFromLittleEndian<qint32>(base + p + 24);
+        info.fadeOut = qFromLittleEndian<qint32>(base + off - 36) == 0;
+
+        // Sanity-gate against the ranges the plug-in actually exposes, so a false GUID
+        // match cannot inject nonsense parameters.
+        if (info.divisions < 1 || info.divisions > 16 || info.extraSpins < 0
+            || info.extraSpins > 10 || !std::isfinite(info.stagger) || info.stagger < -0.001
+            || info.stagger > 1.001 || !std::isfinite(info.specularLight)
+            || info.specularLight < -0.001 || info.specularLight > 1.001 || info.direction < 0
+            || info.direction > 3) {
+            continue;
+        }
+
+        // The chunk is nested inside its event's chunk, so the owning event is the last
+        // timing record that starts before it.
+        for (const VegEventInfo &ev : result->events) {
+            if (ev.kind != VegEventInfo::Kind::Video || ev.offset < 0 || ev.offset > off) {
+                continue;
+            }
+            if (info.eventStartSec < 0.0 || ev.offset > info.eventOffsetForCompare) {
+                info.eventStartSec = ev.startSec;
+                info.eventOffsetForCompare = ev.offset;
+            }
+        }
+        result->transitions.push_back(info);
+    }
+
+    if (!result->transitions.isEmpty()) {
+        result->warnings << QStringLiteral("Recovered %1 transition(s) from the binary.")
+                                .arg(result->transitions.size());
+    }
 }
 
 void VegReader::parseTrackMotion(const QByteArray &data, VegOpenResult *result)

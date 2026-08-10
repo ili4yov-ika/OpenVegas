@@ -1,6 +1,8 @@
 #pragma once
 
 #include <QDialog>
+#include <QHash>
+#include <QString>
 
 class QLabel;
 class QPlainTextEdit;
@@ -11,6 +13,7 @@ class QToolButton;
 class QComboBox;
 class QSlider;
 class QCheckBox;
+class QSplitter;
 
 namespace openvegas {
 
@@ -18,6 +21,7 @@ struct TrackEvent;
 class CollapsibleSection;
 class ColorPickerWidget;
 class LocationPad;
+class TitlesTextKeyframePane;
 
 /**
  * Floating, non-modal property window for a VEGAS Titles & Text generator event —
@@ -34,7 +38,7 @@ class TitlesTextEditorDialog : public QDialog {
 public:
     explicit TitlesTextEditorDialog(QWidget *parent = nullptr);
 
-    void setEvent(TrackEvent *ev, int frameWidth, int frameHeight);
+    void setEvent(TrackEvent *ev, int frameWidth, int frameHeight, double frameRateFps);
     TrackEvent *event() const { return m_event; }
     /** Re-reads the current event's params into every field — for external edits (the
      *  on-canvas Video Preview move/resize overlay) that write straight to the event
@@ -52,14 +56,22 @@ private:
     void loadFromEvent();
     void saveToEvent();
     void syncUiEnabled();
+    void openMediaProperties();
+    /** Clock button next to an animatable row: keyframes it at the pane's playhead. */
+    QToolButton *makeKeyframeButton(QWidget *parent, const QString &paramKey);
+    void refreshKeyframePane();
+    /** Repaints every clock button so animated parameters read as animated. */
+    void syncKeyframeButtons();
 
     TrackEvent *m_event = nullptr;
     int m_frameWidth = 1920;
     int m_frameHeight = 1080;
+    double m_frameRateFps = 30.0;
     bool m_block = false;
 
     QLabel *m_frameSizeLabel = nullptr;
     QDoubleSpinBox *m_durationSpin = nullptr;
+    QToolButton *m_mediaPropsBtn = nullptr;
 
     QPlainTextEdit *m_textEdit = nullptr;
     QFontComboBox *m_fontCombo = nullptr;
@@ -91,6 +103,10 @@ private:
     CollapsibleSection *m_outlineSection = nullptr;
     QDoubleSpinBox *m_outlineWidthSpin = nullptr;
     ColorPickerWidget *m_outlineColorPicker = nullptr;
+
+    QSplitter *m_splitter = nullptr;
+    TitlesTextKeyframePane *m_keyframePane = nullptr;
+    QHash<QString, QToolButton *> m_keyframeButtons;
 
     CollapsibleSection *m_shadowSection = nullptr;
     QCheckBox *m_shadowEnableCheckbox = nullptr;

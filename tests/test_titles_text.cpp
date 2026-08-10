@@ -207,3 +207,211 @@ TEST_CASE("titlesTextBoundingBox scales around a fixed anchor point", "[video][t
     CHECK(box2.width() > box1.width());
     CHECK(box2.height() > box1.height());
 }
+
+// Media Properties (the generator window's toolbar button) ride along inside the very
+// same params blob as the text settings, so they inherit its project-archive/undo
+// serialization for free — but only as long as every field is actually mapped. These
+// guard that: a field added to GeneratorMediaProps but forgotten in
+// titlesTextToMap/titlesTextFromMap would silently reset on save/load.
+
+TEST_CASE("GeneratorMediaProps round-trips through titlesTextToMap/FromMap",
+         "[video][titles-text][media-props]")
+{
+    TitlesTextParams p;
+    p.media.tapeName = QStringLiteral("Reel 07");
+    p.media.useCustomTimecode = true;
+    p.media.customTimecodeSec = 12.5;
+    p.media.frameWidth = 3840;
+    p.media.frameHeight = 2160;
+    p.media.fieldOrder = MediaFieldOrder::UpperFieldFirst;
+    p.media.pixelAspect = 0.9091;
+    p.media.alphaChannel = MediaAlphaChannel::Straight;
+    p.media.backgroundColor = QColor(10, 20, 30, 255);
+    p.media.rotation = MediaRotation::Deg90Clockwise;
+
+    const TitlesTextParams back = titlesTextFromMap(titlesTextToMap(p));
+
+    CHECK(back.media.tapeName == QStringLiteral("Reel 07"));
+    CHECK(back.media.useCustomTimecode);
+    CHECK(back.media.customTimecodeSec == Catch::Approx(12.5));
+    CHECK(back.media.frameWidth == 3840);
+    CHECK(back.media.frameHeight == 2160);
+    CHECK(back.media.fieldOrder == MediaFieldOrder::UpperFieldFirst);
+    CHECK(back.media.pixelAspect == Catch::Approx(0.9091));
+    CHECK(back.media.alphaChannel == MediaAlphaChannel::Straight);
+    CHECK(back.media.backgroundColor == QColor(10, 20, 30, 255));
+    CHECK(back.media.rotation == MediaRotation::Deg90Clockwise);
+}
+
+TEST_CASE("GeneratorMediaProps defaults survive a params map with no media keys",
+         "[video][titles-text][media-props]")
+{
+    // Older projects (and every project saved before Media Properties existed) have no
+    // "media.*" keys at all — those must fall back to the struct's own defaults rather
+    // than to zeroes, or a load would silently claim 0x0 frame size / Undefined alpha.
+    QVariantMap legacy = titlesTextToMap(TitlesTextParams());
+    for (const QString &key : legacy.keys()) {
+        if (key.startsWith(QStringLiteral("media."))) {
+            legacy.remove(key);
+        }
+    }
+    const TitlesTextParams back = titlesTextFromMap(legacy);
+    const GeneratorMediaProps def;
+    CHECK(back.media.frameWidth == def.frameWidth);
+    CHECK(back.media.frameHeight == def.frameHeight);
+    CHECK(back.media.pixelAspect == Catch::Approx(def.pixelAspect));
+    CHECK(back.media.alphaChannel == def.alphaChannel);
+    CHECK(back.media.rotation == def.rotation);
+    CHECK(back.media.backgroundColor == def.backgroundColor);
+}
+
+TEST_CASE("titlesTextFromMap clamps out-of-range media enum values",
+         "[video][titles-text][media-props]")
+{
+    // Hand-edited / corrupted state must not produce an out-of-range enum that would
+    // index past the dialog's combo boxes.
+    QVariantMap m = titlesTextToMap(TitlesTextParams());
+    m[QStringLiteral("media.fieldOrder")] = 99;
+    m[QStringLiteral("media.alphaChannel")] = -5;
+    m[QStringLiteral("media.rotation")] = 42;
+    const TitlesTextParams back = titlesTextFromMap(m);
+    CHECK(back.media.fieldOrder == MediaFieldOrder::LowerFieldFirst);
+    CHECK(back.media.alphaChannel == MediaAlphaChannel::Undefined);
+    CHECK(back.media.rotation == MediaRotation::Deg90CounterClockwise);
+}
+
+// Parameter keyframes (the generator window's keyframe pane). titlesTextAtTime() is what
+// VideoCompositor actually renders through, so these guard the evaluation contract as
+// much as the storage one.
+
+TEST_CASE("titlesTextAtTime returns the params unchanged when nothing is animated",
+         "[video][titles-text][keyframes]")
+{
+    TitlesTextParams p;
+    p.scale = 1.5;
+    p.locationX = 0.25;
+    const TitlesTextParams at = titlesTextAtTime(p, 3.0);
+    CHECK(at.scale == Catch::Approx(1.5));
+    CHECK(at.locationX == Catch::Approx(0.25));
+    CHECK(at.lanes.isEmpty());
+}
+
+TEST_CASE("titlesTextAtTime interpolates linearly between two keyframes",
+         "[video][titles-text][keyframes]")
+{
+    TitlesTextParams p;
+    titlesTextSetKeyframe(&p, QStringLiteral("scale"), 0.0, 1.0, VideoKeyframeType::Linear);
+    titlesTextSetKeyframe(&p, QStringLiteral("scale"), 4.0, 3.0, VideoKeyframeType::Linear);
+
+    CHECK(titlesTextAtTime(p, 0.0).scale == Catch::Approx(1.0));
+    CHECK(titlesTextAtTime(p, 2.0).scale == Catch::Approx(2.0));
+    CHECK(titlesTextAtTime(p, 4.0).scale == Catch::Approx(3.0));
+}
+
+TEST_CASE("titlesTextAtTime holds the end values outside the keyframe range",
+         "[video][titles-text][keyframes]")
+{
+    // Before the first and after the last keyframe Vegas holds, it does not extrapolate —
+    // the curve drawn in the pane has that same flat tail.
+    TitlesTextParams p;
+    titlesTextSetKeyframe(&p, QStringLiteral("locationX"), 2.0, 0.2);
+    titlesTextSetKeyframe(&p, QStringLiteral("locationX"), 4.0, 0.8);
+
+    CHECK(titlesTextAtTime(p, 0.0).locationX == Catch::Approx(0.2));
+    CHECK(titlesTextAtTime(p, 100.0).locationX == Catch::Approx(0.8));
+}
+
+TEST_CASE("titlesTextAtTime animates each lane independently",
+         "[video][titles-text][keyframes]")
+{
+    TitlesTextParams p;
+    p.locationY = 0.9; // static, no lane — must survive untouched
+    titlesTextSetKeyframe(&p, QStringLiteral("locationX"), 0.0, 0.0);
+    titlesTextSetKeyframe(&p, QStringLiteral("locationX"), 2.0, 1.0);
+    titlesTextSetKeyframe(&p, QStringLiteral("shadowBlur"), 0.0, 0.0);
+    titlesTextSetKeyframe(&p, QStringLiteral("shadowBlur"), 2.0, 10.0);
+
+    const TitlesTextParams at = titlesTextAtTime(p, 1.0);
+    CHECK(at.locationX == Catch::Approx(0.5));
+    CHECK(at.shadowBlur == Catch::Approx(5.0));
+    CHECK(at.locationY == Catch::Approx(0.9));
+}
+
+TEST_CASE("titlesTextSetKeyframe replaces a keyframe at the same time and keeps order sorted",
+         "[video][titles-text][keyframes]")
+{
+    TitlesTextParams p;
+    titlesTextSetKeyframe(&p, QStringLiteral("scale"), 4.0, 3.0);
+    titlesTextSetKeyframe(&p, QStringLiteral("scale"), 1.0, 2.0);
+    titlesTextSetKeyframe(&p, QStringLiteral("scale"), 4.0, 9.0); // replaces, not appends
+
+    const TitlesTextParamLane *lane = titlesTextFindLane(p, QStringLiteral("scale"));
+    REQUIRE(lane);
+    REQUIRE(lane->keys.size() == 2);
+    CHECK(lane->keys[0].timeSec == Catch::Approx(1.0));
+    CHECK(lane->keys[1].timeSec == Catch::Approx(4.0));
+    CHECK(lane->keys[1].value == Catch::Approx(9.0));
+}
+
+TEST_CASE("titlesTextRemoveKeyframe drops the lane once its last keyframe is gone",
+         "[video][titles-text][keyframes]")
+{
+    // A lane left behind empty would keep the parameter showing as "animated" in the UI
+    // while evaluating statically — the two must never disagree.
+    TitlesTextParams p;
+    titlesTextSetKeyframe(&p, QStringLiteral("tracking"), 1.0, 5.0);
+    REQUIRE(titlesTextFindLane(p, QStringLiteral("tracking")) != nullptr);
+
+    CHECK(titlesTextRemoveKeyframe(&p, QStringLiteral("tracking"), 1.0));
+    CHECK(titlesTextFindLane(p, QStringLiteral("tracking")) == nullptr);
+    CHECK(p.lanes.isEmpty());
+    // Removing again is a no-op, not a crash.
+    CHECK_FALSE(titlesTextRemoveKeyframe(&p, QStringLiteral("tracking"), 1.0));
+}
+
+TEST_CASE("Keyframe lanes round-trip through titlesTextToMap/FromMap",
+         "[video][titles-text][keyframes]")
+{
+    TitlesTextParams p;
+    titlesTextSetKeyframe(&p, QStringLiteral("locationX"), 0.0, 0.1, VideoKeyframeType::Smooth);
+    titlesTextSetKeyframe(&p, QStringLiteral("locationX"), 2.5, 0.9, VideoKeyframeType::Hold);
+    titlesTextSetKeyframe(&p, QStringLiteral("scale"), 1.0, 2.0, VideoKeyframeType::Linear);
+
+    const TitlesTextParams back = titlesTextFromMap(titlesTextToMap(p));
+
+    const TitlesTextParamLane *loc = titlesTextFindLane(back, QStringLiteral("locationX"));
+    REQUIRE(loc);
+    REQUIRE(loc->keys.size() == 2);
+    CHECK(loc->keys[0].timeSec == Catch::Approx(0.0));
+    CHECK(loc->keys[0].value == Catch::Approx(0.1));
+    CHECK(loc->keys[0].type == VideoKeyframeType::Smooth);
+    CHECK(loc->keys[1].type == VideoKeyframeType::Hold);
+    REQUIRE(titlesTextFindLane(back, QStringLiteral("scale")) != nullptr);
+    // Parameters that were never keyframed must not gain an empty lane on the way back.
+    CHECK(titlesTextFindLane(back, QStringLiteral("shadowBlur")) == nullptr);
+}
+
+TEST_CASE("A static generator's serialized map carries no keyframe keys at all",
+         "[video][titles-text][keyframes]")
+{
+    const QVariantMap m = titlesTextToMap(TitlesTextParams());
+    for (const QString &key : m.keys()) {
+        INFO("unexpected keyframe key: " << key.toStdString());
+        CHECK_FALSE(key.startsWith(QStringLiteral("kf.")));
+    }
+}
+
+TEST_CASE("titlesTextParamValue/SetParamValue cover every animatable parameter",
+         "[video][titles-text][keyframes]")
+{
+    // Guards the hand-written key dispatch: a parameter listed in the pane's tree but
+    // missing from the getter/setter would silently keyframe to a constant 0.
+    TitlesTextParams p;
+    double probe = 1.0;
+    for (const TitlesTextAnimatableParam &ap : titlesTextAnimatableParams()) {
+        probe += 1.0;
+        INFO("param: " << ap.key.toStdString());
+        titlesTextSetParamValue(&p, ap.key, probe);
+        CHECK(titlesTextParamValue(p, ap.key) == Catch::Approx(probe));
+    }
+}

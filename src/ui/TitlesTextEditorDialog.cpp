@@ -3,6 +3,9 @@
 #include "model/ProjectModel.h"
 #include "ui/CollapsibleSection.h"
 #include "ui/ColorPickerWidget.h"
+#include "ui/IconFactory.h"
+#include "ui/MediaPropertiesDialog.h"
+#include "ui/TitlesTextKeyframePane.h"
 #include "video/TitlesTextApply.h"
 
 #include <QCheckBox>
@@ -19,6 +22,7 @@
 #include <QScrollArea>
 #include <QSlider>
 #include <QSpinBox>
+#include <QSplitter>
 #include <QToolButton>
 #include <QVBoxLayout>
 
@@ -103,16 +107,31 @@ void TitlesTextEditorDialog::buildUi()
 {
     auto *root = new QVBoxLayout(this);
 
-    auto *header = new QFormLayout();
+    // Vegas puts Frame Size / Duration on one strip with the generator's toolbar buttons
+    // right-aligned on it. Only the Media Properties button is real here — the rest of
+    // Vegas's strip (help / fx+ / settings) is deliberately not stubbed out.
+    auto *header = new QHBoxLayout();
+    header->addWidget(new QLabel(tr("Frame Size:"), this));
     m_frameSizeLabel = new QLabel(this);
-    header->addRow(tr("Frame Size:"), m_frameSizeLabel);
+    header->addWidget(m_frameSizeLabel);
+    header->addSpacing(16);
+    header->addWidget(new QLabel(tr("Duration:"), this));
     m_durationSpin = new QDoubleSpinBox(this);
     m_durationSpin->setRange(0.1, 3600.0);
     m_durationSpin->setDecimals(2);
     m_durationSpin->setSuffix(tr(" s"));
-    header->addRow(tr("Duration:"), m_durationSpin);
+    header->addWidget(m_durationSpin);
+    header->addStretch(1);
+    m_mediaPropsBtn = IconFactory::toolButton(this, tr("Media Properties…"),
+                                              IconFactory::svgMediaProps());
+    connect(m_mediaPropsBtn, &QToolButton::clicked, this,
+            &TitlesTextEditorDialog::openMediaProperties);
+    header->addWidget(m_mediaPropsBtn);
     root->addLayout(header);
     root->addWidget(new QLabel(QStringLiteral("<b>VEGAS Titles &amp; Text</b>"), this));
+
+    // Built before the parameter rows so their clock buttons can bind to it.
+    m_keyframePane = new TitlesTextKeyframePane(this);
 
     auto *scroll = new QScrollArea(this);
     scroll->setWidgetResizable(true);
@@ -124,7 +143,8 @@ void TitlesTextEditorDialog::buildUi()
     // QSlider that mirrors it bidirectionally; the spinbox's own valueChanged (already
     // wired to saveToEvent() below) stays the single source of truth, so no matter which
     // control the user drags, the same "apply" path runs exactly once.
-    auto sliderSpinRow = [](QDoubleSpinBox *spin) -> QWidget * {
+    auto sliderSpinRow = [this](QDoubleSpinBox *spin,
+                                const QString &paramKey = QString()) -> QWidget * {
         auto *row = new QWidget(spin->parentWidget());
         auto *lay = new QHBoxLayout(row);
         lay->setContentsMargins(0, 0, 0, 0);
@@ -144,6 +164,9 @@ void TitlesTextEditorDialog::buildUi()
                [slider, toSliderPos](double v) { slider->setValue(toSliderPos(v)); });
         lay->addWidget(slider, 1);
         lay->addWidget(spin);
+        if (!paramKey.isEmpty()) {
+            lay->addWidget(makeKeyframeButton(row, paramKey));
+        }
         return row;
     };
 
@@ -197,7 +220,7 @@ void TitlesTextEditorDialog::buildUi()
     m_scaleSpin->setRange(0.01, 20.0);
     m_scaleSpin->setSingleStep(0.05);
     m_scaleSpin->setDecimals(3);
-    scaleRow->addRow(tr("Scale:"), sliderSpinRow(m_scaleSpin));
+    scaleRow->addRow(tr("Scale:"), sliderSpinRow(m_scaleSpin, QStringLiteral("scale")));
     bodyLay->addLayout(scaleRow);
 
     m_locationSection = new CollapsibleSection(tr("Location"), body);
@@ -222,8 +245,18 @@ void TitlesTextEditorDialog::buildUi()
     m_locationYSpin->setRange(-2.0, 3.0);
     m_locationYSpin->setDecimals(3);
     m_locationYSpin->setSingleStep(0.01);
-    locSpins->addRow(tr("Location X:"), m_locationXSpin);
-    locSpins->addRow(tr("Location Y:"), m_locationYSpin);
+    auto spinWithKeyframe = [this](QDoubleSpinBox *spin, const QString &paramKey) -> QWidget * {
+        auto *row = new QWidget(spin->parentWidget());
+        auto *lay = new QHBoxLayout(row);
+        lay->setContentsMargins(0, 0, 0, 0);
+        lay->addWidget(spin, 1);
+        lay->addWidget(makeKeyframeButton(row, paramKey));
+        return row;
+    };
+    locSpins->addRow(tr("Location X:"),
+                     spinWithKeyframe(m_locationXSpin, QStringLiteral("locationX")));
+    locSpins->addRow(tr("Location Y:"),
+                     spinWithKeyframe(m_locationYSpin, QStringLiteral("locationY")));
     locRow->addLayout(locSpins);
     m_locationSection->setContentWidget(locBody);
     bodyLay->addWidget(m_locationSection);
@@ -247,11 +280,12 @@ void TitlesTextEditorDialog::buildUi()
     m_trackingSpin = new QDoubleSpinBox(advBody);
     m_trackingSpin->setRange(-50.0, 50.0);
     m_trackingSpin->setDecimals(2);
-    advLay->addRow(tr("Tracking:"), sliderSpinRow(m_trackingSpin));
+    advLay->addRow(tr("Tracking:"), sliderSpinRow(m_trackingSpin, QStringLiteral("tracking")));
     m_lineSpacingSpin = new QDoubleSpinBox(advBody);
     m_lineSpacingSpin->setRange(0.1, 5.0);
     m_lineSpacingSpin->setDecimals(2);
-    advLay->addRow(tr("Line spacing:"), sliderSpinRow(m_lineSpacingSpin));
+    advLay->addRow(tr("Line spacing:"),
+                   sliderSpinRow(m_lineSpacingSpin, QStringLiteral("lineSpacing")));
     m_advancedSection->setContentWidget(advBody);
     bodyLay->addWidget(m_advancedSection);
 
@@ -261,7 +295,8 @@ void TitlesTextEditorDialog::buildUi()
     m_outlineWidthSpin = new QDoubleSpinBox(outBody);
     m_outlineWidthSpin->setRange(0.0, 100.0);
     m_outlineWidthSpin->setDecimals(2);
-    outLay->addRow(tr("Outline width:"), sliderSpinRow(m_outlineWidthSpin));
+    outLay->addRow(tr("Outline width:"),
+                   sliderSpinRow(m_outlineWidthSpin, QStringLiteral("outlineWidth")));
     m_outlineColorPicker = new ColorPickerWidget(outBody);
     outLay->addRow(tr("Outline color:"), m_outlineColorPicker);
     m_outlineSection->setContentWidget(outBody);
@@ -277,21 +312,62 @@ void TitlesTextEditorDialog::buildUi()
     m_shadowOffsetXSpin = new QDoubleSpinBox(shBody);
     m_shadowOffsetXSpin->setRange(-20.0, 20.0);
     m_shadowOffsetXSpin->setDecimals(2);
-    shLay->addRow(tr("Shadow offset X:"), sliderSpinRow(m_shadowOffsetXSpin));
+    shLay->addRow(tr("Shadow offset X:"),
+                  sliderSpinRow(m_shadowOffsetXSpin, QStringLiteral("shadowOffsetX")));
     m_shadowOffsetYSpin = new QDoubleSpinBox(shBody);
     m_shadowOffsetYSpin->setRange(-20.0, 20.0);
     m_shadowOffsetYSpin->setDecimals(2);
-    shLay->addRow(tr("Shadow offset Y:"), sliderSpinRow(m_shadowOffsetYSpin));
+    shLay->addRow(tr("Shadow offset Y:"),
+                  sliderSpinRow(m_shadowOffsetYSpin, QStringLiteral("shadowOffsetY")));
     m_shadowBlurSpin = new QDoubleSpinBox(shBody);
     m_shadowBlurSpin->setRange(0.0, 20.0);
     m_shadowBlurSpin->setDecimals(2);
-    shLay->addRow(tr("Shadow blur:"), sliderSpinRow(m_shadowBlurSpin));
+    shLay->addRow(tr("Shadow blur:"), sliderSpinRow(m_shadowBlurSpin, QStringLiteral("shadowBlur")));
     m_shadowSection->setContentWidget(shBody);
     bodyLay->addWidget(m_shadowSection);
 
     bodyLay->addStretch(1);
     scroll->setWidget(body);
-    root->addWidget(scroll, 1);
+
+    // Vegas splits the window: parameters on top, keyframe pane below, user-resizable.
+    m_splitter = new QSplitter(Qt::Vertical, this);
+    m_splitter->addWidget(scroll);
+    m_splitter->addWidget(m_keyframePane);
+    m_splitter->setStretchFactor(0, 3);
+    m_splitter->setStretchFactor(1, 1);
+    m_splitter->setSizes({520, 200});
+    root->addWidget(m_splitter, 1);
+
+    connect(m_keyframePane, &TitlesTextKeyframePane::paramsEdited, this,
+            [this](const TitlesTextParams &edited) {
+                if (!m_event || m_event->fxChain.isEmpty()) {
+                    return;
+                }
+                titlesTextSaveToSlot(&m_event->fxChain[0], edited);
+                // Reflect the keyframed value at the pane's playhead in the spin boxes,
+                // so the parameter rows and the curve never disagree.
+                m_block = true;
+                const TitlesTextParams shown =
+                    titlesTextAtTime(edited, m_keyframePane->playheadSec());
+                m_scaleSpin->setValue(shown.scale);
+                m_locationXSpin->setValue(shown.locationX);
+                m_locationYSpin->setValue(shown.locationY);
+                m_trackingSpin->setValue(shown.tracking);
+                m_lineSpacingSpin->setValue(shown.lineSpacing);
+                m_outlineWidthSpin->setValue(shown.outlineWidth);
+                m_shadowOffsetXSpin->setValue(shown.shadowOffsetX);
+                m_shadowOffsetYSpin->setValue(shown.shadowOffsetY);
+                m_shadowBlurSpin->setValue(shown.shadowBlur);
+                m_locationPad->setPosition(std::clamp(shown.locationX, 0.0, 1.0),
+                                           std::clamp(shown.locationY, 0.0, 1.0));
+                m_block = false;
+                syncKeyframeButtons();
+                emit previewInvalidated();
+            });
+    connect(m_keyframePane, &TitlesTextKeyframePane::playheadMoved, this, [this](double) {
+        refreshKeyframePane();
+        emit previewInvalidated();
+    });
 
     auto *closeBtn = new QPushButton(tr("Close"), this);
     connect(closeBtn, &QPushButton::clicked, this, &QDialog::close);
@@ -380,11 +456,13 @@ void TitlesTextEditorDialog::buildUi()
             [this](double) { saveToEvent(); });
 }
 
-void TitlesTextEditorDialog::setEvent(TrackEvent *ev, int frameWidth, int frameHeight)
+void TitlesTextEditorDialog::setEvent(TrackEvent *ev, int frameWidth, int frameHeight,
+                                      double frameRateFps)
 {
     m_event = ev;
     m_frameWidth = frameWidth;
     m_frameHeight = frameHeight;
+    m_frameRateFps = frameRateFps > 0.001 ? frameRateFps : 30.0;
     m_frameSizeLabel->setText(QStringLiteral("%1 x %2").arg(frameWidth).arg(frameHeight));
     loadFromEvent();
 }
@@ -451,6 +529,7 @@ void TitlesTextEditorDialog::loadFromEvent()
 
     m_block = false;
     syncUiEnabled();
+    refreshKeyframePane();
 }
 
 void TitlesTextEditorDialog::saveToEvent()
@@ -458,7 +537,10 @@ void TitlesTextEditorDialog::saveToEvent()
     if (m_block || !m_event || m_event->fxChain.isEmpty()) {
         return;
     }
-    TitlesTextParams p;
+    // Start from what's stored, not from a default-constructed struct: Media Properties
+    // and keyframe lanes have no widgets of their own here, so building `p` from scratch
+    // would silently wipe them on the next spin-box nudge.
+    TitlesTextParams p = titlesTextFromSlot(m_event->fxChain[0]);
     p.text = m_textEdit->toPlainText();
     p.fontFamily = m_fontCombo->currentFont().family();
     p.fontSize = m_fontSizeSpin->value();
@@ -498,6 +580,18 @@ void TitlesTextEditorDialog::saveToEvent()
     p.shadowOffsetY = m_shadowOffsetYSpin->value();
     p.shadowBlur = m_shadowBlurSpin->value();
 
+    // Vegas: editing a parameter that is already animated writes a keyframe at the
+    // cursor instead of a static value (which the lane would override anyway, making
+    // the edit look like it did nothing).
+    if (m_keyframePane) {
+        const double t = m_keyframePane->playheadSec();
+        for (const TitlesTextAnimatableParam &ap : titlesTextAnimatableParams()) {
+            if (titlesTextFindLane(p, ap.key)) {
+                titlesTextSetKeyframe(&p, ap.key, t, titlesTextParamValue(p, ap.key));
+            }
+        }
+    }
+
     titlesTextSaveToSlot(&m_event->fxChain[0], p);
 
     m_block = true;
@@ -505,6 +599,88 @@ void TitlesTextEditorDialog::saveToEvent()
                                std::clamp(p.locationY, 0.0, 1.0));
     m_block = false;
 
+    refreshKeyframePane();
+    emit previewInvalidated();
+}
+
+QToolButton *TitlesTextEditorDialog::makeKeyframeButton(QWidget *parent, const QString &paramKey)
+{
+    auto *btn = IconFactory::toolButton(parent, tr("Add/Remove Keyframe"), IconFactory::svgMarker());
+    btn->setFixedSize(20, 20);
+    connect(btn, &QToolButton::clicked, this, [this, paramKey]() {
+        if (!m_keyframePane) {
+            return;
+        }
+        const double t = m_keyframePane->playheadSec();
+        if (m_keyframePane->isAnimated(paramKey) && m_event && !m_event->fxChain.isEmpty()) {
+            // Second click on an existing keyframe removes it (Vegas's red-clock state).
+            TitlesTextParams p = titlesTextFromSlot(m_event->fxChain[0]);
+            if (titlesTextRemoveKeyframe(&p, paramKey, t)) {
+                titlesTextSaveToSlot(&m_event->fxChain[0], p);
+                refreshKeyframePane();
+                emit previewInvalidated();
+                return;
+            }
+        }
+        m_keyframePane->addKeyframeForParam(paramKey);
+    });
+    m_keyframeButtons.insert(paramKey, btn);
+    return btn;
+}
+
+void TitlesTextEditorDialog::syncKeyframeButtons()
+{
+    if (!m_keyframePane) {
+        return;
+    }
+    for (auto it = m_keyframeButtons.constBegin(); it != m_keyframeButtons.constEnd(); ++it) {
+        const bool animated = m_keyframePane->isAnimated(it.key());
+        it.value()->setIcon(IconFactory::iconFromSvgBody(
+            IconFactory::svgMarker(), 16,
+            animated ? QColor(0xe0, 0x50, 0x50) : QColor(0xa0, 0xa0, 0xa0)));
+        it.value()->setToolTip(animated ? tr("Remove Keyframe") : tr("Add Keyframe"));
+    }
+}
+
+void TitlesTextEditorDialog::refreshKeyframePane()
+{
+    if (!m_keyframePane || !m_event || m_event->fxChain.isEmpty()) {
+        return;
+    }
+    m_keyframePane->setParams(titlesTextFromSlot(m_event->fxChain[0]), m_event->lengthSec,
+                              m_frameRateFps);
+    syncKeyframeButtons();
+}
+
+void TitlesTextEditorDialog::openMediaProperties()
+{
+    if (!m_event || m_event->fxChain.isEmpty()) {
+        return;
+    }
+    const TitlesTextParams current = titlesTextFromSlot(m_event->fxChain[0]);
+
+    MediaPropertiesDialog dlg(this);
+    dlg.setMedia(m_event->name, current.media, m_event->lengthSec, m_frameRateFps, m_frameWidth,
+                 m_frameHeight);
+    if (dlg.exec() != QDialog::Accepted) {
+        return;
+    }
+
+    // Re-read rather than reusing `current`: the dialog is modal, but saveToEvent() may
+    // still have run in between (e.g. the on-canvas preview overlay), so the rest of the
+    // params must come from the event as it is now, not from the pre-dialog snapshot.
+    TitlesTextParams p = titlesTextFromSlot(m_event->fxChain[0]);
+    p.media = dlg.mediaProps();
+    titlesTextSaveToSlot(&m_event->fxChain[0], p);
+
+    const double newLength = dlg.lengthSec();
+    if (newLength > 0.05 && std::abs(newLength - m_event->lengthSec) > 1e-6) {
+        m_event->lengthSec = newLength;
+        m_block = true;
+        m_durationSpin->setValue(m_event->lengthSec);
+        m_block = false;
+        emit durationChanged();
+    }
     emit previewInvalidated();
 }
 

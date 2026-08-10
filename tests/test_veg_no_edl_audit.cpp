@@ -50,6 +50,7 @@ const QStringList &sampleProjectNames()
         QStringLiteral("project_sample_for_project_audio_trims-and-crossfade.veg"),
         QStringLiteral("project_sample_for_project_pictures.veg"),
         QStringLiteral("project_titles-and-text.veg"),
+        QStringLiteral("project_transitions_3d-blinds.veg"),
     };
     return names;
 }

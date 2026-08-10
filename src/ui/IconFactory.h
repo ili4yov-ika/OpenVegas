@@ -50,6 +50,8 @@ public:
     static QString svgRecord();
     static QString svgAutoPreview();
     static QString svgCapture();
+    /** Framed picture — Vegas's "Media Properties…" toolbar button. */
+    static QString svgMediaProps();
     static QString svgCdExtract();
     static QString svgWeb();
     static QString svgFilter();

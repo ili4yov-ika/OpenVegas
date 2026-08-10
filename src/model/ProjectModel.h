@@ -1,6 +1,7 @@
 #pragma once
 
 #include "plugins/AudioPluginTypes.h"
+#include "video/TransitionApply.h"
 
 #include <QColor>
 #include <QVector>
@@ -384,6 +385,14 @@ struct TrackEvent {
     EventPanCropState panCrop;
     /** Event-level automation (e.g. gain envelope). */
     QVector<AutomationLane> automationLanes;
+    /**
+     * Transition placed on this event's fade-in / fade-out region. A crossfade with the
+     * previous clip is that clip's fade-out overlapping this one's fade-in, and Vegas
+     * shows one transition there — this model keeps it on the incoming event's fade-in,
+     * which is the region the timeline strip is drawn over.
+     */
+    TransitionInstance transitionIn;
+    TransitionInstance transitionOut;
 
     bool operator==(const TrackEvent &o) const
     {
@@ -395,7 +404,8 @@ struct TrackEvent {
                && fadeOutCurve == o.fadeOutCurve && opacity == o.opacity && gainDb == o.gainDb
                && mediaKind == o.mediaKind && groupId == o.groupId && firstChannel == o.firstChannel
                && channelCount == o.channelCount && fxChain == o.fxChain && panCrop == o.panCrop
-               && automationLanes == o.automationLanes;
+               && automationLanes == o.automationLanes && transitionIn == o.transitionIn
+               && transitionOut == o.transitionOut;
     }
     bool operator!=(const TrackEvent &o) const { return !(*this == o); }
 
@@ -1069,6 +1079,8 @@ private:
     void applyVideoTrackFxFromVeg(const VegOpenResult &veg);
     /** Recreate VEGAS Titles & Text generator events on a new top-most video track. */
     void applyTitlesTextFromVeg(const VegOpenResult &veg);
+    /** Attach transitions recovered from the binary to the matching events' fades. */
+    void applyTransitionsFromVeg(const VegOpenResult &veg);
     /** Attach UTF-16 Audio Event FX names onto audio clip events (if chain empty). */
     void applyAudioEventFxFromVeg(const VegOpenResult &veg);
     /**

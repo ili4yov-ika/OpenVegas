@@ -36,6 +36,9 @@ endif()
     src/ui/WelcomeDialog.cpp
     src/ui/ProjectPropertiesDialog.cpp
     src/ui/MatchMediaVideoSettingsDialog.cpp
+    src/ui/MediaPropertiesDialog.cpp
+    src/ui/TitlesTextKeyframePane.cpp
+    src/ui/TransitionPropertiesDialog.cpp
     src/ui/MissingFileDialog.cpp
     src/ui/SearchMissingFilesDialog.cpp
     src/ui/FindMissingFileDialog.cpp
@@ -110,6 +113,7 @@ endif()
     src/video/ColorCorrectorApply.cpp
     src/video/TitlesTextApply.cpp
     src/video/MediaGeneratorApply.cpp
+    src/video/TransitionApply.cpp
     src/video/VideoCompositor.cpp
     resources/resources.qrc
 )
@@ -122,6 +126,9 @@ set(OPENVGAS_HEADERS
     src/ui/WelcomeDialog.h
     src/ui/ProjectPropertiesDialog.h
     src/ui/MatchMediaVideoSettingsDialog.h
+    src/ui/MediaPropertiesDialog.h
+    src/ui/TitlesTextKeyframePane.h
+    src/ui/TransitionPropertiesDialog.h
     src/ui/MissingFileDialog.h
     src/ui/SearchMissingFilesDialog.h
     src/ui/FindMissingFileDialog.h
@@ -199,6 +206,7 @@ set(OPENVGAS_HEADERS
     src/video/ColorCorrectorApply.h
     src/video/TitlesTextApply.h
     src/video/MediaGeneratorApply.h
+    src/video/TransitionApply.h
     src/video/VideoCompositor.h
 )
 
@@ -400,6 +408,7 @@ if(OPENVGAS_BUILD_TESTS)
         tests/test_video_fx_chain.cpp
         tests/test_vegas_video_catalog.cpp
         tests/test_titles_text.cpp
+        tests/test_transitions.cpp
         tests/stub_media_path_for_event.cpp
         src/audio/FadeCurves.cpp
         src/io/SamplePaths.cpp
@@ -411,6 +420,7 @@ if(OPENVGAS_BUILD_TESTS)
         src/video/TrackMotionApply.cpp
         src/video/ColorCorrectorApply.cpp
         src/video/TitlesTextApply.cpp
+        src/video/TransitionApply.cpp
         src/video/MediaGeneratorApply.cpp
         src/video/VideoCompositor.cpp
         src/video/VideoFrameCache.cpp
@@ -456,6 +466,7 @@ if(OPENVGAS_BUILD_TESTS)
         tests/test_vegas_video_catalog.cpp
         tests/test_media_generator.cpp
         tests/test_veg_no_edl_audit.cpp
+        tests/test_transitions_veg.cpp
         src/io/FFmpegEncoder.cpp
         src/io/FFmpegStreamDecoder.cpp
         src/io/MediaFilmstripCache.cpp
@@ -477,6 +488,7 @@ if(OPENVGAS_BUILD_TESTS)
         src/audio/FadeCurves.cpp
         src/video/VideoKeyframeEval.cpp
         src/video/TitlesTextApply.cpp
+        src/video/TransitionApply.cpp
         src/video/MediaGeneratorApply.cpp
         src/io/RenderTemplateCatalog.cpp
     )

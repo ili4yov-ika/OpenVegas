@@ -35,6 +35,7 @@ class TrimmerWindow;
 class MixingConsoleWindow;
 class VideoEventFxDialogExact;
 class TitlesTextEditorDialog;
+class TransitionPropertiesDialog;
 class VideoTrackFxDialog;
 class AudioEventFxDialog;
 class ExplorerPane;
@@ -79,6 +80,8 @@ public slots:
     void onVideoEventFx(int eventId);
     /** Open the VEGAS Titles & Text property window for a generator event. */
     void openTitlesTextEditor(TrackEvent *ev);
+    /** Transition strip button on the timeline → its properties window. */
+    void openTransitionProperties(int eventId, bool fadeIn);
     /** Create a new Titles & Text generator event at the playhead and open its editor. */
     void createTitlesTextEvent(const QString &animationKey = QString(),
                                const QString &sampleText = QString());
@@ -236,6 +239,7 @@ private:
     MixingConsoleWindow *m_mixingConsole = nullptr;
     VideoEventFxDialogExact *m_videoEventFx = nullptr;
     TitlesTextEditorDialog *m_titlesTextEditor = nullptr;
+    TransitionPropertiesDialog *m_transitionProps = nullptr;
     VideoTrackFxDialog *m_videoTrackFx = nullptr;
     AudioEventFxDialog *m_audioEventFx = nullptr;
     QString m_audioFxCommitLabel;

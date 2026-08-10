@@ -42,6 +42,31 @@ struct VegEventInfo {
  * Field shapes mirror TitlesTextParams (src/video/TitlesTextApply.h) so ProjectModel can
  * convert 1:1; kept as its own struct so src/io stays independent of src/video.
  */
+/**
+ * One transition instance recovered from the binary (see VegReader::parseTransitions
+ * for the byte layout and how it was derived). Kept as its own plain struct so src/io
+ * stays independent of src/video's TransitionInstance, which ProjectModel converts to.
+ */
+struct VegTransitionInfo {
+    /** Vegas preset name as stored ("Simple", "Slot Machine", …). */
+    QString presetName;
+    int divisions = 8;
+    int extraSpins = 0;
+    double stagger = 0.0;
+    double specularLight = 1.0;
+    /** 0 = Left to Right, 1 = Right to Left, 2 = Top to Bottom, 3 = Bottom to Top. */
+    int direction = 0;
+    /** True when the transition sits on the event's fade-OUT rather than its fade-in.
+     *  A crossfade is stored like a fade-in (on the incoming clip). */
+    bool fadeOut = false;
+    /** Start time of the event this transition was nested in; < 0 when unresolved. */
+    double eventStartSec = -1.0;
+    /** Byte offset of the plug-in GUID this record was matched at. */
+    int offset = -1;
+    /** Offset of the owning event's timing record; internal to the owner search. */
+    int eventOffsetForCompare = -1;
+};
+
 struct VegTitleTextInfo {
     QString text;
     QString fontFamily;
@@ -133,6 +158,7 @@ struct VegOpenResult {
     QStringList reversedMediaBasenames;
     /** META SubClip start (sec) per reversed basename (lower). */
     QMap<QString, double> reversedSubclipStartSec;
+    QVector<VegTransitionInfo> transitions;
     /** META SubClip length (sec) per reversed basename (lower). */
     QMap<QString, double> reversedSubclipLengthSec;
     QString projectPathHint;
@@ -164,6 +190,8 @@ private:
     static void parsePanCrop(const QByteArray &data, VegOpenResult *result);
     static void parseColorGrading(const QByteArray &data, VegOpenResult *result);
     static void parseVideoTitlesText(const QByteArray &data, VegOpenResult *result);
+    /** Recover transition instances (plug-in GUID + preset + parameters + placement). */
+    static void parseTransitions(const QByteArray &data, VegOpenResult *result);
     static void parseFxStateChunks(const QByteArray &data, VegOpenResult *result);
     static void assignEventNames(VegOpenResult *result);
 };

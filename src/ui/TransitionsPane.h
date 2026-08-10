@@ -10,6 +10,8 @@ class QListWidget;
 class QLabel;
 class QButtonGroup;
 class QSplitter;
+class QTimer;
+class QModelIndex;
 
 namespace openvegas {
 
@@ -48,6 +50,9 @@ public:
         QString description;
         QVector<Preset> presets;
         bool favorite = false;
+        /** Non-empty once the group has a real renderer (see video/TransitionApply.h):
+         *  its tiles then show the actual transition and can be dragged to the timeline. */
+        QString pluginId;
     };
 
 signals:
@@ -63,6 +68,10 @@ private:
     void showPlugin(int catalogIndex);
     void applySearchAndCategory();
     QIcon presetIcon(const Preset &p) const;
+    /** Live frame of the real transition for tile `row`; falls back to presetIcon(). */
+    QIcon presetIconAt(int row, double progress) const;
+    void onPresetHoverEntered(const QModelIndex &index);
+    void onHoverTick();
 
     QVector<Plugin> m_plugins;
     int m_currentIndex = -1;
@@ -75,6 +84,9 @@ private:
     QLabel *m_metaLine1 = nullptr;
     QLabel *m_metaLine2 = nullptr;
     QSplitter *m_splitter = nullptr;
+    QTimer *m_hoverTimer = nullptr;
+    int m_hoverRow = -1;
+    qint64 m_hoverStartMs = 0;
 };
 
 } // namespace openvegas

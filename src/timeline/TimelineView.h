@@ -79,6 +79,8 @@ signals:
     /** Right-click on event chrome "fx" button. */
     void eventFxMenuRequested(int eventId, const QPoint &globalPos);
     void eventMoreMenuRequested(int eventId, const QPoint &globalPos);
+    /** Button on a transition strip → open that transition's properties window. */
+    void transitionPropertiesRequested(int eventId, bool fadeIn);
     void emptyAreaContextMenuRequested(const QPoint &globalPos);
     void playheadChanged(double seconds);
     void headerWidthChanged(int width);
@@ -202,6 +204,25 @@ private:
     void paintEventFades(QPainter &p, const Track &track, const TrackEvent &ev, const QRect &r);
     void paintEventChrome(QPainter &p, const Track &track, const TrackEvent &ev, const QRect &r);
     void paintCrossfades(QPainter &p, const Track &track, int trackTop);
+    /** Vegas strip over a fade/crossfade carrying a transition: name + properties button. */
+    void paintTransitionStrips(QPainter &p, const Track &track, int trackTop);
+    /** Screen rect of the strip for `ev`'s fade-in / fade-out, empty when there is none. */
+    QRect transitionStripRect(const Track &track, const TrackEvent &ev, int trackTop,
+                              bool fadeIn) const;
+    /** Strip (and whether it is the fade-in one) under `pos`; eventId < 0 when none. */
+    int transitionStripAt(const QPoint &pos, bool *outFadeIn, bool *outOnButton) const;
+    /** Attaches a dropped transition preset to the fade/crossfade under `pos`.
+     *  Returns false when the drop did not land on one. */
+    bool applyTransitionDrop(const QPoint &pos, const QString &pluginId, const QString &presetName);
+    /** Properties button inside a strip (right-aligned), empty when the strip is tiny. */
+    static QRect transitionButtonRect(const QRect &strip)
+    {
+        constexpr int kBtn = 13;
+        if (strip.width() < kBtn + 12) {
+            return QRect();
+        }
+        return QRect(strip.right() - kBtn - 1, strip.top() + 1, kBtn, strip.height() - 2);
+    }
     void showFadeCurvePopup(int eventId, bool fadeIn, const QPoint &globalPos);
     void emitDocumentEditBegan();
     void emitDocumentEditCommitted(const QString &text);

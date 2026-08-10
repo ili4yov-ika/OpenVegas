@@ -1,3 +1,8 @@
-- [x] Делать Split по горячей клавише S
-- [x] Найди другие нереализованные горячие клавиши из Vegas Pro
-- [x] Сделай групповой выбор клипов по зажатой Shift и добавление или исключение из неё клипов по зажатой Ctrl
+- [x] Реализуй Transitions начиная с пресетов 3D Blinds ../SAMPLES/screenshots/Transitions/Transitions-3D_Blinds.png: Simple, Left to Right, Slot Machine, Spin, все референс-скриншоты в ../SAMPLES/screenshots/Transitions/
+  - [x] Пресет Drag'n'Drop'ом кидается на фейд или кроссфейд видеоклипов, далее создаётся на фейде или кроссфейде создаётся полоска ../SAMPLES/screenshots/Transitions/Transition-Timeline-button_on_select_clip.png ../SAMPLES/screenshots/Transitions/Transition-Timeline-button_on_unselect_clip.png c надписью названия группы переходов и кнопкой открывающие окно настройки перехода ../SAMPLES/screenshots/Transitions/3D_Blinds/3D_Blinds-Simple-default_set.png
+  - [x] Сделай анализ проекта с переходами 3D Blinds ../SAMPLES/veg_project/project_transitions_3d-blinds.veg, настройки пресетов по умолчанию
+  - [x] Окно с настройками по умолчанию у пресета Simple ../SAMPLES/screenshots/Transitions/3D_Blinds/3D_Blinds-Simple-default_set.png и его крайними значениями ползунков и открытая панель Animate ../SAMPLES/screenshots/Transitions/3D_Blinds/3D_Blinds-Simple-extrim-1.png ../SAMPLES/screenshots/Transitions/3D_Blinds/3D_Blinds-Simple-extrim-2.png
+  - [x] Окно с настройками по умолчанию у пресета Left to Right ../SAMPLES/screenshots/Transitions/3D_Blinds/3D_Blinds-Left_to_Right-default_set.png и его крайние значения ползунков как у Simple
+  - [x] Окно с настройками по умолчанию у пресета Slot_Machine ../SAMPLES/screenshots/Transitions/3D_Blinds/3D_Blinds-Slot_Machine-default_set.png и его крайние значения ползунков как у Simple
+  - [x] Окно с настройками по умолчанию у пресета Spin ../SAMPLES/screenshots/Transitions/3D_Blinds/3D_Blinds-Spin-default_set.png и его крайние значения ползунков как у Simple
+  - [x] При наведении на превью пресета перехода ../SAMPLES/screenshots/Transitions/Transitions-3D_Blinds-select_Simple-mouse_on_Slot_Machine.png должна проигрываться демо анимация

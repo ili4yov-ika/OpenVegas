@@ -25,6 +25,7 @@
 #include "ui/RateSlider.h"
 #include "ui/VideoEventFxDialogExact.h"
 #include "ui/TitlesTextEditorDialog.h"
+#include "ui/TransitionPropertiesDialog.h"
 #include "ui/VideoTrackFxDialog.h"
 #include "ui/AudioEventFxDialog.h"
 #include "ui/TrackMotionDialog.h"
@@ -2303,6 +2304,8 @@ void MainWindow::setupTimeline()
             [this](int eventId, const QPoint &globalPos) {
                 ContextMenuBuilder::showEventMoreMenu(this, eventId, globalPos);
             });
+    connect(m_timeline, &TimelineView::transitionPropertiesRequested, this,
+            &MainWindow::openTransitionProperties);
     connect(m_timeline, &TimelineView::emptyAreaContextMenuRequested, this,
             &MainWindow::showTimelineEmptyContextMenu);
     connect(m_timeline, &TimelineView::trackHeaderContextMenuRequested, this,
@@ -4017,6 +4020,44 @@ void MainWindow::onVideoEventFx(int eventId)
     m_videoEventFx->activateWindow();
 }
 
+void MainWindow::openTransitionProperties(int eventId, bool fadeIn)
+{
+    TrackEvent *ev = m_project.findEvent(eventId);
+    if (!ev) {
+        return;
+    }
+    const TransitionInstance &t = fadeIn ? ev->transitionIn : ev->transitionOut;
+    if (!t.isValid()) {
+        return;
+    }
+    if (!m_transitionProps) {
+        m_transitionProps = new TransitionPropertiesDialog(this);
+        connect(m_transitionProps, &TransitionPropertiesDialog::transitionChanged, this,
+                [this](int id, bool isFadeIn, const TransitionInstance &edited) {
+                    TrackEvent *target = m_project.findEvent(id);
+                    if (!target) {
+                        return;
+                    }
+                    (isFadeIn ? target->transitionIn : target->transitionOut) = edited;
+                    refreshPreviewFrame(m_project.playheadSec());
+                    if (m_timeline) {
+                        m_timeline->update();
+                    }
+                });
+        connect(m_transitionProps, &QDialog::finished, this, [this](int) {
+            commitDocumentEdit(tr("Transition Properties"));
+        });
+    } else if (m_transitionProps->isVisible()) {
+        commitDocumentEdit(tr("Transition Properties"));
+    }
+
+    beginDocumentEdit();
+    m_transitionProps->setTransition(t, eventId, fadeIn, ev->name);
+    m_transitionProps->show();
+    m_transitionProps->raise();
+    m_transitionProps->activateWindow();
+}
+
 void MainWindow::openTitlesTextEditor(TrackEvent *ev)
 {
     if (!ev) {
@@ -4046,7 +4087,8 @@ void MainWindow::openTitlesTextEditor(TrackEvent *ev)
     }
 
     beginDocumentEdit();
-    m_titlesTextEditor->setEvent(ev, m_project.frameWidth(), m_project.frameHeight());
+    m_titlesTextEditor->setEvent(ev, m_project.frameWidth(), m_project.frameHeight(),
+                                 m_project.frameRate());
     m_titlesTextEditor->show();
     m_titlesTextEditor->raise();
     m_titlesTextEditor->activateWindow();

@@ -1791,6 +1791,16 @@ bool ProjectInterchange::exportProjectArchive(const ProjectModel &model, const Q
             eo.insert(QStringLiteral("fadeOutSec"), ev.fadeOutSec);
             eo.insert(QStringLiteral("fadeInCurve"), static_cast<int>(ev.fadeInCurve));
             eo.insert(QStringLiteral("fadeOutCurve"), static_cast<int>(ev.fadeOutCurve));
+            // Transitions live on the fade regions; omit the keys entirely when there is
+            // none so a project without transitions stays byte-identical to before.
+            if (ev.transitionIn.isValid()) {
+                eo.insert(QStringLiteral("transitionIn"),
+                          QJsonObject::fromVariantMap(transitionToMap(ev.transitionIn)));
+            }
+            if (ev.transitionOut.isValid()) {
+                eo.insert(QStringLiteral("transitionOut"),
+                          QJsonObject::fromVariantMap(transitionToMap(ev.transitionOut)));
+            }
             eo.insert(QStringLiteral("opacity"), ev.opacity);
             eo.insert(QStringLiteral("gainDb"), ev.gainDb);
             eo.insert(QStringLiteral("mediaKind"), static_cast<int>(ev.mediaKind));
@@ -1947,6 +1957,10 @@ bool ProjectInterchange::importProjectArchive(const QString &dirPath, ProjectMod
                 static_cast<FadeCurveType>(eo.value(QStringLiteral("fadeInCurve")).toInt());
             ev.fadeOutCurve =
                 static_cast<FadeCurveType>(eo.value(QStringLiteral("fadeOutCurve")).toInt());
+            ev.transitionIn = transitionFromMap(
+                eo.value(QStringLiteral("transitionIn")).toObject().toVariantMap());
+            ev.transitionOut = transitionFromMap(
+                eo.value(QStringLiteral("transitionOut")).toObject().toVariantMap());
             ev.opacity = eo.value(QStringLiteral("opacity")).toDouble(1.0);
             ev.gainDb = eo.value(QStringLiteral("gainDb")).toDouble();
             ev.mediaKind = static_cast<EventMediaKind>(eo.value(QStringLiteral("mediaKind")).toInt());

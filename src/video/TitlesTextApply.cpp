@@ -456,6 +456,63 @@ TitlesTextParams titlesTextFromMap(const QVariantMap &m)
     p.shadowOffsetX = mapGet(m, QStringLiteral("shadowOffsetX"), p.shadowOffsetX);
     p.shadowOffsetY = mapGet(m, QStringLiteral("shadowOffsetY"), p.shadowOffsetY);
     p.shadowBlur = std::clamp(mapGet(m, QStringLiteral("shadowBlur"), p.shadowBlur), 0.0, 20.0);
+    // Media Properties — "media." prefixed so they stay visibly separate from the
+    // generator's own params inside the same flat state map.
+    auto mediaEnum = [&m](const QString &key, int def, int maxValue) {
+        return std::clamp(int(mapGet(m, key, double(def))), 0, maxValue);
+    };
+    p.media.tapeName = mapGetString(m, QStringLiteral("media.tapeName"), p.media.tapeName);
+    p.media.useCustomTimecode =
+        mapGetBool(m, QStringLiteral("media.useCustomTimecode"), p.media.useCustomTimecode);
+    p.media.customTimecodeSec = std::max(
+        0.0, mapGet(m, QStringLiteral("media.customTimecodeSec"), p.media.customTimecodeSec));
+    p.media.frameWidth =
+        std::max(0, int(mapGet(m, QStringLiteral("media.frameWidth"), p.media.frameWidth)));
+    p.media.frameHeight =
+        std::max(0, int(mapGet(m, QStringLiteral("media.frameHeight"), p.media.frameHeight)));
+    p.media.fieldOrder = static_cast<MediaFieldOrder>(
+        mediaEnum(QStringLiteral("media.fieldOrder"), int(p.media.fieldOrder), 2));
+    p.media.pixelAspect =
+        std::clamp(mapGet(m, QStringLiteral("media.pixelAspect"), p.media.pixelAspect), 0.01, 10.0);
+    p.media.alphaChannel = static_cast<MediaAlphaChannel>(
+        mediaEnum(QStringLiteral("media.alphaChannel"), int(p.media.alphaChannel), 4));
+    p.media.backgroundColor =
+        mapGetColor(m, QStringLiteral("media.backgroundColor"), p.media.backgroundColor);
+    p.media.rotation = static_cast<MediaRotation>(
+        mediaEnum(QStringLiteral("media.rotation"), int(p.media.rotation), 3));
+
+    // Keyframe lanes: one list per animated parameter, each keyframe a [time, value,
+    // type] triple. Absent key = that parameter is static, which is the common case.
+    p.lanes.clear();
+    for (const TitlesTextAnimatableParam &ap : titlesTextAnimatableParams()) {
+        const auto it = m.constFind(QStringLiteral("kf.") + ap.key);
+        if (it == m.cend()) {
+            continue;
+        }
+        TitlesTextParamLane lane;
+        lane.paramKey = ap.key;
+        for (const QVariant &entry : it->toList()) {
+            const QVariantList triple = entry.toList();
+            if (triple.size() < 2) {
+                continue;
+            }
+            TitlesTextKeyframe kf;
+            kf.timeSec = std::max(0.0, triple[0].toDouble());
+            kf.value = triple[1].toDouble();
+            kf.type = static_cast<VideoKeyframeType>(
+                std::clamp(triple.size() >= 3 ? triple[2].toInt() : 0, 0, 5));
+            lane.keys.push_back(kf);
+        }
+        if (lane.keys.isEmpty()) {
+            continue;
+        }
+        std::sort(lane.keys.begin(), lane.keys.end(),
+                  [](const TitlesTextKeyframe &a, const TitlesTextKeyframe &b) {
+                      return a.timeSec < b.timeSec;
+                  });
+        p.lanes.push_back(lane);
+    }
+
     p.textColorExpanded = mapGetBool(m, QStringLiteral("textColorExpanded"), p.textColorExpanded);
     p.locationExpanded = mapGetBool(m, QStringLiteral("locationExpanded"), p.locationExpanded);
     p.advancedExpanded = mapGetBool(m, QStringLiteral("advancedExpanded"), p.advancedExpanded);
@@ -466,7 +523,7 @@ TitlesTextParams titlesTextFromMap(const QVariantMap &m)
 
 QVariantMap titlesTextToMap(const TitlesTextParams &p)
 {
-    return QVariantMap{
+    QVariantMap m{
         {QStringLiteral("text"), p.text},
         {QStringLiteral("fontFamily"), p.fontFamily},
         {QStringLiteral("fontSize"), p.fontSize},
@@ -490,12 +547,36 @@ QVariantMap titlesTextToMap(const TitlesTextParams &p)
         {QStringLiteral("shadowOffsetX"), p.shadowOffsetX},
         {QStringLiteral("shadowOffsetY"), p.shadowOffsetY},
         {QStringLiteral("shadowBlur"), p.shadowBlur},
+        {QStringLiteral("media.tapeName"), p.media.tapeName},
+        {QStringLiteral("media.useCustomTimecode"), p.media.useCustomTimecode},
+        {QStringLiteral("media.customTimecodeSec"), p.media.customTimecodeSec},
+        {QStringLiteral("media.frameWidth"), p.media.frameWidth},
+        {QStringLiteral("media.frameHeight"), p.media.frameHeight},
+        {QStringLiteral("media.fieldOrder"), int(p.media.fieldOrder)},
+        {QStringLiteral("media.pixelAspect"), p.media.pixelAspect},
+        {QStringLiteral("media.alphaChannel"), int(p.media.alphaChannel)},
+        {QStringLiteral("media.backgroundColor"), p.media.backgroundColor},
+        {QStringLiteral("media.rotation"), int(p.media.rotation)},
         {QStringLiteral("textColorExpanded"), p.textColorExpanded},
         {QStringLiteral("locationExpanded"), p.locationExpanded},
         {QStringLiteral("advancedExpanded"), p.advancedExpanded},
         {QStringLiteral("outlineExpanded"), p.outlineExpanded},
         {QStringLiteral("shadowExpanded"), p.shadowExpanded},
     };
+    // Only animated parameters get a "kf.*" entry — a static generator's map stays
+    // exactly as small as it was before keyframes existed.
+    for (const TitlesTextParamLane &lane : p.lanes) {
+        if (lane.keys.isEmpty()) {
+            continue;
+        }
+        QVariantList entries;
+        entries.reserve(lane.keys.size());
+        for (const TitlesTextKeyframe &kf : lane.keys) {
+            entries.push_back(QVariantList{kf.timeSec, kf.value, int(kf.type)});
+        }
+        m.insert(QStringLiteral("kf.") + lane.paramKey, entries);
+    }
+    return m;
 }
 
 TitlesTextParams titlesTextFromSlot(const FxSlot &slot)
@@ -622,6 +703,195 @@ QImage renderTitlesText(const TitlesTextParams &p, const QSize &size, double pro
     }
 
     return img;
+}
+
+const QVector<TitlesTextAnimatableParam> &titlesTextAnimatableParams()
+{
+    // Ranges mirror the property dialog's spin boxes so the keyframe pane's value axis
+    // and the spin boxes can never disagree about what "full scale" means.
+    static const QVector<TitlesTextAnimatableParam> params = {
+        {QString(), QStringLiteral("Scale"), QStringLiteral("scale"), 0.01, 20.0},
+        {QStringLiteral("Location"), QStringLiteral("X"), QStringLiteral("locationX"), -2.0, 3.0},
+        {QStringLiteral("Location"), QStringLiteral("Y"), QStringLiteral("locationY"), -2.0, 3.0},
+        {QStringLiteral("Advanced"), QStringLiteral("Tracking"), QStringLiteral("tracking"), -50.0,
+         50.0},
+        {QStringLiteral("Advanced"), QStringLiteral("Line spacing"), QStringLiteral("lineSpacing"),
+         0.1, 5.0},
+        {QStringLiteral("Outline"), QStringLiteral("Outline width"), QStringLiteral("outlineWidth"),
+         0.0, 100.0},
+        {QStringLiteral("Shadow"), QStringLiteral("Shadow offset X"),
+         QStringLiteral("shadowOffsetX"), -20.0, 20.0},
+        {QStringLiteral("Shadow"), QStringLiteral("Shadow offset Y"),
+         QStringLiteral("shadowOffsetY"), -20.0, 20.0},
+        {QStringLiteral("Shadow"), QStringLiteral("Shadow blur"), QStringLiteral("shadowBlur"), 0.0,
+         20.0},
+    };
+    return params;
+}
+
+double titlesTextParamValue(const TitlesTextParams &p, const QString &key)
+{
+    if (key == QLatin1String("scale")) {
+        return p.scale;
+    }
+    if (key == QLatin1String("locationX")) {
+        return p.locationX;
+    }
+    if (key == QLatin1String("locationY")) {
+        return p.locationY;
+    }
+    if (key == QLatin1String("tracking")) {
+        return p.tracking;
+    }
+    if (key == QLatin1String("lineSpacing")) {
+        return p.lineSpacing;
+    }
+    if (key == QLatin1String("outlineWidth")) {
+        return p.outlineWidth;
+    }
+    if (key == QLatin1String("shadowOffsetX")) {
+        return p.shadowOffsetX;
+    }
+    if (key == QLatin1String("shadowOffsetY")) {
+        return p.shadowOffsetY;
+    }
+    if (key == QLatin1String("shadowBlur")) {
+        return p.shadowBlur;
+    }
+    return 0.0;
+}
+
+void titlesTextSetParamValue(TitlesTextParams *p, const QString &key, double value)
+{
+    if (!p) {
+        return;
+    }
+    if (key == QLatin1String("scale")) {
+        p->scale = value;
+    } else if (key == QLatin1String("locationX")) {
+        p->locationX = value;
+    } else if (key == QLatin1String("locationY")) {
+        p->locationY = value;
+    } else if (key == QLatin1String("tracking")) {
+        p->tracking = value;
+    } else if (key == QLatin1String("lineSpacing")) {
+        p->lineSpacing = value;
+    } else if (key == QLatin1String("outlineWidth")) {
+        p->outlineWidth = value;
+    } else if (key == QLatin1String("shadowOffsetX")) {
+        p->shadowOffsetX = value;
+    } else if (key == QLatin1String("shadowOffsetY")) {
+        p->shadowOffsetY = value;
+    } else if (key == QLatin1String("shadowBlur")) {
+        p->shadowBlur = value;
+    }
+}
+
+const TitlesTextParamLane *titlesTextFindLane(const TitlesTextParams &p, const QString &key)
+{
+    for (const TitlesTextParamLane &lane : p.lanes) {
+        if (lane.paramKey == key) {
+            return &lane;
+        }
+    }
+    return nullptr;
+}
+
+TitlesTextParamLane &titlesTextEnsureLane(TitlesTextParams *p, const QString &key)
+{
+    for (TitlesTextParamLane &lane : p->lanes) {
+        if (lane.paramKey == key) {
+            return lane;
+        }
+    }
+    TitlesTextParamLane lane;
+    lane.paramKey = key;
+    p->lanes.push_back(lane);
+    return p->lanes.last();
+}
+
+void titlesTextSetKeyframe(TitlesTextParams *p, const QString &key, double timeSec, double value,
+                           VideoKeyframeType type)
+{
+    if (!p) {
+        return;
+    }
+    TitlesTextParamLane &lane = titlesTextEnsureLane(p, key);
+    const double t = std::max(0.0, timeSec);
+    for (TitlesTextKeyframe &kf : lane.keys) {
+        if (std::abs(kf.timeSec - t) <= 0.001) {
+            kf.value = value;
+            kf.type = type;
+            return;
+        }
+    }
+    lane.keys.push_back({t, value, type});
+    std::sort(lane.keys.begin(), lane.keys.end(),
+              [](const TitlesTextKeyframe &a, const TitlesTextKeyframe &b) {
+                  return a.timeSec < b.timeSec;
+              });
+}
+
+bool titlesTextRemoveKeyframe(TitlesTextParams *p, const QString &key, double timeSec, double epsSec)
+{
+    if (!p) {
+        return false;
+    }
+    for (int li = 0; li < p->lanes.size(); ++li) {
+        if (p->lanes[li].paramKey != key) {
+            continue;
+        }
+        QVector<TitlesTextKeyframe> &keys = p->lanes[li].keys;
+        for (int i = 0; i < keys.size(); ++i) {
+            if (std::abs(keys[i].timeSec - timeSec) <= epsSec) {
+                keys.removeAt(i);
+                if (keys.isEmpty()) {
+                    // An empty lane would keep the parameter marked "animated" in the UI
+                    // while behaving statically — drop it so the two always agree.
+                    p->lanes.removeAt(li);
+                }
+                return true;
+            }
+        }
+        return false;
+    }
+    return false;
+}
+
+TitlesTextParams titlesTextAtTime(const TitlesTextParams &p, double localSec)
+{
+    if (p.lanes.isEmpty()) {
+        return p;
+    }
+    TitlesTextParams out = p;
+    for (const TitlesTextParamLane &lane : p.lanes) {
+        if (lane.keys.isEmpty()) {
+            continue;
+        }
+        if (localSec <= lane.keys.first().timeSec) {
+            titlesTextSetParamValue(&out, lane.paramKey, lane.keys.first().value);
+            continue;
+        }
+        if (localSec >= lane.keys.last().timeSec) {
+            titlesTextSetParamValue(&out, lane.paramKey, lane.keys.last().value);
+            continue;
+        }
+        for (int i = 0; i + 1 < lane.keys.size(); ++i) {
+            const TitlesTextKeyframe &a = lane.keys[i];
+            const TitlesTextKeyframe &b = lane.keys[i + 1];
+            if (localSec < a.timeSec || localSec > b.timeSec) {
+                continue;
+            }
+            const double span = b.timeSec - a.timeSec;
+            const double t = span > 1e-9 ? (localSec - a.timeSec) / span : 0.0;
+            // Same easing table Pan/Crop and Track Motion keyframes use, so "Smooth"
+            // means the same shape everywhere.
+            const double w = videoKeyframeEase(a.type, t);
+            titlesTextSetParamValue(&out, lane.paramKey, a.value + (b.value - a.value) * w);
+            break;
+        }
+    }
+    return out;
 }
 
 QRectF titlesTextBoundingBox(const TitlesTextParams &p, const QSize &size)
