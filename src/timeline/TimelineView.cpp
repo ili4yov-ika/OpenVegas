@@ -2479,11 +2479,13 @@ QRect TimelineView::transitionStripRect(const Track &track, const TrackEvent &ev
     if (x1 - x0 < 8) {
         return QRect();
     }
-    // Vegas gives the strip a fixed ~18px band at the top of the event (measured off the
-    // reference captures in SAMPLES/screenshots/Transitions/); one pixel of that is the
-    // event border the strip sits inside. Clamp it so a squashed track still shows a clip.
-    const int stripH = std::clamp(track.height - 12, 11, 17);
-    return QRect(x0, trackTop + 3, x1 - x0, stripH);
+    // Vegas floats the strip in the vertical *middle* of the event, not along its top edge —
+    // in Transition-Timeline-button_on_select_clip.png the video event runs y=17…78 and the
+    // strip y=38…55, i.e. both centred on ~47. Its height is a fixed 18px band there,
+    // clamped here so a squashed track still leaves some clip visible around it.
+    const QRect body = eventRect(track, ev, trackTop);
+    const int stripH = std::clamp(body.height() - 8, 11, 18);
+    return QRect(x0, body.top() + (body.height() - stripH) / 2, x1 - x0, stripH);
 }
 
 namespace {
