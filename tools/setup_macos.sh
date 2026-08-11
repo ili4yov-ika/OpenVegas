@@ -28,12 +28,15 @@ brew install cmake ninja pkg-config qt@6
 QT_PREFIX="$(brew --prefix qt@6)"
 echo
 echo "[2/3] Запись окружения в $ENV_FILE ..."
+# Путь берётся из `brew --prefix qt@6` — он уже правильный и для Apple Silicon
+# (/opt/homebrew), и для Intel (/usr/local). Раньше здесь была вторая строка
+# с обоими путями вразнобой, и она затирала первую: на машине с двумя
+# Homebrew (нативный + под Rosetta) в PATH мог оказаться чужой Qt.
 cat >"$ENV_FILE" <<EOF
 # OpenVegas macOS (сгенерировано tools/setup_macos.sh)
 export PATH="${QT_PREFIX}/bin:\$PATH"
 export CMAKE_PREFIX_PATH="${QT_PREFIX}"
 export QT_PLUGIN_PATH="${QT_PREFIX}/plugins"
-export PATH="/opt/homebrew/opt/qt@6/bin:/usr/local/opt/qt@6/bin:\$PATH"
 EOF
 
 # shellcheck disable=SC1090

@@ -1,0 +1,29 @@
+# Normalise line endings in the repository, and force the ones that actually
+# matter on checkout.
+#
+# This is not cosmetic. cmd.exe cannot parse a .bat with LF-only line endings —
+# it mangles every line and the script fails with nonsense errors. Conversely a
+# shell script checked out with CRLF dies with "bad interpreter: /bin/bash^M".
+# Without these rules the outcome depends on each contributor's core.autocrlf.
+
+* text=auto
+
+# Windows shells: must be CRLF on disk
+*.bat   text eol=crlf
+*.cmd   text eol=crlf
+*.ps1   text eol=crlf
+
+# POSIX shells and packaging metadata: must be LF on disk
+*.sh            text eol=lf
+tools/debian/*  text eol=lf
+*.spec          text eol=lf
+
+# Binary assets — never touch
+*.png   binary
+*.ico   binary
+*.jpg   binary
+*.veg   binary
+*.mp4   binary
+*.wav   binary
+*.sfk   binary
+*.sfl   binary

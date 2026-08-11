@@ -6,7 +6,11 @@ Unicode true
 
 ; Product info
 !define PRODUCT_NAME "OpenVegas"
-!define PRODUCT_VERSION "0.1.0"
+; Переопределяется через makensis /DPRODUCT_VERSION=x.y.z — держите в согласии
+; с project(OpenVegas VERSION ...) в корневом CMakeLists.txt.
+!ifndef PRODUCT_VERSION
+  !define PRODUCT_VERSION "0.1.0"
+!endif
 !define PRODUCT_PUBLISHER "OpenVegas contributors"
 !define PRODUCT_WEB_SITE "https://github.com/ili4yov-ika/OpenVegas"
 
@@ -22,7 +26,10 @@ RequestExecutionLevel admin
 
 ; Страницы
 !insertmacro MUI_PAGE_WELCOME
-!insertmacro MUI_PAGE_LICENSE "..\LICENSE"
+; ${__FILEDIR__}, а не "..\LICENSE": относительный путь NSIS резолвит от текущего
+; каталога makensis, а не от каталога скрипта — иначе сборка ломается при запуске
+; не из tools/.
+!insertmacro MUI_PAGE_LICENSE "${__FILEDIR__}\..\LICENSE"
 !insertmacro MUI_PAGE_DIRECTORY
 !insertmacro MUI_PAGE_INSTFILES
 !insertmacro MUI_PAGE_FINISH
@@ -42,10 +49,11 @@ Section "OpenVegas" SEC_APP
   ; Копируем bin (exe и dll от windeployqt)
   File /r "${BUILD_DIR}\bin\*.*"
 
-  ; Переводы (если установлены через CMake)
-  SetOutPath "$INSTDIR\translations"
-  File /nonfatal /r "${BUILD_DIR}\share\openvegas\translations\*.*"
-  File /nonfatal /r "${BUILD_DIR}\share\OpenVegas\translations\*.*"
+  ; Переводов у проекта пока нет — CMakeLists ничего не ставит в share/*/translations,
+  ; и эти строки только сыпали "warning 7010: no files found" на каждой сборке.
+  ; Когда появятся .qm и install()-правило под них, вернуть сюда:
+  ;   SetOutPath "$INSTDIR\translations"
+  ;   File /nonfatal /r "${BUILD_DIR}\share\openvegas\translations\*.*"
 
   WriteRegStr HKLM "Software\${PRODUCT_NAME}" "InstallPath" "$INSTDIR"
 
@@ -66,6 +74,9 @@ Section "OpenVegas" SEC_APP
   WriteRegStr HKCR "OpenVegas.Project" "" "OpenVegas Project"
   WriteRegStr HKCR "OpenVegas.Project\DefaultIcon" "" "$INSTDIR\OpenVegas.exe,0"
   WriteRegStr HKCR "OpenVegas.Project\shell\open\command" "" '"$INSTDIR\OpenVegas.exe" "%1"'
+
+  ; Без этого Проводник показывает старую ассоциацию .veg до перезахода в систему.
+  System::Call 'shell32::SHChangeNotify(i 0x08000000, i 0, i 0, i 0)'
 SectionEnd
 
 Section "Uninstall"
@@ -86,6 +97,7 @@ Section "Uninstall"
 
   DeleteRegKey HKCR "OpenVegas.Project"
   DeleteRegKey HKCR ".veg"
+  System::Call 'shell32::SHChangeNotify(i 0x08000000, i 0, i 0, i 0)'
 
   DeleteRegKey HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\${PRODUCT_NAME}"
   DeleteRegKey HKLM "Software\${PRODUCT_NAME}"

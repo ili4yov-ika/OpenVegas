@@ -5,12 +5,10 @@ Maintainer: OpenVegas contributors <maintainer@example.com>
 Build-Depends: cmake (>= 3.16),
                qt6-base-dev,
                qt6-svg-dev,
-               qt6-tools-dev,
-               qt6-tools-dev-tools,
                debhelper (>= 12),
                pkg-config
 Standards-Version: 4.5.0
-Homepage: https://github.com/OpenVegas/OpenVegas
+Homepage: https://github.com/ili4yov-ika/OpenVegas
 
 Package: openvegas
 Architecture: amd64

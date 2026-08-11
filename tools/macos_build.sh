@@ -69,6 +69,29 @@ if [[ "$DEPLOY" -eq 1 ]]; then
         APP_DIR="${BUILD_DIR}/OpenVegas.app"
         mkdir -p "${APP_DIR}/Contents/MacOS"
         cp "$APP_BIN" "${APP_DIR}/Contents/MacOS/OpenVegas"
+
+        # Bundle собирается здесь вручную, потому что CMakeLists не выставляет
+        # MACOSX_BUNDLE и цель линкуется обычным исполняемым файлом. Без Info.plist
+        # такой каталог .app не запускается из Finder и macdeployqt ругается —
+        # поэтому минимальный plist пишем сами. Правильное решение — включить
+        # MACOSX_BUNDLE в CMakeLists и убрать этот блок.
+        cat >"${APP_DIR}/Contents/Info.plist" <<'PLIST'
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>CFBundleExecutable</key>          <string>OpenVegas</string>
+    <key>CFBundleIdentifier</key>          <string>org.openvegas.OpenVegas</string>
+    <key>CFBundleName</key>                <string>OpenVegas</string>
+    <key>CFBundlePackageType</key>         <string>APPL</string>
+    <key>CFBundleShortVersionString</key>  <string>0.1.0</string>
+    <key>CFBundleVersion</key>             <string>0.1.0</string>
+    <key>LSMinimumSystemVersion</key>      <string>11.0</string>
+    <key>NSHighResolutionCapable</key>     <true/>
+</dict>
+</plist>
+PLIST
+
         "$MACDEPLOYQT" "$APP_DIR"
         echo "Развёрнуто: $APP_DIR"
     fi

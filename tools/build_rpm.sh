@@ -1,65 +1,64 @@
 #!/bin/bash
 # Скрипт сборки RPM пакета для OpenVegas (Fedora/RHEL)
 # Требуется: CMake, Qt6, rpmbuild
+#
+# Сборка идёт из архива силами rpmbuild (%build в openvegas.spec) — локально
+# проект не конфигурируется и не собирается, иначе та же работа делалась бы дважды.
 
-set -e
+set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
-BUILD_DIR="$PROJECT_ROOT/build"
 RPM_DIR="$SCRIPT_DIR/rpm"
 PACKAGE_NAME="openvegas"
-VERSION="0.1.0"
-RELEASE="1"
+SPEC_FILE="$RPM_DIR/${PACKAGE_NAME}.spec"
+
+# Версия — из spec-файла, чтобы не разъезжалась с ним и с CMakeLists.
+VERSION="$(sed -n 's/^%define[[:space:]]\+version[[:space:]]\+\(.*\)$/\1/p' "$SPEC_FILE" | head -n1)"
+RELEASE="$(sed -n 's/^%define[[:space:]]\+release[[:space:]]\+\(.*\)$/\1/p' "$SPEC_FILE" | head -n1)"
+: "${VERSION:?не удалось прочитать version из $SPEC_FILE}"
+: "${RELEASE:=1}"
 
 echo "========================================"
 echo "OpenVegas - RPM Package Builder"
 echo "========================================"
+echo "Версия: ${VERSION}-${RELEASE}"
 echo
 
 command -v cmake >/dev/null 2>&1 || { echo "[ОШИБКА] CMake не найден!"; exit 1; }
 command -v rpmbuild >/dev/null 2>&1 || { echo "[ОШИБКА] rpmbuild не найден! Установите: sudo dnf install rpm-build rpmdevtools"; exit 1; }
 
-echo "[1/6] Настройка RPM build окружения..."
+echo "[1/4] Настройка RPM build окружения..."
 RPMBUILD_DIR="$HOME/rpmbuild"
 mkdir -p "$RPMBUILD_DIR"/{BUILD,BUILDROOT,RPMS,SOURCES,SPECS,SRPMS}
 
-echo "[2/6] Создание исходного архива..."
+echo "[2/4] Создание исходного архива..."
+# Каталог верхнего уровня в архиве обязан называться openvegas-<version>: именно
+# туда переходит %setup -q. Без --transform архив разворачивается в каталог с
+# именем папки проекта (например OpenVegas) и %prep падает.
 cd "$PROJECT_ROOT/.."
-tar --exclude='.git' \
+PROJECT_DIR_NAME="$(basename "$PROJECT_ROOT")"
+tar --exclude-vcs \
     --exclude='build' \
+    --exclude='build-*' \
     --exclude='*.o' \
     --exclude='*.a' \
-    --exclude='SAMPLES/node_modules' \
+    --exclude='**/node_modules' \
+    --transform="s,^${PROJECT_DIR_NAME},${PACKAGE_NAME}-${VERSION}," \
     -czf "$RPMBUILD_DIR/SOURCES/${PACKAGE_NAME}-${VERSION}.tar.gz" \
-    "$(basename "$PROJECT_ROOT")"
+    "$PROJECT_DIR_NAME"
 
-echo "[3/6] Подготовка spec файла..."
-cp "$RPM_DIR/${PACKAGE_NAME}.spec" "$RPMBUILD_DIR/SPECS/"
+echo "[3/4] Подготовка spec файла..."
+cp "$SPEC_FILE" "$RPMBUILD_DIR/SPECS/"
 
-echo "[4/6] Конфигурация и сборка проекта..."
-cd "$PROJECT_ROOT"
-mkdir -p "$BUILD_DIR"
-cd "$BUILD_DIR"
-
-cmake -DCMAKE_BUILD_TYPE=Release \
-      -DCMAKE_INSTALL_PREFIX=/usr \
-      ${CMAKE_PREFIX_PATH:+-DCMAKE_PREFIX_PATH="$CMAKE_PREFIX_PATH"} \
-      "$PROJECT_ROOT"
-
-cmake --build . --config Release
-
-echo "[5/6] Создание RPM пакета..."
+echo "[4/4] Сборка RPM пакета..."
 cd "$RPMBUILD_DIR"
-rpmbuild -ba SPECS/${PACKAGE_NAME}.spec \
-    --define "_version $VERSION" \
-    --define "_release $RELEASE"
+rpmbuild -ba "SPECS/${PACKAGE_NAME}.spec"
 
 echo
 echo "========================================"
 echo "Готово! RPM пакет создан в:"
-echo "  $RPMBUILD_DIR/RPMS/x86_64/${PACKAGE_NAME}-${VERSION}-${RELEASE}.x86_64.rpm"
+echo "  $RPMBUILD_DIR/RPMS/x86_64/${PACKAGE_NAME}-${VERSION}-${RELEASE}*.x86_64.rpm"
 echo "========================================"
 echo
-echo "Установка: sudo rpm -ivh ${PACKAGE_NAME}-${VERSION}-${RELEASE}.x86_64.rpm"
-echo "Или: sudo dnf install ${PACKAGE_NAME}-${VERSION}-${RELEASE}.x86_64.rpm"
+echo "Установка: sudo dnf install $RPMBUILD_DIR/RPMS/x86_64/${PACKAGE_NAME}-${VERSION}-${RELEASE}*.x86_64.rpm"

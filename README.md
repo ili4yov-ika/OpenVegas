@@ -4,9 +4,9 @@
 
 Открытый кроссплатформенный видеоредактор — аналог **VEGAS Pro 22** на **C++ / Qt 6.8** с лицензией **GNU GPL**.
 
-Цель — привычный workspace Vegas (таймлайн, events, fades/crossfades, media bin, Trimmer, Properties, Event FX) и открытие проектов `.veg`.
+Цель — привычный workspace Vegas (таймлайн, events, fades/crossfades, media bin, Trimmer, Properties, Event FX, Media Generators, Transitions) и открытие проектов `.veg`.
 
-Сейчас: **рабочий MVP** — playback A/V, compositor, Builtin/VST/OFX, Render As, interchange, импорт `.veg` (v1 + Event FX).
+Сейчас: **рабочий MVP** — playback A/V, compositor, Builtin/VST/OFX, Render As, interchange, импорт `.veg` (v1 + Event FX + Titles & Text + переходы), редактирование на таймлайне и сохранение проекта в собственный формат.
 
 ---
 
@@ -30,8 +30,16 @@
 | OFX process + emulated Soften/Invert/Sepia | Done MVP |
 | Event FX UI (Video / Audio, немодальные) | Done |
 | Render As (FFmpeg) + progress UI | Done |
-| NLE interchange (Vegas CSV / FCP7 / FCPX / Premiere scrape) | Done MVP |
+| NLE interchange (Vegas CSV / FCP7 / FCPX / Premiere scrape) | Done MVP¹ |
 | Media Generator — VEGAS Titles & Text (анимации, hover-preview, Drag'n'Drop) | Done MVP |
+| Titles & Text — окно редактора, Media Properties, кейфреймы параметров | Done MVP |
+| Transitions — 3D Blinds (4 пресета, DnD на фейд/кроссфейд, окно свойств) | Done для 1 группы² |
+| Переходы из `.veg` (3D Blinds: пресет + параметры + привязка к событию) | Done |
+| Правка на таймлайне: multi-select (Shift/Ctrl), групповое перетаскивание, Split (`S`), Automatic Crossfades, magnet snap | Done |
+| Save / Save As — родной **OpenVegas Project Archive** | Done |
+
+¹ Переходы не переносит **ни один** формат обмена — это предел самих форматов, а не наш дефект: Vegas в своих же экспортах вырождает 3D Blinds в `Cross Dissolve`. Что именно выживает в каждом формате — таблица в [`MARKDOWN/ISSUES_AND_PLANS.md`](MARKDOWN/ISSUES_AND_PLANS.md) (раздел «Render As / interchange»).
+² Остальные ~24 группы каталога (3D Cascade, Barn Door, Iris, …) — намеренно нерабочие плейсхолдеры: тайлы не перетаскиваются, чтобы нельзя было поставить переход, который ничего не делает.
 
 Подробности и backlog: [`MARKDOWN/ISSUES_AND_PLANS.md`](MARKDOWN/ISSUES_AND_PLANS.md), [`MARKDOWN/PLAN_VIDEOAUDIOSTACK.md`](MARKDOWN/PLAN_VIDEOAUDIOSTACK.md), [`MARKDOWN/PLAN_VIDEO-AUDIO-PLUGINS-STACK.md`](MARKDOWN/PLAN_VIDEO-AUDIO-PLUGINS-STACK.md).
 
@@ -71,10 +79,16 @@ cmake --build build/Windows_MinGW-x64
 
 ```text
 build\Windows_MinGW-x64\OpenVegas.exe
-build\Windows_MinGW-x64\OpenVegas.exe SAMPLES\example_project_with_video_and_audio.veg
+build\Windows_MinGW-x64\OpenVegas.exe SAMPLES\veg_project\project_big--buck-bunny.veg
 ```
 
-FX sample: `SAMPLES/veg_project/project_big--buck-bunny_4x3-preview-reverse-fades-fx.veg`.
+Эталонные проекты для проверки:
+
+| Что смотреть | Файл в `SAMPLES/veg_project/` |
+| ------------ | ----------------------------- |
+| Video Event FX | `project_big--buck-bunny_4x3-preview-reverse-fades-fx.veg` |
+| Переходы 3D Blinds на фейдах и кроссфейдах | `project_transitions_3d-blinds.veg` |
+| Titles & Text | `project_titles-and-text.veg` |
 
 Опционально скопировать поддеревья Vegas в **игнорируемый** `build/.../vegas-runtime/`:
 
@@ -120,10 +134,10 @@ OpenVegas/
 ├── resources/            # QSS, icons
 ├── tests/                # Catch2
 ├── tools/                # установщики, утилиты
-├── MARKDOWN/             # INIT, ISSUES, PLAN_*, VEG_READER
+├── MARKDOWN/             # INIT, ISSUES, CHECKLIST, PLAN_*, VEG_READER, UI_STUBS_AUDIT
 ├── docs/                 # краткие гайды
 ├── thirdparty/           # vst3sdk / openfx (локально, по необходимости)
-└── SAMPLES/              # .veg, veg_project, docs_veg, runtime Vegas
+└── SAMPLES/              # veg_project, veg_analyzators, screenshots, runtime Vegas
 ```
 
 | Путь | Назначение |
@@ -131,7 +145,7 @@ OpenVegas/
 | [`src/`](src/) | MainWindow, timeline, model, VegReader, audio/video/media/plugins |
 | [`tests/`](tests/) | Catch2: audio / video / media / plugin state |
 | [`tools/`](tools/README.md) | NSIS/deb/rpm, macOS/WSL, `svg_to_ico` |
-| [`MARKDOWN/`](MARKDOWN/INIT.MD) | Правила, планы, ISSUES |
+| [`MARKDOWN/`](MARKDOWN/INIT.MD) | Правила, планы, ISSUES, чеклист, аудит заглушек |
 | [`SAMPLES/`](SAMPLES/README.md) | Эталонные `.veg`, медиа, Vegas Pro 22 |
 
 ---
@@ -139,7 +153,7 @@ OpenVegas/
 ## Эталоны Vegas
 
 1. Проекты и медиа — [`SAMPLES/veg_project/README.md`](SAMPLES/veg_project/README.md)
-2. Разбор `.veg` — [`SAMPLES/docs_veg/`](SAMPLES/docs_veg/README.md), [`SAMPLES/veg_analyzators/README.md`](SAMPLES/veg_analyzators/README.md)
+2. Разбор `.veg` и скрипты-анализаторы — [`SAMPLES/veg_analyzators/README.md`](SAMPLES/veg_analyzators/README.md)
 3. Runtime Vegas Pro 22 — [`SAMPLES/VEGAS-PRO-22-PROGRAM-FILES/README.md`](SAMPLES/VEGAS-PRO-22-PROGRAM-FILES/README.md)
 
 ---
@@ -154,7 +168,11 @@ OpenVegas/
 6. **Открытие `.veg` (развёрнуто)** — [`MARKDOWN/VEG_READER_V0.md`](MARKDOWN/VEG_READER_V0.md)
 7. **Перенос на Qt + парсер** — [`MARKDOWN/QT68_PORT_AND_VEG_OPEN.md`](MARKDOWN/QT68_PORT_AND_VEG_OPEN.md)
 8. **Поддерживаемые файлы** — [`docs/support_files.md`](docs/support_files.md)
-9. **Формат `.veg`** — [`SAMPLES/docs_veg/00_format_overview.md`](SAMPLES/docs_veg/00_format_overview.md)
+9. **Формат `.veg`** — [`SAMPLES/veg_analyzators/00_format_overview.md`](SAMPLES/veg_analyzators/00_format_overview.md)
+10. **Родной формат проекта** — [`MARKDOWN/PROJECT_ARCHIVE_FORMAT.md`](MARKDOWN/PROJECT_ARCHIVE_FORMAT.md)
+11. **Сайдкары `.sfk` / `.sfl`** — [`MARKDOWN/SFK_SFL_SIDECAR_FILES.md`](MARKDOWN/SFK_SFL_SIDECAR_FILES.md)
+12. **Что в UI ещё заглушка** — [`MARKDOWN/UI_STUBS_AUDIT.md`](MARKDOWN/UI_STUBS_AUDIT.md)
+13. **Текущий чеклист задач** — [`MARKDOWN/CHECKLIST.md`](MARKDOWN/CHECKLIST.md)
 
 ---
 

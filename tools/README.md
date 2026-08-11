@@ -69,7 +69,22 @@ tools\build_windows_installer.bat
 - Qt 6.8+ (Widgets + Svg; MSVC или MinGW)
 - NSIS ([скачать](https://nsis.sourceforge.io/Download))
 
-Опционально задайте `CMAKE_PREFIX_PATH` на корень Qt (например `C:\Qt\6.9.3\mingw_64`).
+Переменные окружения (обе необязательны):
+
+| Переменная | Зачем |
+|------------|-------|
+| `CMAKE_PREFIX_PATH` | корень Qt-кита, например `C:\Qt\6.9.3\mingw_64` |
+| `OPENVEGAS_CMAKE_GENERATOR` | генератор CMake, например `Ninja` или `MinGW Makefiles`; не задан — CMake выбирает сам |
+
+Скрипт собирает в отдельное дерево `build\windows-installer` (Release), а не в
+`build\Windows_MinGW-x64` из `CMakePresets.json`: тот сконфигурирован под Debug,
+и переиспользование заставляло бы полностью пересобирать проект при каждом
+переключении между ними.
+
+`windeployqt` берётся из того кита, которым реально собрано, — путь читается из
+`Qt6_DIR` в `CMakeCache.txt`. Это важно, когда рядом стоит несколько китов
+(`mingw_64`, `llvm-mingw_64`, `msvc2022_64`): развёрнутые DLL от «не того» кита
+дают инсталлятор, падающий на старте.
 
 Результат: `tools\OpenVegas_Setup.exe`.
 
@@ -80,7 +95,12 @@ chmod +x tools/build_deb.sh
 tools/build_deb.sh
 ```
 
-Требуется: CMake, Qt6 (`qt6-base-dev`, `qt6-svg-dev`), `dpkg-buildpackage` / `devscripts`.
+Требуется: CMake, Qt6 (`qt6-base-dev`, `qt6-svg-dev`), `dpkg-buildpackage` / `devscripts`, `debhelper`.
+
+Сборку выполняет сам `dpkg-buildpackage` через `debian/rules`; скрипт только
+копирует `tools/debian/` в корень проекта (иначе `dpkg-buildpackage` его не найдёт)
+и удаляет копию на выходе, в том числе при ошибке. Если `debian/` в корне уже есть,
+скрипт останавливается, а не перезаписывает его.
 
 ### Linux (Fedora/RHEL)
 
@@ -108,9 +128,19 @@ cpack -G DragNDrop
 
 Настройки CPack — в корневом `CMakeLists.txt`.
 
-## Утилиты переводов (опционально)
+## Переводы, окончания строк
 
-Скрипты `form_translations.py`, `finalize_translations.py`, `apply_remaining_en.py`,
+### Утилиты переводов (опционально)
+
+Скрипты `finalize_translations.py`, `fix_translations.py`, `apply_remaining_en.py`,
 `clean_ts_vanished.py` — помощники для Qt `.ts`/`.qm`, когда в проекте появятся
-файлы локализации. Список исходников для `lupdate`: `untranslated_sources.txt`
-(при необходимости обновите пути под `src/`).
+файлы локализации. Сейчас их нет: `CMakeLists.txt` не подключает `LinguistTools`
+и ничего не ставит в `share/*/translations`.
+
+### Окончания строк
+
+`.gitattributes` в корне жёстко фиксирует: `.bat`/`.cmd`/`.ps1` — CRLF, `.sh` и
+`tools/debian/*` — LF. Это не косметика: `cmd.exe` не разбирает `.bat` с LF (ломает
+каждую строку и валится с бессмысленными ошибками), а shell-скрипт с CRLF падает
+на `bad interpreter: /bin/bash^M`. Без этих правил результат зависел бы от
+`core.autocrlf` у каждого разработчика.

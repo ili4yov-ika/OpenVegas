@@ -1,7 +1,6 @@
 %define name openvegas
 %define version 0.1.0
 %define release 1
-%define buildroot %{_tmppath}/%{name}-%{version}-%{release}-root
 
 Summary: Open-source nonlinear video editor (VEGAS Pro–like)
 Name: %{name}
@@ -10,11 +9,12 @@ Release: %{release}%{?dist}
 License: GPL-3.0+
 Group: Applications/Multimedia
 Source0: %{name}-%{version}.tar.gz
-URL: https://github.com/OpenVegas/OpenVegas
+URL: https://github.com/ili4yov-ika/OpenVegas
+BuildRequires: gcc-c++
+BuildRequires: make
 BuildRequires: cmake >= 3.16
 BuildRequires: qt6-qtbase-devel
 BuildRequires: qt6-qtsvg-devel
-BuildRequires: qt6-qttools-devel
 Requires: qt6-qtbase >= 6.8.0
 Requires: qt6-qtsvg >= 6.8.0
 BuildArch: x86_64
@@ -48,8 +48,11 @@ make install DESTDIR=%{buildroot}
 %defattr(-,root,root,-)
 %{_bindir}/OpenVegas
 %{_datadir}/applications/openvegas.desktop
-%{_datadir}/icons/hicolor/*/apps/openvegas.png
-%doc README.md LICENSE
+# CMakeLists ставит и scalable/openvegas.svg, и 256x256/openvegas.png — глоб
+# обязан покрывать оба, иначе rpmbuild падает на "installed (but unpackaged) file".
+%{_datadir}/icons/hicolor/*/apps/openvegas.*
+%doc README.md
+%license LICENSE
 
 %changelog
 * Wed Jul 29 2026 OpenVegas contributors <maintainer@example.com> - 0.1.0-1
