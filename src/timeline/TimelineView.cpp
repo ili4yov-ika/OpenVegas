@@ -573,6 +573,15 @@ void TimelineView::updateHoverCursor(const QPoint &pos)
         update();
     }
 
+    // Ahead of the fade/trim handles, which share the clip's top corners with the strip —
+    // mousePressEvent resolves the overlap the same way.
+    bool stripFadeIn = false;
+    bool onStripButton = false;
+    if (transitionStripAt(pos, &stripFadeIn, &onStripButton) >= 0 && onStripButton) {
+        setCursor(Qt::PointingHandCursor);
+        return;
+    }
+
     const EventEditMode mode = eventEditModeAt(pos);
     switch (mode) {
     case EventEditMode::TrimStart:
@@ -600,6 +609,30 @@ void TimelineView::updateHoverCursor(const QPoint &pos)
 
 void TimelineView::updateEventChromeTooltip(const QPoint &pos)
 {
+    // The transition strip overlays the clip's top edge, so it takes the pointer there —
+    // same precedence mousePressEvent uses.
+    {
+        bool stripFadeIn = false;
+        bool onStripButton = false;
+        const int stripId = transitionStripAt(pos, &stripFadeIn, &onStripButton);
+        const int hoverId = (stripId >= 0 && onStripButton) ? stripId : -1;
+        if (hoverId != m_hoverTransitionEventId
+            || (hoverId >= 0 && stripFadeIn != m_hoverTransitionFadeIn)) {
+            m_hoverTransitionEventId = hoverId;
+            m_hoverTransitionFadeIn = stripFadeIn;
+            update();
+        }
+        if (hoverId >= 0) {
+            QToolTip::showText(mapToGlobal(pos), tr("Transition Properties…"), this);
+            if (m_hoverButton != EventChromeButton::None || m_hoverLevelEventId >= 0) {
+                m_hoverButton = EventChromeButton::None;
+                m_hoverLevelEventId = -1;
+                update();
+            }
+            return;
+        }
+    }
+
     Hit hit;
     const EventChromeButton btn = eventButtonAt(pos, &hit);
     EventChromeButton newBtn = btn;
@@ -2433,14 +2466,61 @@ QRect TimelineView::transitionStripRect(const Track &track, const TrackEvent &ev
         endSec = ev.startSec + ev.lengthSec;
         startSec = endSec - len;
     }
-    const int x0 = timeToX(startSec);
-    const int x1 = timeToX(endSec);
+    int x0 = timeToX(startSec);
+    int x1 = timeToX(endSec);
+    // Sit inside the event's 1px border instead of on top of it — in Vegas the frame stays
+    // visible around the strip. Only the edge that coincides with the event's own edge needs
+    // the inset; the other end runs into the clip body.
+    if (fadeIn) {
+        x0 += 1;
+    } else {
+        x1 -= 1;
+    }
     if (x1 - x0 < 8) {
         return QRect();
     }
-    constexpr int kStripH = 15;
-    return QRect(x0, trackTop + 2, x1 - x0, kStripH);
+    // Vegas gives the strip a fixed ~18px band at the top of the event (measured off the
+    // reference captures in SAMPLES/screenshots/Transitions/); one pixel of that is the
+    // event border the strip sits inside. Clamp it so a squashed track still shows a clip.
+    const int stripH = std::clamp(track.height - 12, 11, 17);
+    return QRect(x0, trackTop + 3, x1 - x0, stripH);
 }
+
+namespace {
+
+/** Vegas's transition-properties glyph: a light "page" with a V notch bitten out of its top
+ *  edge and a blue sphere resting on its bottom-right corner. Proportions transcribed from
+ *  SAMPLES/screenshots/Transitions/Transition-Timeline-button_on_*_clip.png, where the page
+ *  is 12px inside a 19px button and the sphere is 9px across. */
+void paintTransitionGlyph(QPainter &p, const QRect &button)
+{
+    const double s = button.height();
+    const double pageSide = std::max(6.0, std::round(s * 0.65));
+    const QRectF page(button.left() + std::round(s * 0.11), button.top() + std::round(s * 0.08),
+                      pageSide, pageSide);
+
+    QPainterPath sheet;
+    sheet.moveTo(page.left(), page.top());
+    sheet.lineTo(page.center().x(), page.top() + page.height() * 0.42);
+    sheet.lineTo(page.right(), page.top());
+    sheet.lineTo(page.right(), page.bottom());
+    sheet.lineTo(page.left(), page.bottom());
+    sheet.closeSubpath();
+
+    p.save();
+    p.setRenderHint(QPainter::Antialiasing, true);
+    p.setPen(QPen(QColor(0x22, 0x22, 0x22), 1.0));
+    p.setBrush(QColor(0xee, 0xee, 0xee));
+    p.drawPath(sheet);
+
+    const double ball = s * 0.47;
+    p.setPen(QPen(QColor(0x2c, 0x31, 0x43), 1.0));
+    p.setBrush(QColor(0x69, 0x8a, 0xff));
+    p.drawEllipse(QRectF(page.right() - ball / 2.0, page.bottom() - ball / 2.0, ball, ball));
+    p.restore();
+}
+
+} // namespace
 
 void TimelineView::paintTransitionStrips(QPainter &p, const Track &track, int trackTop)
 {
@@ -2462,35 +2542,31 @@ void TimelineView::paintTransitionStrips(QPainter &p, const Track &track, int tr
             if (clipped.width() < 8) {
                 continue;
             }
-            // Selected event gets Vegas's yellow strip; otherwise the violet one.
-            const QColor fill = ev.selected ? QColor(0xd8, 0xd0, 0x40) : QColor(0x8a, 0x60, 0xc0);
-            const QColor text = ev.selected ? QColor(0x20, 0x20, 0x20) : QColor(0xff, 0xff, 0xff);
+            // Flat fill, no outline of the strip's own — the event's border frames it.
+            // A selected event turns the strip white with dark text; otherwise it is the
+            // muted violet. Colours sampled straight out of the reference screenshots in
+            // SAMPLES/screenshots/Transitions/.
+            const QColor fill = ev.selected ? QColor(0xff, 0xff, 0xff) : QColor(0x70, 0x62, 0x95);
+            const QColor text = ev.selected ? QColor(0x33, 0x33, 0x33) : QColor(0xdc, 0xdc, 0xdc);
             p.setRenderHint(QPainter::Antialiasing, false);
             p.fillRect(clipped, fill);
-            p.setPen(QPen(QColor(0x20, 0x20, 0x20), 1));
-            p.setBrush(Qt::NoBrush);
-            p.drawRect(clipped.adjusted(0, 0, -1, -1));
 
-            const QRect btn = transitionButtonRect(clipped);
+            // Taken from the unclipped strip so it stays where transitionStripAt() looks for it.
+            const QRect btn = transitionButtonRect(strip);
             QFont f = p.font();
             f.setPointSize(7);
             p.setFont(f);
             p.setPen(text);
-            const QString label = transitionPluginById(t.pluginId)
-                                      ? transitionPluginById(t.pluginId)->name
-                                      : t.pluginId;
+            const TransitionPluginInfo *info = transitionPluginById(t.pluginId);
+            const QString label = info ? info->name : t.pluginId;
             p.drawText(clipped.adjusted(4, 0, -(btn.width() + 4), 0),
                        Qt::AlignVCenter | Qt::AlignHCenter, label);
 
-            if (btn.width() >= 8) {
-                p.fillRect(btn, QColor(0xf0, 0xf0, 0xf0, 210));
-                p.setPen(QPen(QColor(0x30, 0x30, 0x30), 1));
-                p.drawRect(btn.adjusted(0, 0, -1, -1));
-                // Tiny "properties" glyph: two stacked slider rows.
-                p.drawLine(btn.left() + 3, btn.center().y() - 2, btn.right() - 3,
-                           btn.center().y() - 2);
-                p.drawLine(btn.left() + 3, btn.center().y() + 2, btn.right() - 3,
-                           btn.center().y() + 2);
+            if (!btn.isEmpty()) {
+                if (m_hoverTransitionEventId == ev.id && m_hoverTransitionFadeIn == fadeIn) {
+                    p.fillRect(btn, QColor(0x55, 0x55, 0x55));
+                }
+                paintTransitionGlyph(p, btn);
             }
         }
     }
@@ -3963,11 +4039,13 @@ void TimelineView::keyPressEvent(QKeyEvent *event)
 void TimelineView::leaveEvent(QEvent *event)
 {
     if (m_hoverResizeTrack != -1 || m_hoverReorderTrack != -1
-        || m_hoverButton != EventChromeButton::None || m_hoverLevelEventId >= 0) {
+        || m_hoverButton != EventChromeButton::None || m_hoverLevelEventId >= 0
+        || m_hoverTransitionEventId >= 0) {
         m_hoverResizeTrack = -1;
         m_hoverReorderTrack = -1;
         m_hoverButton = EventChromeButton::None;
         m_hoverLevelEventId = -1;
+        m_hoverTransitionEventId = -1;
         update();
     }
     if (!m_resizingHeader && m_resizingTrackIndex < 0 && m_reorderingTrack < 0) {

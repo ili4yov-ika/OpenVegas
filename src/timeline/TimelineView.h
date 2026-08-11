@@ -214,14 +214,15 @@ private:
     /** Attaches a dropped transition preset to the fade/crossfade under `pos`.
      *  Returns false when the drop did not land on one. */
     bool applyTransitionDrop(const QPoint &pos, const QString &pluginId, const QString &presetName);
-    /** Properties button inside a strip (right-aligned), empty when the strip is tiny. */
+    /** Properties button inside a strip, empty when the strip is tiny. Vegas makes it a
+     *  square the full height of the strip, butted against the strip's right edge. */
     static QRect transitionButtonRect(const QRect &strip)
     {
-        constexpr int kBtn = 13;
-        if (strip.width() < kBtn + 12) {
+        const int side = strip.height();
+        if (side < 10 || strip.width() < side + 14) {
             return QRect();
         }
-        return QRect(strip.right() - kBtn - 1, strip.top() + 1, kBtn, strip.height() - 2);
+        return QRect(strip.right() - side + 1, strip.top(), side, side);
     }
     void showFadeCurvePopup(int eventId, bool fadeIn, const QPoint &globalPos);
     void emitDocumentEditBegan();
@@ -349,6 +350,10 @@ private:
     int m_hoverReorderTrack = -1;
     EventChromeButton m_hoverButton = EventChromeButton::None;
     int m_hoverLevelEventId = -1;
+    /** Transition strip whose properties button the pointer is over (-1 = none). Vegas only
+     *  plates that button while it is hovered; at rest the glyph sits bare on the strip. */
+    int m_hoverTransitionEventId = -1;
+    bool m_hoverTransitionFadeIn = false;
     /** eventId → origin startSec for grouped move / trim */
     QHash<int, double> m_dragGroupOrigins;
     /** eventId → origin lengthSec for grouped trim */
