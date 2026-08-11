@@ -2,6 +2,9 @@
 
 #include "io/MediaFilmstripCache.h"
 
+#include <QDateTime>
+#include <QFileInfo>
+#include <QHash>
 #include <QMutex>
 #include <QProcess>
 #include <QProcessEnvironment>
@@ -77,6 +80,51 @@ void ensureEncoderCache()
     }
 }
 
+/** Identity of the ffmpeg we probed, so a swapped binary invalidates the verdicts. */
+QString ffmpegFingerprint()
+{
+    const QString path = MediaFilmstripCache::findFfmpeg();
+    if (path.isEmpty()) {
+        return {};
+    }
+    const QFileInfo fi(path);
+    return QStringLiteral("%1|%2|%3")
+        .arg(fi.absoluteFilePath())
+        .arg(fi.size())
+        .arg(fi.lastModified().toSecsSinceEpoch());
+}
+
+QHash<QString, bool> &usableCache()
+{
+    static QHash<QString, bool> h;
+    return h;
+}
+
+/**
+ * Encode three frames of `testsrc` and throw them away. This is the only honest
+ * capability test: ffmpeg -encoders lists every encoder compiled into the binary,
+ * so on a machine with no Intel GPU h264_qsv is still listed and still fails —
+ * observed here as "Error creating a MFX session: -9", exit 171.
+ */
+bool trialEncode(const QString &ffmpeg, const QString &encoderName)
+{
+    QProcess proc;
+    proc.setProcessChannelMode(QProcess::MergedChannels);
+    proc.start(ffmpeg, {QStringLiteral("-hide_banner"), QStringLiteral("-loglevel"),
+                        QStringLiteral("error"), QStringLiteral("-f"), QStringLiteral("lavfi"),
+                        QStringLiteral("-i"),
+                        QStringLiteral("testsrc=size=256x144:rate=25"),
+                        QStringLiteral("-frames:v"), QStringLiteral("3"), QStringLiteral("-c:v"),
+                        encoderName, QStringLiteral("-f"), QStringLiteral("null"),
+                        QStringLiteral("-")});
+    if (!proc.waitForFinished(20000)) {
+        proc.kill();
+        proc.waitForFinished(2000);
+        return false;
+    }
+    return proc.exitStatus() == QProcess::NormalExit && proc.exitCode() == 0;
+}
+
 QImage rgb24ToArgb(const QByteArray &rgb, int w, int h)
 {
     if (w < 1 || h < 1 || rgb.size() < w * h * 3) {
@@ -95,7 +143,7 @@ QStringList hwAccelPrefix()
     if (!FFmpegStreamDecoder::hwAccelEnabled()) {
         return {};
     }
-    return {QStringLiteral("-hwaccel"), QStringLiteral("auto")};
+    return {QStringLiteral("-hwaccel"), FFmpegStreamDecoder::hwDecodeMethod()};
 }
 
 int decodeSequenceCli(const QString &path, double startSec, double fps, int count,
@@ -323,6 +371,58 @@ bool FFmpegStreamDecoder::hwAccelEnabled()
     return s.value(QStringLiteral("media/hwAccel"), true).toBool();
 }
 
+QStringList FFmpegStreamDecoder::availableHwDecodeMethods()
+{
+    static QStringList cached;
+    static bool ready = false;
+    QMutexLocker lock(&encoderProbeMutex());
+    if (ready) {
+        return cached;
+    }
+    ready = true;
+    const QString ffmpeg = MediaFilmstripCache::findFfmpeg();
+    if (ffmpeg.isEmpty()) {
+        return cached;
+    }
+    QProcess proc;
+    proc.start(ffmpeg, {QStringLiteral("-hide_banner"), QStringLiteral("-hwaccels")});
+    if (!proc.waitForFinished(15000) || proc.exitStatus() != QProcess::NormalExit) {
+        return cached;
+    }
+    // Output is a "Hardware acceleration methods:" header then one name per line.
+    const QStringList lines =
+        QString::fromUtf8(proc.readAllStandardOutput()).split(QLatin1Char('\n'));
+    for (const QString &raw : lines) {
+        const QString name = raw.trimmed();
+        if (name.isEmpty() || name.endsWith(QLatin1Char(':'))) {
+            continue;
+        }
+        cached << name;
+    }
+    return cached;
+}
+
+QString FFmpegStreamDecoder::hwDecodeMethod()
+{
+    QString want = QString::fromLatin1(qgetenv("OPENVGAS_HWDECODER")).trimmed().toLower();
+    if (want.isEmpty()) {
+        QSettings s(QStringLiteral("OpenVegas"), QStringLiteral("OpenVegas"));
+        want = s.value(QStringLiteral("media/hwDecoder"), QStringLiteral("auto"))
+                   .toString()
+                   .trimmed()
+                   .toLower();
+    }
+    if (want.isEmpty() || want == QLatin1String("auto")) {
+        return QStringLiteral("auto");
+    }
+    // A method this ffmpeg does not offer would make every decode call fail outright,
+    // so an unknown/stale name falls back to letting ffmpeg choose.
+    if (availableHwDecodeMethods().contains(want)) {
+        return want;
+    }
+    return QStringLiteral("auto");
+}
+
 int FFmpegStreamDecoder::decodeSequence(const QString &path, double startSec, double fps, int count,
                                         const QSize &outSize, QVector<QImage> *out)
 {
@@ -369,19 +469,114 @@ bool FFmpegStreamDecoder::encoderAvailable(const QString &encoderName)
     return encoderCache().contains(encoderName);
 }
 
+QStringList FFmpegStreamDecoder::knownHwEncoders()
+{
+    // Preference order for "auto": discrete NVIDIA first, then Intel, then AMD.
+    return {QStringLiteral("h264_nvenc"), QStringLiteral("h264_qsv"),
+            QStringLiteral("h264_amf")};
+}
+
+bool FFmpegStreamDecoder::encoderUsable(const QString &encoderName)
+{
+    if (encoderName.isEmpty()) {
+        return false;
+    }
+    // Not listed in this build → no point launching a trial run.
+    if (!encoderAvailable(encoderName)) {
+        return false;
+    }
+    // Software encoders are always fine; skip the probe cost.
+    if (!knownHwEncoders().contains(encoderName)) {
+        return true;
+    }
+
+    QMutexLocker lock(&encoderProbeMutex());
+    if (const auto it = usableCache().constFind(encoderName); it != usableCache().constEnd()) {
+        return it.value();
+    }
+
+    QSettings s(QStringLiteral("OpenVegas"), QStringLiteral("OpenVegas"));
+    const QString fingerprint = ffmpegFingerprint();
+    const QString storedFp = s.value(QStringLiteral("media/encoderProbeFingerprint")).toString();
+    if (storedFp != fingerprint) {
+        // Different ffmpeg binary — every stored verdict is about some other build.
+        s.remove(QStringLiteral("media/encoderProbe"));
+        s.setValue(QStringLiteral("media/encoderProbeFingerprint"), fingerprint);
+    } else {
+        const QVariant stored =
+            s.value(QStringLiteral("media/encoderProbe/") + encoderName);
+        if (stored.isValid()) {
+            const bool ok = stored.toBool();
+            usableCache().insert(encoderName, ok);
+            return ok;
+        }
+    }
+
+    const QString ffmpeg = MediaFilmstripCache::findFfmpeg();
+    const bool ok = !ffmpeg.isEmpty() && trialEncode(ffmpeg, encoderName);
+    usableCache().insert(encoderName, ok);
+    s.setValue(QStringLiteral("media/encoderProbe/") + encoderName, ok);
+    return ok;
+}
+
+void FFmpegStreamDecoder::clearEncoderProbeCache()
+{
+    QMutexLocker lock(&encoderProbeMutex());
+    usableCache().clear();
+    QSettings s(QStringLiteral("OpenVegas"), QStringLiteral("OpenVegas"));
+    s.remove(QStringLiteral("media/encoderProbe"));
+    s.remove(QStringLiteral("media/encoderProbeFingerprint"));
+}
+
+QString FFmpegStreamDecoder::hwEncoderPreference()
+{
+    const QByteArray env = qgetenv("OPENVGAS_HWENCODER").toLower();
+    if (!env.isEmpty()) {
+        return QString::fromLatin1(env);
+    }
+    QSettings s(QStringLiteral("OpenVegas"), QStringLiteral("OpenVegas"));
+    return s.value(QStringLiteral("media/hwEncoder"), QStringLiteral("auto")).toString().toLower();
+}
+
+QString FFmpegStreamDecoder::selectedHwEncoder()
+{
+    const QString pref = hwEncoderPreference();
+    if (pref == QLatin1String("cpu") || pref == QLatin1String("off")
+        || pref == QLatin1String("none")) {
+        return {};
+    }
+    if (pref != QLatin1String("auto")) {
+        // An explicit pick still has to pass the trial encode — otherwise a user who
+        // selects QSV on an AMD box gets a render that dies instead of a soft fallback.
+        const QString named = pref.startsWith(QLatin1String("h264_"))
+                                  ? pref
+                                  : QStringLiteral("h264_") + pref;
+        if (knownHwEncoders().contains(named) && encoderUsable(named)) {
+            return named;
+        }
+        return {};
+    }
+    for (const QString &name : knownHwEncoders()) {
+        if (encoderUsable(name)) {
+            return name;
+        }
+    }
+    return {};
+}
+
 QStringList FFmpegStreamDecoder::videoEncodeCodecArgs(int crf)
 {
     crf = std::clamp(crf, 0, 51);
-    // Prefer HW encoders when ffmpeg reports them (Phase 6); soft fallback to libx264.
-    if (encoderAvailable(QStringLiteral("h264_nvenc"))) {
+    const QString hw = selectedHwEncoder();
+    if (hw == QLatin1String("h264_nvenc")) {
         return {QStringLiteral("-c:v"), QStringLiteral("h264_nvenc"), QStringLiteral("-preset"),
                 QStringLiteral("p4"),   QStringLiteral("-cq"),        QString::number(crf)};
     }
-    if (encoderAvailable(QStringLiteral("h264_qsv"))) {
+    if (hw == QLatin1String("h264_qsv")) {
         return {QStringLiteral("-c:v"), QStringLiteral("h264_qsv"), QStringLiteral("-global_quality"),
                 QString::number(crf)};
     }
-    if (encoderAvailable(QStringLiteral("h264_amf"))) {
+    if (hw == QLatin1String("h264_amf")) {
         return {QStringLiteral("-c:v"), QStringLiteral("h264_amf"), QStringLiteral("-rc"),
                 QStringLiteral("cqp"),  QStringLiteral("-qp_i"),    QString::number(crf)};
     }

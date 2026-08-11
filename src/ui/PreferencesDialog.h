@@ -23,6 +23,8 @@ protected:
 private:
     void loadSettings();
     void saveSettings();
+    /** Fills the Video tab's status line from the trial-encode verdicts. */
+    void refreshHwStatus();
 
     Ui::PreferencesDialog *ui = nullptr;
 };

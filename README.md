@@ -173,6 +173,7 @@ OpenVegas/
 11. **Сайдкары `.sfk` / `.sfl`** — [`MARKDOWN/SFK_SFL_SIDECAR_FILES.md`](MARKDOWN/SFK_SFL_SIDECAR_FILES.md)
 12. **Что в UI ещё заглушка** — [`MARKDOWN/UI_STUBS_AUDIT.md`](MARKDOWN/UI_STUBS_AUDIT.md)
 13. **Текущий чеклист задач** — [`MARKDOWN/CHECKLIST.md`](MARKDOWN/CHECKLIST.md)
+14. **Аппаратные ускорители (VLD, NVENC/QSV/AMF)** — [`MARKDOWN/HARDWARE_ACCELERATOR.md`](MARKDOWN/HARDWARE_ACCELERATOR.md)
 
 ---
 

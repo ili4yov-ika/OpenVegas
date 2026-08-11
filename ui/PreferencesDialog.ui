@@ -145,6 +145,122 @@
        </item>
       </layout>
      </widget>
+     <widget class="QWidget" name="tabVideo">
+      <attribute name="title">
+       <string>Video</string>
+      </attribute>
+      <layout class="QVBoxLayout" name="videoLayout">
+       <item>
+        <widget class="QLabel" name="hwIntro">
+         <property name="text">
+          <string>Hardware acceleration is driven through FFmpeg. Every option below is verified by a short trial run before it is used — an accelerator your machine cannot run falls back to software instead of failing the render.</string>
+         </property>
+         <property name="wordWrap">
+          <bool>true</bool>
+         </property>
+        </widget>
+       </item>
+       <item>
+        <widget class="QGroupBox" name="hwDecodeGroup">
+         <property name="title">
+          <string>Decoding (playback and scrubbing)</string>
+         </property>
+         <layout class="QVBoxLayout" name="hwDecodeLayout">
+          <item>
+           <widget class="QCheckBox" name="checkHwDecode">
+            <property name="text">
+             <string>Use hardware decoding (DXVA2 / D3D11VA / CUDA — VLD)</string>
+            </property>
+            <property name="checked">
+             <bool>true</bool>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <layout class="QHBoxLayout" name="hwDecodeRow">
+            <item>
+             <widget class="QLabel" name="hwDecodeLabel">
+              <property name="text">
+               <string>Method</string>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <widget class="QComboBox" name="hwDecodeCombo"/>
+            </item>
+            <item>
+             <spacer name="hwDecodeSpacer">
+              <property name="orientation">
+               <enum>Qt::Horizontal</enum>
+              </property>
+              <property name="sizeHint" stdset="0">
+               <size>
+                <width>40</width>
+                <height>20</height>
+               </size>
+              </property>
+             </spacer>
+            </item>
+           </layout>
+          </item>
+         </layout>
+        </widget>
+       </item>
+       <item>
+        <widget class="QGroupBox" name="hwEncodeGroup">
+         <property name="title">
+          <string>Encoding (Render As)</string>
+         </property>
+         <layout class="QVBoxLayout" name="hwEncodeLayout">
+          <item>
+           <layout class="QHBoxLayout" name="hwEncodeRow">
+            <item>
+             <widget class="QLabel" name="hwEncodeLabel">
+              <property name="text">
+               <string>Encoder</string>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <widget class="QComboBox" name="hwEncodeCombo"/>
+            </item>
+            <item>
+             <widget class="QPushButton" name="hwDetectButton">
+              <property name="text">
+               <string>Detect…</string>
+              </property>
+             </widget>
+            </item>
+           </layout>
+          </item>
+          <item>
+           <widget class="QLabel" name="hwStatusLabel">
+            <property name="text">
+             <string/>
+            </property>
+            <property name="wordWrap">
+             <bool>true</bool>
+            </property>
+           </widget>
+          </item>
+         </layout>
+        </widget>
+       </item>
+       <item>
+        <spacer name="videoSpacer">
+         <property name="orientation">
+          <enum>Qt::Vertical</enum>
+         </property>
+         <property name="sizeHint" stdset="0">
+          <size>
+           <width>20</width>
+           <height>40</height>
+          </size>
+         </property>
+        </spacer>
+       </item>
+      </layout>
+     </widget>
      <widget class="QWidget" name="tabVst">
       <attribute name="title">
        <string>VST Effects</string>
