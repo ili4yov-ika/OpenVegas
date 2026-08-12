@@ -189,7 +189,28 @@ connect(m_transitions, &TransitionsPane::transitionActivated, this, [this](const
     statusBar()->showMessage(tr("Transition: %1").arg(name), 2500);
 });
 ```
-То же для `VideoFxPane` (кроме добавления через кнопку/двойной клик именно в Video FX пейне на клипе, см. `VideoFxPane::pluginActivated` — тот путь, что реально работает, отличается от этого) и для `TransitionsPane`. Drag-and-drop не реализован ни там, ни там (`grep` по `mimeData`/`startDrag`/`dropEvent` в `TransitionsPane.cpp` — пусто). Визуально полностью готовые панели (превью, категории, поиск) не вставляют переход на таймлайн через double-click или DnD.
+**Поправка 2026-08-12 (Video FX):** Drag'n'Drop из `VideoFxPane` **реализован**. `FxDragListWidget`
+(тем же явным press→move→launch, что и в Media Generator — автозапуск drag у `QAbstractItemView`
+для этой конфигурации не срабатывает) обслуживает обе половины панели: строка плагина тащит эффект
+с пресетом по умолчанию, тайл пресета — с этим пресетом. Payload —
+`MediaMime::fromSynthetic("videofx", <плагин>, <пресет>)`; `TimelineView::applyVideoFxDrop`
+добавляет `FxSlot` в цепочку события под курсором (только видеодорожка, только внутри клипа),
+кладёт запись в undo и открывает Video Event FX, как это делает VEGAS. Вне клипа drag отклоняется,
+и «призрак клипа» для `videofx`/`transition` больше не рисуется — они ничего не вставляют.
+Регрессии: `[video-fx][vegas-video][dnd]`.
+
+Осталось косметическим: **double-click** в `VideoFxPane` по-прежнему только тост
+(`statusBar()->showMessage`) — эффект не добавляется. То же для `TransitionsPane`
+(у него DnD пресет-тайлов есть, double-click — тост).
+
+### Превью пресетов в Video FX — общий семпл, не рендер эффекта
+
+`VideoFxPane::presetIcon()` рисует на все тайлы один и тот же `:/images/eye_preview.png`.
+VEGAS в этих тайлах показывает исходник **с применённым эффектом и конкретным пресетом**, поэтому
+у него тайлы разных пресетов различаются, а у нас — нет. Это осознанный плейсхолдер (и всё же
+честнее прежних цветных градиентов, которые намекали на превью, которого не было): нарисовать
+реальный результат мешает то же, что и превью Glint — `processEmulated()` умеет пока только
+Soften/Invert/Sepia/Brightness/Gain, для большинства пунктов каталога рисовать нечего.
 
 ### CD Audio
 `src/io/CdAudioReader.h:23` — «Windows CDDA: TOC + raw sector rip to WAV. Stub elsewhere.» — File → Extract Audio from CD… работает только на Windows, на остальных платформах — заглушка.
@@ -208,7 +229,7 @@ connect(m_transitions, &TransitionsPane::transitionActivated, this, [this](const
 ## Приоритеты (предложение)
 
 1. ~~**File → Save/Save As**~~ — реализовано 2026-08-09 (родной round-trip формат «OpenVegas Project Archive», не `.veg` — см. [`PROJECT_ARCHIVE_FORMAT.md`](PROJECT_ARCHIVE_FORMAT.md)). Track Motion / Mixing Console / Automation Lanes всё ещё не входят в архив — задокументированный, не тихий пробел.
-2. **Transitions/Video FX panes** — insert-по-двойному-клику или drag&drop на таймлайн; сейчас полностью готовый браузер контента ни на что не годен, кроме просмотра превью. (Media Generator для Titles & Text уже сделан — 2026-08-08.)
+2. ~~**Transitions/Video FX panes** — drag&drop на таймлайн~~ — сделано (Transitions, Video FX — 2026-08-12). Осталось: insert по двойному клику в обеих панелях — сейчас это тост.
 3. **VEGAS Shared `CatalogOnly` эффекты** — либо пометить в UI чузера (например суффиксом «(no DSP)»), либо скрыть из списка до реализации.
 4. **Video Event FX (`VideoEventFxDialog`, старый)** — проверить, не является ли он мёртвым кодом, если весь flow уже идёт через `VideoEventFxDialogExact`; если мёртв — удалить, а не оставлять диалог с фейковыми параметрами.
 5. Остальное (Editing Tool submenu, Group/Switches/Channels в Edit, Compositing Mode blend-режимы, Time Display/Split Screen/Preview context-меню) — низкий приоритет, это Vegas-паритет «для галочки», а не блокер базового редактирования.

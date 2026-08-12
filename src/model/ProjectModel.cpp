@@ -41,10 +41,102 @@ FxSlot fxSlotFromVegWithState(const QString &raw, const VegOpenResult &veg)
     if (it != veg.fxStateChunks.constEnd() && !it.value().isEmpty()) {
         setFxStateChunk(&slot, it.value());
     }
+    // Legacy (non-OFX) VEGAS effects — Glint, Soft Contrast — keep their whole state as
+    // XML in the project rather than as an OFX blob. Without this the chain recovered the
+    // effect's name but every slider fell back to an invented default.
+    const auto legacy = veg.legacyFxStates.constFind(key.toLower());
+    if (legacy != veg.legacyFxStates.constEnd() && !legacy.value().baseParams.isEmpty()) {
+        QVariantMap params = unpackFxParams(slot.state);
+        for (auto pit = legacy.value().baseParams.constBegin();
+             pit != legacy.value().baseParams.constEnd(); ++pit) {
+            params.insert(pit.key(), pit.value());
+        }
+        if (!legacy.value().presetName.isEmpty()) {
+            params.insert(fxVegasPresetStateKey(), legacy.value().presetName);
+        }
+        slot.state = packFxParams(params);
+    }
     if (slot.format == PluginFormat::Ofx) {
         slot = VegasVideoPluginCatalog::resolveVegImportSlot(slot);
     }
     return slot;
+}
+
+/**
+ * Automation lanes reproducing a legacy effect's animation from the project.
+ *
+ * One lane per parameter that actually changes across keyframes, plus the `_master`
+ * marker row the FX dialogs draw as VEGAS-style diamonds. Parameters that hold the same
+ * value throughout stay unanimated — VEGAS writes every parameter into every keyframe
+ * blob, so importing them all would fill the panel with flat lanes.
+ */
+QVector<AutomationLane> legacyFxAutomationLanes(const FxSlot &slot, const VegOpenResult &veg,
+                                                const QString &shortNameLower)
+{
+    QVector<AutomationLane> lanes;
+    const auto it = veg.legacyFxStates.constFind(shortNameLower);
+    if (it == veg.legacyFxStates.constEnd() || it.value().keyframes.size() < 2) {
+        return lanes;
+    }
+    const QVector<VegLegacyFxKeyframe> &kfs = it.value().keyframes;
+
+    QSet<QString> animated;
+    for (const QString &param : kfs.first().params.keys()) {
+        const double first = kfs.first().params.value(param).toDouble();
+        for (const VegLegacyFxKeyframe &kf : kfs) {
+            if (std::abs(kf.params.value(param, first).toDouble() - first) > 1e-9) {
+                animated.insert(param);
+                break;
+            }
+        }
+    }
+
+    AutomationLane master;
+    master.targetId = fxMasterAutomationTargetId(slot);
+    for (const VegLegacyFxKeyframe &kf : kfs) {
+        AutomationPoint pt;
+        pt.timeSec = kf.timeSec;
+        pt.value = 1.0;
+        master.points.push_back(pt);
+    }
+    lanes.push_back(master);
+
+    for (const QString &param : animated) {
+        AutomationLane lane;
+        lane.targetId = fxParamAutomationTargetId(slot, param);
+        for (const VegLegacyFxKeyframe &kf : kfs) {
+            if (!kf.params.contains(param)) {
+                continue;
+            }
+            AutomationPoint pt;
+            pt.timeSec = kf.timeSec;
+            pt.value = kf.params.value(param).toDouble();
+            lane.points.push_back(pt);
+        }
+        if (lane.points.size() >= 2) {
+            lanes.push_back(lane);
+        }
+    }
+    return lanes;
+}
+
+/** Short catalog key for a slot ("Glint" → "glint"), matching VegOpenResult::legacyFxStates. */
+QString legacyFxKeyForSlot(const FxSlot &slot)
+{
+    QString key = slot.displayName;
+    const int paren = key.indexOf(QLatin1Char('('));
+    if (paren > 0) {
+        key = key.left(paren).trimmed();
+    }
+    return key.toLower();
+}
+
+/** Append an FX slot recovered from a `.veg` plus any animation it carries. */
+void appendVegFxSlot(TrackEvent *event, const QString &raw, const VegOpenResult &veg)
+{
+    const FxSlot slot = fxSlotFromVegWithState(raw, veg);
+    event->fxChain.push_back(slot);
+    event->automationLanes += legacyFxAutomationLanes(slot, veg, legacyFxKeyForSlot(slot));
 }
 
 /** Vegas-style lanes for multichannel audio (EDL FirstChannel / Channels). */
@@ -1585,7 +1677,7 @@ bool ProjectModel::applyVegImport(const VegOpenResult &veg, const QString &opene
                     }
                     if (!appliedVideoEventFx && !veg.eventFxNames.isEmpty()) {
                         for (const QString &fx : veg.eventFxNames) {
-                            te.fxChain.push_back(fxSlotFromVegWithState(fx, veg));
+                            appendVegFxSlot(&te, fx, veg);
                         }
                         appliedVideoEventFx = true;
                     }
@@ -1746,7 +1838,7 @@ bool ProjectModel::applyVegImport(const VegOpenResult &veg, const QString &opene
                 te.fxChain = {makeFxSlot(QStringLiteral("Pan/Crop"), PluginFormat::Builtin)};
                 if (!veg.eventFxNames.isEmpty() && vi == 0) {
                     for (const QString &fx : veg.eventFxNames) {
-                        te.fxChain.push_back(fxSlotFromVegWithState(fx, veg));
+                        appendVegFxSlot(&te, fx, veg);
                     }
                 }
                 m_tracks[track].events.push_back(te);
@@ -1990,6 +2082,8 @@ void ProjectModel::applyVideoTrackFxFromVeg(const VegOpenResult &veg)
             const FxSlot slot = fxSlotFromVegWithState(raw, veg);
             if (indexOfFxName(tr.fxChain, slot.displayName) < 0) {
                 tr.fxChain.push_back(slot);
+                tr.automationLanes +=
+                    legacyFxAutomationLanes(slot, veg, legacyFxKeyForSlot(slot));
             }
         }
         return; // first video track

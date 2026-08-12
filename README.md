@@ -6,7 +6,7 @@
 
 Цель — привычный workspace Vegas (таймлайн, events, fades/crossfades, media bin, Trimmer, Properties, Event FX, Media Generators, Transitions) и открытие проектов `.veg`.
 
-Сейчас: **рабочий MVP** — playback A/V, compositor, Builtin/VST/OFX, Render As, interchange, импорт `.veg` (v1 + Event FX + Titles & Text + переходы), редактирование на таймлайне и сохранение проекта в собственный формат.
+Сейчас: **рабочий MVP** — playback A/V, compositor, Builtin/VST/OFX (настоящие OFX-плагины, включая бандлы VEGAS, реально рендерят), Render As, interchange, импорт `.veg` (v1 + Event FX + Titles & Text + переходы), редактирование на таймлайне и сохранение проекта в собственный формат.
 
 ---
 
@@ -27,8 +27,11 @@
 | Audio engine + mixer + Builtin DSP (Delay/Reverb, …) | Done |
 | VST1 / VST2 process + editor | Done |
 | VST3 process + `IPlugView` editor | Done (нужен SDK) |
-| OFX process + emulated Soften/Invert/Sepia | Done MVP |
+| OFX host — загрузка и рендер реальных `.ofx` (включая бандлы VEGAS) | Done (хост) |
+| **Видеоплагины из Vegas Pro — пока НЕ работают**³ | Не работает |
+| OFX кроссплатформенно — стандартные корни (`OFX_PLUGIN_PATH`, `/usr/OFX/Plugins`, `/Library/OFX/Plugins`) + ABI-гейт | Done |
 | Event FX UI (Video / Audio, немодальные) | Done |
+| Video FX — Drag'n'Drop эффекта/пресета на видеоклип | Done |
 | Render As (FFmpeg) + progress UI | Done |
 | NLE interchange (Vegas CSV / FCP7 / FCPX / Premiere scrape) | Done MVP¹ |
 | Media Generator — VEGAS Titles & Text (анимации, hover-preview, Drag'n'Drop) | Done MVP |
@@ -40,6 +43,9 @@
 
 ¹ Переходы не переносит **ни один** формат обмена — это предел самих форматов, а не наш дефект: Vegas в своих же экспортах вырождает 3D Blinds в `Cross Dissolve`. Что именно выживает в каждом формате — таблица в [`MARKDOWN/ISSUES_AND_PLANS.md`](MARKDOWN/ISSUES_AND_PLANS.md) (раздел «Render As / interchange»).
 ² Остальные ~24 группы каталога (3D Cascade, Barn Door, Iris, …) — намеренно нерабочие плейсхолдеры: тайлы не перетаскиваются, чтобы нельзя было поставить переход, который ничего не делает.
+³ **Видеоплагины из Vegas Pro сейчас не открываются и не рендерят.** Цепочка Event FX из `.veg` восстанавливается, плагины видны в каталоге и в окне Event FX, но картинки не дают. Сам хост исправен — настоящий `Vfx1.ofx` проходит `Load → Describe → DescribeInContext → CreateInstance → Render` со статусом 0; не работает **перенос значений из проекта**: OFX-блоб параметров в `.veg` не разобран, слот приезжает пустым, и плагин честно рендерит с радиусом `0`.
+
+Собственные подмены (box blur вместо Chroma Blur, sepia-матрица вместо Sepia, gain на любой упавший рендер) **намеренно отключены** — `OPENVEGAS_EMULATED_VIDEO_FX = 0` в [`src/plugins/OfxHost.h`](src/plugins/OfxHost.h). Раньше они создавали впечатление, что приложение крутит эффекты VEGAS, тогда как оно крутило их приближения. Теперь эффект, который нельзя отрендерить по-настоящему, не рендерится вовсе. **Писать новые такие реализации не следует** — путь вперёд один: разобрать настоящие параметры. Замеры и план — [`MARKDOWN/PLAN_OFX_VIDEO_PLUGINS.md`](MARKDOWN/PLAN_OFX_VIDEO_PLUGINS.md).
 
 Подробности и backlog: [`MARKDOWN/ISSUES_AND_PLANS.md`](MARKDOWN/ISSUES_AND_PLANS.md), [`MARKDOWN/PLAN_VIDEOAUDIOSTACK.md`](MARKDOWN/PLAN_VIDEOAUDIOSTACK.md), [`MARKDOWN/PLAN_VIDEO-AUDIO-PLUGINS-STACK.md`](MARKDOWN/PLAN_VIDEO-AUDIO-PLUGINS-STACK.md).
 
@@ -109,6 +115,30 @@ cd thirdparty/vst3sdk && git submodule update --init pluginterfaces base public.
 cmake -S . -B build/Windows_MinGW-x64 -DCMAKE_PREFIX_PATH=<Qt6.8>
 ```
 
+### OFX-видеоплагины
+
+Ищутся в путях установки VEGAS Pro и в стандартных корнях OpenFX:
+
+| Платформа | Корни |
+|-----------|-------|
+| Все | `OFX_PLUGIN_PATH` (`;` на Windows, `:` иначе) |
+| Windows | `%CommonProgramFiles%\OFX\Plugins` |
+| macOS | `/Library/OFX/Plugins`, `~/Library/OFX/Plugins` |
+| Linux | `/usr/OFX/Plugins`, `/usr/local/OFX/Plugins`, `~/OFX/Plugins` |
+
+Бандлы VEGAS содержат только `Contents/Win64`, поэтому на Linux и macOS они видны в
+каталоге, но не загружаются — рендер идёт через встроенную эмуляцию по имени эффекта.
+Сторонние OFX-плагины, собранные для вашей ОС, работают полноценно.
+
+Если плагин не грузится:
+
+```bash
+OPENVEGAS_OFX_TRACE=/tmp/ofx.log ./OpenVegas   # лог всех host-колбэков
+OPENVEGAS_OFX_THREADS=1 ./OpenVegas            # однопоточный рендер OFX
+```
+
+Подробности — [`MARKDOWN/PLAN_OFX_VIDEO_PLUGINS.md`](MARKDOWN/PLAN_OFX_VIDEO_PLUGINS.md).
+
 ### Тесты
 
 ```bash
@@ -164,16 +194,17 @@ OpenVegas/
 2. **Баги и планы** — [`MARKDOWN/ISSUES_AND_PLANS.md`](MARKDOWN/ISSUES_AND_PLANS.md)
 3. **Video / Audio stack** — [`MARKDOWN/PLAN_VIDEOAUDIOSTACK.md`](MARKDOWN/PLAN_VIDEOAUDIOSTACK.md)
 4. **Plugins stack** — [`MARKDOWN/PLAN_VIDEO-AUDIO-PLUGINS-STACK.md`](MARKDOWN/PLAN_VIDEO-AUDIO-PLUGINS-STACK.md)
-5. **Открытие `.veg` (кратко)** — [`docs/VEG_OPEN.md`](docs/VEG_OPEN.md)
-6. **Открытие `.veg` (развёрнуто)** — [`MARKDOWN/VEG_READER_V0.md`](MARKDOWN/VEG_READER_V0.md)
-7. **Перенос на Qt + парсер** — [`MARKDOWN/QT68_PORT_AND_VEG_OPEN.md`](MARKDOWN/QT68_PORT_AND_VEG_OPEN.md)
-8. **Поддерживаемые файлы** — [`docs/support_files.md`](docs/support_files.md)
-9. **Формат `.veg`** — [`SAMPLES/veg_analyzators/00_format_overview.md`](SAMPLES/veg_analyzators/00_format_overview.md)
-10. **Родной формат проекта** — [`MARKDOWN/PROJECT_ARCHIVE_FORMAT.md`](MARKDOWN/PROJECT_ARCHIVE_FORMAT.md)
-11. **Сайдкары `.sfk` / `.sfl`** — [`MARKDOWN/SFK_SFL_SIDECAR_FILES.md`](MARKDOWN/SFK_SFL_SIDECAR_FILES.md)
-12. **Что в UI ещё заглушка** — [`MARKDOWN/UI_STUBS_AUDIT.md`](MARKDOWN/UI_STUBS_AUDIT.md)
-13. **Текущий чеклист задач** — [`MARKDOWN/CHECKLIST.md`](MARKDOWN/CHECKLIST.md)
-14. **Аппаратные ускорители (VLD, NVENC/QSV/AMF)** — [`MARKDOWN/HARDWARE_ACCELERATOR.md`](MARKDOWN/HARDWARE_ACCELERATOR.md)
+5. **OFX / видеоплагины Vegas + кроссплатформенность** — [`MARKDOWN/PLAN_OFX_VIDEO_PLUGINS.md`](MARKDOWN/PLAN_OFX_VIDEO_PLUGINS.md)
+6. **Открытие `.veg` (кратко)** — [`docs/VEG_OPEN.md`](docs/VEG_OPEN.md)
+7. **Открытие `.veg` (развёрнуто)** — [`MARKDOWN/VEG_READER_V0.md`](MARKDOWN/VEG_READER_V0.md)
+8. **Перенос на Qt + парсер** — [`MARKDOWN/QT68_PORT_AND_VEG_OPEN.md`](MARKDOWN/QT68_PORT_AND_VEG_OPEN.md)
+9. **Поддерживаемые файлы** — [`docs/support_files.md`](docs/support_files.md)
+10. **Формат `.veg`** — [`SAMPLES/veg_analyzators/00_format_overview.md`](SAMPLES/veg_analyzators/00_format_overview.md)
+11. **Родной формат проекта** — [`MARKDOWN/PROJECT_ARCHIVE_FORMAT.md`](MARKDOWN/PROJECT_ARCHIVE_FORMAT.md)
+12. **Сайдкары `.sfk` / `.sfl`** — [`MARKDOWN/SFK_SFL_SIDECAR_FILES.md`](MARKDOWN/SFK_SFL_SIDECAR_FILES.md)
+13. **Что в UI ещё заглушка** — [`MARKDOWN/UI_STUBS_AUDIT.md`](MARKDOWN/UI_STUBS_AUDIT.md)
+14. **Текущий чеклист задач** — [`MARKDOWN/CHECKLIST.md`](MARKDOWN/CHECKLIST.md)
+15. **Аппаратные ускорители (VLD, NVENC/QSV/AMF)** — [`MARKDOWN/HARDWARE_ACCELERATOR.md`](MARKDOWN/HARDWARE_ACCELERATOR.md)
 
 ---
 

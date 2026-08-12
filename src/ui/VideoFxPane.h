@@ -9,6 +9,7 @@
 
 class QLineEdit;
 class QListWidget;
+class QPixmap;
 class QLabel;
 class QButtonGroup;
 class QHBoxLayout;
@@ -56,6 +57,8 @@ private:
     void showPlugin(int catalogIndex);
     void applySearchAndCategory();
     QIcon presetIcon(const Preset &p) const;
+    /** Shared sample photo every preset tile previews over (VEGAS uses the same idea). */
+    static const QPixmap &presetSampleImage();
 
     PluginScanner *m_scanner = nullptr;
     QVector<Plugin> m_plugins;

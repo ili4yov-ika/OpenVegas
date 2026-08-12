@@ -92,6 +92,8 @@ endif()
     src/media/MediaEngine.cpp
     src/plugins/PluginScanner.cpp
     src/plugins/OfxHost.cpp
+    src/plugins/OfxTrace.cpp
+    src/plugins/OfxPluginPaths.cpp
     src/plugins/BuiltinAudioCatalog.cpp
     src/plugins/VegasSharedAudioCatalog.cpp
     src/plugins/VegasVideoPluginCatalog.cpp
@@ -184,6 +186,9 @@ set(OPENVGAS_HEADERS
     src/media/MediaEngine.h
     src/plugins/PluginScanner.h
     src/plugins/OfxHost.h
+    src/plugins/OfxTrace.h
+    src/plugins/OfxPluginPaths.h
+    src/plugins/OfxVegasExtensions.h
     src/plugins/AudioPluginTypes.h
     src/plugins/BuiltinAudioCatalog.h
     src/plugins/VegasSharedAudioCatalog.h
@@ -385,6 +390,8 @@ if(OPENVGAS_BUILD_TESTS)
         src/audio/BuiltinDsp.cpp
         src/plugins/VegasSharedAudioCatalog.cpp
         src/plugins/OfxHost.cpp
+        src/plugins/OfxTrace.cpp
+        src/plugins/OfxPluginPaths.cpp
         src/plugins/PluginScanner.cpp
         src/plugins/VegasVideoPluginCatalog.cpp
     )
@@ -410,9 +417,14 @@ if(OPENVGAS_BUILD_TESTS)
         tests/test_titles_text.cpp
         tests/test_transitions.cpp
         tests/stub_media_path_for_event.cpp
+        src/audio/BuiltinDsp.cpp
         src/audio/FadeCurves.cpp
+        src/io/MediaMime.cpp
+        src/io/MediaProbe.cpp
         src/io/SamplePaths.cpp
         src/plugins/OfxHost.cpp
+        src/plugins/OfxTrace.cpp
+        src/plugins/OfxPluginPaths.cpp
         src/plugins/PluginScanner.cpp
         src/plugins/VegasVideoPluginCatalog.cpp
         src/video/VideoKeyframeEval.cpp
@@ -457,6 +469,7 @@ if(OPENVGAS_BUILD_TESTS)
         tests/test_ffmpeg_stream_decoder.cpp
         tests/test_plugin_scanner_paths.cpp
         tests/test_ofx_host.cpp
+        tests/test_ofx_plugin_paths.cpp
         tests/test_vst3_host.cpp
         tests/test_project_interchange.cpp
         tests/test_plugin_state.cpp
@@ -474,6 +487,7 @@ if(OPENVGAS_BUILD_TESTS)
         src/io/ProjectInterchange.cpp
         src/io/SamplePaths.cpp
         src/io/VegReader.cpp
+        src/io/MediaMime.cpp
         src/io/MediaProbe.cpp
         src/io/MediaWaveformCache.cpp
         src/model/ProjectModel.cpp
@@ -482,6 +496,8 @@ if(OPENVGAS_BUILD_TESTS)
         src/plugins/VegasVideoPluginCatalog.cpp
         src/plugins/PluginScanner.cpp
         src/plugins/OfxHost.cpp
+        src/plugins/OfxTrace.cpp
+        src/plugins/OfxPluginPaths.cpp
         src/plugins/AudioPluginScanner.cpp
         src/audio/Vst3Host.cpp
         src/audio/BuiltinDsp.cpp

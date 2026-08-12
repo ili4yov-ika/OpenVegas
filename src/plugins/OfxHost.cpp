@@ -1,4 +1,7 @@
 #include "plugins/OfxHost.h"
+#include "plugins/OfxPluginPaths.h"
+#include "plugins/OfxTrace.h"
+#include "plugins/OfxVegasExtensions.h"
 #include "plugins/VegasVideoPluginCatalog.h"
 
 #include <QDataStream>
@@ -9,6 +12,7 @@
 #include <QLibrary>
 #include <QMutex>
 #include <QMutexLocker>
+#include <QStandardPaths>
 
 #include <algorithm>
 #include <atomic>
@@ -27,17 +31,21 @@
 #define NOMINMAX
 #endif
 #include <windows.h>
+#include <objbase.h>
 #endif
 
 extern "C" {
 #include <ofxCore.h>
 #include <ofxImageEffect.h>
+#include <ofxInteract.h>
 #include <ofxMemory.h>
 #include <ofxMessage.h>
 #include <ofxMultiThread.h>
 #include <ofxParam.h>
 #include <ofxParametricParam.h>
+#include <ofxProgress.h>
 #include <ofxProperty.h>
+#include <ofxTimeLine.h>
 }
 
 namespace openvegas {
@@ -105,6 +113,45 @@ private:
 #endif
 };
 
+/**
+ * ABI directory a binary sits in, or empty when it is not inside a bundle layout.
+ *
+ * Callers hand us `.../Something.ofx.bundle/Contents/Win64/Something.ofx` directly as
+ * often as they hand us the bundle root, so the ABI has to be recoverable from the
+ * binary path alone — that is the one place every load funnels through.
+ */
+QString archFolderFromBinaryPath(const QString &binaryPath)
+{
+    const QString parent = QFileInfo(binaryPath).dir().dirName();
+    for (const QString &known : OfxPluginPaths::knownArchFolderNames()) {
+        if (parent.compare(known, Qt::CaseInsensitive) == 0) {
+            return known;
+        }
+    }
+    return {};
+}
+
+/**
+ * Guard every dlopen/LoadLibrary: refuse a binary built for another platform instead of
+ * letting the OS loader fail with an unhelpful message (or, worse, on some systems,
+ * partially map it). Returns false and fills `errorOut` when the load must not happen.
+ */
+bool checkArchLoadable(const QString &binaryPath, QString *errorOut)
+{
+    const QString arch = archFolderFromBinaryPath(binaryPath);
+    const QString reason = OfxPluginPaths::archIncompatibilityReason(arch);
+    if (reason.isEmpty()) {
+        return true;
+    }
+    OPENVEGAS_OFX_TRACE(
+        QStringLiteral("skip \"%1\": %2").arg(binaryPath, reason));
+    if (errorOut) {
+        *errorOut = QStringLiteral("OFX plug-in \"%1\" cannot run here — %2")
+                        .arg(QFileInfo(binaryPath).fileName(), reason);
+    }
+    return false;
+}
+
 QString tidyNameFromBundle(const QString &bundleName)
 {
     QString n = bundleName;
@@ -116,6 +163,13 @@ QString tidyNameFromBundle(const QString &bundleName)
     return n;
 }
 
+/**
+ * Pick the binary inside an `.ofx.bundle`.
+ *
+ * Prefers a directory this build can actually load; only if there is none does it fall
+ * back to whatever the bundle does ship, so the caller can still name the plug-in and
+ * explain that it is the wrong platform rather than silently losing it.
+ */
 QString findOfxBinaryInBundle(const QString &bundlePath, QString *archOut)
 {
     const QDir contents(QDir(bundlePath).filePath(QStringLiteral("Contents")));
@@ -131,7 +185,8 @@ QString findOfxBinaryInBundle(const QString &bundlePath, QString *archOut)
         return {};
     }
 
-    for (const QString &arch : OfxHost::supportedArchFolderNames()) {
+    // Native ABI first.
+    for (const QString &arch : OfxPluginPaths::loadableArchFolderNames()) {
         const QDir archDir(contents.filePath(arch));
         if (!archDir.exists()) {
             continue;
@@ -145,6 +200,7 @@ QString findOfxBinaryInBundle(const QString &bundlePath, QString *archOut)
         }
     }
 
+    // Foreign ABI — reported, not loaded.
     const auto entries = contents.entryInfoList(QDir::Dirs | QDir::NoDotAndDotDot);
     for (const QFileInfo &d : entries) {
         const QFileInfoList files =
@@ -168,6 +224,8 @@ OfxPluginDesc describeBundleOrFile(const QFileInfo &fi)
         QString arch;
         const QString bin = findOfxBinaryInBundle(fi.absoluteFilePath(), &arch);
         d.archHint = arch;
+        d.archLoadable = OfxPluginPaths::isArchLoadable(arch);
+        d.archNote = OfxPluginPaths::archIncompatibilityReason(arch);
         if (!bin.isEmpty()) {
             d.path = bin;
             d.hasBinary = true;
@@ -180,6 +238,8 @@ OfxPluginDesc describeBundleOrFile(const QFileInfo &fi)
     d.name = fi.completeBaseName();
     d.path = fi.absoluteFilePath();
     d.hasBinary = fi.suffix().compare(QStringLiteral("ofx"), Qt::CaseInsensitive) == 0;
+    // A loose .ofx file outside a bundle carries no ABI marker; the loader is the only
+    // thing that can judge it, and it fails soft.
     return d;
 }
 
@@ -194,6 +254,15 @@ QVariantMap loadSlotParams(const FxSlot &slot)
     in >> m;
     return m;
 }
+
+// ---------------------------------------------------------------------------
+// OpenVegas's own stand-in renderers for VEGAS video effects.
+//
+// Compiled out (OPENVEGAS_EMULATED_VIDEO_FX == 0) and kept only so the switch can be
+// flipped back while working on the .veg OFX parameter decoder. Do not extend these —
+// see the note in plugins/OfxHost.h.
+// ---------------------------------------------------------------------------
+#if OPENVEGAS_EMULATED_VIDEO_FX
 
 double mapGet(const QVariantMap &m, const QString &key, double def)
 {
@@ -342,6 +411,8 @@ void applyGain(QImage *img, double gain)
     }
 }
 
+#endif // OPENVEGAS_EMULATED_VIDEO_FX
+
 // ---------------------------------------------------------------------------
 // Minimal OFX property / effect host
 // ---------------------------------------------------------------------------
@@ -363,12 +434,17 @@ struct ParamRec {
     std::string type;
     double value = 0.0;
     PropSet props;
+    /** Parametric ("curve") params: curve index -> sorted control points (position, value). */
+    std::map<int, std::vector<std::pair<double, double>>> curves;
 };
 
 struct ClipRec {
     std::string name;
     PropSet props;
     PropSet *activeImage = nullptr; // during render
+    /** Region of definition in pixels — what clipGetRegionOfDefinition must report. */
+    double rodWidth = 0.0;
+    double rodHeight = 0.0;
 };
 
 struct EffectRec;
@@ -384,6 +460,8 @@ struct ModuleRec {
     bool loaded = false;
     bool described = false;
     bool describedInContext = false;
+    /** Context DescribeInContext actually accepted — instances must be created in it. */
+    std::string describedContext;
 };
 
 struct EffectRec {
@@ -418,6 +496,52 @@ ClipRec *asClip(OfxImageClipHandle h)
 ParamRec *asParam(OfxParamHandle h)
 {
     return reinterpret_cast<ParamRec *>(h);
+}
+
+/**
+ * Name a property set for the trace log. Plug-ins hold opaque handles, so the only
+ * way to tell "host props" from "the Source clip's props" in a log is to look the
+ * pointer back up against the sets we handed out; kOfxPropName/kOfxPropType do that
+ * for everything except the host set itself.
+ */
+QString traceSetName(OfxPropertySetHandle h)
+{
+    PropSet *ps = asProp(h);
+    if (!ps) {
+        return QStringLiteral("<null>");
+    }
+    if (ps == &g_hostProps) {
+        return QStringLiteral("host");
+    }
+    QString type;
+    QString name;
+    const auto typeIt = ps->props.find(kOfxPropType);
+    if (typeIt != ps->props.end() && !typeIt->second.strings.empty()) {
+        type = QString::fromStdString(typeIt->second.strings.front());
+    }
+    const auto nameIt = ps->props.find(kOfxPropName);
+    if (nameIt != ps->props.end() && !nameIt->second.strings.empty()) {
+        name = QString::fromStdString(nameIt->second.strings.front());
+    }
+    if (type.isEmpty() && name.isEmpty()) {
+        return QStringLiteral("props@%1").arg(reinterpret_cast<quintptr>(ps), 0, 16);
+    }
+    return name.isEmpty() ? type : QStringLiteral("%1:%2").arg(type, name);
+}
+
+/** One line per host callback: who was asked, for what, and what we answered. */
+void tracePropCall(const char *op, OfxPropertySetHandle set, const char *property, int index,
+                   const QString &value, OfxStatus status)
+{
+    if (!ofx::Trace::enabled()) {
+        return;
+    }
+    ofx::Trace::write(QStringLiteral("  %1 %2[%3][%4]%5 -> %6")
+                          .arg(QString::fromLatin1(op), traceSetName(set),
+                               QString::fromUtf8(property ? property : "(null)"))
+                          .arg(index)
+                          .arg(value.isEmpty() ? QString() : QStringLiteral(" = ") + value)
+                          .arg(status));
 }
 
 void setString(PropSet *ps, const char *key, int index, const char *value)
@@ -472,6 +596,28 @@ void setPointer(PropSet *ps, const char *key, int index, void *value)
     v.pointers[size_t(index)] = value;
 }
 
+/**
+ * Declare a multi-value property as present but empty.
+ *
+ * This is not cosmetic. The OFX C++ support library grows list properties with
+ *     n = propGetDimension(prop); propSetString(prop, value, n);
+ * so a property the host has never heard of makes propGetDimension fail, and
+ * OFX::throwPropertyException turns *any* failure there into
+ * OFX::Exception::HostInadequate — which reaches the host as
+ * kOfxStatErrMissingHostFeature, with nothing to say which property was at fault.
+ * Every list property a plug-in may append to therefore has to exist up front.
+ */
+void declareList(PropSet *ps, const char *key, PropValue::Kind kind)
+{
+    if (!ps || !key) {
+        return;
+    }
+    auto &v = ps->props[key];
+    if (v.kind == PropValue::None) {
+        v.kind = kind;
+    }
+}
+
 void appendString(PropSet *ps, const char *key, const char *value)
 {
     if (!ps || !key) {
@@ -481,6 +627,169 @@ void appendString(PropSet *ps, const char *key, const char *value)
     v.kind = PropValue::String;
     v.strings.push_back(value ? value : "");
 }
+
+// ---------------------------------------------------------------------------
+// Descriptor property defaults
+//
+// OFX requires the host to hand back a *fully populated* property set for every
+// descriptor it creates: the plug-in is entitled to read any spec-defined property
+// before it has written it. Handing out a near-empty set is what made real VEGAS
+// bundles abort DescribeInContext with kOfxStatErrMissingHostFeature right after
+// their first defineClip() — the support library was reading the dimension of
+// kOfxImageEffectPropSupportedComponents in order to append to it.
+// ---------------------------------------------------------------------------
+
+void seedClipDescriptorProps(PropSet *ps, const std::string &name)
+{
+    setString(ps, kOfxPropLabel, 0, name.c_str());
+    setString(ps, kOfxPropShortLabel, 0, name.c_str());
+    setString(ps, kOfxPropLongLabel, 0, name.c_str());
+    declareList(ps, kOfxImageEffectPropSupportedComponents, PropValue::String);
+    setInt(ps, kOfxImageEffectPropTemporalClipAccess, 0, 0);
+    setInt(ps, kOfxImageClipPropOptional, 0, 0);
+    setInt(ps, kOfxImageClipPropIsMask, 0, 0);
+    // We hand out whole frames only, never tiles — must match the host property, or a
+    // plug-in will ask for a sub-rectangle and then address the returned buffer as if it
+    // really were that sub-rectangle.
+    setInt(ps, kOfxImageEffectPropSupportsTiles, 0, 0);
+    setString(ps, kOfxImageClipPropFieldExtraction, 0, kOfxImageFieldDoubled);
+}
+
+void seedEffectDescriptorProps(PropSet *ps)
+{
+    declareList(ps, kOfxImageEffectPropSupportedContexts, PropValue::String);
+    declareList(ps, kOfxImageEffectPropSupportedPixelDepths, PropValue::String);
+    declareList(ps, kOfxImageEffectPropClipPreferencesSlaveParam, PropValue::String);
+    declareList(ps, kOfxPluginPropParamPageOrder, PropValue::String);
+    declareList(ps, kOfxPropIcon, PropValue::String);
+    setString(ps, kOfxPropLabel, 0, "");
+    setString(ps, kOfxPropShortLabel, 0, "");
+    setString(ps, kOfxPropLongLabel, 0, "");
+    setString(ps, kOfxPropPluginDescription, 0, "");
+    setString(ps, kOfxImageEffectPluginPropGrouping, 0, "");
+    setString(ps, kOfxPluginPropFilePath, 0, "");
+    setString(ps, kOfxImageEffectPluginRenderThreadSafety, 0, kOfxImageEffectRenderInstanceSafe);
+    setInt(ps, kOfxImageEffectPluginPropSingleInstance, 0, 0);
+    setInt(ps, kOfxImageEffectPluginPropHostFrameThreading, 0, 1);
+    setInt(ps, kOfxImageEffectPluginPropFieldRenderTwiceAlways, 0, 1);
+    setInt(ps, kOfxImageEffectPropSupportsMultipleClipDepths, 0, 0);
+    setInt(ps, kOfxImageEffectPropSupportsMultipleClipPARs, 0, 0);
+    setInt(ps, kOfxImageEffectPropSupportsTiles, 0, 0);
+    setInt(ps, kOfxImageEffectPropSupportsMultiResolution, 0, 0);
+    setInt(ps, kOfxImageEffectPropTemporalClipAccess, 0, 0);
+    setString(ps, "OfxImageEffectPropOpenGLRenderSupported", 0, "false");
+    // VEGAS extensions a bundle may read straight back off its own descriptor.
+    setString(ps, kOfxImageEffectPropVegasContext, 0, kOfxImageEffectPropVegasContextEvent);
+    setString(ps, kOfxImageEffectPropVegasUpliftGUID, 0, "");
+    setInt(ps, kOfxImageEffectPropVegasPrePanCrop, 0, 0);
+    setInt(ps, kOfxImageEffectPropVegasUiOpened, 0, 0);
+}
+
+/** Default project geometry an instance reports until the compositor overrides it. */
+constexpr double kDefaultProjectWidth = 1920.0;
+constexpr double kDefaultProjectHeight = 1080.0;
+constexpr double kDefaultFrameRate = 25.0;
+constexpr double kDefaultDurationFrames = 100.0;
+
+/**
+ * Properties an *instance* (as opposed to a descriptor) must carry. The support
+ * library's ImageEffect constructor reads kOfxImageEffectPropContext straight away,
+ * so an instance created without it dies the same way DescribeInContext used to.
+ */
+void seedEffectInstanceProps(PropSet *ps, const std::string &context, double width, double height)
+{
+    setString(ps, kOfxPropType, 0, kOfxTypeImageEffectInstance);
+    setString(ps, kOfxImageEffectPropContext, 0,
+              context.empty() ? kOfxImageEffectContextFilter : context.c_str());
+    setPointer(ps, kOfxPropInstanceData, 0, nullptr);
+    setInt(ps, kOfxPropIsInteractive, 0, 0);
+    setInt(ps, kOfxImageEffectPropSequentialRenderStatus, 0, 0);
+    setInt(ps, kOfxImageEffectPropInteractiveRenderStatus, 0, 0);
+    setDouble(ps, kOfxImageEffectPropProjectSize, 0, width);
+    setDouble(ps, kOfxImageEffectPropProjectSize, 1, height);
+    setDouble(ps, kOfxImageEffectPropProjectExtent, 0, width);
+    setDouble(ps, kOfxImageEffectPropProjectExtent, 1, height);
+    setDouble(ps, kOfxImageEffectPropProjectOffset, 0, 0.0);
+    setDouble(ps, kOfxImageEffectPropProjectOffset, 1, 0.0);
+    setDouble(ps, kOfxImageEffectPropProjectPixelAspectRatio, 0, 1.0);
+    setDouble(ps, kOfxImageEffectPropFrameRate, 0, kDefaultFrameRate);
+    setDouble(ps, kOfxImageEffectInstancePropEffectDuration, 0, kDefaultDurationFrames);
+    setDouble(ps, kOfxImageEffectPropFrameRange, 0, 0.0);
+    setDouble(ps, kOfxImageEffectPropFrameRange, 1, kDefaultDurationFrames);
+}
+
+/** Clip *instance* properties, i.e. what the clip currently carries rather than accepts. */
+void seedClipInstanceProps(PropSet *ps, double width, double height)
+{
+    setInt(ps, kOfxImageClipPropConnected, 0, 1);
+    setString(ps, kOfxImageEffectPropComponents, 0, kOfxImageComponentRGBA);
+    setString(ps, kOfxImageEffectPropPixelDepth, 0, kOfxBitDepthByte);
+    setString(ps, kOfxImageEffectPropPreMultiplication, 0, kOfxImageUnPreMultiplied);
+    setString(ps, kOfxImageClipPropUnmappedComponents, 0, kOfxImageComponentRGBA);
+    setString(ps, kOfxImageClipPropUnmappedPixelDepth, 0, kOfxBitDepthByte);
+    setString(ps, kOfxImageClipPropFieldOrder, 0, kOfxImageFieldNone);
+    setInt(ps, kOfxImageClipPropContinuousSamples, 0, 0);
+    setDouble(ps, kOfxImagePropPixelAspectRatio, 0, 1.0);
+    setDouble(ps, kOfxImageEffectPropFrameRate, 0, kDefaultFrameRate);
+    setDouble(ps, kOfxImageEffectPropUnmappedFrameRate, 0, kDefaultFrameRate);
+    setDouble(ps, kOfxImageEffectPropFrameRange, 0, 0.0);
+    setDouble(ps, kOfxImageEffectPropFrameRange, 1, kDefaultDurationFrames);
+    setDouble(ps, kOfxImageEffectPropUnmappedFrameRange, 0, 0.0);
+    setDouble(ps, kOfxImageEffectPropUnmappedFrameRange, 1, kDefaultDurationFrames);
+    setDouble(ps, kOfxImageEffectPropRegionOfDefinition, 0, 0.0);
+    setDouble(ps, kOfxImageEffectPropRegionOfDefinition, 1, 0.0);
+    setDouble(ps, kOfxImageEffectPropRegionOfDefinition, 2, width);
+    setDouble(ps, kOfxImageEffectPropRegionOfDefinition, 3, height);
+}
+
+void seedParamDescriptorProps(PropSet *ps, const std::string &name, const std::string &type)
+{
+    setString(ps, kOfxPropLabel, 0, name.c_str());
+    setString(ps, kOfxPropShortLabel, 0, name.c_str());
+    setString(ps, kOfxPropLongLabel, 0, name.c_str());
+    setString(ps, kOfxParamPropScriptName, 0, name.c_str());
+    setString(ps, kOfxParamPropHint, 0, "");
+    setString(ps, kOfxParamPropParent, 0, "");
+    setString(ps, kOfxParamPropCacheInvalidation, 0, kOfxParamInvalidateValueChange);
+    declareList(ps, kOfxParamPropChoiceOption, PropValue::String);
+    declareList(ps, kOfxParamPropPageChild, PropValue::String);
+    declareList(ps, kOfxParamPropDimensionLabel, PropValue::String);
+    setPointer(ps, kOfxParamPropDataPtr, 0, nullptr);
+    setInt(ps, kOfxParamPropSecret, 0, 0);
+    setInt(ps, kOfxParamPropEnabled, 0, 1);
+    setInt(ps, kOfxParamPropCanUndo, 0, 1);
+    setInt(ps, kOfxParamPropAnimates, 0, 1);
+    setInt(ps, kOfxParamPropIsAnimating, 0, 0);
+    setInt(ps, kOfxParamPropIsAutoKeying, 0, 0);
+    setInt(ps, kOfxParamPropPersistant, 0, 1);
+    setInt(ps, kOfxParamPropEvaluateOnChange, 0, 1);
+
+    const bool numeric = type == kOfxParamTypeDouble || type == kOfxParamTypeDouble2D
+                         || type == kOfxParamTypeDouble3D || type == kOfxParamTypeInteger
+                         || type == kOfxParamTypeInteger2D || type == kOfxParamTypeInteger3D;
+    if (numeric) {
+        setDouble(ps, kOfxParamPropMin, 0, 0.0);
+        setDouble(ps, kOfxParamPropMax, 0, 1.0);
+        setDouble(ps, kOfxParamPropDisplayMin, 0, 0.0);
+        setDouble(ps, kOfxParamPropDisplayMax, 0, 1.0);
+        setDouble(ps, kOfxParamPropDefault, 0, 0.0);
+        setDouble(ps, kOfxParamPropIncrement, 0, 0.01);
+        setInt(ps, kOfxParamPropDigits, 0, 2);
+        setString(ps, kOfxParamPropDoubleType, 0, kOfxParamDoubleTypePlain);
+    } else if (type == kOfxParamTypeString) {
+        setString(ps, kOfxParamPropDefault, 0, "");
+        setString(ps, kOfxParamPropStringMode, 0, kOfxParamStringIsSingleLine);
+        setInt(ps, kOfxParamPropStringFilePathExists, 0, 1);
+    } else if (type == kOfxParamTypeBoolean || type == kOfxParamTypeChoice) {
+        setInt(ps, kOfxParamPropDefault, 0, 0);
+    } else if (type == kOfxParamTypeParametric) {
+        setInt(ps, kOfxParamPropParametricDimension, 0, 1);
+        setDouble(ps, kOfxParamPropParametricRange, 0, 0.0);
+        setDouble(ps, kOfxParamPropParametricRange, 1, 1.0);
+        declareList(ps, kOfxParamPropParametricUIColour, PropValue::Double);
+    }
+}
+
 
 OfxStatus propSetPointer(OfxPropertySetHandle properties, const char *property, int index,
                          void *value)
@@ -501,6 +810,8 @@ OfxStatus propSetString(OfxPropertySetHandle properties, const char *property, i
         return kOfxStatErrBadHandle;
     }
     setString(ps, property, index, value);
+    tracePropCall("setString", properties, property, index,
+                  QString::fromUtf8(value ? value : ""), kOfxStatOK);
     return kOfxStatOK;
 }
 
@@ -512,6 +823,7 @@ OfxStatus propSetDouble(OfxPropertySetHandle properties, const char *property, i
         return kOfxStatErrBadHandle;
     }
     setDouble(ps, property, index, value);
+    tracePropCall("setDouble", properties, property, index, QString::number(value), kOfxStatOK);
     return kOfxStatOK;
 }
 
@@ -522,6 +834,7 @@ OfxStatus propSetInt(OfxPropertySetHandle properties, const char *property, int 
         return kOfxStatErrBadHandle;
     }
     setInt(ps, property, index, value);
+    tracePropCall("setInt", properties, property, index, QString::number(value), kOfxStatOK);
     return kOfxStatOK;
 }
 
@@ -572,9 +885,12 @@ OfxStatus propGetPointer(OfxPropertySetHandle properties, const char *property, 
     if (it == ps->props.end() || it->second.kind != PropValue::Pointer
         || index < 0 || index >= int(it->second.pointers.size())) {
         *value = nullptr;
+        tracePropCall("getPointer", properties, property, index, QStringLiteral("<missing>"),
+                      kOfxStatErrUnknown);
         return kOfxStatErrUnknown;
     }
     *value = it->second.pointers[size_t(index)];
+    tracePropCall("getPointer", properties, property, index, QString(), kOfxStatOK);
     return kOfxStatOK;
 }
 
@@ -589,9 +905,12 @@ OfxStatus propGetString(OfxPropertySetHandle properties, const char *property, i
     if (it == ps->props.end() || it->second.kind != PropValue::String
         || index < 0 || index >= int(it->second.strings.size())) {
         *value = nullptr;
+        tracePropCall("getString", properties, property, index, QStringLiteral("<missing>"),
+                      kOfxStatErrUnknown);
         return kOfxStatErrUnknown;
     }
     *value = const_cast<char *>(it->second.strings[size_t(index)].c_str());
+    tracePropCall("getString", properties, property, index, QString::fromUtf8(*value), kOfxStatOK);
     return kOfxStatOK;
 }
 
@@ -606,9 +925,12 @@ OfxStatus propGetDouble(OfxPropertySetHandle properties, const char *property, i
     if (it == ps->props.end() || it->second.kind != PropValue::Double
         || index < 0 || index >= int(it->second.doubles.size())) {
         *value = 0.0;
+        tracePropCall("getDouble", properties, property, index, QStringLiteral("<missing>"),
+                      kOfxStatErrUnknown);
         return kOfxStatErrUnknown;
     }
     *value = it->second.doubles[size_t(index)];
+    tracePropCall("getDouble", properties, property, index, QString::number(*value), kOfxStatOK);
     return kOfxStatOK;
 }
 
@@ -622,9 +944,12 @@ OfxStatus propGetInt(OfxPropertySetHandle properties, const char *property, int 
     if (it == ps->props.end() || it->second.kind != PropValue::Int
         || index < 0 || index >= int(it->second.ints.size())) {
         *value = 0;
+        tracePropCall("getInt", properties, property, index, QStringLiteral("<missing>"),
+                      kOfxStatErrUnknown);
         return kOfxStatErrUnknown;
     }
     *value = it->second.ints[size_t(index)];
+    tracePropCall("getInt", properties, property, index, QString::number(*value), kOfxStatOK);
     return kOfxStatOK;
 }
 
@@ -677,6 +1002,8 @@ OfxStatus propGetDimension(OfxPropertySetHandle properties, const char *property
     auto it = ps->props.find(property ? property : "");
     if (it == ps->props.end()) {
         *count = 0;
+        tracePropCall("getDimension", properties, property, 0, QStringLiteral("<missing>"),
+                      kOfxStatErrUnknown);
         return kOfxStatErrUnknown;
     }
     switch (it->second.kind) {
@@ -696,6 +1023,7 @@ OfxStatus propGetDimension(OfxPropertySetHandle properties, const char *property
         *count = 0;
         break;
     }
+    tracePropCall("getDimension", properties, property, 0, QString::number(*count), kOfxStatOK);
     return kOfxStatOK;
 }
 
@@ -740,9 +1068,82 @@ thread_local bool t_isSpawnedThread = false;
 thread_local unsigned int t_threadIndex = 0;
 std::atomic<bool> g_multiThreadBusy{false};
 
+/**
+ * Joins the process COM apartment for the lifetime of a render worker (Windows only).
+ *
+ * VEGAS's own OFX bundles pull in COM-based runtime DLLs (sharedk.dll, OpenColorIO)
+ * from the VEGAS install, and VEGAS calls their render entry points from threads that
+ * are already in an apartment. On a bare std::thread they are not, and the plug-in
+ * faults inside its worker instead of returning an error. A no-op everywhere else.
+ */
+class ScopedComApartment {
+public:
+    ScopedComApartment()
+    {
+#ifdef _WIN32
+        const HRESULT hr = ::CoInitializeEx(nullptr, COINIT_MULTITHREADED);
+        m_owned = SUCCEEDED(hr);
+#endif
+    }
+
+    ~ScopedComApartment()
+    {
+#ifdef _WIN32
+        if (m_owned) {
+            ::CoUninitialize();
+        }
+#endif
+    }
+
+    ScopedComApartment(const ScopedComApartment &) = delete;
+    ScopedComApartment &operator=(const ScopedComApartment &) = delete;
+
+private:
+#ifdef _WIN32
+    bool m_owned = false;
+#endif
+};
+
 unsigned int mtCpuCount()
 {
     return std::max(1u, std::thread::hardware_concurrency());
+}
+
+/** Height of the frame currently being rendered, published for the thread-count cap. */
+std::atomic<int> g_currentRenderHeight{0};
+
+/**
+ * Fewest image rows we will let one render thread be given.
+ *
+ * Plug-ins split the render window by `threadIndex`/`threadMax` themselves, and a
+ * spatial effect needs a halo of neighbouring rows around its band. Real VEGAS bundles
+ * turn out to corrupt the heap once the band gets comparable to their kernel radius:
+ * VEGAS Chroma Blur at radius 8 renders a 512-row frame across 16 threads perfectly,
+ * but faults on a 64-row frame at 4 threads (16-row bands) and survives at 2 (32-row
+ * bands). The host cannot see a plug-in's kernel size, so it keeps the bands
+ * comfortably large instead; on any real frame size this still saturates the CPU
+ * (1080p / 64 = 16 bands).
+ */
+constexpr int kMinRowsPerRenderThread = 64;
+
+/**
+ * Upper bound on threads we will spawn for a plug-in's multiThread() call.
+ *
+ * `OPENVEGAS_OFX_THREADS=1` forces single-threaded rendering — the first thing to try
+ * when a third-party plug-in crashes or produces torn output, and what the trace log
+ * asks a bug reporter to attach alongside.
+ */
+unsigned int ofxMaxRenderThreads()
+{
+    static const unsigned int limit = [] {
+        bool ok = false;
+        const int v = qEnvironmentVariableIntValue("OPENVEGAS_OFX_THREADS", &ok);
+        if (ok && v > 0) {
+            return std::min(unsigned(v), mtCpuCount());
+        }
+        return mtCpuCount();
+    }();
+    return limit;
 }
 
 OfxStatus mtMultiThread(OfxThreadFunctionV1 func, unsigned int nThreads, void *customArg)
@@ -754,8 +1155,19 @@ OfxStatus mtMultiThread(OfxThreadFunctionV1 func, unsigned int nThreads, void *c
     if (!g_multiThreadBusy.compare_exchange_strong(expected, true)) {
         return kOfxStatErrExists; // multiThread cannot be called recursively (OFX spec)
     }
-    const unsigned int actual = std::clamp(nThreads, 1u, mtCpuCount());
+    unsigned int cap = ofxMaxRenderThreads();
+    const int height = g_currentRenderHeight.load();
+    if (height > 0) {
+        cap = std::min(cap, unsigned(std::max(1, height / kMinRowsPerRenderThread)));
+    }
+    const unsigned int actual = std::clamp(nThreads, 1u, cap);
+    OPENVEGAS_OFX_TRACE(QStringLiteral("  multiThread(nThreads=%1 -> %2, cap %3 for %4 rows)")
+                            .arg(nThreads)
+                            .arg(actual)
+                            .arg(cap)
+                            .arg(height));
     auto invoke = [func, actual, customArg](unsigned int i) {
+        ScopedComApartment com;
         t_isSpawnedThread = true;
         t_threadIndex = i;
         func(i, actual, customArg);
@@ -861,6 +1273,98 @@ OfxMultiThreadSuiteV1 g_multiThreadSuite = {
     mtMultiThread, mtNumCPUs, mtThreadIndex, mtIsSpawnedThread,
     mtMutexCreate, mtMutexDestroy, mtMutexLock, mtMutexUnLock, mtMutexTryLock};
 
+// ---------------------------------------------------------------------------
+// Suites a plug-in may treat as mandatory even though we have nothing useful to
+// do behind them. The OFX C++ support library fetches these during
+// kOfxActionLoad and throws OFX::Exception::HostInadequate — surfacing as
+// kOfxStatErrMissingHostFeature — the moment one comes back null, so answering
+// with a working no-op is the difference between a plug-in loading and not.
+// ---------------------------------------------------------------------------
+
+OfxStatus messageV2SetPersistent(void *, const char *, const char *, const char *, ...)
+{
+    return kOfxStatOK;
+}
+
+OfxStatus messageV2ClearPersistent(void *)
+{
+    return kOfxStatOK;
+}
+
+OfxMessageSuiteV2 g_messageSuiteV2 = {messageFn, messageV2SetPersistent, messageV2ClearPersistent};
+
+OfxStatus interactSwapBuffers(OfxInteractHandle)
+{
+    return kOfxStatOK;
+}
+
+OfxStatus interactRedraw(OfxInteractHandle)
+{
+    return kOfxStatOK;
+}
+
+OfxStatus interactGetPropertySet(OfxInteractHandle interactInstance,
+                                 OfxPropertySetHandle *property)
+{
+    if (!property) {
+        return kOfxStatErrBadHandle;
+    }
+    // We never create interacts, so the only handle a plug-in can pass back is one
+    // it invented. Hand out its own property set rather than a dangling one.
+    *property = reinterpret_cast<OfxPropertySetHandle>(interactInstance);
+    return interactInstance ? kOfxStatOK : kOfxStatErrBadHandle;
+}
+
+OfxInteractSuiteV1 g_interactSuite = {interactSwapBuffers, interactRedraw,
+                                      interactGetPropertySet};
+
+OfxStatus progressStart(void *, const char *)
+{
+    return kOfxStatOK;
+}
+
+OfxStatus progressUpdate(void *, double)
+{
+    return kOfxStatOK; // kOfxStatReplyNo would ask the plug-in to abort
+}
+
+OfxStatus progressEnd(void *)
+{
+    return kOfxStatOK;
+}
+
+OfxProgressSuiteV1 g_progressSuite = {progressStart, progressUpdate, progressEnd};
+
+/** Current timeline position, published by the compositor before each process call. */
+std::atomic<double> g_timelineTime{0.0};
+
+OfxStatus timeLineGetTime(void *, double *time)
+{
+    if (!time) {
+        return kOfxStatErrBadHandle;
+    }
+    *time = g_timelineTime.load();
+    return kOfxStatOK;
+}
+
+OfxStatus timeLineGotoTime(void *, double)
+{
+    // A plug-in must not drive OpenVegas's transport.
+    return kOfxStatFailed;
+}
+
+OfxStatus timeLineGetTimeBounds(void *, double *firstTime, double *lastTime)
+{
+    if (!firstTime || !lastTime) {
+        return kOfxStatErrBadHandle;
+    }
+    *firstTime = 0.0;
+    *lastTime = g_timelineTime.load();
+    return kOfxStatOK;
+}
+
+OfxTimeLineSuiteV1 g_timeLineSuite = {timeLineGetTime, timeLineGotoTime, timeLineGetTimeBounds};
+
 // Parameter suite
 OfxStatus paramDefine(OfxParamSetHandle paramSet, const char *paramType, const char *name,
                       OfxPropertySetHandle *propertySet)
@@ -871,6 +1375,9 @@ OfxStatus paramDefine(OfxParamSetHandle paramSet, const char *paramType, const c
     if (!fx) {
         return kOfxStatErrBadHandle;
     }
+    OPENVEGAS_OFX_TRACE(QStringLiteral("  paramDefine(%1, \"%2\")")
+                            .arg(QString::fromUtf8(paramType ? paramType : ""),
+                                 QString::fromUtf8(name ? name : "")));
     ParamRec &p = fx->params[name ? name : ""];
     p.name = name ? name : "";
     p.type = paramType ? paramType : "";
@@ -878,6 +1385,7 @@ OfxStatus paramDefine(OfxParamSetHandle paramSet, const char *paramType, const c
     setString(&p.props, kOfxPropName, 0, p.name.c_str());
     setString(&p.props, kOfxPropType, 0, kOfxTypeParameter);
     setString(&p.props, kOfxParamPropType, 0, p.type.c_str());
+    seedParamDescriptorProps(&p.props, p.name, p.type);
     if (propertySet) {
         *propertySet = reinterpret_cast<OfxPropertySetHandle>(&p.props);
     }
@@ -1056,6 +1564,140 @@ OfxParameterSuiteV1 g_paramSuite = {
     paramEditBegin,
     paramEditEnd};
 
+// ---------------------------------------------------------------------------
+// Parametric parameter suite — curve params (Color Curves and friends). Stored
+// in-memory per param so a plug-in that defines one can round-trip its own
+// control points; nothing here is persisted to the project yet.
+// ---------------------------------------------------------------------------
+
+/** Piecewise-linear evaluation of a control-point curve; flat outside the end points. */
+double evalCurve(const std::vector<std::pair<double, double>> &pts, double position)
+{
+    if (pts.empty()) {
+        return 0.0;
+    }
+    if (position <= pts.front().first) {
+        return pts.front().second;
+    }
+    if (position >= pts.back().first) {
+        return pts.back().second;
+    }
+    for (size_t i = 1; i < pts.size(); ++i) {
+        if (position <= pts[i].first) {
+            const double span = pts[i].first - pts[i - 1].first;
+            const double t = span > 0.0 ? (position - pts[i - 1].first) / span : 0.0;
+            return pts[i - 1].second + t * (pts[i].second - pts[i - 1].second);
+        }
+    }
+    return pts.back().second;
+}
+
+void sortCurve(std::vector<std::pair<double, double>> *pts)
+{
+    std::sort(pts->begin(), pts->end(),
+              [](const std::pair<double, double> &a, const std::pair<double, double> &b) {
+                  return a.first < b.first;
+              });
+}
+
+OfxStatus parametricGetValue(OfxParamHandle param, int curveIndex, OfxTime, double parametricPosition,
+                             double *returnValue)
+{
+    ParamRec *p = asParam(param);
+    if (!p || !returnValue) {
+        return kOfxStatErrBadHandle;
+    }
+    const auto it = p->curves.find(curveIndex);
+    *returnValue = it == p->curves.end() ? 0.0 : evalCurve(it->second, parametricPosition);
+    return kOfxStatOK;
+}
+
+OfxStatus parametricGetNControlPoints(OfxParamHandle param, int curveIndex, OfxTime,
+                                      int *returnValue)
+{
+    ParamRec *p = asParam(param);
+    if (!p || !returnValue) {
+        return kOfxStatErrBadHandle;
+    }
+    const auto it = p->curves.find(curveIndex);
+    *returnValue = it == p->curves.end() ? 0 : int(it->second.size());
+    return kOfxStatOK;
+}
+
+OfxStatus parametricGetNthControlPoint(OfxParamHandle param, int curveIndex, OfxTime, int nthCtl,
+                                       double *key, double *value)
+{
+    ParamRec *p = asParam(param);
+    if (!p || !key || !value) {
+        return kOfxStatErrBadHandle;
+    }
+    const auto it = p->curves.find(curveIndex);
+    if (it == p->curves.end() || nthCtl < 0 || nthCtl >= int(it->second.size())) {
+        return kOfxStatErrBadIndex;
+    }
+    *key = it->second[size_t(nthCtl)].first;
+    *value = it->second[size_t(nthCtl)].second;
+    return kOfxStatOK;
+}
+
+OfxStatus parametricSetNthControlPoint(OfxParamHandle param, int curveIndex, OfxTime, int nthCtl,
+                                       double key, double value, bool)
+{
+    ParamRec *p = asParam(param);
+    if (!p) {
+        return kOfxStatErrBadHandle;
+    }
+    auto &pts = p->curves[curveIndex];
+    if (nthCtl < 0 || nthCtl >= int(pts.size())) {
+        return kOfxStatErrBadIndex;
+    }
+    pts[size_t(nthCtl)] = {key, value};
+    sortCurve(&pts);
+    return kOfxStatOK;
+}
+
+OfxStatus parametricAddControlPoint(OfxParamHandle param, int curveIndex, OfxTime, double key,
+                                    double value, bool)
+{
+    ParamRec *p = asParam(param);
+    if (!p) {
+        return kOfxStatErrBadHandle;
+    }
+    auto &pts = p->curves[curveIndex];
+    pts.emplace_back(key, value);
+    sortCurve(&pts);
+    return kOfxStatOK;
+}
+
+OfxStatus parametricDeleteControlPoint(OfxParamHandle param, int curveIndex, int nthCtl)
+{
+    ParamRec *p = asParam(param);
+    if (!p) {
+        return kOfxStatErrBadHandle;
+    }
+    auto it = p->curves.find(curveIndex);
+    if (it == p->curves.end() || nthCtl < 0 || nthCtl >= int(it->second.size())) {
+        return kOfxStatErrBadIndex;
+    }
+    it->second.erase(it->second.begin() + nthCtl);
+    return kOfxStatOK;
+}
+
+OfxStatus parametricDeleteAllControlPoints(OfxParamHandle param, int curveIndex)
+{
+    ParamRec *p = asParam(param);
+    if (!p) {
+        return kOfxStatErrBadHandle;
+    }
+    p->curves[curveIndex].clear();
+    return kOfxStatOK;
+}
+
+OfxParametricParameterSuiteV1 g_parametricSuite = {
+    parametricGetValue,          parametricGetNControlPoints,   parametricGetNthControlPoint,
+    parametricSetNthControlPoint, parametricAddControlPoint,     parametricDeleteControlPoint,
+    parametricDeleteAllControlPoints};
+
 // Image effect suite
 OfxStatus getPropertySet(OfxImageEffectHandle imageEffect, OfxPropertySetHandle *propHandle)
 {
@@ -1084,10 +1726,13 @@ OfxStatus clipDefine(OfxImageEffectHandle imageEffect, const char *name,
     if (!fx) {
         return kOfxStatErrBadHandle;
     }
+    OPENVEGAS_OFX_TRACE(
+        QStringLiteral("  clipDefine(\"%1\")").arg(QString::fromUtf8(name ? name : "")));
     ClipRec &c = fx->clips[name ? name : ""];
     c.name = name ? name : "";
     setString(&c.props, kOfxPropName, 0, c.name.c_str());
     setString(&c.props, kOfxPropType, 0, kOfxTypeClip);
+    seedClipDescriptorProps(&c.props, c.name);
     if (propertySet) {
         *propertySet = reinterpret_cast<OfxPropertySetHandle>(&c.props);
     }
@@ -1122,13 +1767,22 @@ OfxStatus clipGetPropertySet(OfxImageClipHandle clip, OfxPropertySetHandle *prop
     return kOfxStatOK;
 }
 
-OfxStatus clipGetImage(OfxImageClipHandle clip, OfxTime, const OfxRectD *,
+OfxStatus clipGetImage(OfxImageClipHandle clip, OfxTime time, const OfxRectD *region,
                        OfxPropertySetHandle *imageHandle)
 {
     ClipRec *c = asClip(clip);
     if (!c || !imageHandle) {
         return kOfxStatErrBadHandle;
     }
+    OPENVEGAS_OFX_TRACE(QStringLiteral("  clipGetImage(\"%1\", t=%2, region=%3)")
+                            .arg(QString::fromStdString(c->name))
+                            .arg(time)
+                            .arg(region ? QStringLiteral("%1,%2..%3,%4")
+                                              .arg(region->x1)
+                                              .arg(region->y1)
+                                              .arg(region->x2)
+                                              .arg(region->y2)
+                                        : QStringLiteral("full")));
     if (!c->activeImage) {
         return kOfxStatFailed;
     }
@@ -1147,10 +1801,13 @@ OfxStatus clipGetRegionOfDefinition(OfxImageClipHandle clip, OfxTime, OfxRectD *
     if (!c || !bounds) {
         return kOfxStatErrBadHandle;
     }
+    // Must be the real frame extent: a spatial effect sizes its sampling window from
+    // this, and the stub 1x1 rectangle this used to return made every such plug-in
+    // compute nonsense.
     bounds->x1 = 0;
     bounds->y1 = 0;
-    bounds->x2 = 1;
-    bounds->y2 = 1;
+    bounds->x2 = c->rodWidth > 0.0 ? c->rodWidth : kDefaultProjectWidth;
+    bounds->y2 = c->rodHeight > 0.0 ? c->rodHeight : kDefaultProjectHeight;
     return kOfxStatOK;
 }
 
@@ -1192,11 +1849,8 @@ OfxImageEffectSuiteV1 g_imageEffectSuite = {
     abortFn,           imageMemoryAlloc,    imageMemoryFree,  imageMemoryLock,
     imageMemoryUnlock};
 
-const void *fetchSuite(OfxPropertySetHandle, const char *suiteName, int suiteVersion)
+const void *resolveSuite(const char *suiteName, int suiteVersion)
 {
-    if (!suiteName) {
-        return nullptr;
-    }
     if (std::strcmp(suiteName, kOfxPropertySuite) == 0 && suiteVersion == 1) {
         return &g_propertySuite;
     }
@@ -1205,6 +1859,9 @@ const void *fetchSuite(OfxPropertySetHandle, const char *suiteName, int suiteVer
     }
     if (std::strcmp(suiteName, kOfxMessageSuite) == 0 && suiteVersion == 1) {
         return &g_messageSuite;
+    }
+    if (std::strcmp(suiteName, kOfxMessageSuite) == 0 && suiteVersion == 2) {
+        return &g_messageSuiteV2;
     }
     if (std::strcmp(suiteName, kOfxParameterSuite) == 0 && suiteVersion == 1) {
         return &g_paramSuite;
@@ -1215,7 +1872,50 @@ const void *fetchSuite(OfxPropertySetHandle, const char *suiteName, int suiteVer
     if (std::strcmp(suiteName, kOfxMultiThreadSuite) == 0 && suiteVersion == 1) {
         return &g_multiThreadSuite;
     }
+    if (std::strcmp(suiteName, kOfxInteractSuite) == 0 && suiteVersion == 1) {
+        return &g_interactSuite;
+    }
+    if (std::strcmp(suiteName, kOfxProgressSuite) == 0 && suiteVersion == 1) {
+        return &g_progressSuite;
+    }
+    if (std::strcmp(suiteName, kOfxTimeLineSuite) == 0 && suiteVersion == 1) {
+        return &g_timeLineSuite;
+    }
+    if (std::strcmp(suiteName, kOfxParametricParameterSuite) == 0 && suiteVersion == 1) {
+        return &g_parametricSuite;
+    }
+    // Everything else — including VEGAS's private OfxVegas*Suite family, whose struct
+    // layouts are unpublished — is answered honestly with null. Guessing a layout would
+    // hand the plug-in function pointers of the wrong arity and crash the app.
     return nullptr;
+}
+
+const void *fetchSuite(OfxPropertySetHandle, const char *suiteName, int suiteVersion)
+{
+    if (!suiteName) {
+        return nullptr;
+    }
+    const void *suite = resolveSuite(suiteName, suiteVersion);
+    OPENVEGAS_OFX_TRACE(QStringLiteral("  fetchSuite(\"%1\", v%2) -> %3")
+                            .arg(QString::fromUtf8(suiteName))
+                            .arg(suiteVersion)
+                            .arg(suite ? QStringLiteral("ok") : QStringLiteral("NULL")));
+    return suite;
+}
+
+/**
+ * Writable per-user directory a plug-in may use for caches/licences
+ * (kOfxPropVegasHostAppDataDirectory). Created on demand; falls back to the temp dir
+ * so the property is never an unusable path.
+ */
+QString vegasHostAppDataDirectory()
+{
+    QString dir = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation);
+    if (dir.isEmpty()) {
+        dir = QDir::temp().filePath(QStringLiteral("OpenVegas"));
+    }
+    QDir().mkpath(dir);
+    return QDir::toNativeSeparators(dir);
 }
 
 void initHostProps()
@@ -1244,6 +1944,7 @@ void initHostProps()
     setInt(&g_hostProps, "OfxImageEffectPropSetableFrameRate", 0, 0);
     setInt(&g_hostProps, "OfxImageEffectPropSetableFielding", 0, 0);
     setInt(&g_hostProps, kOfxImageEffectInstancePropSequentialRender, 0, 1);
+    setInt(&g_hostProps, kOfxImageEffectPropRenderQualityDraft, 0, 0);
     setInt(&g_hostProps, kOfxParamHostPropSupportsCustomInteract, 0, 0);
     setInt(&g_hostProps, kOfxParamHostPropSupportsStringAnimation, 0, 0);
     setInt(&g_hostProps, kOfxParamHostPropSupportsBooleanAnimation, 0, 0);
@@ -1256,7 +1957,20 @@ void initHostProps()
     setInt(&g_hostProps, kOfxParamHostPropPageRowColumnCount, 1, 1);
     appendString(&g_hostProps, kOfxImageEffectPropSupportedComponents, kOfxImageComponentRGBA);
     appendString(&g_hostProps, kOfxImageEffectPropSupportedContexts, kOfxImageEffectContextFilter);
+    appendString(&g_hostProps, kOfxImageEffectPropSupportedContexts, kOfxImageEffectContextGeneral);
+    appendString(&g_hostProps, kOfxImageEffectPropSupportedContexts,
+                 kOfxImageEffectContextGenerator);
     appendString(&g_hostProps, kOfxImageEffectPropSupportedPixelDepths, kOfxBitDepthByte);
+
+    // VEGAS extensions. VEGAS's own OFX bundles are built against a fork of the OFX
+    // support library that reads these unconditionally; a host that omits them cannot
+    // get such a bundle past DescribeInContext. See plugins/OfxVegasExtensions.h.
+    setString(&g_hostProps, kOfxImageEffectHostPropNativeOrigin, 0,
+              kOfxImageEffectHostPropNativeOriginTopLeft); // QImage rows run top-down
+    setString(&g_hostProps, kOfxPropVegasHostAppDataDirectory, 0,
+              vegasHostAppDataDirectory().toUtf8().constData());
+    setPointer(&g_hostProps, kOfxPropVegasHostHWnd, 0, nullptr);
+    setPointer(&g_hostProps, kOfxPropHostOSHandle, 0, nullptr);
 
     g_hostC.host = reinterpret_cast<OfxPropertySetHandle>(&g_hostProps);
     g_hostC.fetchSuite = fetchSuite;
@@ -1270,6 +1984,41 @@ void ensureHostC()
 bool statusOk(OfxStatus st)
 {
     return st == kOfxStatOK || st == kOfxStatReplyDefault;
+}
+
+/**
+ * Index of `effectId` inside an already-loaded binary.
+ *
+ * Returns `requestedIdx` unchanged when no effectId is known (plain "load whatever is
+ * at this index"), the matching index when the requested one points elsewhere, and -1
+ * when the binary does not contain the effect at all. Never silently substitutes a
+ * different effect: a bundle like Vfx1.ofx holds dozens, and rendering the wrong one
+ * looks like a broken effect rather than a lookup failure.
+ */
+int resolvePluginIndex(int (*getNum)(), OfxPlugin *(*getPlugin)(int), int requestedIdx,
+                       const QString &effectId)
+{
+    if (effectId.isEmpty()) {
+        return requestedIdx;
+    }
+    auto identifierAt = [getPlugin](int i) -> QString {
+        OfxPlugin *p = getPlugin(i);
+        return (p && p->pluginIdentifier) ? QString::fromUtf8(p->pluginIdentifier) : QString();
+    };
+    if (identifierAt(requestedIdx).compare(effectId, Qt::CaseInsensitive) == 0) {
+        return requestedIdx;
+    }
+    const int n = getNum();
+    for (int i = 0; i < n; ++i) {
+        if (identifierAt(i).compare(effectId, Qt::CaseInsensitive) == 0) {
+            OPENVEGAS_OFX_TRACE(QStringLiteral("resolvePluginIndex: \"%1\" is #%2, not #%3")
+                                    .arg(effectId)
+                                    .arg(i)
+                                    .arg(requestedIdx));
+            return i;
+        }
+    }
+    return -1;
 }
 
 } // namespace
@@ -1307,6 +2056,9 @@ QHash<QString, int> OfxHost::effectIndexMap(const QString &binaryPath)
     if (binaryPath.isEmpty() || !QFileInfo::exists(binaryPath)) {
         return out;
     }
+    if (!checkArchLoadable(binaryPath, nullptr)) {
+        return out;
+    }
     ScopedOfxDllDirectory dllDirGuard(ofxInstallRootForBinary(binaryPath));
     QLibrary lib(binaryPath);
     if (!lib.load()) {
@@ -1334,9 +2086,91 @@ QHash<QString, int> OfxHost::effectIndexMap(const QString &binaryPath)
     return out;
 }
 
+QVector<OfxEffectSummary> OfxHost::enumerateEffects(const QString &binaryPath)
+{
+    QVector<OfxEffectSummary> out;
+    if (binaryPath.isEmpty() || !QFileInfo::exists(binaryPath)) {
+        return out;
+    }
+    if (!checkArchLoadable(binaryPath, nullptr)) {
+        return out;
+    }
+    ensureHostC();
+
+    ScopedOfxDllDirectory dllDirGuard(ofxInstallRootForBinary(binaryPath));
+    QLibrary lib(binaryPath);
+    if (!lib.load()) {
+        OPENVEGAS_OFX_TRACE(
+            QStringLiteral("enumerateEffects: load failed for \"%1\": %2")
+                .arg(binaryPath, lib.errorString()));
+        return out;
+    }
+    using GetNumFn = int (*)();
+    using GetPluginFn = OfxPlugin *(*)(int);
+    auto getNum = reinterpret_cast<GetNumFn>(lib.resolve("OfxGetNumberOfPlugins"));
+    auto getPlugin = reinterpret_cast<GetPluginFn>(lib.resolve("OfxGetPlugin"));
+    if (!getNum || !getPlugin) {
+        lib.unload();
+        return out;
+    }
+
+    auto propString = [](const PropSet &props, const char *key) -> QString {
+        const auto it = props.props.find(key);
+        if (it != props.props.end() && it->second.kind == PropValue::String
+            && !it->second.strings.empty()) {
+            return QString::fromStdString(it->second.strings.front());
+        }
+        return {};
+    };
+
+    try {
+        const int n = getNum();
+        for (int i = 0; i < n; ++i) {
+            OfxPlugin *plug = getPlugin(i);
+            if (!plug || !plug->pluginIdentifier || !plug->setHost || !plug->mainEntry) {
+                continue;
+            }
+            OfxEffectSummary s;
+            s.pluginIndex = i;
+            s.effectId = QString::fromUtf8(plug->pluginIdentifier);
+
+            // Describe is the only way to learn the label; a plug-in that refuses still
+            // gets listed under its identifier rather than being dropped.
+            plug->setHost(&g_hostC);
+            if (statusOk(plug->mainEntry(kOfxActionLoad, nullptr, nullptr, nullptr))) {
+                EffectRec descFx;
+                setString(&descFx.props, kOfxPropType, 0, kOfxTypeImageEffect);
+                setString(&descFx.props, kOfxPropName, 0, plug->pluginIdentifier);
+                seedEffectDescriptorProps(&descFx.props);
+                if (statusOk(plug->mainEntry(kOfxActionDescribe,
+                                             reinterpret_cast<OfxImageEffectHandle>(&descFx),
+                                             nullptr, nullptr))) {
+                    s.label = propString(descFx.props, kOfxPropLabel);
+                    s.grouping = propString(descFx.props, kOfxImageEffectPluginPropGrouping);
+                }
+            }
+            if (s.label.isEmpty()) {
+                s.label = s.effectId.section(QLatin1Char(':'), -1);
+            }
+            out.push_back(s);
+        }
+    } catch (...) {
+        OPENVEGAS_OFX_TRACE(
+            QStringLiteral("enumerateEffects: exception in \"%1\"").arg(binaryPath));
+    }
+    lib.unload();
+    return out;
+}
+
 struct OfxHost::Impl {
     QMutex mutex;
     QHash<QString, std::shared_ptr<ModuleRec>> modules; // path -> module
+    /**
+     * Modules that already failed, with the reason. Preview calls processSlot() once per
+     * frame, and without this a plug-in that cannot load would be LoadLibrary'd, probed
+     * and thrown away sixty times a second behind an emulated fallback.
+     */
+    QHash<QString, QString> failedModules;
     QHash<int, std::shared_ptr<EffectRec>> instances;
     QHash<QString, int> instanceKeyToId; // path|slot -> id
     int nextId = 1;
@@ -1346,7 +2180,12 @@ struct OfxHost::Impl {
         ensureHostC();
         const QString path = desc.path;
         const int plugIdx = std::max(0, desc.pluginIndex);
-        const QString modKey = path + QLatin1Char('#') + QString::number(plugIdx);
+        // Key by effectId when the caller knows it: the same effect can be asked for
+        // under a stale index, and keying by index would then load and kOfxActionLoad
+        // the very same OfxPlugin twice.
+        const QString modKey = path + QLatin1Char('#')
+                               + (desc.effectId.isEmpty() ? QString::number(plugIdx)
+                                                          : desc.effectId);
         if (path.isEmpty() || !QFileInfo::exists(path)) {
             if (errorOut) {
                 *errorOut = QStringLiteral("OFX binary not found: \"%1\"")
@@ -1357,6 +2196,27 @@ struct OfxHost::Impl {
         if (modules.contains(modKey) && modules[modKey] && modules[modKey]->loaded) {
             return modules[modKey];
         }
+        const auto failed = failedModules.constFind(modKey);
+        if (failed != failedModules.cend()) {
+            if (errorOut) {
+                *errorOut = *failed;
+            }
+            return {};
+        }
+        /** Remember why this module is unusable so the next frame does not retry it. */
+        auto fail = [&](const QString &reason) -> std::shared_ptr<ModuleRec> {
+            failedModules.insert(modKey, reason);
+            if (errorOut) {
+                *errorOut = reason;
+            }
+            return {};
+        };
+        if (!checkArchLoadable(path, errorOut)) {
+            return fail(errorOut && !errorOut->isEmpty()
+                            ? *errorOut
+                            : QStringLiteral("OFX plug-in \"%1\" is built for another platform")
+                                  .arg(path));
+        }
 
         auto mod = std::make_shared<ModuleRec>();
         mod->path = path;
@@ -1364,11 +2224,8 @@ struct OfxHost::Impl {
         mod->lib = std::make_unique<QLibrary>(path);
         ScopedOfxDllDirectory dllDirGuard(ofxInstallRootForBinary(path));
         if (!mod->lib->load()) {
-            if (errorOut) {
-                *errorOut = QStringLiteral("Failed to load OFX \"%1\": %2")
-                                .arg(path, mod->lib->errorString());
-            }
-            return {};
+            return fail(QStringLiteral("Failed to load OFX \"%1\": %2")
+                            .arg(path, mod->lib->errorString()));
         }
 
         using GetNumFn = int (*)();
@@ -1376,43 +2233,50 @@ struct OfxHost::Impl {
         auto getNum = reinterpret_cast<GetNumFn>(mod->lib->resolve("OfxGetNumberOfPlugins"));
         auto getPlugin = reinterpret_cast<GetPluginFn>(mod->lib->resolve("OfxGetPlugin"));
         if (!getNum || !getPlugin) {
-            if (errorOut) {
-                *errorOut = QStringLiteral(
-                    "OFX entry points OfxGetNumberOfPlugins / OfxGetPlugin not found in \"%1\"")
-                                .arg(path);
-            }
             mod->lib->unload();
-            return {};
+            return fail(QStringLiteral(
+                            "OFX entry points OfxGetNumberOfPlugins / OfxGetPlugin not found in \"%1\"")
+                            .arg(path));
         }
 
         try {
             const int n = getNum();
             if (n <= 0 || plugIdx >= n) {
-                if (errorOut) {
-                    *errorOut = QStringLiteral("OFX plugin index %1 out of range (%2) in \"%3\"")
-                                    .arg(plugIdx)
-                                    .arg(n)
-                                    .arg(path);
-                }
-                return {};
+                return fail(QStringLiteral("OFX plugin index %1 out of range (%2) in \"%3\"")
+                                .arg(plugIdx)
+                                .arg(n)
+                                .arg(path));
             }
-            OfxPlugin *plug = getPlugin(plugIdx);
+            // A bundle holds many effects (Vfx1.ofx alone has dozens), so an index that
+            // was never resolved silently means "index 0" — a completely different
+            // effect. Whenever the caller knows which effectId it wants, trust that over
+            // the index and re-resolve.
+            const int resolvedIdx = resolvePluginIndex(getNum, getPlugin, plugIdx, desc.effectId);
+            if (resolvedIdx < 0) {
+                return fail(QStringLiteral("OFX effect \"%1\" not found in \"%2\"")
+                                .arg(desc.effectId, path));
+            }
+            if (resolvedIdx != plugIdx) {
+                mod->pluginIndex = resolvedIdx;
+            }
+            OfxPlugin *plug = getPlugin(resolvedIdx);
             if (!plug || !plug->setHost || !plug->mainEntry) {
-                if (errorOut) {
-                    *errorOut = QStringLiteral("Invalid OfxPlugin from \"%1\"").arg(path);
-                }
-                return {};
+                return fail(QStringLiteral("Invalid OfxPlugin from \"%1\"").arg(path));
             }
             plug->setHost(&g_hostC);
 
+            OPENVEGAS_OFX_TRACE(QStringLiteral("=== %1 [#%2 %3] ===")
+                                    .arg(path)
+                                    .arg(plugIdx)
+                                    .arg(QString::fromUtf8(plug->pluginIdentifier
+                                                               ? plug->pluginIdentifier
+                                                               : "")));
+            OPENVEGAS_OFX_TRACE(QStringLiteral("Load begin"));
             OfxStatus st = plug->mainEntry(kOfxActionLoad, nullptr, nullptr, nullptr);
+            OPENVEGAS_OFX_TRACE(QStringLiteral("Load -> status %1").arg(st));
             if (!statusOk(st)) {
-                if (errorOut) {
-                    *errorOut = QStringLiteral("OFX Load failed (status %1) for \"%2\"")
-                                    .arg(st)
-                                    .arg(path);
-                }
-                return {};
+                return fail(
+                    QStringLiteral("OFX Load failed (status %1) for \"%2\"").arg(st).arg(path));
             }
             mod->plugin = plug;
             mod->loaded = true;
@@ -1423,15 +2287,14 @@ struct OfxHost::Impl {
             setString(&descFx.props, kOfxPropType, 0, kOfxTypeImageEffect);
             setString(&descFx.props, kOfxPropName, 0,
                       plug->pluginIdentifier ? plug->pluginIdentifier : "plugin");
+            seedEffectDescriptorProps(&descFx.props);
+            OPENVEGAS_OFX_TRACE(QStringLiteral("Describe begin"));
             st = plug->mainEntry(kOfxActionDescribe,
                                  reinterpret_cast<OfxImageEffectHandle>(&descFx), nullptr, nullptr);
+            OPENVEGAS_OFX_TRACE(QStringLiteral("Describe -> status %1").arg(st));
             if (!statusOk(st)) {
-                if (errorOut) {
-                    *errorOut = QStringLiteral("OFX Describe failed (status %1) for \"%2\"")
-                                    .arg(st)
-                                    .arg(path);
-                }
-                return {};
+                return fail(
+                    QStringLiteral("OFX Describe failed (status %1) for \"%2\"").arg(st).arg(path));
             }
             mod->descriptorProps = descFx.props;
             mod->descriptorClips = descFx.clips;
@@ -1461,17 +2324,36 @@ struct OfxHost::Impl {
             for (const std::string &context : contextsToTry) {
                 PropSet inArgs;
                 setString(&inArgs, kOfxImageEffectPropContext, 0, context.c_str());
+                // VEGAS's fork of the OFX support library maps this in-arg to its
+                // VegasContextEnum *before* handing control to the plug-in, and treats an
+                // absent/unmappable value as fatal — that is why VEGAS bundles used to
+                // stop dead after their first clipDefine(). Standard OFX plug-ins ignore
+                // the extra property. See plugins/OfxVegasExtensions.h.
+                setString(&inArgs, kOfxImageEffectPropVegasContext, 0,
+                          context == kOfxImageEffectContextGenerator
+                              ? kOfxImageEffectPropVegasContextGenerator
+                              : kOfxImageEffectPropVegasContextEvent);
                 EffectRec ctxFx;
                 ctxFx.module = mod.get();
                 ctxFx.props = mod->descriptorProps;
                 ctxFx.params = mod->descriptorParams;
+                OPENVEGAS_OFX_TRACE(QStringLiteral("DescribeInContext(%1) begin")
+                                        .arg(QString::fromStdString(context)));
                 st = plug->mainEntry(kOfxImageEffectActionDescribeInContext,
                                      reinterpret_cast<OfxImageEffectHandle>(&ctxFx),
                                      reinterpret_cast<OfxPropertySetHandle>(&inArgs), nullptr);
+                OPENVEGAS_OFX_TRACE(QStringLiteral("DescribeInContext(%1) -> status %2, "
+                                                   "%3 clip(s), %4 param(s)")
+                                        .arg(QString::fromStdString(context))
+                                        .arg(st)
+                                        .arg(ctxFx.clips.size())
+                                        .arg(ctxFx.params.size()));
                 if (statusOk(st)) {
                     mod->descriptorClips = ctxFx.clips;
                     mod->descriptorParams = ctxFx.params;
+                    mod->descriptorProps = ctxFx.props;
                     mod->describedInContext = true;
+                    mod->describedContext = context;
                     break;
                 }
                 // Soft: some plugs may still process via emulation
@@ -1494,15 +2376,10 @@ struct OfxHost::Impl {
             }
             return mod;
         } catch (const std::exception &ex) {
-            if (errorOut) {
-                *errorOut = QStringLiteral("OFX load exception: %1").arg(QString::fromUtf8(ex.what()));
-            }
-            return {};
+            return fail(
+                QStringLiteral("OFX load exception: %1").arg(QString::fromUtf8(ex.what())));
         } catch (...) {
-            if (errorOut) {
-                *errorOut = QStringLiteral("OFX load crashed or threw unknown exception");
-            }
-            return {};
+            return fail(QStringLiteral("OFX load crashed or threw unknown exception"));
         }
     }
 };
@@ -1526,13 +2403,15 @@ OfxHost::~OfxHost()
 
 QStringList OfxHost::supportedArchFolderNames()
 {
-    return {
-        QStringLiteral("Win64"),
-        QStringLiteral("Win32"),
-        QStringLiteral("MacOS"),
-        QStringLiteral("Linux-x86-64"),
-        QStringLiteral("Linux-x86"),
-    };
+    // Native ABI first so bundle scanning prefers a loadable binary, then the rest so a
+    // foreign-platform bundle is still found and can be reported instead of vanishing.
+    QStringList out = OfxPluginPaths::loadableArchFolderNames();
+    for (const QString &known : OfxPluginPaths::knownArchFolderNames()) {
+        if (!out.contains(known, Qt::CaseInsensitive)) {
+            out << known;
+        }
+    }
+    return out;
 }
 
 OfxPluginDesc OfxHost::describe(const QString &path)
@@ -1638,13 +2517,12 @@ int OfxHost::createInstance(const OfxPluginDesc &desc, QString *errorOut)
                 kv.second.value = 1.5;
             }
         }
-        setString(&fx->props, kOfxPropType, 0, kOfxTypeImageEffectInstance);
+        seedEffectInstanceProps(&fx->props, mod->describedContext, kDefaultProjectWidth,
+                                kDefaultProjectHeight);
         for (auto &ckv : fx->clips) {
-            setInt(&ckv.second.props, kOfxImageClipPropConnected, 0, 1);
-            setString(&ckv.second.props, kOfxImageEffectPropComponents, 0, kOfxImageComponentRGBA);
-            setString(&ckv.second.props, kOfxImageEffectPropPixelDepth, 0, kOfxBitDepthByte);
-            setString(&ckv.second.props, kOfxImageEffectPropPreMultiplication, 0,
-                      kOfxImageUnPreMultiplied);
+            seedClipInstanceProps(&ckv.second.props, kDefaultProjectWidth, kDefaultProjectHeight);
+            ckv.second.rodWidth = kDefaultProjectWidth;
+            ckv.second.rodHeight = kDefaultProjectHeight;
         }
 
         OfxStatus st =
@@ -1740,19 +2618,37 @@ bool OfxHost::processFrame(int instanceId, QImage *rgba, double timeSec, const Q
         fx->width = rgba->width();
         fx->height = rgba->height();
 
-        auto fillImageProps = [&](PropSet *ps) {
+        // Source and output must be distinct buffers: a filter is entitled to read any
+        // source pixel while writing any output pixel, and a blur that reads its own
+        // partially written output produces smeared garbage.
+        QImage sourceFrame = rgba->copy();
+
+        auto fillImageProps = [&](PropSet *ps, const char *role, QImage *img) {
             ps->props.clear();
             setString(ps, kOfxPropType, 0, kOfxTypeImage);
-            setPointer(ps, kOfxImagePropData, 0, rgba->bits());
-            setInt(ps, kOfxImagePropRowBytes, 0, rgba->bytesPerLine());
+            // Plug-ins key their internal caches off this; it must be stable for the same
+            // pixels and differ once anything about them changes.
+            setString(ps, kOfxImagePropUniqueIdentifier, 0,
+                      QStringLiteral("%1:%2:%3x%4:%5")
+                          .arg(QString::fromLatin1(role))
+                          .arg(instanceId)
+                          .arg(img->width())
+                          .arg(img->height())
+                          .arg(timeSec, 0, 'g', 10)
+                          .toUtf8()
+                          .constData());
+            setPointer(ps, kOfxImagePropData, 0, img->bits());
+            setInt(ps, kOfxImagePropRowBytes, 0, img->bytesPerLine());
+            setDouble(ps, kOfxImageEffectPropRenderScale, 0, 1.0);
+            setDouble(ps, kOfxImageEffectPropRenderScale, 1, 1.0);
             setInt(ps, kOfxImagePropBounds, 0, 0);
             setInt(ps, kOfxImagePropBounds, 1, 0);
-            setInt(ps, kOfxImagePropBounds, 2, rgba->width());
-            setInt(ps, kOfxImagePropBounds, 3, rgba->height());
+            setInt(ps, kOfxImagePropBounds, 2, img->width());
+            setInt(ps, kOfxImagePropBounds, 3, img->height());
             setInt(ps, kOfxImagePropRegionOfDefinition, 0, 0);
             setInt(ps, kOfxImagePropRegionOfDefinition, 1, 0);
-            setInt(ps, kOfxImagePropRegionOfDefinition, 2, rgba->width());
-            setInt(ps, kOfxImagePropRegionOfDefinition, 3, rgba->height());
+            setInt(ps, kOfxImagePropRegionOfDefinition, 2, img->width());
+            setInt(ps, kOfxImagePropRegionOfDefinition, 3, img->height());
             setString(ps, kOfxImageEffectPropComponents, 0, kOfxImageComponentRGBA);
             setString(ps, kOfxImageEffectPropPixelDepth, 0, kOfxBitDepthByte);
             setString(ps, kOfxImageEffectPropPreMultiplication, 0, kOfxImageUnPreMultiplied);
@@ -1760,8 +2656,21 @@ bool OfxHost::processFrame(int instanceId, QImage *rgba, double timeSec, const Q
             setString(ps, kOfxImagePropField, 0, kOfxImageFieldNone);
         };
 
-        fillImageProps(&fx->sourceImageProps);
-        fillImageProps(&fx->outputImageProps);
+        fillImageProps(&fx->sourceImageProps, "source", &sourceFrame);
+        fillImageProps(&fx->outputImageProps, "output", rgba);
+
+        // The effect instance was created against the project frame size; this render is
+        // for the frame actually in hand, so re-publish the real geometry.
+        setDouble(&fx->props, kOfxImageEffectPropProjectSize, 0, rgba->width());
+        setDouble(&fx->props, kOfxImageEffectPropProjectSize, 1, rgba->height());
+        setDouble(&fx->props, kOfxImageEffectPropProjectExtent, 0, rgba->width());
+        setDouble(&fx->props, kOfxImageEffectPropProjectExtent, 1, rgba->height());
+        for (auto &ckv : fx->clips) {
+            ckv.second.rodWidth = rgba->width();
+            ckv.second.rodHeight = rgba->height();
+            setDouble(&ckv.second.props, kOfxImageEffectPropRegionOfDefinition, 2, rgba->width());
+            setDouble(&ckv.second.props, kOfxImageEffectPropRegionOfDefinition, 3, rgba->height());
+        }
 
         for (auto &ckv : fx->clips) {
             if (ckv.first == kOfxImageEffectSimpleSourceClipName
@@ -1775,6 +2684,9 @@ bool OfxHost::processFrame(int instanceId, QImage *rgba, double timeSec, const Q
             }
         }
 
+        g_timelineTime.store(timeSec);
+        g_currentRenderHeight.store(rgba->height());
+
         PropSet inArgs;
         setDouble(&inArgs, kOfxPropTime, 0, timeSec);
         setString(&inArgs, kOfxImageEffectPropFieldToRender, 0, kOfxImageFieldNone);
@@ -1784,12 +2696,29 @@ bool OfxHost::processFrame(int instanceId, QImage *rgba, double timeSec, const Q
         setInt(&inArgs, kOfxImageEffectPropRenderWindow, 3, rgba->height());
         setDouble(&inArgs, kOfxImageEffectPropRenderScale, 0, 1.0);
         setDouble(&inArgs, kOfxImageEffectPropRenderScale, 1, 1.0);
+        setInt(&inArgs, kOfxImageEffectPropSequentialRenderStatus, 0, 0);
+        setInt(&inArgs, kOfxImageEffectPropInteractiveRenderStatus, 0, 0);
+        setInt(&inArgs, kOfxImageEffectPropRenderQualityDraft, 0, 0);
+        // VEGAS extensions: its support library reads the timecode and the
+        // stereoscopic view selection out of the render in-args unconditionally.
+        // Timecode is expressed the way VEGAS does, in frames; the view arguments say
+        // "one view, the left/only one", which is what a 2D compositor renders.
+        setDouble(&inArgs, kOfxPropVegasTimeCode, 0, timeSec * kDefaultFrameRate);
+        setInt(&inArgs, kOfxImageEffectPropViewsToRender, 0, 1);
+        setInt(&inArgs, kOfxImageEffectPropRenderView, 0, 0);
+        setString(&inArgs, kOfxImageEffectPropRenderQuality, 0,
+                  kOfxImageEffectPropRenderQualityBest);
 
+        OPENVEGAS_OFX_TRACE(QStringLiteral("Render begin (t=%1, %2x%3)")
+                                .arg(timeSec)
+                                .arg(rgba->width())
+                                .arg(rgba->height()));
         OfxStatus st =
             fx->module->plugin->mainEntry(kOfxImageEffectActionRender,
                                           reinterpret_cast<OfxImageEffectHandle>(fx.get()),
                                           reinterpret_cast<OfxPropertySetHandle>(&inArgs),
                                           nullptr);
+        OPENVEGAS_OFX_TRACE(QStringLiteral("Render -> status %1").arg(st));
 
         for (auto &ckv : fx->clips) {
             ckv.second.activeImage = nullptr;
@@ -1797,23 +2726,15 @@ bool OfxHost::processFrame(int instanceId, QImage *rgba, double timeSec, const Q
         fx->frameImage = nullptr;
 
         if (!statusOk(st)) {
-            // Fallback: if plugin has gain param, apply emulated gain
-            double gain = 1.5;
-            auto fit = fx->params.find("gain");
-            if (fit != fx->params.end()) {
-                gain = fit->second.value;
-            } else if (params.contains(QStringLiteral("gain"))) {
-                gain = params.value(QStringLiteral("gain")).toDouble();
-            }
-            QImage argb = rgba->convertToFormat(QImage::Format_ARGB32);
-            applyGain(&argb, gain);
-            *rgba = argb;
+            // Deliberately no host-side substitute: see kOpenVegasEmulatedVideoFx.
+            // A failed render is reported as failed, not papered over with our own pixels.
+            //
+            // Disabled 2026-08-12 — was: apply applyGain() with the plug-in's "gain" param
+            // (or 1.5) and return true, which made a broken plug-in look like a working one.
             if (errorOut) {
-                *errorOut = QStringLiteral(
-                    "OFX Render failed (status %1) — applied host-side gain fallback")
-                                .arg(st);
+                *errorOut = QStringLiteral("OFX Render failed (status %1)").arg(st);
             }
-            return true;
+            return false;
         }
 
         *rgba = rgba->convertToFormat(QImage::Format_ARGB32);
@@ -1831,6 +2752,10 @@ bool OfxHost::processFrame(int instanceId, QImage *rgba, double timeSec, const Q
 
 bool OfxHost::processEmulated(QImage *rgba, const QString &displayName, const QVariantMap &params)
 {
+    Q_UNUSED(rgba);
+    Q_UNUSED(displayName);
+    Q_UNUSED(params);
+#if OPENVEGAS_EMULATED_VIDEO_FX
     if (!rgba || rgba->isNull()) {
         return false;
     }
@@ -1864,6 +2789,7 @@ bool OfxHost::processEmulated(QImage *rgba, const QString &displayName, const QV
         applyGain(rgba, mapGet(params, QStringLiteral("gain"), 1.5));
         return true;
     }
+#endif
     return false;
 }
 
@@ -1912,6 +2838,7 @@ bool OfxHost::processSlot(FxSlot &slot, QImage *rgba, double timeSec)
         }
     }
 
+    // No stand-in when the real plug-in isn't there — see kOpenVegasEmulatedVideoFx.
     return processEmulated(rgba, slot.displayName, params);
 }
 
@@ -1962,14 +2889,28 @@ QVector<OfxParamInfo> OfxHost::paramsForSlot(FxSlot slot)
     out.reserve(int(mod->descriptorParams.size()));
     for (const auto &kv : mod->descriptorParams) {
         const ParamRec &p = kv.second;
-        if (p.type != kOfxParamTypeDouble) {
-            continue; // MVP: continuous sliders only; extend for bool/choice/int as needed.
+        const bool isBoolean = p.type == kOfxParamTypeBoolean;
+        if (p.type != kOfxParamTypeDouble && !isBoolean) {
+            continue; // Choice/int/group/page have no editor yet.
         }
         OfxParamInfo info;
+        info.toggle = isBoolean;
         info.name = QString::fromStdString(p.name);
         info.label = propString(p.props, kOfxPropLabel);
         if (info.label.isEmpty()) {
             info.label = info.name;
+        }
+        if (isBoolean) {
+            // Booleans arrive through kOfxParamPropDefault as an int, not a double.
+            const auto it = p.props.props.find(kOfxParamPropDefault);
+            info.defaultValue = (it != p.props.props.end() && it->second.kind == PropValue::Int
+                                 && !it->second.ints.empty() && it->second.ints.front() != 0)
+                                    ? 1.0
+                                    : 0.0;
+            info.minValue = 0.0;
+            info.maxValue = 1.0;
+            out.push_back(info);
+            continue;
         }
         info.defaultValue = propDouble(p.props, kOfxParamPropDefault, 0.0);
         info.minValue = propDouble(p.props, kOfxParamPropDisplayMin,

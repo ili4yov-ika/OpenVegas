@@ -180,15 +180,55 @@ QVector<VegasVideoPluginEntry> parseResourceXml(const QString &xmlPath, const QS
     return out;
 }
 
+/**
+ * Catalog entries for a bundle that carries no VEGAS resource manifest, by asking the
+ * binary itself what it contains.
+ *
+ * Every OFX plug-in that did not come from VEGAS lands here — which on Linux and macOS
+ * is all of them, since there is no VEGAS installation to inherit a manifest from.
+ */
+QVector<VegasVideoPluginEntry> enumerateGenericBundle(const QString &bundlePath,
+                                                      const QString &binaryPath)
+{
+    QVector<VegasVideoPluginEntry> out;
+    if (binaryPath.isEmpty()) {
+        return out;
+    }
+    const QVector<OfxEffectSummary> effects = OfxHost::enumerateEffects(binaryPath);
+    out.reserve(effects.size());
+    for (const OfxEffectSummary &e : effects) {
+        VegasVideoPluginEntry entry;
+        entry.effectId = e.effectId;
+        entry.vegasLabel = e.label;
+        entry.displayName = e.label;
+        entry.grouping = e.grouping;
+        // OFX groupings are "/"-separated paths ("Filter/Blur"); the catalog's category
+        // list is flat, and the leaf is what a chooser wants to show.
+        if (!e.grouping.isEmpty()) {
+            entry.categories = e.grouping.split(QLatin1Char('/'), Qt::SkipEmptyParts);
+        }
+        entry.bundlePath = bundlePath;
+        entry.binaryPath = binaryPath;
+        entry.pluginIndex = e.pluginIndex;
+        entry.hasBinary = true;
+        out.push_back(entry);
+    }
+    return out;
+}
+
 QVector<VegasVideoPluginEntry> parseBundle(const QString &bundlePath)
 {
+    const QString binaryPath = findOfxBinaryInBundle(bundlePath);
     const QString xmlPath = findPrimaryResourceXml(bundlePath);
     if (xmlPath.isEmpty()) {
-        return {};
+        return enumerateGenericBundle(bundlePath, binaryPath);
     }
-    const QString binaryPath = findOfxBinaryInBundle(bundlePath);
     const QHash<QString, QStringList> presets = parsePresetsXml(bundlePath);
-    return parseResourceXml(xmlPath, bundlePath, binaryPath, presets);
+    QVector<VegasVideoPluginEntry> fromXml =
+        parseResourceXml(xmlPath, bundlePath, binaryPath, presets);
+    // A manifest that describes nothing usable (wrong schema, VR-only preset package)
+    // should not hide a perfectly good binary.
+    return fromXml.isEmpty() ? enumerateGenericBundle(bundlePath, binaryPath) : fromXml;
 }
 
 void resolvePluginIndices(QVector<VegasVideoPluginEntry> *entries)
@@ -296,9 +336,9 @@ QVector<VegasVideoPluginEntry> VegasVideoPluginCatalog::discover(const QStringLi
                 merged.push_back(e);
             }
         }
-        if (!merged.isEmpty()) {
-            break;
-        }
+        // Deliberately no early exit: a machine can have VEGAS's bundles *and*
+        // third-party plug-ins in the standard OFX locations, and both belong in the
+        // catalog. Duplicate effectIds are already filtered above, first root winning.
     }
 
     resolvePluginIndices(&merged);
@@ -395,7 +435,13 @@ FxSlot VegasVideoPluginCatalog::resolveVideoFxSlot(FxSlot slot)
         e = findByDisplayName(slot.displayName);
     }
     if (e) {
-        return slotFromEntry(*e);
+        // Resolution attaches the binary path and effect index — it must not rebuild the
+        // slot from the catalog entry, or everything the caller had already recovered
+        // (parameter values from the project, bypass, the hostKey instances are keyed by)
+        // is silently dropped on the floor.
+        slot.displayName = e->displayName;
+        slot.pluginId = formatPluginId(*e);
+        ensureFxHostKey(&slot);
     }
     return slot;
 }
@@ -458,6 +504,16 @@ QVector<OfxParamInfo> VegasVideoPluginCatalog::paramsInfoForSlot(const FxSlot &s
         info.maxValue = hi;
         out.push_back(info);
     };
+    auto addToggle = [&](const QString &label, const QString &key, bool def) {
+        OfxParamInfo info;
+        info.name = key;
+        info.label = label;
+        info.defaultValue = def ? 1.0 : 0.0;
+        info.minValue = 0.0;
+        info.maxValue = 1.0;
+        info.toggle = true;
+        out.push_back(info);
+    };
     const QString n = slot.displayName;
     if (isColorCorrectorName(n)) {
         add(QObject::tr("Brightness"), QStringLiteral("brightness"), 0.0, -1.0, 1.0);
@@ -493,12 +549,14 @@ QVector<OfxParamInfo> VegasVideoPluginCatalog::paramsInfoForSlot(const FxSlot &s
         add(QObject::tr("Horizontal radius"), QStringLiteral("HorizontalRadius"), 50.0, 0.0, 100.0);
         add(QObject::tr("Vertical radius"), QStringLiteral("VerticalRadius"), 50.0, 0.0, 100.0);
         add(QObject::tr("Hue"), QStringLiteral("Hue"), 0.0, 0.0, 360.0);
-        add(QObject::tr("Hue sweep"), QStringLiteral("HueSweep"), 30.0, 0.0, 360.0);
+        // Hue sweep runs both ways — projects really do store negative sweeps, and a
+        // 0…360 slider would silently clamp them on import.
+        add(QObject::tr("Hue sweep"), QStringLiteral("HueSweep"), 30.0, -360.0, 360.0);
         add(QObject::tr("Saturation"), QStringLiteral("Saturation"), 100.0, 0.0, 100.0);
         add(QObject::tr("Orientation"), QStringLiteral("Rotation"), 0.0, 0.0, 360.0);
         add(QObject::tr("Streaks"), QStringLiteral("Streaks"), 4.0, 0.0, 10.0);
-        add(QObject::tr("Reduce flicker"), QStringLiteral("ReduceFlicker"), 0.0, 0.0, 1.0);
-        add(QObject::tr("Effect only"), QStringLiteral("EffectOnly"), 0.0, 0.0, 1.0);
+        addToggle(QObject::tr("Reduce flicker"), QStringLiteral("ReduceFlicker"), false);
+        addToggle(QObject::tr("Effect only"), QStringLiteral("EffectOnly"), false);
     } else if (n.contains(QLatin1String("brightness"), Qt::CaseInsensitive)) {
         add(QObject::tr("Brightness"), QStringLiteral("brightness"), 0.0, -1.0, 1.0);
         add(QObject::tr("Contrast"), QStringLiteral("contrast"), 1.0, 0.0, 2.0);

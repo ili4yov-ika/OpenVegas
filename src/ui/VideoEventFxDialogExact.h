@@ -119,6 +119,8 @@ private:
     void removeSelected();
 
     void refreshViewport();
+    /** Show the VEGAS preset the selected effect carries, or "(Default)". */
+    void syncPresetCombo();
 
     void rebuildOfxParamsUi();
 
@@ -332,6 +334,8 @@ private:
 
     QLabel *m_genericTitle = nullptr;
     QLabel *m_genericHint = nullptr;
+    /** Preset row combo — shows the VEGAS preset a project had the effect set to. */
+    QComboBox *m_presetCombo = nullptr;
     QWidget *m_ofxParamsHost = nullptr;
     QVBoxLayout *m_ofxParamsLay = nullptr;
 

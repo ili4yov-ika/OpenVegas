@@ -4,5 +4,6 @@
     <file>openvegas.qss</file>
     <file>icons/logo.svg</file>
     <file>icons/logo.png</file>
+    <file>images/eye_preview.png</file>
   </qresource>
 </RCC>

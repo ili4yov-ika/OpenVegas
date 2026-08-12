@@ -181,6 +181,24 @@ struct AutomationLane {
     }
 };
 
+/**
+ * Automation targetId for one plug-in parameter, and for the plug-in's own marker row.
+ *
+ * Keyed by the slot's `hostKey` so the lane survives the chain being copied. Defined here
+ * rather than in the FX dialogs because the VEG importer has to write lanes the dialogs
+ * will later find — the two must agree on the exact string.
+ */
+inline QString fxParamAutomationTargetId(const FxSlot &slot, const QString &paramKey)
+{
+    return QStringLiteral("fx:%1:%2")
+        .arg(slot.hostKey.isEmpty() ? slot.pluginId : slot.hostKey, paramKey);
+}
+
+inline QString fxMasterAutomationTargetId(const FxSlot &slot)
+{
+    return fxParamAutomationTargetId(slot, QStringLiteral("_master"));
+}
+
 enum class AutomationWriteMode {
     Off = 0,
     Read,

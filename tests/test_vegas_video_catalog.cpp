@@ -3,12 +3,17 @@
 #include "io/SamplePaths.h"
 #include "plugins/AudioPluginTypes.h"
 #include "plugins/OfxHost.h"
+#include "audio/BuiltinDsp.h"
+#include "io/MediaMime.h"
 #include "plugins/VegasVideoPluginCatalog.h"
 
 #include <QCoreApplication>
 #include <QDir>
 #include <QFileInfo>
 #include <QImage>
+#include <QMimeData>
+
+#include <memory>
 
 using namespace openvegas;
 
@@ -246,7 +251,7 @@ TEST_CASE("OfxHost::load Load+Describe succeed for a real Vegas OFX plug-in",
     REQUIRE_FALSE(err.contains(QStringLiteral("OFX Describe failed")));
 }
 
-TEST_CASE("OfxHost::paramsForSlot fails soft when a real Vegas OFX plug-in can't fully Load",
+TEST_CASE("OfxHost::paramsForSlot returns the real declared params of a Vegas OFX plug-in",
          "[video-fx][ofx][vegas-video]")
 {
     int argc = 1;
@@ -264,20 +269,149 @@ TEST_CASE("OfxHost::paramsForSlot fails soft when a real Vegas OFX plug-in can't
 
     const FxSlot raw = videoFxSlotFromName(QStringLiteral("Chroma Blur"));
     const QVector<OfxParamInfo> params = OfxHost::instance().paramsForSlot(raw);
-    // kOfxActionLoad and kOfxActionDescribe now succeed against this host (fixed by
-    // implementing OfxMultiThreadSuite and declaring the OFX 1.4 host properties Vfx1.ofx
-    // checks — see MARKDOWN/ISSUES_AND_PLANS.md). kOfxImageEffectActionDescribeInContext
-    // still refuses with kOfxStatErrMissingHostFeature for every context Vegas's own
-    // resource manifests use (Filter/General/Generator), and does so without touching any
-    // host suite or property we can inspect or provide — no clipDefine("Output"), no
-    // paramDefine, no propGet/propSet beyond reading the requested context back out of
-    // inArgs. That rules out a standard-OFX compliance gap and points at an internal,
-    // undocumented Sony/Magix check (observed: unaffected by kOfxImageEffectPropSupportsTiles/
-    // SupportsMultiResolution, by which context is requested, by a non-null stub
-    // "OfxVegasEffectSuite", and by supplying a real HWND for kOfxPropHostOSHandle).
-    // This locks in fail-soft behavior — no crash, just empty — so callers
-    // (VideoEventFxDialogExact) must keep an approximate fallback. If this ever starts
-    // failing, the host cleared that gate and paramsInfoForSlot()'s real-vs-fallback branch
-    // should be re-verified against the new real param set.
-    REQUIRE(params.isEmpty());
+
+    // These names come out of the plug-in binary's own DescribeInContext, not from any
+    // table of ours, and they match what VEGAS Pro's UI shows for Chroma Blur. Getting
+    // here at all took three host fixes, each of which this guards:
+    //   * clip/param/effect descriptors are handed to the plug-in fully populated —
+    //     without that, defineClip("Source") was followed by a propGetDimension the host
+    //     failed, which the OFX support library reports as kOfxStatErrMissingHostFeature;
+    //   * the VEGAS-only kOfxImageEffectPropVegasContext in-arg is supplied;
+    //   * the effectId is re-resolved against the binary instead of trusting the index,
+    //     so this is Chroma Blur and not whatever sits at index 0 of Vfx1.ofx.
+    // See MARKDOWN/PLAN_OFX_VIDEO_PLUGINS.md.
+    REQUIRE_FALSE(params.isEmpty());
+    QStringList names;
+    for (const OfxParamInfo &p : params) {
+        names << p.name;
+    }
+    REQUIRE(names.contains(QStringLiteral("HorizontalPixels")));
+    REQUIRE(names.contains(QStringLiteral("VerticalPixels")));
+}
+
+TEST_CASE("Real VEGAS Chroma Blur OFX plug-in actually changes pixels",
+         "[video-fx][ofx][vegas-video]")
+{
+    int argc = 1;
+    char arg0[] = "test";
+    char *argv[] = {arg0, nullptr};
+    ensureQtApp(argc, argv);
+
+    const QString root = samplesVegasRoot();
+    if (root.isEmpty() || !QDir(root).exists()) {
+        SKIP("SAMPLES/VEGAS-PRO-22-PROGRAM-FILES not available");
+    }
+
+    VegasVideoPluginCatalog::invalidateCache();
+    VegasVideoPluginCatalog::discover({root});
+
+    const VegasVideoPluginEntry *entry = VegasVideoPluginCatalog::findByEffectId(
+        QStringLiteral("com.vegascreativesoftware:chromablur"));
+    REQUIRE(entry != nullptr);
+    REQUIRE(entry->hasBinary);
+
+    OfxPluginDesc desc;
+    desc.path = entry->binaryPath;
+    desc.bundlePath = entry->bundlePath;
+    desc.effectId = entry->effectId;
+    desc.pluginIndex = entry->pluginIndex;
+    desc.hasBinary = true;
+
+    QString err;
+    const int id = OfxHost::instance().createInstance(desc, &err);
+    REQUIRE(id > 0);
+
+    // A hard vertical edge: a blur has to bleed one half into the other.
+    QImage frame(512, 512, QImage::Format_ARGB32);
+    for (int y = 0; y < frame.height(); ++y) {
+        for (int x = 0; x < frame.width(); ++x) {
+            frame.setPixel(x, y, x < frame.width() / 2 ? qRgb(255, 0, 0) : qRgb(0, 0, 255));
+        }
+    }
+    const QImage before = frame.copy();
+
+    QVariantMap params;
+    params.insert(QStringLiteral("HorizontalPixels"), 8.0);
+    params.insert(QStringLiteral("VerticalPixels"), 8.0);
+    REQUIRE(OfxHost::instance().processFrame(id, &frame, 0.0, params, &err));
+    // A fallback would have reported itself in err; a real render clears it.
+    REQUIRE(err.isEmpty());
+    REQUIRE(frame.size() == before.size());
+    REQUIRE(frame != before);
+
+    // Small frames are the case that used to corrupt the heap: the plug-in splits the
+    // render window by threadIndex/threadMax itself and misbehaves once a band gets close
+    // to its kernel radius. The host caps threads by frame height to keep bands large —
+    // without that cap this call takes the process down rather than failing.
+    QImage tiny(64, 64, QImage::Format_ARGB32);
+    tiny.fill(qRgb(255, 0, 0));
+    for (int y = 0; y < tiny.height(); ++y) {
+        for (int x = 32; x < tiny.width(); ++x) {
+            tiny.setPixel(x, y, qRgb(0, 0, 255));
+        }
+    }
+    const QImage tinyBefore = tiny.copy();
+    REQUIRE(OfxHost::instance().processFrame(id, &tiny, 0.0, params, &err));
+    REQUIRE(err.isEmpty());
+    REQUIRE(tiny != tinyBefore);
+
+    OfxHost::instance().destroyInstance(id);
+}
+
+TEST_CASE("Video FX drag payload round-trips through the timeline's MIME format",
+          "[video-fx][vegas-video][dnd]")
+{
+    int argc = 1;
+    char arg0[] = "test";
+    char *argv[] = {arg0, nullptr};
+    ensureQtApp(argc, argv);
+
+    // What VideoFxPane puts on the drag: name = plug-in, extra = preset. The timeline
+    // dispatches on the kind, so a change to either side that breaks this contract turns
+    // the drop into a silently ignored no-op.
+    std::unique_ptr<QMimeData> md(MediaMime::fromSynthetic(
+        QStringLiteral("videofx"), QStringLiteral("Chroma Blur"), QStringLiteral("Sparkle")));
+    REQUIRE(md);
+    REQUIRE(MediaMime::hasMediaPayload(md.get()));
+
+    QStringList names;
+    QStringList kinds;
+    QStringList paths;
+    QVector<double> lengths;
+    QStringList extras;
+    MediaMime::parse(md.get(), &names, &kinds, &paths, &lengths, &extras);
+    REQUIRE(kinds.value(0) == QStringLiteral("videofx"));
+    REQUIRE(names.value(0) == QStringLiteral("Chroma Blur"));
+    REQUIRE(extras.value(0) == QStringLiteral("Sparkle"));
+
+    // A plug-in row drags with no preset — the extra is empty, not missing.
+    std::unique_ptr<QMimeData> plain(MediaMime::fromSynthetic(QStringLiteral("videofx"),
+                                                              QStringLiteral("Glint")));
+    MediaMime::parse(plain.get(), &names, &kinds, &paths, &lengths, &extras);
+    REQUIRE(kinds.value(0) == QStringLiteral("videofx"));
+    REQUIRE(names.value(0) == QStringLiteral("Glint"));
+    REQUIRE(extras.value(0).isEmpty());
+}
+
+TEST_CASE("A dropped Video FX becomes a real slot carrying its preset",
+          "[video-fx][vegas-video][dnd]")
+{
+    int argc = 1;
+    char arg0[] = "test";
+    char *argv[] = {arg0, nullptr};
+    ensureQtApp(argc, argv);
+
+    const FxSlot slot = VegasVideoPluginCatalog::slotFromDisplayName(QStringLiteral("Glint"));
+    REQUIRE_FALSE(slot.displayName.isEmpty());
+    REQUIRE_FALSE(slot.hostKey.isEmpty()); // instances are keyed by it; a blank one collides
+
+    QVariantMap params = unpackFxParams(slot.state);
+    params.insert(fxVegasPresetStateKey(), QStringLiteral("Sparkle"));
+    FxSlot withPreset = slot;
+    withPreset.state = packFxParams(params);
+    REQUIRE(fxVegasPresetName(withPreset) == QStringLiteral("Sparkle"));
+    // An unknown name must not silently produce an empty slot the timeline would append.
+    REQUIRE_FALSE(
+        VegasVideoPluginCatalog::slotFromDisplayName(QStringLiteral("No Such Effect"))
+            .displayName.isEmpty());
 }

@@ -33,6 +33,18 @@ inline QByteArray fxStateChunk(const FxSlot &slot)
     return unpackFxParams(slot.state).value(QStringLiteral("chunk")).toByteArray();
 }
 
+/** Params key holding the VEGAS preset name a project had this effect set to. */
+inline QString fxVegasPresetStateKey()
+{
+    return QStringLiteral("__vegasPreset");
+}
+
+/** VEGAS preset name recovered from a project ("Sparkle"); empty when unknown. */
+inline QString fxVegasPresetName(const FxSlot &slot)
+{
+    return unpackFxParams(slot.state).value(fxVegasPresetStateKey()).toString();
+}
+
 /** Per-instance realtime state for builtin processors. */
 struct BuiltinDspState {
     QString pluginId;

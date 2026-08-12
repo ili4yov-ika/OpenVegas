@@ -1,4 +1,5 @@
 #include "plugins/PluginScanner.h"
+#include "plugins/OfxPluginPaths.h"
 #include "plugins/VegasVideoPluginCatalog.h"
 
 #include <QCoreApplication>
@@ -61,6 +62,14 @@ QStringList PluginScanner::candidateRoots() const
         }
     }
 #endif
+
+    // The OpenFX standard's own locations, last so an explicitly configured or VEGAS
+    // path still wins. These are the only roots that exist on Linux and macOS, where
+    // there is no VEGAS install to inherit plug-ins from, so without them those builds
+    // would find no OFX video plug-ins at all.
+    for (const QString &root : OfxPluginPaths::standardRoots()) {
+        add(root);
+    }
 
     roots.removeDuplicates();
     return roots;

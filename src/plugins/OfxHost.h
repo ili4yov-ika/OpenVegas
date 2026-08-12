@@ -10,6 +10,28 @@
 #include <QVariantMap>
 #include <QVector>
 
+/**
+ * OpenVegas's own stand-in renderers for VEGAS video effects — **off, deliberately.**
+ *
+ * The host loads and renders real VEGAS `.ofx` binaries correctly, but the OFX parameter
+ * blob inside a `.veg` is not decoded yet, so an effect restored from a project runs at
+ * the plug-in's declared defaults (0 for Chroma Blur's radii) and does nothing visible.
+ * The emulated path used to hide that: a box blur stood in for Chroma Blur, a sepia
+ * matrix for Sepia, a gain for any failed render — so the app looked like it was running
+ * VEGAS's effects when it was running approximations of them.
+ *
+ * With this off, an effect that cannot really be rendered renders as nothing. That is the
+ * honest state and it is what the docs now say: VEGAS video plug-ins do not work yet.
+ * **Do not write more of these approximations** — the way forward is decoding the real
+ * parameters, not widening the imitation. See MARKDOWN/PLAN_OFX_VIDEO_PLUGINS.md.
+ *
+ * The code is kept (compiled out) rather than deleted so the switch can be flipped back
+ * for A/B comparison while working on the parameter decoder.
+ */
+#ifndef OPENVEGAS_EMULATED_VIDEO_FX
+#define OPENVEGAS_EMULATED_VIDEO_FX 0
+#endif
+
 namespace openvegas {
 
 /** Parsed OpenVegas OFX pluginId (ofx:<path>#<index>#<effectId> or ofx-id:<effectId>). */
@@ -19,13 +41,19 @@ struct OfxPluginIdParts {
     QString effectId;
 };
 
-/** Real declared Double param (name/label/range/default) straight from an OFX plug-in's Describe. */
+/** Real declared param (name/label/range/default) straight from an OFX plug-in's Describe. */
 struct OfxParamInfo {
     QString name;   // OFX identifier — matches the key processFrame() applies via loadSlotParams()
     QString label;  // UI label (kOfxPropLabel; falls back to name)
     double defaultValue = 0.0;
     double minValue = 0.0;
     double maxValue = 1.0;
+    /**
+     * On/off parameter — VEGAS draws these as check boxes, and a 0.00…1.00 slider in
+     * their place is the sort of thing that makes a faithful panel look like a stand-in.
+     * Values are still carried as 0/1 doubles so nothing downstream has to special-case them.
+     */
+    bool toggle = false;
 };
 
 /** Metadata for one discovered OFX plug-in. */
@@ -38,6 +66,22 @@ struct OfxPluginDesc {
     QString apiLabel = QStringLiteral("OFX");
     int pluginIndex = 0;
     bool hasBinary = false;
+    /**
+     * False when the bundle only ships binaries for another platform — the normal case
+     * for VEGAS's own `Contents/Win64` bundles seen from Linux or macOS. Such a plug-in
+     * is still listed (so the UI can name it and a project referencing it still opens),
+     * but is never dlopen'd; `archNote` says why.
+     */
+    bool archLoadable = true;
+    QString archNote;
+};
+
+/** One effect declared inside an .ofx binary, as the binary itself describes it. */
+struct OfxEffectSummary {
+    QString effectId;  ///< OfxPlugin::pluginIdentifier
+    QString label;     ///< kOfxPropLabel from the plug-in's own Describe
+    QString grouping;  ///< kOfxImageEffectPluginPropGrouping ("Filter/Blur")
+    int pluginIndex = 0;
 };
 
 /**
@@ -72,6 +116,16 @@ public:
     static QHash<QString, int> effectIndexMap(const QString &binaryPath);
 
     /**
+     * Every effect in an .ofx binary with the label and grouping it declares itself.
+     *
+     * This is how a plug-in with no VEGAS resource manifest gets into the catalog —
+     * i.e. every third-party OFX plug-in, and the only kind that exists on Linux and
+     * macOS. Runs Load + Describe per effect, so it is cached by the catalog rather
+     * than called per frame. Empty when the binary is missing, foreign-ABI or broken.
+     */
+    static QVector<OfxEffectSummary> enumerateEffects(const QString &binaryPath);
+
+    /**
      * Create a process instance (caches by path + plugin index).
      * Returns id > 0 on success, 0 on failure.
      */
@@ -86,15 +140,17 @@ public:
                       QString *errorOut = nullptr);
 
     /**
-     * Emulated video FX by display name: Soften/Blur, Invert, Sepia,
-     * Brightness and Contrast, Gain.
+     * Stand-in video FX by display name (Soften/Blur, Invert, Sepia, Brightness and
+     * Contrast, Gain). **Always returns false** unless OPENVEGAS_EMULATED_VIDEO_FX is
+     * turned on — see the note at the top of this header.
      */
     static bool processEmulated(QImage *rgba, const QString &displayName,
                                 const QVariantMap &params);
 
     /**
-     * Try real OFX instance if binary path is known / already loaded;
-     * otherwise fall back to processEmulated by displayName.
+     * Render through the real OFX instance when the binary is known / already loaded.
+     * With the stand-ins off (the default) this is the only path: false means the frame
+     * was left untouched.
      */
     bool processSlot(FxSlot &slot, QImage *rgba, double timeSec = 0.0);
 

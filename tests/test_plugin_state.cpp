@@ -6,6 +6,7 @@
 #include "io/SamplePaths.h"
 #include "model/ProjectModel.h"
 #include "plugins/AudioPluginTypes.h"
+#include "plugins/OfxHost.h"
 #include "video/TitlesTextApply.h"
 
 #include <QDir>
@@ -408,4 +409,122 @@ TEST_CASE("Titles & Text project imports onto one video track without an EDL sid
     REQUIRE(titleEventCount == 3);
     REQUIRE(realVideoEventCount == 1);
     REQUIRE(maxEnd == Catch::Approx(23.0));
+}
+
+TEST_CASE("VegReader recovers real Glint parameter values, keyframes and preset",
+          "[plugins][state][veg][video-fx]")
+{
+    const VegOpenResult veg = openFxSampleVeg();
+
+    // Glint ("Мерцание") is NOT an OFX plug-in in VEGAS Pro 22 — no installed .ofx binary
+    // registers com.vegascreativesoftware:glintvelvetmatter — so its whole state lives in
+    // the project as <Glint> XML. Recovering only the effect's name and then showing an
+    // invented default for every slider is what made OpenVegas look like it had swapped in
+    // a stand-in plug-in. These are the values VEGAS's own dialog shows for this project.
+    REQUIRE(veg.legacyFxStates.contains(QStringLiteral("glint")));
+    const VegLegacyFxState &glint = veg.legacyFxStates.value(QStringLiteral("glint"));
+
+    REQUIRE(glint.baseParams.value(QStringLiteral("Threshold")).toDouble()
+            == Catch::Approx(23.456906968236335).margin(0.01));
+    REQUIRE(glint.baseParams.value(QStringLiteral("Boost")).toDouble()
+            == Catch::Approx(-35.401167937256339).margin(0.01));
+    REQUIRE(glint.baseParams.value(QStringLiteral("VerticalRadius")).toDouble()
+            == Catch::Approx(62.040967702820227).margin(0.01));
+    // Degrees stay degrees; percentages get scaled — the two must not be confused.
+    REQUIRE(glint.baseParams.value(QStringLiteral("Hue")).toDouble()
+            == Catch::Approx(116.77641274810867).margin(0.01));
+    REQUIRE(glint.baseParams.value(QStringLiteral("Saturation")).toDouble()
+            == Catch::Approx(79.491525423728815).margin(0.01));
+    // Booleans arrive as 0/1 rather than being dropped.
+    REQUIRE(glint.baseParams.value(QStringLiteral("ReduceFlicker")).toDouble() == Catch::Approx(0.0));
+    REQUIRE(glint.baseParams.value(QStringLiteral("EffectOnly")).toDouble() == Catch::Approx(0.0));
+
+    // The effect is animated in this project; times come from the tick field VEGAS writes
+    // ahead of each keyframe blob.
+    REQUIRE(glint.keyframes.size() >= 4);
+    REQUIRE(glint.keyframes.first().timeSec == Catch::Approx(0.0).margin(0.001));
+    for (int i = 1; i < glint.keyframes.size(); ++i) {
+        REQUIRE(glint.keyframes[i].timeSec > glint.keyframes[i - 1].timeSec);
+    }
+    // Hue is one of the parameters that actually moves across the animation.
+    REQUIRE(glint.keyframes.last().params.value(QStringLiteral("Hue")).toDouble()
+            != Catch::Approx(glint.keyframes.first().params.value(QStringLiteral("Hue")).toDouble()));
+
+    REQUIRE(glint.presetName == QStringLiteral("Sparkle"));
+}
+
+TEST_CASE("VegReader recovers real Soft Contrast parameter values",
+          "[plugins][state][veg][video-fx]")
+{
+    const VegOpenResult veg = openFxSampleVeg();
+
+    REQUIRE(veg.legacyFxStates.contains(QStringLiteral("soft contrast")));
+    const VegLegacyFxState &soft = veg.legacyFxStates.value(QStringLiteral("soft contrast"));
+    REQUIRE(soft.baseParams.value(QStringLiteral("EffectContrast")).toDouble()
+            == Catch::Approx(0.6652542372881356).margin(1e-6));
+    REQUIRE(soft.baseParams.value(QStringLiteral("EffectDiffusion")).toDouble()
+            == Catch::Approx(0.12443438917398453).margin(1e-6));
+    REQUIRE(soft.baseParams.value(QStringLiteral("EffectLowTrim")).toDouble()
+            == Catch::Approx(0.57466065883636475).margin(1e-6));
+    // The nested <VignetteEffect>/<VignetteMask> block repeats element names like
+    // Strength and Enabled; taking them would silently overwrite the effect's own values.
+    REQUIRE(soft.baseParams.value(QStringLiteral("EffectStretchRange")).toDouble()
+            == Catch::Approx(1.0).margin(1e-6));
+    REQUIRE(soft.presetName == QStringLiteral("Soft Moderate Contrast"));
+}
+
+TEST_CASE("Opened project carries the real Glint values and its keyframe lanes",
+          "[plugins][state][veg][video-fx]")
+{
+    QString path;
+    const VegOpenResult veg = openFxSampleVeg(&path);
+
+    ProjectModel model;
+    REQUIRE(model.applyVegImport(veg, path));
+
+    const TrackEvent *fxEvent = nullptr;
+    int glintIndex = -1;
+    for (const Track &tr : model.tracks()) {
+        if (tr.kind != TrackKind::Video) {
+            continue;
+        }
+        for (const TrackEvent &ev : tr.events) {
+            for (int i = 0; i < ev.fxChain.size(); ++i) {
+                if (ev.fxChain[i].displayName.compare(QStringLiteral("Glint"),
+                                                      Qt::CaseInsensitive) == 0) {
+                    fxEvent = &ev;
+                    glintIndex = i;
+                }
+            }
+        }
+    }
+    REQUIRE(fxEvent != nullptr);
+    REQUIRE(glintIndex >= 0);
+
+    const FxSlot &slot = fxEvent->fxChain[glintIndex];
+    const QVariantMap params = unpackFxParams(slot.state);
+    // Was empty before: the panel then showed the approximate table's defaults
+    // (Threshold 67, Hue 0, Saturation 100 …) instead of anything from the project.
+    REQUIRE(params.value(QStringLiteral("Threshold")).toDouble()
+            == Catch::Approx(23.456906968236335).margin(0.01));
+    REQUIRE(params.value(QStringLiteral("Hue")).toDouble()
+            == Catch::Approx(116.77641274810867).margin(0.01));
+
+    // The animation is imported as automation lanes, which is what the FX dialog draws as
+    // VEGAS-style keyframe diamonds.
+    const QString masterId = fxMasterAutomationTargetId(slot);
+    const QString hueId = fxParamAutomationTargetId(slot, QStringLiteral("Hue"));
+    bool hasMaster = false;
+    bool hasHue = false;
+    for (const AutomationLane &lane : fxEvent->automationLanes) {
+        if (lane.targetId == masterId) {
+            hasMaster = true;
+            REQUIRE(lane.points.size() >= 4);
+        }
+        if (lane.targetId == hueId) {
+            hasHue = true;
+        }
+    }
+    REQUIRE(hasMaster);
+    REQUIRE(hasHue);
 }

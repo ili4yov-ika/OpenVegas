@@ -1328,13 +1328,12 @@ int VideoEventFxDialogExact::firstPluginChainIndex() const
 
 QString VideoEventFxDialogExact::fxMasterAutomationId(const FxSlot &slot) const
 {
-    return QStringLiteral("fx:%1:_master").arg(slot.hostKey.isEmpty() ? slot.pluginId : slot.hostKey);
+    return fxMasterAutomationTargetId(slot);
 }
 
 QString VideoEventFxDialogExact::fxParamAutomationId(const FxSlot &slot, const QString &paramKey) const
 {
-    return QStringLiteral("fx:%1:%2")
-        .arg(slot.hostKey.isEmpty() ? slot.pluginId : slot.hostKey, paramKey);
+    return fxParamAutomationTargetId(slot, paramKey);
 }
 
 AutomationLane *VideoEventFxDialogExact::findAutomationLane(const QString &targetId)
@@ -1629,6 +1628,7 @@ void VideoEventFxDialogExact::buildUi()
     sel->addItem(tr("(Default)"));
     sel->setFixedHeight(20);
     sel->setMinimumWidth(160);
+    m_presetCombo = sel;
     presetLay->addWidget(sel);
     presetLay->addWidget(makeIcoBtn(preset, QStringLiteral("💾"), tr("Save Preset")));
     presetLay->addWidget(makeIcoBtn(preset, QStringLiteral("✕"), tr("Delete Preset")));
@@ -2429,6 +2429,22 @@ void VideoEventFxDialogExact::selectPlugin(int index)
     refreshViewport();
 }
 
+void VideoEventFxDialogExact::syncPresetCombo()
+{
+    if (!m_presetCombo) {
+        return;
+    }
+    QString preset;
+    if (m_event && m_selectedFx >= 0 && m_selectedFx < m_event->fxChain.size()) {
+        preset = fxVegasPresetName(m_event->fxChain[m_selectedFx]);
+    }
+    m_presetCombo->blockSignals(true);
+    m_presetCombo->clear();
+    m_presetCombo->addItem(preset.isEmpty() ? tr("(Default)") : preset);
+    m_presetCombo->setCurrentIndex(0);
+    m_presetCombo->blockSignals(false);
+}
+
 void VideoEventFxDialogExact::refreshViewport()
 {
     if (!m_stack) {
@@ -2436,10 +2452,12 @@ void VideoEventFxDialogExact::refreshViewport()
     }
     if (isPanCropSlot(m_selectedFx)) {
         m_stack->setCurrentIndex(0);
+        syncPresetCombo();
         syncUiFromSelected();
         refreshKeyframeLanes();
     } else if (isColorCorrectorSlot(m_selectedFx)) {
         m_stack->setCurrentIndex(1);
+        syncPresetCombo();
         syncColorCorrectorToUi();
     } else {
         m_stack->setCurrentIndex(2);
@@ -2522,15 +2540,47 @@ void VideoEventFxDialogExact::rebuildOfxParamsUi()
     if (m_genericHint) {
         const bool usingRealParams =
             slot.format == PluginFormat::Ofx && !OfxHost::instance().paramsForSlot(slot).isEmpty();
-        m_genericHint->setText(usingRealParams
-            ? tr("Parameters from the installed OFX plug-in — applied in Video Preview.")
-            : infos.isEmpty()
-                ? tr("Effect is kept in the chain. If a matching OFX binary is found it is processed; "
-                     "otherwise OpenVegas applies a CPU fallback when available.")
-                : tr("Approximate parameters — applied via CPU fallback in Video Preview."));
+        // Values recovered from the project are the effect's real settings even when no
+        // OFX binary exists to host it — several VEGAS effects (Glint, Soft Contrast) are
+        // legacy plug-ins that ship no .ofx at all. Calling those "approximate" was
+        // misleading: it is the *renderer* that approximates, not the numbers.
+        const bool fromProject = !p.isEmpty();
+        m_genericHint->setText(
+            usingRealParams
+                ? tr("Parameters from the installed OFX plug-in — applied in Video Preview.")
+                : infos.isEmpty()
+                    ? tr("Effect is kept in the chain. If a matching OFX binary is found it is "
+                         "processed; otherwise OpenVegas applies a CPU fallback when available.")
+                    : fromProject
+                        ? tr("Settings recovered from the project — no OFX binary for this "
+                             "effect is installed, so Video Preview renders it with OpenVegas's "
+                             "own implementation.")
+                        : tr("Approximate parameters — applied via CPU fallback in Video Preview."));
     }
+    syncPresetCombo();
+    auto addToggle = [&](const QString &label, const QString &key, double def) {
+        auto *row = new QHBoxLayout;
+        row->addWidget(new QLabel(label, m_ofxParamsHost));
+        auto *box = new QCheckBox(m_ofxParamsHost);
+        box->setChecked(p.value(key, def).toDouble() >= 0.5);
+        FxSlot *slotPtr = &slot;
+        QObject::connect(box, &QCheckBox::toggled, m_ofxParamsHost,
+                         [slotPtr, key](bool on) {
+                             QVariantMap m = unpackFxParams(slotPtr->state);
+                             m.insert(key, on ? 1.0 : 0.0);
+                             slotPtr->state = packFxParams(m);
+                         });
+        row->addStretch(1);
+        row->addWidget(box);
+        m_ofxParamsLay->addLayout(row);
+    };
+
     for (const OfxParamInfo &info : infos) {
-        addSlider(info.label, info.name, info.defaultValue, info.minValue, info.maxValue, 2);
+        if (info.toggle) {
+            addToggle(info.label, info.name, info.defaultValue);
+        } else {
+            addSlider(info.label, info.name, info.defaultValue, info.minValue, info.maxValue, 2);
+        }
     }
     m_ofxParamsLay->addStretch(1);
 }

@@ -214,6 +214,12 @@ private:
     /** Attaches a dropped transition preset to the fade/crossfade under `pos`.
      *  Returns false when the drop did not land on one. */
     bool applyTransitionDrop(const QPoint &pos, const QString &pluginId, const QString &presetName);
+    /**
+     * Append a Video FX to the event under the cursor (Video FX pane drag).
+     * False when the drop missed a video event, so the drag is rejected rather than
+     * silently doing nothing.
+     */
+    bool applyVideoFxDrop(const QPoint &pos, const QString &pluginName, const QString &presetName);
     /** Properties button inside a strip, empty when the strip is tiny. Vegas makes it a
      *  square the full height of the strip, butted against the strip's right edge. */
     static QRect transitionButtonRect(const QRect &strip)
@@ -273,6 +279,10 @@ private:
     void updateDropGhost(const QPoint &pos, const QMimeData *md);
     void clearDropGhost();
     static bool mimeHasMedia(const QMimeData *md);
+    /** Payload kind of a drag ("video", "transition", "videofx", …); empty when unknown. */
+    static QString mimeDropKind(const QMimeData *md);
+    /** Id of the video event under `pos`, or 0 when there is none. */
+    int videoEventIdAt(const QPoint &pos) const;
     static void parseMediaMime(const QMimeData *md, QStringList *names, QStringList *kinds,
                                QStringList *paths, QVector<double> *lengths);
     void paintHeaderSplitter(QPainter &p);

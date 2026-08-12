@@ -74,14 +74,16 @@ TEST_CASE("OfxHost load missing binary fails soft", "[media][ofx][plugins]")
     REQUIRE_FALSE(err.contains(QStringLiteral("stub"), Qt::CaseInsensitive));
 }
 
-TEST_CASE("OfxHost processEmulated Invert changes pixels", "[media][ofx][plugins]")
+TEST_CASE("OfxHost stand-in renderers are off", "[media][ofx][plugins]")
 {
+    // OPENVEGAS_EMULATED_VIDEO_FX == 0: OpenVegas must not paint its own approximation of a
+    // VEGAS effect. This used to assert that Invert flipped the channels — see the note in
+    // plugins/OfxHost.h for why that behaviour was retired rather than extended.
     QImage img(4, 4, QImage::Format_ARGB32);
     img.fill(qRgb(10, 20, 30));
-    REQUIRE(openvegas::OfxHost::processEmulated(&img, QStringLiteral("Invert"), {}));
-    REQUIRE(qRed(img.pixel(0, 0)) == 245);
-    REQUIRE(qGreen(img.pixel(0, 0)) == 235);
-    REQUIRE(qBlue(img.pixel(0, 0)) == 225);
+    const QImage before = img.copy();
+    REQUIRE_FALSE(openvegas::OfxHost::processEmulated(&img, QStringLiteral("Invert"), {}));
+    REQUIRE(img == before);
 }
 
 TEST_CASE("OfxHost load+process Gain.ofx fixture", "[media][ofx][plugins]")

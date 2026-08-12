@@ -96,6 +96,32 @@ struct VegTitleTextInfo {
     double lengthSec = 10.0;
 };
 
+/**
+ * One serialized state of a *legacy* (pre-OFX) VEGAS video plug-in.
+ *
+ * Effects like Glint ("Мерцание") and Soft Contrast are not OFX plug-ins in VEGAS Pro 22
+ * — no installed `.ofx` binary registers them — so their entire state lives in the
+ * project as plain XML (`<Glint>`, `<Softlight>`) rather than as an OFX parameter blob.
+ * Recovering only the effect's *name* from that XML and then showing invented defaults
+ * is what made OpenVegas look like it had substituted its own stand-in plug-in.
+ *
+ * Values are already scaled to the units VEGAS's own dialog shows (percentages, degrees),
+ * so they can go straight into an FxSlot's parameter map.
+ */
+struct VegLegacyFxKeyframe {
+    double timeSec = 0.0;
+    QVariantMap params;
+};
+
+struct VegLegacyFxState {
+    /** Preset the effect was set to ("Sparkle", "Soft Moderate Contrast"), when recovered. */
+    QString presetName;
+    /** The plug-in's current values — the blob VEGAS writes ahead of the keyframe list. */
+    QVariantMap baseParams;
+    /** Animation, in timeline order. Empty when the effect isn't animated. */
+    QVector<VegLegacyFxKeyframe> keyframes;
+};
+
 /** Ruler marker recovered from binary marker GUID blocks. */
 struct VegMarkerInfo {
     double timeSec = 0.0;
@@ -144,6 +170,11 @@ struct VegOpenResult {
      * Keyed by display name (case-insensitive lower).
      */
     QMap<QString, QByteArray> fxStateChunks;
+    /**
+     * Real parameter values + animation of legacy (non-OFX) VEGAS video plug-ins,
+     * keyed by short display name, lower-case ("glint", "soft contrast").
+     */
+    QMap<QString, VegLegacyFxState> legacyFxStates;
     /** First video track Color Grading (`{Svfx:com.vegascreativesoftware:colorgrading}`).
      * Params use ColorGradingEditor keys: lift|gamma|gain|offset.{r,g,b,y}, curve.rgb.
      */
@@ -193,6 +224,8 @@ private:
     /** Recover transition instances (plug-in GUID + preset + parameters + placement). */
     static void parseTransitions(const QByteArray &data, VegOpenResult *result);
     static void parseFxStateChunks(const QByteArray &data, VegOpenResult *result);
+    /** Recover `<Glint>` / `<Softlight>` XML state — values, keyframe times, preset name. */
+    static void parseLegacyVideoFxStates(const QByteArray &data, VegOpenResult *result);
     static void assignEventNames(VegOpenResult *result);
 };
 

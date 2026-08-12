@@ -1,9 +1,14 @@
 #include "ui/VideoFxPane.h"
 #include "ui/IconFactory.h"
+#include "io/MediaMime.h"
 #include "plugins/VegasVideoPluginCatalog.h"
 
+#include <QApplication>
 #include <QButtonGroup>
 #include <QCursor>
+#include <QDrag>
+#include <QMimeData>
+#include <QMouseEvent>
 #include <QFrame>
 #include <QHBoxLayout>
 #include <QLabel>
@@ -27,6 +32,64 @@ namespace openvegas {
 namespace {
 
 QColor c(int r, int g, int b) { return QColor(r, g, b); }
+
+/** Plug-in display name carried by a draggable row/tile. */
+constexpr int kDragPluginRole = Qt::UserRole + 30;
+/** Preset carried by a draggable tile; empty on a plug-in row. */
+constexpr int kDragPresetRole = Qt::UserRole + 31;
+
+/**
+ * List that starts a timeline drag instead of an internal item move.
+ *
+ * Used for both halves of the pane — a plug-in row drags the effect with its default
+ * preset, a preset tile drags the effect with that preset — because from the timeline's
+ * point of view the two are the same payload.
+ */
+class FxDragListWidget : public QListWidget {
+public:
+    using QListWidget::QListWidget;
+
+protected:
+    void mousePressEvent(QMouseEvent *event) override
+    {
+        if (event->button() == Qt::LeftButton) {
+            m_pressItem = itemAt(event->pos());
+            m_pressPos = event->pos();
+        }
+        QListWidget::mousePressEvent(event);
+    }
+
+    void mouseMoveEvent(QMouseEvent *event) override
+    {
+        if (!m_pressItem || !(event->buttons() & Qt::LeftButton)
+            || (event->pos() - m_pressPos).manhattanLength() < QApplication::startDragDistance()) {
+            QListWidget::mouseMoveEvent(event);
+            return;
+        }
+        QListWidgetItem *item = m_pressItem;
+        m_pressItem = nullptr; // one-shot until the next press
+        const QString plugin = item->data(kDragPluginRole).toString();
+        if (plugin.isEmpty()) {
+            return;
+        }
+        // name = plug-in, extra = preset — the timeline turns that into an FxSlot.
+        QMimeData *md = MediaMime::fromSynthetic(QStringLiteral("videofx"), plugin,
+                                                 item->data(kDragPresetRole).toString());
+        auto *drag = new QDrag(this);
+        drag->setMimeData(md);
+        const QIcon icon = item->icon();
+        if (!icon.isNull()) {
+            const QPixmap pm = icon.pixmap(QSize(100, 62));
+            drag->setPixmap(pm);
+            drag->setHotSpot(QPoint(pm.width() / 2, pm.height() / 2));
+        }
+        drag->exec(Qt::CopyAction, Qt::CopyAction);
+    }
+
+private:
+    QListWidgetItem *m_pressItem = nullptr;
+    QPoint m_pressPos;
+};
 
 VideoFxPane::Preset grad(const QString &name, QColor a, QColor b, bool radial = false)
 {
@@ -245,7 +308,7 @@ void VideoFxPane::buildUi()
     m_splitter->setHandleWidth(3);
     m_splitter->setChildrenCollapsible(false);
 
-    m_pluginList = new QListWidget(m_splitter);
+    m_pluginList = new FxDragListWidget(m_splitter);
     m_pluginList->setObjectName(QStringLiteral("fxPluginList"));
     m_pluginList->setUniformItemSizes(true);
     m_pluginList->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
@@ -256,7 +319,7 @@ void VideoFxPane::buildUi()
     mainLay->setContentsMargins(0, 0, 0, 0);
     mainLay->setSpacing(0);
 
-    m_presetGrid = new QListWidget(mainCol);
+    m_presetGrid = new FxDragListWidget(mainCol);
     m_presetGrid->setObjectName(QStringLiteral("fxPresetGrid"));
     m_presetGrid->setViewMode(QListView::IconMode);
     m_presetGrid->setResizeMode(QListView::Adjust);
@@ -359,7 +422,21 @@ QIcon VideoFxPane::presetIcon(const Preset &p) const
     QPixmap pm(100, 62);
     QPainter painter(&pm);
     painter.setRenderHint(QPainter::Antialiasing);
-    if (p.radial) {
+    painter.setRenderHint(QPainter::SmoothPixmapTransform);
+
+    // VEGAS previews every preset by rendering the effect over a sample photo. Until each
+    // effect can actually be rendered into the tile, every preset shows the sample itself
+    // — an honest "this is what the source looks like" placeholder, and far closer to the
+    // real pane than a per-preset colour gradient that implied a preview we never made.
+    const QPixmap &sample = presetSampleImage();
+    if (!sample.isNull()) {
+        const QSize target = sample.size().scaled(pm.size(), Qt::KeepAspectRatioByExpanding);
+        const QPixmap scaled =
+            sample.scaled(target, Qt::KeepAspectRatioByExpanding, Qt::SmoothTransformation);
+        painter.drawPixmap(QPoint((pm.width() - scaled.width()) / 2,
+                                  (pm.height() - scaled.height()) / 2),
+                           scaled);
+    } else if (p.radial) {
         QRadialGradient g(30, 30, 70);
         g.setColorAt(0, p.c0);
         g.setColorAt(1, p.c1);
@@ -374,6 +451,13 @@ QIcon VideoFxPane::presetIcon(const Preset &p) const
     painter.drawRect(0, 0, 99, 61);
     painter.end();
     return QIcon(pm);
+}
+
+const QPixmap &VideoFxPane::presetSampleImage()
+{
+    // Loaded once: the pane rebuilds its tiles on every search keystroke and category switch.
+    static const QPixmap sample(QStringLiteral(":/images/eye_preview.png"));
+    return sample;
 }
 
 void VideoFxPane::rebuildPluginList()
@@ -404,6 +488,7 @@ void VideoFxPane::applySearchAndCategory()
         const QString star = p.favorite ? QStringLiteral("★") : QStringLiteral("☆");
         auto *item = new QListWidgetItem(QStringLiteral("%1  %2").arg(star, p.name), m_pluginList);
         item->setData(Qt::UserRole, i);
+        item->setData(kDragPluginRole, p.name); // dragging the row = effect at its default preset
         item->setToolTip(p.path.isEmpty() ? p.description : p.path);
     }
 
@@ -439,6 +524,8 @@ void VideoFxPane::showPlugin(int catalogIndex)
         auto *item = new QListWidgetItem(presetIcon(pr), pr.name, m_presetGrid);
         item->setTextAlignment(Qt::AlignHCenter | Qt::AlignTop);
         item->setSizeHint(QSize(108, 88));
+        item->setData(kDragPluginRole, p.name);
+        item->setData(kDragPresetRole, pr.name);
     }
     if (m_presetGrid->count() > 0) {
         m_presetGrid->setCurrentRow(0);

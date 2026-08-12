@@ -13,6 +13,7 @@ VERSION  = 0.1.0
 # Headers live under src/; .ui under ui/
 INCLUDEPATH += $$PWD/src \
                $$PWD/thirdparty \
+               $$PWD/thirdparty/openfx/include \
                $$PWD/thirdparty/vestige
 UI_DIR       = $$OUT_PWD/ui_headers
 MOC_DIR      = $$OUT_PWD/moc
@@ -95,6 +96,9 @@ HEADERS += \
     src/media/MediaEngine.h \
     src/plugins/PluginScanner.h \
     src/plugins/OfxHost.h \
+    src/plugins/OfxTrace.h \
+    src/plugins/OfxPluginPaths.h \
+    src/plugins/OfxVegasExtensions.h \
     src/plugins/AudioPluginTypes.h \
     src/plugins/BuiltinAudioCatalog.h \
     src/plugins/VegasSharedAudioCatalog.h \
@@ -181,6 +185,8 @@ SOURCES += \
     src/media/MediaEngine.cpp \
     src/plugins/PluginScanner.cpp \
     src/plugins/OfxHost.cpp \
+    src/plugins/OfxTrace.cpp \
+    src/plugins/OfxPluginPaths.cpp \
     src/plugins/BuiltinAudioCatalog.cpp \
     src/plugins/VegasSharedAudioCatalog.cpp \
     src/plugins/VegasVideoPluginCatalog.cpp \

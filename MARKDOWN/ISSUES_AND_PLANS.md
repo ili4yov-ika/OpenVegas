@@ -2,7 +2,7 @@
 
 Журнал багов, stub-фич и планов. Обновлять при каждой заметной находке (см. [`INIT.MD`](INIT.MD)).
 
-Связанные планы: [`PLAN_VIDEOAUDIOSTACK.md`](PLAN_VIDEOAUDIOSTACK.md), [`PLAN_VIDEO-AUDIO-PLUGINS-STACK.md`](PLAN_VIDEO-AUDIO-PLUGINS-STACK.md), [`UI_STUBS_AUDIT.md`](UI_STUBS_AUDIT.md) — построчный аудит пустых пунктов меню / недоделанных UI-элементов, [`VEGAS_SHARED_PLUGINS_REVERSE.md`](VEGAS_SHARED_PLUGINS_REVERSE.md) — разбор бинарников реального VEGAS Shared Plug-Ins пакета (PE-экспорты, COM-структура, план реверса).
+Связанные планы: [`PLAN_VIDEOAUDIOSTACK.md`](PLAN_VIDEOAUDIOSTACK.md), [`PLAN_VIDEO-AUDIO-PLUGINS-STACK.md`](PLAN_VIDEO-AUDIO-PLUGINS-STACK.md), [`PLAN_OFX_VIDEO_PLUGINS.md`](PLAN_OFX_VIDEO_PLUGINS.md) — OFX-хост, плагины VEGAS и кроссплатформенность, [`UI_STUBS_AUDIT.md`](UI_STUBS_AUDIT.md) — построчный аудит пустых пунктов меню / недоделанных UI-элементов, [`VEGAS_SHARED_PLUGINS_REVERSE.md`](VEGAS_SHARED_PLUGINS_REVERSE.md) — разбор бинарников реального VEGAS Shared Plug-Ins пакета (PE-экспорты, COM-структура, план реверса).
 
 ---
 
@@ -62,7 +62,11 @@
 | P0–P4 Builtin / Playback / Mixer / DSP | Done | + Delay / Reverb |
 | P5 VST3 | **Done** lean + `IPlugView` | SDK `thirdparty/vst3sdk`; CI `.vst3` fixture backlog |
 | VST2/VST1 | Done E2E | process + HWND editor + stretch |
-| OFX | Done MVP | discover/describe/process + emulated fallback; `kOfxActionLoad`/`kOfxActionDescribe` теперь проходят для настоящего Vegas `.ofx` (`OfxMultiThreadSuite` + недостающие host-свойства — было `kOfxStatErrMissingHostFeature`); `kOfxImageEffectActionDescribeInContext` всё ещё останавливается на одном `Source`-клипе (без `Output`/params) — точная причина не найдена даже после Ghidra RE, рендер по-прежнему через emulated fallback, см. `PLAN_VIDEO-AUDIO-PLUGINS-STACK.md` |
+| **Видеоплагины из Vegas Pro** | **НЕ РАБОТАЮТ** (2026-08-12) | Цепочка Event FX из `.veg` восстанавливается, плагины видны в каталоге и в окне Event FX, но картинки не дают — параметры из проекта не декодируются. Собственные подмены (`processEmulated`, gain-fallback) **намеренно отключены**: `OPENVEGAS_EMULATED_VIDEO_FX = 0`. Раньше они создавали впечатление работы и ровно этим скрывали настоящую причину. **Новые собственные реализации видеоэффектов не писать** — только декодер параметров |
+| OFX | **Хост Done** (2026-08-11), **визуально из `.veg` — нет** | Настоящие `.ofx` VEGAS проходят весь путь `Load` → `Describe` → `DescribeInContext` → `CreateInstance` → `Render` и при переданных параметрах реально меняют пиксели. **Но эффект, приехавший из `.veg`, в превью не виден:** OFX-блоб параметров из проекта не декодируется, слот приезжает пустым, инстанс берёт дефолты плагина (у Chroma Blur — `0`), рендер вырождается в округление. Замер: среднее отклонение на пиксель 2.6 (из проекта) против 45.3 (с параметрами из того же проекта). См. `PLAN_OFX_VIDEO_PLUGINS.md`. Барьер `DescribeInContext` был дефектом **хоста**, а не плагина: `clipDefine` отдавал почти пустой property set, а `addSupportedComponent()` читает размерность `kOfxImageEffectPropSupportedComponents` перед дозаписью; любая неудача чтения свойства превращается support library в `HostInadequate` → `kOfxStatErrMissingHostFeature`. Emulated fallback остаётся для чужого ABI и нерабочих плагинов. См. [`PLAN_OFX_VIDEO_PLUGINS.md`](PLAN_OFX_VIDEO_PLUGINS.md) |
+| Legacy-эффекты VEGAS (Glint, Soft Contrast) | **Done** импорт (2026-08-11) | Это **не OFX**: перечисление `OfxGetPlugin` по всем бандлам обеих инсталляций VEGAS Pro 22 их не содержит (78 эффектов в `Vfx1.ofx` против 102 в его манифесте), хостить нечего. Их состояние — XML (`<Glint>`, `<Softlight>`) в самом `.veg`, и раньше из него бралось только имя эффекта, а все ползунки показывали выдуманные дефолты. Теперь `VegReader::parseLegacyVideoFxStates` восстанавливает значения, кейфреймы (тег `0x1c` + время в тиках за 28 байт до `<?xml`) и имя пресета. Рендер этих двух эффектов в превью — backlog |
+| Потеря состояния FX при импорте `.veg` | **Fixed** (2026-08-11) | `VegasVideoPluginCatalog::resolveVideoFxSlot` пересобирал `FxSlot` из записи каталога и выбрасывал восстановленные параметры, `bypass` и `hostKey`. Через него проходит каждый OFX-эффект из `.veg` |
+| OFX cross-platform | **Done** (2026-08-11) | `OfxPluginPaths` — стандартные корни OFX (`OFX_PLUGIN_PATH`, `/usr/OFX/Plugins`, `/Library/OFX/Plugins`, `%CommonProgramFiles%\OFX\Plugins`) + ABI-гейт перед каждым `dlopen`; `OfxHost::enumerateEffects` строит каталог из самого бинарника, когда манифеста VEGAS нет (то есть для всех сторонних плагинов и всего, что есть на Linux/macOS) |
 | Event FX UX | Done | Video/Audio немодальные окна; пустой audio chain → chooser после FX |
 | VEGAS Shared → builtins | Done | `VegasSharedAudioCatalog` (map + discovery; no LoadLibrary) |
 | VEG Event FX | Done (sample) | Glint из `<Glint>`; без Magix AutoFrame; unit `[video-fx]` |
@@ -76,7 +80,7 @@
 | Audio engine | `src/audio/*` | Graph, miniaudio, BuiltinDsp, Vst2/Vst3Host |
 | Типы | `AudioPluginTypes.h` | `FxSlot`, `hostKey`, VEG name map |
 | Host | `CompositePluginHost` | Builtin / VST1–3 routing |
-| OFX | `OfxHost` | Discover + process + emulated |
+| OFX | `OfxHost`, `OfxPluginPaths`, `OfxTrace`, `OfxVegasExtensions.h` | Discover (VEGAS + стандартные корни OFX) + ABI-гейт + реальный process + emulated fallback + трассировка |
 | VEG | `VegReader` | UTF-16 + `recoverVideoEventFxNames`/`recoverVideoTrackFxNames` + chunks |
 | UI | `AudioEventFxDialog` (audio Track FX), `VideoEventFxDialogExact` (video Event FX), `VideoTrackFxDialog` (video Track FX), Chooser | Event/Track FX; общие `KeyframeLaneWidgets.h` + `VegasVideoPluginCatalog::paramsInfoForSlot` |
 
@@ -88,7 +92,7 @@
 | Track Motion | Preview KF (Shadow/Glow — backlog) |
 | Audio builtins | DSP + UI (без бренда «VEGAS ») |
 | Color Corrector / Grading | Preview + UI |
-| Chroma Blur / Glint / Sepia / Soft Contrast | VEG map + emulated/OFX path; редактор параметров теперь читает реальные params плагина (`OfxHost::paramsForSlot`) с fallback на эвристику; сам рендер через настоящий `.ofx` пока не проходит (см. backlog) |
+| Chroma Blur / Glint / Sepia / Soft Contrast | VEG map + реальный OFX-рендер там, где бинарник VEGAS доступен и совместим по ABI (иначе emulated fallback); редактор параметров читает реальные params плагина (`OfxHost::paramsForSlot`) с fallback на эвристику |
 | Video Track FX (Sepia + Soft Contrast) | `VideoTrackFxDialog` — цепочка + реальные/приблизительные параметры + keyframe lanes (Lanes/Curves), проверено вживую на `reverse-fades-fx.veg` |
 | VEGAS Titles & Text (генератор) | VEG recovery (in-place конверсия blank-плейсхолдеров + fallback dedicated-track), редактор (`TitlesTextEditorDialog`), рендер с анимацией (`TitlesTextApply::evaluateTitlesTextAnimation`, 9 motion kinds × ~50 реальных пресетов), hover-preview и реальные текстовые thumbnails в `MediaGeneratorPane`, insert double-click + Drag'n'Drop (плагин-строка и пресет-тайлы) на таймлайн |
 | Media Generator — прочие плагины (Checkerboard, Color Gradient, Credit Roll, Noise Texture, Solid Color, Test Pattern) | `video/MediaGeneratorApply.h` — паттерн-рендер (переиспользован из превью-тайлов), Drag'n'Drop плагин-строка + пресет-тайлы на таймлайн (`kind == "generator"` в `addMediaAt`, 10 c по умолчанию, создание/переиспользование видеодорожки как у Titles & Text); редактора параметров нет (double-click по-прежнему toast) |
@@ -99,7 +103,11 @@
 
 | Тема | Почему | План |
 |------|--------|------|
-| Реальный рендер через настоящие Vegas OFX бинарники | `Load`/`Describe` теперь проходят (см. «Исправлено»); `DescribeInContext` объявляет только `Source`-клип и возвращает `kOfxStatErrMissingHostFeature` — ни `Output`, ни params, ни один из перебираемых контекстов (Filter/General/Generator) не помогает (см. `PLAN_VIDEO-AUDIO-PLUGINS-STACK.md` P4) | Глубокий RE (gdb + objdump + Ghidra с восстановлением RTTI, найден класс `chromablurPlugin`) не нашёл точное условие; вероятен license/version gate внутри бинарника. Отложено — приоритет смещён на точность emulated fallback |
+| **OFX-блоб параметров в `.veg`** | Не декодируется, поэтому эффекты VEGAS из проекта рендерятся на дефолтах плагина и в превью не видны — при том что сам хост их грузит и рендерит (`Render -> status 0`) | Разобрать блоб: в файле лежит читаемо — UTF-16 имя параметра + double'ы + кейфреймы, той же формы, что уже разобранное legacy-состояние. **Ближайший шаг** |
+| Бандлы VEGAS на Linux / macOS | Содержат только `Contents/Win64` — PE-DLL, которые вне Windows не загрузить в принципе. ABI-гейт отказывает честно, с причиной в `OfxPluginDesc::archNote` | Рендер идёт через emulated fallback; полноценно закрыл бы out-of-process мост под Wine (см. ниже) |
+| Out-of-process мост для OFX | Плагины грузятся в процесс приложения: падение плагина роняет OpenVegas, и Win64-бандлы недоступны вне Windows | Хелпер-процесс + IPC на кадр. Закрывает изоляцию падений и Wine-путь одним механизмом. В MVP не входит |
+| Многопоточный рендер плагинов VEGAS на мелких кадрах | Плагин портит кучу, когда полоса на поток становится близка к радиусу его ядра (замер: 64×64 при 4 потоках — падение, при 2 — ок) | Обойдено капом `kMinRowsPerRenderThread = 64`; настоящая причина внутри плагина, хосту не видна |
+| Suite'ы `OfxVegas*`, GPU-suite'ы, float-глубина | Раскладка структур `OfxVegas*` не опубликована; заглушка с угаданной раскладкой = падение. GPU/float не в MVP | `fetchSuite` честно отвечает `NULL`; по трассировке Chroma Blur все они опциональны |
 | Запись `.veg` / `.ovp` | Не реализовано | После стабильного reader |
 | Soft bypass fade | Skip есть; fade нет | Plugins P3 backlog |
 | CI open-source `.vst3` fixture | Нет DLL в дереве | Добавить fixture / SKIP documented |

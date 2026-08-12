@@ -188,11 +188,47 @@ python SAMPLES/docs_veg/_analyze_props.py
 5. ProjectNotes (.NET) игнорируются.
 6. `.veg.bak`, `.sfk`, `.veg.sfap0` не читаются и не нужны для open.
 7. Запись `.veg` / `.ovp` отсутствует.
-8. Полный OFX/VST3 parameter blob — не decoded; имена Event FX — best-effort.
+8. **OFX parameter blob — не decoded**, и это не косметика: слот приезжает с пустой картой
+   параметров, инстанс берёт объявленные плагином дефолты (у Chroma Blur `HorizontalPixels`/
+   `VerticalPixels` = `0`), и эффект VEGAS в превью **визуально не работает**, хотя хост его
+   честно грузит и рендерит. Значения в файле лежат читаемо (UTF-16 имя + double'ы + кейфреймы) —
+   это работа по парсеру. Замеры: [`PLAN_OFX_VIDEO_PLUGINS.md`](PLAN_OFX_VIDEO_PLUGINS.md).
+   VST3 blob — тоже не decoded. Legacy-эффекты VEGAS, хранящие состояние XML-ом, читаются
+   полностью — см. ниже. Имена Event FX — best-effort.
 
 **Сделано в v1:** паттерн `start/length/rate` (ticks÷1e7), A/V pairing, overlap fades, zoom-to-fit, last open dir.
 
 **Сделано в Event FX recovery (2026-08-03):** `recoverVideoEventFxNames` — не брать Magix AutoFrame; inject Glint из ASCII `<Glint>`; не путать Softlight-adjacent sepia с Event FX. Sample: `project_big--buck-bunny_4x3-preview-reverse-fades-fx.veg`. Unit: `tests/test_plugin_state.cpp` `[video-fx]`.
+
+### Состояние legacy-плагинов VEGAS (2026-08-12)
+
+`parseLegacyVideoFxStates` → `VegOpenResult::legacyFxStates`.
+
+Не всякий видеоэффект VEGAS — OFX. Перечисление `OfxGetPlugin` по всем установленным бандлам
+показывает 78 эффектов в `Vfx1.ofx` против 102 в его манифесте: **Glint («Мерцание») и
+Soft Contrast среди экспортируемых отсутствуют**. Это pre-OFX плагины, и их состояние лежит в
+`.veg` не блобом OFX-параметров, а обычным XML (`<Glint>`, `<Softlight>`). Раньше из него бралось
+только имя эффекта, и все параметры в UI показывали выдуманные дефолты.
+
+Раскладка (восстановлена по `project_big--buck-bunny_4x3-preview-reverse-fades-fx.veg`):
+
+```text
+[имя пресета, UTF-16]  [<?xml … <Root>…</Root>]        ← текущее значение плагина
+[u32 0x1c] [u64 время, тики 1e7] [16 нулей] [u32 size] [u32 size] [<?xml …]   ← кейфрейм
+… повторяется на каждый кейфрейм
+```
+
+То есть тег `0x1c` лежит за 32 байта до `<?xml`, время — за 28. Блоб **без** такого разбега —
+не кейфрейм, а текущее значение; блоб с неразобранным разбегом пропускается, а не превращается
+в кейфрейм на нуле (иначе анимация выдумывалась бы на ровном месте).
+
+Значения приводятся к единицам, которые показывает диалог VEGAS: доли → проценты, углы остаются
+градусами, `true`/`false` → 1/0. Вложенные `<Mask>` / `<VignetteEffect>` намеренно не разбираются —
+их одноимённые элементы (`Enabled`, `Strength`) затирали бы значения самого эффекта.
+
+Кейфреймы `ProjectModel` кладёт в `automationLanes` события — лейн заводится только для параметров,
+которые реально меняются (VEGAS пишет в каждый блоб все). Разбор: [`PLAN_OFX_VIDEO_PLUGINS.md`](PLAN_OFX_VIDEO_PLUGINS.md).
+Unit: `tests/test_plugin_state.cpp` `[plugins][state][veg][video-fx]`.
 
 ---
 
@@ -202,7 +238,7 @@ python SAMPLES/docs_veg/_analyze_props.py
 |---------|--------|
 | **v0** | Header + media pool + labels + UI apply + relink + CLI |
 | **v1** | Binary `start/length/rate` (ticks/1e7); A/V pairing; overlap fades; open UX |
-| **Event FX (сейчас)** | `recoverVideoEventFxNames`; CcnK chunks → `state["chunk"]`; полный OFX/VST3 blob — backlog |
+| **Event FX (сейчас)** | `recoverVideoEventFxNames`; CcnK chunks → `state["chunk"]`; legacy XML-состояние (Glint / Soft Contrast) — значения, кейфреймы, пресет; полный OFX/VST3 blob — backlog |
 | **v2** | Media in/out, markers, track index, полные CF curves |
 | **Writer** | Сохранение OpenVegas-native (например `.ovp`) и/или экспорт subset `.veg` |
 

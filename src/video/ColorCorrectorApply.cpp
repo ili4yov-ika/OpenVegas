@@ -237,11 +237,15 @@ void applyVideoFxChain(QImage *img, const QVector<FxSlot> &chain, double timeSec
             applyColorGrading(img, loadParams(slot));
             continue;
         }
-        if (isBrightnessContrastName(slot.displayName)) {
+        // Brightness and Contrast is a VEGAS OFX effect like any other; it only had a
+        // shortcut here because a stand-in for it existed. With the stand-ins off
+        // (OPENVEGAS_EMULATED_VIDEO_FX) it goes down the same real-plug-in path.
+        if (isBrightnessContrastName(slot.displayName) && OPENVEGAS_EMULATED_VIDEO_FX) {
             OfxHost::processEmulated(img, slot.displayName, loadParams(slot));
             continue;
         }
         if (slot.format == PluginFormat::Ofx) {
+            // Renders nothing when the real plug-in can't run — no substitute pixels.
             OfxHost::instance().processSlot(slot, img, timeSec);
             continue;
         }

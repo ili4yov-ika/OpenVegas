@@ -1,6 +1,8 @@
 #include "timeline/TimelineView.h"
 #include "ui/FadeCurvePopup.h"
+#include "audio/BuiltinDsp.h"
 #include "model/TrackColors.h"
+#include "plugins/VegasVideoPluginCatalog.h"
 #include "io/MediaMime.h"
 #include "io/MediaProbe.h"
 #include "io/MediaThumbCache.h"
@@ -2633,6 +2635,56 @@ bool TimelineView::applyTransitionDrop(const QPoint &pos, const QString &pluginI
     return true;
 }
 
+bool TimelineView::applyVideoFxDrop(const QPoint &pos, const QString &pluginName,
+                                    const QString &presetName)
+{
+    if (!m_model || pluginName.isEmpty()) {
+        return false;
+    }
+    const int ti = trackIndexAtY(pos.y());
+    if (ti < 0 || ti >= m_model->tracks().size()) {
+        return false;
+    }
+    Track &track = m_model->tracks()[ti];
+    if (track.kind != TrackKind::Video) {
+        return false; // Video FX belong on video events
+    }
+    const double t = xToTime(pos.x());
+
+    TrackEvent *target = nullptr;
+    for (TrackEvent &ev : track.events) {
+        if (t >= ev.startSec && t <= ev.startSec + ev.lengthSec) {
+            target = &ev;
+            break;
+        }
+    }
+    if (!target) {
+        return false; // dropped on empty track space — nothing to attach to
+    }
+
+    FxSlot slot = VegasVideoPluginCatalog::slotFromDisplayName(pluginName);
+    if (slot.displayName.isEmpty()) {
+        return false;
+    }
+    // "(Default)" is the pane's label for "no preset", not a preset the project should
+    // claim the effect was set to.
+    if (!presetName.isEmpty() && presetName != tr("(Default)")
+        && presetName != QLatin1String("(Default)")) {
+        QVariantMap params = unpackFxParams(slot.state);
+        params.insert(fxVegasPresetStateKey(), presetName);
+        slot.state = packFxParams(params);
+    }
+
+    emitDocumentEditBegan();
+    target->fxChain.push_back(slot);
+    const int eventId = target->id;
+    emitDocumentEditCommitted(tr("Add Video FX"));
+    update();
+    // Vegas opens the Event FX window on drop so the new effect can be dialled in.
+    emit eventFxRequested(eventId);
+    return true;
+}
+
 int TimelineView::transitionStripAt(const QPoint &pos, bool *outFadeIn, bool *outOnButton) const
 {
     if (!m_model) {
@@ -4137,6 +4189,14 @@ void TimelineView::dragMoveEvent(QDragMoveEvent *event)
         event->ignore();
         return;
     }
+    // A Video FX has nowhere to land except a video event, so refuse everywhere else —
+    // the cursor then says so instead of the drop quietly doing nothing.
+    if (mimeDropKind(event->mimeData()) == QLatin1String("videofx")
+        && !videoEventIdAt(pos)) {
+        clearDropGhost();
+        event->ignore();
+        return;
+    }
     event->acceptProposedAction();
     updateDropGhost(pos, event->mimeData());
 }
@@ -4179,6 +4239,16 @@ void TimelineView::dropEvent(QDropEvent *event)
         return;
     }
 
+    // Neither is a Video FX: it joins the chain of the event under the cursor.
+    if (!kinds.isEmpty() && kinds.first() == QLatin1String("videofx")) {
+        if (applyVideoFxDrop(pos, names.value(0), extras.value(0))) {
+            event->acceptProposedAction();
+        } else {
+            event->ignore();
+        }
+        return;
+    }
+
     const double t = dropTargetTimeSec(pos);
     const int trackIndex = dropTargetTrackIndex(pos);
 
@@ -4196,6 +4266,38 @@ void TimelineView::dropEvent(QDropEvent *event)
 bool TimelineView::mimeHasMedia(const QMimeData *md)
 {
     return MediaMime::hasMediaPayload(md);
+}
+
+QString TimelineView::mimeDropKind(const QMimeData *md)
+{
+    QStringList names;
+    QStringList kinds;
+    QStringList paths;
+    QVector<double> lengths;
+    MediaMime::parse(md, &names, &kinds, &paths, &lengths);
+    return kinds.isEmpty() ? QString() : kinds.first();
+}
+
+int TimelineView::videoEventIdAt(const QPoint &pos) const
+{
+    if (!m_model) {
+        return 0;
+    }
+    const int ti = trackIndexAtY(pos.y());
+    if (ti < 0 || ti >= m_model->tracks().size()) {
+        return 0;
+    }
+    const Track &track = m_model->tracks().at(ti);
+    if (track.kind != TrackKind::Video) {
+        return 0;
+    }
+    const double t = xToTime(pos.x());
+    for (const TrackEvent &ev : track.events) {
+        if (t >= ev.startSec && t <= ev.startSec + ev.lengthSec) {
+            return ev.id;
+        }
+    }
+    return 0;
 }
 
 void TimelineView::parseMediaMime(const QMimeData *md, QStringList *names, QStringList *kinds,
@@ -4226,6 +4328,12 @@ void TimelineView::updateDropGhost(const QPoint &pos, const QMimeData *md)
     }
 
     QString kind = kinds.isEmpty() ? QString() : kinds.first();
+    // Effects and transitions attach to something that already exists; drawing the
+    // "a clip lands here" ghost for them promises an insert that never happens.
+    if (kind == QLatin1String("videofx") || kind == QLatin1String("transition")) {
+        clearDropGhost();
+        return;
+    }
     const QString path = paths.isEmpty() ? QString() : paths.first();
     if (kind.isEmpty()) {
         kind = MediaMime::guessKind(path.isEmpty() ? names.first() : path);

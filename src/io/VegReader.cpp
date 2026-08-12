@@ -5,6 +5,7 @@
 #include <QFile>
 #include <QFileInfo>
 #include <QRegularExpression>
+#include <QXmlStreamReader>
 #include <QSet>
 #include <QVariantList>
 #include <QVariantMap>
@@ -14,6 +15,7 @@
 #include <cmath>
 #include <climits>
 #include <cstring>
+#include <iterator>
 
 namespace openvegas {
 
@@ -548,6 +550,234 @@ void VegReader::recoverVideoEventFxNames(const QByteArray &data, VegOpenResult *
     }
 }
 
+namespace {
+
+/**
+ * XML element -> (FxSlot parameter key, multiplier) for one legacy VEGAS video plug-in.
+ *
+ * The multiplier converts the project's normalized storage into the units VEGAS's own
+ * dialog displays, which is also what OpenVegas's parameter sliders use: 0…1 fractions
+ * become percentages, angles are already degrees.
+ */
+struct LegacyFxParamMap {
+    const char *xmlElement;
+    const char *paramKey;
+    double scale;
+};
+
+const LegacyFxParamMap kGlintParams[] = {
+    {"Threshold", "Threshold", 100.0},
+    {"Boost", "Boost", 100.0},
+    {"HorizontalRadius", "HorizontalRadius", 100.0},
+    {"VerticalRadius", "VerticalRadius", 100.0},
+    {"Hue", "Hue", 1.0},
+    {"HueSweep", "HueSweep", 1.0},
+    {"Saturation", "Saturation", 100.0},
+    {"Rotation", "Rotation", 1.0},
+    {"Streaks", "Streaks", 1.0},
+    {"ReduceFlicker", "ReduceFlicker", 1.0},
+    {"EffectOnly", "EffectOnly", 1.0},
+};
+
+const LegacyFxParamMap kSoftContrastParams[] = {
+    {"Stretch", "EffectStretchRange", 1.0},
+    {"Strength", "EffectContrast", 1.0},
+    {"Diffusion", "EffectDiffusion", 1.0},
+    {"LowTrim", "EffectLowTrim", 1.0},
+    {"HighTrim", "EffectHighTrim", 1.0},
+};
+
+/** One legacy plug-in's XML root and how to read it. */
+struct LegacyFxKind {
+    const char *xmlRoot;      ///< "Glint"
+    const char *catalogKey;   ///< key into VegOpenResult::legacyFxStates
+    const LegacyFxParamMap *params;
+    int paramCount;
+};
+
+const LegacyFxKind kLegacyFxKinds[] = {
+    {"Glint", "glint", kGlintParams, int(std::size(kGlintParams))},
+    {"Softlight", "soft contrast", kSoftContrastParams, int(std::size(kSoftContrastParams))},
+};
+
+/**
+ * Read one plug-in XML blob into UI-scale parameter values.
+ *
+ * Only top-level elements are taken: the nested `<Mask>` / `<VignetteEffect>` sub-objects
+ * repeat names like `Enabled` and `Strength` that would otherwise overwrite the effect's
+ * own values, and neither sub-object is modelled yet.
+ */
+QVariantMap parseLegacyFxBlob(const QByteArray &xml, const LegacyFxKind &kind)
+{
+    QVariantMap out;
+    QXmlStreamReader reader(xml);
+    int depth = 0;
+    while (!reader.atEnd()) {
+        const QXmlStreamReader::TokenType token = reader.readNext();
+        if (token == QXmlStreamReader::StartElement) {
+            ++depth;
+            if (depth != 2) { // 1 = the root element itself
+                continue;
+            }
+            const QString name = reader.name().toString();
+            for (int i = 0; i < kind.paramCount; ++i) {
+                if (name != QLatin1String(kind.params[i].xmlElement)) {
+                    continue;
+                }
+                const QString text = reader.readElementText().trimmed();
+                --depth; // readElementText consumed the matching EndElement
+                if (text.compare(QLatin1String("true"), Qt::CaseInsensitive) == 0) {
+                    out.insert(QString::fromLatin1(kind.params[i].paramKey), 1.0);
+                } else if (text.compare(QLatin1String("false"), Qt::CaseInsensitive) == 0) {
+                    out.insert(QString::fromLatin1(kind.params[i].paramKey), 0.0);
+                } else {
+                    bool ok = false;
+                    const double v = text.toDouble(&ok);
+                    if (ok) {
+                        out.insert(QString::fromLatin1(kind.params[i].paramKey),
+                                   v * kind.params[i].scale);
+                    }
+                }
+                break;
+            }
+        } else if (token == QXmlStreamReader::EndElement) {
+            --depth;
+        }
+    }
+    return out;
+}
+
+/**
+ * Keyframe time stored ahead of a plug-in XML blob.
+ *
+ * Layout between two blobs, from the end of the previous `</Root>`:
+ *   [u32 0x1c] [u64 timeTicks] [16 zero bytes] [u32 size] [u32 size] [`<?xml`…]
+ * which puts the 0x1c tag 32 bytes and the time 28 bytes before the `<?xml` declaration.
+ * Returns < 0 when the run-up doesn't match, which is the case for the very first blob
+ * (the plug-in's current value, written straight after the preset name rather than as
+ * part of the keyframe list).
+ */
+double legacyFxKeyframeTimeSec(const QByteArray &data, int xmlStart)
+{
+    const int tagOff = xmlStart - 32;
+    const int timeOff = xmlStart - 28;
+    if (tagOff < 0 || timeOff + 8 > data.size()) {
+        return -1.0;
+    }
+    const quint32 tag = qFromLittleEndian<quint32>(
+        reinterpret_cast<const uchar *>(data.constData()) + tagOff);
+    if (tag != 0x1cu) {
+        return -1.0;
+    }
+    const quint64 ticks = qFromLittleEndian<quint64>(
+        reinterpret_cast<const uchar *>(data.constData()) + timeOff);
+    if (ticks > 100ULL * 3600ULL * kTicksPerSec) { // > 100 h — not a time
+        return -1.0;
+    }
+    return double(ticks) / double(kTicksPerSec);
+}
+
+/**
+ * Preset name VEGAS writes as a UTF-16 string shortly before a plug-in's first XML blob
+ * ("Sparkle", "Soft Moderate Contrast"). Best-effort: empty when nothing plausible is
+ * found, which only costs the preset label in the UI.
+ */
+QString legacyFxPresetName(const QByteArray &data, int firstXmlStart)
+{
+    const int windowStart = std::max(0, firstXmlStart - 512);
+    QString best;
+    for (int p = windowStart; p + 4 < firstXmlStart; p += 2) {
+        const QString s = decodeUtf16zAt(data, p, 64);
+        if (s.size() < 3 || s.size() > 60) {
+            continue;
+        }
+        bool printable = true;
+        for (const QChar c : s) {
+            if (!c.isLetterOrNumber() && c != QLatin1Char(' ') && c != QLatin1Char('-')
+                && c != QLatin1Char('_')) {
+                printable = false;
+                break;
+            }
+        }
+        if (printable && s.at(0).isLetter()) {
+            best = s.trimmed(); // keep the last one before the blob
+            p += s.size() * 2;
+        }
+    }
+    return best;
+}
+
+} // namespace
+
+void VegReader::parseLegacyVideoFxStates(const QByteArray &data, VegOpenResult *result)
+{
+    result->legacyFxStates.clear();
+
+    for (const LegacyFxKind &kind : kLegacyFxKinds) {
+        const QByteArray openTag = QByteArray("<") + kind.xmlRoot;
+        const QByteArray closeTag = QByteArray("</") + kind.xmlRoot + ">";
+
+        VegLegacyFxState state;
+        int firstXmlStart = -1;
+        int pos = 0;
+        while (true) {
+            const int rootPos = data.indexOf(openTag, pos);
+            if (rootPos < 0) {
+                break;
+            }
+            const int endPos = data.indexOf(closeTag, rootPos);
+            if (endPos < 0) {
+                break;
+            }
+            const int blobEnd = endPos + closeTag.size();
+            // Back up to the XML declaration so the blob parses as a document.
+            int xmlStart = data.lastIndexOf("<?xml", rootPos);
+            if (xmlStart < 0 || rootPos - xmlStart > 64) {
+                xmlStart = rootPos;
+            }
+            pos = blobEnd;
+
+            const QVariantMap params =
+                parseLegacyFxBlob(data.mid(xmlStart, blobEnd - xmlStart), kind);
+            if (params.isEmpty()) {
+                continue;
+            }
+            if (firstXmlStart < 0) {
+                firstXmlStart = xmlStart;
+            }
+            const double timeSec = legacyFxKeyframeTimeSec(data, xmlStart);
+            if (timeSec < 0.0) {
+                // No timing run-up: the plug-in's current value, written straight after
+                // the preset name. Anything else untimed is left out rather than guessed
+                // into a keyframe at 0, which would fabricate animation.
+                if (state.baseParams.isEmpty()) {
+                    state.baseParams = params;
+                }
+                continue;
+            }
+            VegLegacyFxKeyframe kf;
+            kf.timeSec = timeSec;
+            kf.params = params;
+            state.keyframes.push_back(kf);
+        }
+
+        if (state.baseParams.isEmpty() && !state.keyframes.isEmpty()) {
+            state.baseParams = state.keyframes.first().params;
+        }
+        if (state.baseParams.isEmpty()) {
+            continue;
+        }
+        std::sort(state.keyframes.begin(), state.keyframes.end(),
+                  [](const VegLegacyFxKeyframe &a, const VegLegacyFxKeyframe &b) {
+                      return a.timeSec < b.timeSec;
+                  });
+        if (firstXmlStart >= 0) {
+            state.presetName = legacyFxPresetName(data, firstXmlStart);
+        }
+        result->legacyFxStates.insert(QString::fromLatin1(kind.catalogKey), state);
+    }
+}
+
 void VegReader::recoverVideoTrackFxNames(const QByteArray &data, VegOpenResult *result)
 {
     /*
@@ -839,6 +1069,7 @@ VegOpenResult VegReader::open(const QString &path, QString *error)
     // byte offset, so the event list has to exist first.
     parseTransitions(data, &result);
     parseFxStateChunks(data, &result);
+    parseLegacyVideoFxStates(data, &result);
     assignEventNames(&result);
 
     return result;
