@@ -19,6 +19,7 @@
 #include <cmath>
 #include <cstdarg>
 #include <cstdlib>
+#include <array>
 #include <cstring>
 #include <map>
 #include <memory>
@@ -799,6 +800,8 @@ OfxStatus propSetPointer(OfxPropertySetHandle properties, const char *property, 
         return kOfxStatErrBadHandle;
     }
     setPointer(ps, property, index, value);
+    tracePropCall("setPointer", properties, property, index,
+                  QStringLiteral("0x%1").arg(reinterpret_cast<quintptr>(value), 0, 16), kOfxStatOK);
     return kOfxStatOK;
 }
 
@@ -1431,6 +1434,57 @@ OfxStatus paramGetPropertySet(OfxParamHandle param, OfxPropertySetHandle *propHa
     return kOfxStatOK;
 }
 
+/**
+ * Write one parameter's value into the caller's out-pointer, by declared type.
+ *
+ * Getting the type wrong is not a no-op: the plug-in passed a pointer expecting to be
+ * written, so leaving it alone hands it whatever was on the stack. Booleans and choices
+ * used to fall through here, which is why a preset's `Monochromatic=true` never reached
+ * VEGAS Add Noise and its preview came out colour-noisy.
+ */
+void writeParamValue(const ParamRec &p, va_list &ap)
+{
+    if (p.type == kOfxParamTypeDouble || p.type == kOfxParamTypeParametric) {
+        if (double *out = va_arg(ap, double *)) {
+            *out = p.value;
+        }
+        return;
+    }
+    if (p.type == kOfxParamTypeBoolean || p.type == kOfxParamTypeChoice
+        || p.type == kOfxParamTypeInteger) {
+        if (int *out = va_arg(ap, int *)) {
+            *out = int(std::lround(p.value));
+        }
+        return;
+    }
+    if (p.type == kOfxParamTypeDouble2D || p.type == kOfxParamTypeDouble3D) {
+        const int n = p.type == kOfxParamTypeDouble2D ? 2 : 3;
+        for (int i = 0; i < n; ++i) {
+            if (double *out = va_arg(ap, double *)) {
+                *out = p.value; // flat model: one value across components
+            }
+        }
+        return;
+    }
+    if (p.type == kOfxParamTypeInteger2D || p.type == kOfxParamTypeInteger3D) {
+        const int n = p.type == kOfxParamTypeInteger2D ? 2 : 3;
+        for (int i = 0; i < n; ++i) {
+            if (int *out = va_arg(ap, int *)) {
+                *out = int(std::lround(p.value));
+            }
+        }
+        return;
+    }
+    if (p.type == kOfxParamTypeRGB || p.type == kOfxParamTypeRGBA) {
+        const int n = p.type == kOfxParamTypeRGB ? 3 : 4;
+        for (int i = 0; i < n; ++i) {
+            if (double *out = va_arg(ap, double *)) {
+                *out = p.value;
+            }
+        }
+    }
+}
+
 OfxStatus paramGetValue(OfxParamHandle paramHandle, ...)
 {
     ParamRec *p = asParam(paramHandle);
@@ -1439,12 +1493,7 @@ OfxStatus paramGetValue(OfxParamHandle paramHandle, ...)
     }
     va_list ap;
     va_start(ap, paramHandle);
-    if (p->type == kOfxParamTypeDouble) {
-        double *out = va_arg(ap, double *);
-        if (out) {
-            *out = p->value;
-        }
-    }
+    writeParamValue(*p, ap);
     va_end(ap);
     return kOfxStatOK;
 }
@@ -1458,12 +1507,7 @@ OfxStatus paramGetValueAtTimeFixed(OfxParamHandle paramHandle, OfxTime time, ...
     }
     va_list ap;
     va_start(ap, time);
-    if (p->type == kOfxParamTypeDouble) {
-        double *out = va_arg(ap, double *);
-        if (out) {
-            *out = p->value;
-        }
-    }
+    writeParamValue(*p, ap);
     va_end(ap);
     return kOfxStatOK;
 }
@@ -1849,8 +1893,74 @@ OfxImageEffectSuiteV1 g_imageEffectSuite = {
     abortFn,           imageMemoryAlloc,    imageMemoryFree,  imageMemoryLock,
     imageMemoryUnlock};
 
+// ---------------------------------------------------------------------------
+// Native plug-in UI (OfxHWndInteractSuite) — reverse-engineering scaffolding.
+//
+// VEGAS plug-ins draw their own panel through an HWND-based custom interact. The suite
+// they expect from the host has no published layout, so it is *measured* rather than
+// guessed: fetchSuite hands back an array of distinct stubs, and whichever slot the
+// plug-in calls identifies the field's offset in the real struct. Stage 1 of that probe
+// deliberately returns an error and touches no out-parameter, so the plug-in backs out
+// cleanly instead of reading whatever the stub failed to write.
+//
+// Off unless OPENVEGAS_OFX_INTERACT is set — it changes what the host claims to support,
+// which affects every plug-in, not just the one under investigation.
+// See MARKDOWN/PLAN_OFX_HWND_INTERACT_RE.md.
+// ---------------------------------------------------------------------------
+
+bool ofxInteractProbeEnabled()
+{
+    static const bool on = qEnvironmentVariableIsSet("OPENVEGAS_OFX_INTERACT")
+                           && qEnvironmentVariable("OPENVEGAS_OFX_INTERACT") != QLatin1String("0");
+    return on;
+}
+
+/** Widest plausible suite; the real one is far smaller, spare slots simply never fire. */
+constexpr int kInteractProbeSlots = 32;
+
+/**
+ * One probe slot.
+ *
+ * Six pointer-sized parameters cover any real signature: on the Windows x64 ABI the caller
+ * cleans up, so reading more parameters than were passed is harmless as long as the values
+ * are only printed, never dereferenced.
+ */
+template <int Slot>
+OfxStatus interactProbe(void *a0, void *a1, void *a2, void *a3, void *a4, void *a5)
+{
+    OPENVEGAS_OFX_TRACE(QStringLiteral("  PROBE OfxHWndInteractSuite slot %1"
+                                       " args=%2 %3 %4 %5 %6 %7")
+                            .arg(Slot)
+                            .arg(reinterpret_cast<quintptr>(a0), 0, 16)
+                            .arg(reinterpret_cast<quintptr>(a1), 0, 16)
+                            .arg(reinterpret_cast<quintptr>(a2), 0, 16)
+                            .arg(reinterpret_cast<quintptr>(a3), 0, 16)
+                            .arg(reinterpret_cast<quintptr>(a4), 0, 16)
+                            .arg(reinterpret_cast<quintptr>(a5), 0, 16));
+    // Stage 1: refuse rather than pretend. Returning success without filling an out-param
+    // would hand the plug-in stack garbage.
+    return kOfxStatFailed;
+}
+
+using InteractProbeFn = OfxStatus (*)(void *, void *, void *, void *, void *, void *);
+
+template <int... Slots>
+constexpr std::array<InteractProbeFn, sizeof...(Slots)> makeProbeTable(
+    std::integer_sequence<int, Slots...>)
+{
+    return {{&interactProbe<Slots>...}};
+}
+
+std::array<InteractProbeFn, kInteractProbeSlots> g_interactProbeSuite =
+    makeProbeTable(std::make_integer_sequence<int, kInteractProbeSlots>{});
+
 const void *resolveSuite(const char *suiteName, int suiteVersion)
 {
+    if (ofxInteractProbeEnabled()
+        && (std::strcmp(suiteName, kOfxHWndInteractSuite) == 0
+            || std::strcmp(suiteName, kOfxHWndOverlayInteractSuite) == 0)) {
+        return g_interactProbeSuite.data();
+    }
     if (std::strcmp(suiteName, kOfxPropertySuite) == 0 && suiteVersion == 1) {
         return &g_propertySuite;
     }
@@ -1935,7 +2045,11 @@ void initHostProps()
     setInt(&g_hostProps, kOfxPropVersion, 2, 0);
     setString(&g_hostProps, kOfxPropVersionLabel, 0, "1.0");
     setInt(&g_hostProps, kOfxImageEffectHostPropIsBackground, 0, 0);
-    setInt(&g_hostProps, kOfxImageEffectPropSupportsOverlays, 0, 0);
+    // Stage 0 of the native-UI investigation: VEGAS plug-ins gate registering their own
+    // interact on these two flags, and with "no" they never publish
+    // kOfxImageEffectPluginPropHWndInteractV1 at all — so we had never seen the code path.
+    setInt(&g_hostProps, kOfxImageEffectPropSupportsOverlays, 0,
+           ofxInteractProbeEnabled() ? 1 : 0);
     setInt(&g_hostProps, kOfxImageEffectPropSupportsTiles, 0, 0);
     setInt(&g_hostProps, kOfxImageEffectPropSupportsMultiResolution, 0, 0);
     setInt(&g_hostProps, kOfxImageEffectPropTemporalClipAccess, 0, 0);
@@ -1945,7 +2059,8 @@ void initHostProps()
     setInt(&g_hostProps, "OfxImageEffectPropSetableFielding", 0, 0);
     setInt(&g_hostProps, kOfxImageEffectInstancePropSequentialRender, 0, 1);
     setInt(&g_hostProps, kOfxImageEffectPropRenderQualityDraft, 0, 0);
-    setInt(&g_hostProps, kOfxParamHostPropSupportsCustomInteract, 0, 0);
+    setInt(&g_hostProps, kOfxParamHostPropSupportsCustomInteract, 0,
+           ofxInteractProbeEnabled() ? 1 : 0);
     setInt(&g_hostProps, kOfxParamHostPropSupportsStringAnimation, 0, 0);
     setInt(&g_hostProps, kOfxParamHostPropSupportsBooleanAnimation, 0, 0);
     setInt(&g_hostProps, kOfxParamHostPropSupportsChoiceAnimation, 0, 0);
@@ -2601,9 +2716,16 @@ bool OfxHost::processFrame(int instanceId, QImage *rgba, double timeSec, const Q
         // Apply params
         for (auto pit = params.constBegin(); pit != params.constEnd(); ++pit) {
             auto fit = fx->params.find(pit.key().toStdString());
-            if (fit != fx->params.end() && fit->second.type == kOfxParamTypeDouble) {
-                fit->second.value = pit.value().toDouble();
+            if (fit == fx->params.end()) {
+                continue;
             }
+            // Booleans and choices carry as 0/1 doubles all the way through; restricting
+            // this to Double params meant a preset could never switch one on.
+            if (fit->second.type == kOfxParamTypeGroup || fit->second.type == kOfxParamTypePage
+                || fit->second.type == kOfxParamTypeString) {
+                continue;
+            }
+            fit->second.value = pit.value().toDouble();
         }
         // Common alias
         if (params.contains(QStringLiteral("gain"))) {

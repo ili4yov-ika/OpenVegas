@@ -49,6 +49,34 @@ namespace openvegas {
 
 namespace {
 
+/**
+ * Empty a layout, including widgets nested inside child layouts.
+ *
+ * The parameter panel builds one QHBoxLayout per parameter row, so taking items off the
+ * top-level layout left every label, slider and spin box alive and still parented to the
+ * panel: switching plug-ins painted the new rows *over* the old ones. `QLayoutItem::widget()`
+ * is null for a nested layout, which is why the recursion is the whole point.
+ */
+void clearLayoutContents(QLayout *layout)
+{
+    if (!layout) {
+        return;
+    }
+    while (QLayoutItem *item = layout->takeAt(0)) {
+        if (QWidget *w = item->widget()) {
+            w->setParent(nullptr);
+            w->deleteLater();
+        } else if (QLayout *child = item->layout()) {
+            clearLayoutContents(child);
+        }
+        // QLayout *is* a QLayoutItem, so for a nested layout `item` and its `layout()`
+        // are the same object: it must be deleted exactly once, here. Deleting the
+        // child separately as well is a double free — and it crashed on the second
+        // click in the FX chain.
+        delete item;
+    }
+}
+
 QDoubleSpinBox *makeSpin(QWidget *parent, double minV, double maxV, int decimals, double step = 1.0)
 {
     auto *s = new QDoubleSpinBox(parent);
@@ -2487,12 +2515,7 @@ void VideoEventFxDialogExact::rebuildOfxParamsUi()
     if (!m_ofxParamsLay || !m_event || m_selectedFx < 0 || m_selectedFx >= m_event->fxChain.size()) {
         return;
     }
-    while (QLayoutItem *it = m_ofxParamsLay->takeAt(0)) {
-        if (it->widget()) {
-            it->widget()->deleteLater();
-        }
-        delete it;
-    }
+    clearLayoutContents(m_ofxParamsLay);
 
     FxSlot &slot = m_event->fxChain[m_selectedFx];
     QVariantMap p = unpackFxParams(slot.state);
@@ -2550,12 +2573,12 @@ void VideoEventFxDialogExact::rebuildOfxParamsUi()
                 ? tr("Parameters from the installed OFX plug-in — applied in Video Preview.")
                 : infos.isEmpty()
                     ? tr("Effect is kept in the chain. If a matching OFX binary is found it is "
-                         "processed; otherwise OpenVegas applies a CPU fallback when available.")
+                         "processed; otherwise it is not rendered.")
                     : fromProject
-                        ? tr("Settings recovered from the project — no OFX binary for this "
-                             "effect is installed, so Video Preview renders it with OpenVegas's "
-                             "own implementation.")
-                        : tr("Approximate parameters — applied via CPU fallback in Video Preview."));
+                        ? tr("Settings recovered from the project. No OFX binary for this effect "
+                             "is installed, so Video Preview does not render it yet.")
+                        : tr("Approximate parameters. No OFX binary for this effect is "
+                             "installed, so Video Preview does not render it yet."));
     }
     syncPresetCombo();
     auto addToggle = [&](const QString &label, const QString &key, double def) {

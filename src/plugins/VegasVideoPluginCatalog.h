@@ -4,8 +4,10 @@
 #include "plugins/OfxHost.h"
 #include "plugins/PluginScanner.h"
 
+#include <QMap>
 #include <QString>
 #include <QStringList>
+#include <QVariantMap>
 #include <QVector>
 
 namespace openvegas {
@@ -18,10 +20,42 @@ struct VegasVideoPluginEntry {
     QString bundlePath;    ///< …/Something.ofx.bundle
     QString binaryPath;    ///< …/Win64/Something.ofx (empty if not installed)
     int pluginIndex = -1;  ///< Index inside binary (resolved when loadable)
-    QString grouping;      ///< OfxImageEffectPluginPropGrouping
+    QString grouping;      ///< OfxImageEffectPluginPropGrouping, e.g. "VEGAS\\Creative"
     QStringList categories;
     QStringList presets;
+    /**
+     * Parameter values each named preset sets, straight from the bundle's PresetPackage.
+     * Keyed by preset name; the map is the same shape FxSlot state uses, so it can be
+     * handed to the real plug-in as-is — which is what lets a preset tile show the effect
+     * instead of a placeholder.
+     */
+    QMap<QString, QVariantMap> presetParams;
     bool hasBinary = false;
+    /** OfxPropPluginDescription — the line VEGAS shows under the plug-in list. */
+    QString description;
+    /**
+     * OFX contexts the effect declares (`OfxImageEffectContextFilter`, `…Transition`, …).
+     *
+     * This is what separates a video effect from a transition or a media generator: VEGAS's
+     * grouping does not — Page Roll and Add Noise are both grouped plain "VEGAS" — so
+     * without it the Video FX pane listed every transition in the bundle as an effect.
+     */
+    QStringList contexts;
+
+    /** True when the effect can be applied to a clip (rather than being a transition/generator). */
+    bool isVideoFx() const
+    {
+        if (contexts.isEmpty()) {
+            return true; // nothing declared — let it through rather than lose it
+        }
+        return contexts.contains(QStringLiteral("OfxImageEffectContextFilter"))
+               || contexts.contains(QStringLiteral("OfxImageEffectContextGeneral"));
+    }
+
+    bool isTransition() const
+    {
+        return !isVideoFx() && contexts.contains(QStringLiteral("OfxImageEffectContextTransition"));
+    }
 };
 
 /**

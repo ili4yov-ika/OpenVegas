@@ -24,6 +24,25 @@ namespace openvegas {
 
 namespace {
 
+/** Empty a layout, including widgets nested inside child layouts. See the call site. */
+void clearLayoutContents(QLayout *layout)
+{
+    if (!layout) {
+        return;
+    }
+    while (QLayoutItem *item = layout->takeAt(0)) {
+        if (QWidget *w = item->widget()) {
+            w->setParent(nullptr);
+            w->deleteLater();
+        } else if (QLayout *child = item->layout()) {
+            clearLayoutContents(child);
+        }
+        // A nested QLayout *is* this QLayoutItem — deleting it once, here, is both
+        // necessary and sufficient. Deleting `child` too would free the same pointer twice.
+        delete item;
+    }
+}
+
 QPushButton *makeIcoBtn(QWidget *parent, const QString &text, const QString &tip)
 {
     auto *b = new QPushButton(text, parent);
@@ -339,13 +358,19 @@ void VideoTrackFxDialog::rebuildParamsUi()
     if (!m_paramsLay) {
         return;
     }
-    // Clear everything after title (index 0) and hint (index 1).
+    // Clear everything after title (index 0) and hint (index 1). Each parameter is a
+    // nested QHBoxLayout, whose widgets QLayoutItem::widget() does not report — without
+    // recursing into them the previous plug-in's rows stayed alive and painted over the
+    // new ones.
     while (m_paramsLay->count() > 2) {
         QLayoutItem *it = m_paramsLay->takeAt(2);
-        if (it->widget()) {
-            it->widget()->deleteLater();
+        if (QWidget *w = it->widget()) {
+            w->setParent(nullptr);
+            w->deleteLater();
+        } else if (QLayout *child = it->layout()) {
+            clearLayoutContents(child);
         }
-        delete it;
+        delete it; // deletes the nested layout itself when `it` is one
     }
     if (!m_track || m_selectedFx < 0 || m_selectedFx >= m_track->fxChain.size()) {
         if (m_genericTitle) {
@@ -430,12 +455,12 @@ void VideoTrackFxDialog::rebuildParamsUi()
                 ? tr("Parameters from the installed OFX plug-in — applied in Video Preview.")
                 : infos.isEmpty()
                     ? tr("Effect is kept in the chain. If a matching OFX binary is found it is "
-                         "processed; otherwise OpenVegas applies a CPU fallback when available.")
+                         "processed; otherwise it is not rendered.")
                     : fromProject
-                        ? tr("Settings recovered from the project — no OFX binary for this "
-                             "effect is installed, so Video Preview renders it with OpenVegas's "
-                             "own implementation.")
-                        : tr("Approximate parameters — applied via CPU fallback in Video Preview."));
+                        ? tr("Settings recovered from the project. No OFX binary for this effect "
+                             "is installed, so Video Preview does not render it yet.")
+                        : tr("Approximate parameters. No OFX binary for this effect is "
+                             "installed, so Video Preview does not render it yet."));
     }
     for (const OfxParamInfo &info : infos) {
         if (info.toggle) {

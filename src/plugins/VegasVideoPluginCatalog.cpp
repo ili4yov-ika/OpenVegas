@@ -30,6 +30,20 @@ QString findPrimaryResourceXml(const QString &bundlePath)
         return {};
     }
     const QFileInfoList files = res.entryInfoList({QStringLiteral("*.xml")}, QDir::Files, QDir::Name);
+
+    // The manifest named after the bundle wins. Several bundles ship extra XML next to it
+    // (gui.xml, an older ofxStabilizer.xml), and picking whichever sorted first meant
+    // 360° Stabilization was read out of the wrong file and ended up mislabelled.
+    QString bundleBase = QFileInfo(bundlePath).fileName();
+    bundleBase.remove(QStringLiteral(".ofx.bundle"), Qt::CaseInsensitive);
+    bundleBase.remove(QStringLiteral(".bundle"), Qt::CaseInsensitive);
+    for (const QFileInfo &fi : files) {
+        if (!isLocaleResourceXml(fi.fileName())
+            && fi.completeBaseName().compare(bundleBase, Qt::CaseInsensitive) == 0) {
+            return fi.absoluteFilePath();
+        }
+    }
+
     QString fallback;
     for (const QFileInfo &fi : files) {
         if (fi.fileName().compare(QStringLiteral("PresetPackage.xml"), Qt::CaseInsensitive) == 0
@@ -73,9 +87,59 @@ QString findOfxBinaryInBundle(const QString &bundlePath)
     return {};
 }
 
-QHash<QString, QStringList> parsePresetsXml(const QString &bundlePath)
+/** One bundle's presets: ordered names per effect, plus the values each preset sets. */
+struct BundlePresets {
+    QHash<QString, QStringList> names;
+    QHash<QString, QMap<QString, QVariantMap>> params;
+};
+
+/**
+ * Parameter values inside a single `<OfxPreset>` block.
+ *
+ * Booleans arrive as `true`/`false` and are stored as 1/0 doubles so the whole map is
+ * uniform — the same shape FxSlot state and OfxHost::processFrame already speak.
+ * Multi-value params (`OfxParamTypeDouble2D` and friends) carry several `<OfxParamValue>`
+ * entries; only the first is taken, which is all the flat parameter model holds today.
+ */
+QVariantMap parsePresetParams(const QString &block)
 {
-    QHash<QString, QStringList> out;
+    QVariantMap out;
+    static const QRegularExpression paramRe(
+        QStringLiteral(R"re(<(OfxParamType\w+)\s+name="([^"]+)"\s*>([\s\S]*?)</\1>)re"),
+        QRegularExpression::CaseInsensitiveOption);
+    static const QRegularExpression valueRe(
+        QStringLiteral(R"(<OfxParamValue>([^<]*)</OfxParamValue>)"),
+        QRegularExpression::CaseInsensitiveOption);
+
+    QRegularExpressionMatchIterator it = paramRe.globalMatch(block);
+    while (it.hasNext()) {
+        const QRegularExpressionMatch m = it.next();
+        const QString name = m.captured(2).trimmed();
+        const QRegularExpressionMatch vm = valueRe.match(m.captured(3));
+        if (name.isEmpty() || !vm.hasMatch()) {
+            continue;
+        }
+        const QString raw = vm.captured(1).trimmed();
+        if (raw.compare(QLatin1String("true"), Qt::CaseInsensitive) == 0) {
+            out.insert(name, 1.0);
+        } else if (raw.compare(QLatin1String("false"), Qt::CaseInsensitive) == 0) {
+            out.insert(name, 0.0);
+        } else {
+            bool ok = false;
+            const double v = raw.toDouble(&ok);
+            if (ok) {
+                out.insert(name, v);
+            } else if (!raw.isEmpty()) {
+                out.insert(name, raw);
+            }
+        }
+    }
+    return out;
+}
+
+BundlePresets parsePresetsXml(const QString &bundlePath)
+{
+    BundlePresets out;
     const QDir presetsDir(QDir(bundlePath).filePath(QStringLiteral("Contents/Presets")));
     if (!presetsDir.exists()) {
         return out;
@@ -104,7 +168,8 @@ QHash<QString, QStringList> parsePresetsXml(const QString &bundlePath)
     }
     const QString text = QString::fromUtf8(f.readAll());
     static const QRegularExpression presetRe(
-        QStringLiteral(R"re(<OfxPreset\s+plugin="([^"]+)"[^>]*\sname="([^"]+)")re"),
+        QStringLiteral(
+            R"re(<OfxPreset\s+plugin="([^"]+)"[^>]*\sname="([^"]+)"[^>]*>([\s\S]*?)</OfxPreset>)re"),
         QRegularExpression::CaseInsensitiveOption);
     QRegularExpressionMatchIterator it = presetRe.globalMatch(text);
     while (it.hasNext()) {
@@ -114,17 +179,65 @@ QHash<QString, QStringList> parsePresetsXml(const QString &bundlePath)
         if (pluginId.isEmpty() || presetName.isEmpty()) {
             continue;
         }
-        QStringList &list = out[pluginId];
+        QStringList &list = out.names[pluginId];
         if (!list.contains(presetName, Qt::CaseInsensitive)) {
             list << presetName;
         }
+        out.params[pluginId].insert(presetName, parsePresetParams(m.captured(3)));
     }
     return out;
 }
 
+/**
+ * Category chips a grouping belongs to, as VEGAS's own Video FX pane labels them.
+ *
+ * The pane's tabs are a fixed set (AI/ML, Creative, Color, Utility, Blur, 360°,
+ * Third Party) that does not match the grouping strings one-to-one: VEGAS writes
+ * `VEGAS\AI` but shows "AI/ML", and `VEGAS\360` but shows "360°". A grouping outside
+ * the `VEGAS\…` tree is somebody else's plug-in and lands under Third Party.
+ *
+ * Groupings with no chip of their own (bare `VEGAS`, and `VEGAS\Light`) return empty:
+ * those effects are reachable through "All Plug-ins" only. Which chip VEGAS itself files
+ * `VEGAS\Light` under is not visible in the reference screenshots, so it is left alone
+ * rather than guessed into Creative.
+ */
+QStringList categoriesForGrouping(const QString &grouping)
+{
+    const QString g = grouping.trimmed();
+    if (g.isEmpty()) {
+        return {};
+    }
+    QStringList parts = g.split(QLatin1Char('\\'), Qt::SkipEmptyParts);
+    if (parts.isEmpty()) {
+        return {};
+    }
+    if (parts.first().compare(QLatin1String("VEGAS"), Qt::CaseInsensitive) != 0) {
+        return {QStringLiteral("Third Party")};
+    }
+    parts.removeFirst();
+    if (parts.isEmpty()) {
+        return {};
+    }
+    const QString leaf = parts.first();
+    if (leaf.compare(QLatin1String("AI"), Qt::CaseInsensitive) == 0) {
+        return {QStringLiteral("AI/ML")};
+    }
+    if (leaf.compare(QLatin1String("360"), Qt::CaseInsensitive) == 0) {
+        return {QStringLiteral("360°")};
+    }
+    static const QStringList chips = {QStringLiteral("Creative"), QStringLiteral("Color"),
+                                      QStringLiteral("Utility"), QStringLiteral("Blur")};
+    for (const QString &chip : chips) {
+        if (leaf.compare(chip, Qt::CaseInsensitive) == 0) {
+            return {chip};
+        }
+    }
+    return {};
+}
+
 QVector<VegasVideoPluginEntry> parseResourceXml(const QString &xmlPath, const QString &bundlePath,
                                                 const QString &binaryPath,
-                                                const QHash<QString, QStringList> &presets)
+                                                const BundlePresets &presets)
 {
     QVector<VegasVideoPluginEntry> out;
     QFile f(xmlPath);
@@ -161,20 +274,34 @@ QVector<VegasVideoPluginEntry> parseResourceXml(const QString &xmlPath, const QS
         const QRegularExpressionMatch gm = groupRe.match(block);
         if (gm.hasMatch()) {
             e.grouping = gm.captured(1).trimmed();
-            e.categories = e.grouping.split(QLatin1Char('\\'), Qt::SkipEmptyParts);
-            if (!e.categories.isEmpty() && e.categories.first().compare(QLatin1String("VEGAS"),
-                                                                          Qt::CaseInsensitive)
-                                               == 0) {
-                e.categories.removeFirst();
+            e.categories = categoriesForGrouping(e.grouping);
+        }
+
+        static const QRegularExpression descRe(QStringLiteral(
+            R"(<OfxPropPluginDescription>([^<]*)</OfxPropPluginDescription>)"));
+        const QRegularExpressionMatch dm = descRe.match(block);
+        if (dm.hasMatch()) {
+            e.description = dm.captured(1).trimmed();
+        }
+
+        // Every context the manifest declares for this effect. "default" is the
+        // catch-all resource block, not a context, so it is skipped.
+        static const QRegularExpression ctxRe(
+            QStringLiteral(R"re(<OfxImageEffectContext\s+name="([^"]+)")re"));
+        QRegularExpressionMatchIterator ctxIt = ctxRe.globalMatch(block);
+        while (ctxIt.hasNext()) {
+            const QString ctx = ctxIt.next().captured(1).trimmed();
+            if (!ctx.isEmpty() && ctx.compare(QLatin1String("default"), Qt::CaseInsensitive) != 0
+                && !e.contexts.contains(ctx)) {
+                e.contexts << ctx;
             }
         }
 
         e.bundlePath = bundlePath;
         e.binaryPath = binaryPath;
         e.hasBinary = !binaryPath.isEmpty() && QFileInfo::exists(binaryPath);
-        if (presets.contains(e.effectId)) {
-            e.presets = presets.value(e.effectId);
-        }
+        e.presets = presets.names.value(e.effectId);
+        e.presetParams = presets.params.value(e.effectId);
         out.push_back(std::move(e));
     }
     return out;
@@ -202,11 +329,9 @@ QVector<VegasVideoPluginEntry> enumerateGenericBundle(const QString &bundlePath,
         entry.vegasLabel = e.label;
         entry.displayName = e.label;
         entry.grouping = e.grouping;
-        // OFX groupings are "/"-separated paths ("Filter/Blur"); the catalog's category
-        // list is flat, and the leaf is what a chooser wants to show.
-        if (!e.grouping.isEmpty()) {
-            entry.categories = e.grouping.split(QLatin1Char('/'), Qt::SkipEmptyParts);
-        }
+        // Anything enumerated straight from a binary came without a VEGAS manifest, so by
+        // definition it is somebody else's plug-in.
+        entry.categories = {QStringLiteral("Third Party")};
         entry.bundlePath = bundlePath;
         entry.binaryPath = binaryPath;
         entry.pluginIndex = e.pluginIndex;
@@ -223,7 +348,7 @@ QVector<VegasVideoPluginEntry> parseBundle(const QString &bundlePath)
     if (xmlPath.isEmpty()) {
         return enumerateGenericBundle(bundlePath, binaryPath);
     }
-    const QHash<QString, QStringList> presets = parsePresetsXml(bundlePath);
+    const BundlePresets presets = parsePresetsXml(bundlePath);
     QVector<VegasVideoPluginEntry> fromXml =
         parseResourceXml(xmlPath, bundlePath, binaryPath, presets);
     // A manifest that describes nothing usable (wrong schema, VR-only preset package)

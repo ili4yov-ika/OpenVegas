@@ -390,6 +390,7 @@ build/Windows_MinGW-x64/openvegas_video_tests.exe "[vegas-video]"
 
 | Тема | Заметки |
 |---|---|
+| **Собственные формы плагинов (нативный UI)** | VEGAS показывает у Chroma Blur свою белую панель, а не ползунки. Это не «страница параметров OFX», а **HWND-овый custom UI**: плагин объявляет `OfxImageEffectPluginPropHWndInteractV1` и ждёт от хоста `OfxHWndInteractSuite`, чья раскладка не опубликована. План реверса — [`PLAN_OFX_HWND_INTERACT_RE.md`](PLAN_OFX_HWND_INTERACT_RE.md). **Важно:** у Glint формы не будет никогда по другой причине — он вообще не OFX-плагин, его белое окно рисует сам VEGAS |
 | **OFX-блоб параметров из `.veg`** | **Главный блокер видимости.** Без него эффекты из проекта рендерятся на дефолтах (у Chroma Blur это 0) и в превью не видны — замер выше. Формат читаемый: UTF-16 имя + double'ы + кейфреймы |
 | Собственный рендер Glint / Soft Contrast | Значения и анимация читаются из проекта, но `processEmulated()` их пока не рисует — Glint в превью не даёт картинки |
 | `<Mask>` / `<VignetteEffect>` внутри legacy-эффектов | Не разбираются; в VEGAS это вкладка Mask рядом с Effect |

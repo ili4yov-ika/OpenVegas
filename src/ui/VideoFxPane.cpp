@@ -1,11 +1,16 @@
 #include "ui/VideoFxPane.h"
 #include "ui/IconFactory.h"
+#include "audio/BuiltinDsp.h"
 #include "io/MediaMime.h"
+#include "plugins/OfxHost.h"
 #include "plugins/VegasVideoPluginCatalog.h"
 
 #include <QApplication>
 #include <QButtonGroup>
 #include <QCursor>
+#include <QElapsedTimer>
+#include <QEvent>
+#include <QTimer>
 #include <QDrag>
 #include <QMimeData>
 #include <QMouseEvent>
@@ -25,6 +30,7 @@
 #include <QVBoxLayout>
 #include <QHash>
 #include <QAbstractButton>
+#include <algorithm>
 #include <utility>
 
 namespace openvegas {
@@ -155,6 +161,12 @@ void VideoFxPane::loadCatalog()
     }
 
     for (const VegasVideoPluginEntry &e : catalog) {
+        // Transitions and media generators live in their own panes. VEGAS groups several of
+        // them plain "VEGAS", same as real effects, so only the declared OFX context tells
+        // them apart — without this the list was padded with Page Roll, Push, Slide, Swap…
+        if (!e.isVideoFx()) {
+            continue;
+        }
         const QString key = e.displayName.toLower();
         if (known.contains(key)) {
             m_plugins[known.value(key)].path = e.binaryPath;
@@ -162,25 +174,31 @@ void VideoFxPane::loadCatalog()
         }
         Plugin p;
         p.name = e.displayName;
+        p.fullLabel = e.vegasLabel;
         p.categories = e.categories;
-        if (p.categories.isEmpty()) {
-            p.categories = {QStringLiteral("VEGAS")};
-        }
         p.grouping = e.grouping.isEmpty() ? QStringLiteral("VEGAS") : e.grouping;
-        p.version = e.hasBinary ? QStringLiteral("OFX") : QStringLiteral("OFX (catalog)");
-        p.description = e.effectId;
+        p.version = QStringLiteral("1.0");
+        p.description = e.description.isEmpty() ? e.effectId : e.description;
         p.path = e.binaryPath;
-        if (!e.presets.isEmpty()) {
-            for (const QString &presetName : e.presets) {
-                p.presets.push_back(
-                    grad(presetName, c(0x28, 0x28, 0x32), c(0x48, 0x48, 0x58)));
+        // Every plug-in leads with "(Default)" in VEGAS, then its named presets; the
+        // bundle's preset package only lists the named ones.
+        p.presets = {grad(QStringLiteral("(Default)"), c(0x30, 0x30, 0x38), c(0x50, 0x50, 0x60))};
+        for (const QString &presetName : e.presets) {
+            if (presetName.compare(QStringLiteral("(Default)"), Qt::CaseInsensitive) == 0) {
+                continue;
             }
-        } else {
-            p.presets = {grad(QStringLiteral("(Default)"), c(0x30, 0x30, 0x38), c(0x50, 0x50, 0x60))};
+            Preset pr = grad(presetName, c(0x28, 0x28, 0x32), c(0x48, 0x48, 0x58));
+            pr.params = e.presetParams.value(presetName);
+            p.presets.push_back(std::move(pr));
         }
         known.insert(key, m_plugins.size());
         add(std::move(p));
     }
+
+    // VEGAS lists the pane alphabetically; ours came out in bundle-scan order.
+    std::sort(m_plugins.begin(), m_plugins.end(), [](const Plugin &a, const Plugin &b) {
+        return QString::localeAwareCompare(a.name, b.name) < 0;
+    });
 }
 
 void VideoFxPane::loadFavorites()
@@ -330,6 +348,9 @@ void VideoFxPane::buildUi()
     m_presetGrid->setGridSize(QSize(108, 88));
     m_presetGrid->setWordWrap(true);
     m_presetGrid->setSelectionMode(QAbstractItemView::SingleSelection);
+    m_presetGrid->setMouseTracking(true);
+    m_presetGrid->viewport()->setMouseTracking(true);
+    m_presetGrid->viewport()->installEventFilter(this);
     mainLay->addWidget(m_presetGrid, 1);
 
     auto *meta = new QWidget(mainCol);
@@ -417,25 +438,45 @@ void VideoFxPane::buildUi()
     });
 }
 
-QIcon VideoFxPane::presetIcon(const Preset &p) const
+QIcon VideoFxPane::presetIcon(const Preset &p, double progress) const
 {
     QPixmap pm(100, 62);
     QPainter painter(&pm);
     painter.setRenderHint(QPainter::Antialiasing);
     painter.setRenderHint(QPainter::SmoothPixmapTransform);
 
-    // VEGAS previews every preset by rendering the effect over a sample photo. Until each
-    // effect can actually be rendered into the tile, every preset shows the sample itself
-    // — an honest "this is what the source looks like" placeholder, and far closer to the
-    // real pane than a per-preset colour gradient that implied a preview we never made.
+    // VEGAS previews every preset by rendering the effect over a sample photo, so that is
+    // what this does — through the real plug-in. When it can't render, the tile falls back
+    // to the clean sample rather than to an invented approximation of the effect.
     const QPixmap &sample = presetSampleImage();
     if (!sample.isNull()) {
         const QSize target = sample.size().scaled(pm.size(), Qt::KeepAspectRatioByExpanding);
-        const QPixmap scaled =
+        const QPixmap clean =
             sample.scaled(target, Qt::KeepAspectRatioByExpanding, Qt::SmoothTransformation);
-        painter.drawPixmap(QPoint((pm.width() - scaled.width()) / 2,
-                                  (pm.height() - scaled.height()) / 2),
-                           scaled);
+        const QPoint at((pm.width() - clean.width()) / 2, (pm.height() - clean.height()) / 2);
+        painter.drawPixmap(at, clean);
+
+        if (!p.rendered.isNull()) {
+            // 0 = fully applied (the resting tile), 0…1 strips the effect left-to-right,
+            // 1…2 paints it back on. The effected image is drawn over the clean one,
+            // clipped to the part that should still (or already) carry it.
+            const double t = std::clamp(progress, 0.0, 2.0);
+            const int w = pm.width();
+            QRect band;
+            if (t <= 1.0) {
+                const int x = int(std::lround(t * w));
+                band = QRect(x, 0, w - x, pm.height()); // effect survives to the right
+            } else {
+                const int x = int(std::lround((t - 1.0) * w));
+                band = QRect(0, 0, x, pm.height()); // effect returns from the left
+            }
+            if (!band.isEmpty()) {
+                painter.save();
+                painter.setClipRect(band);
+                painter.drawPixmap(at, p.rendered);
+                painter.restore();
+            }
+        }
     } else if (p.radial) {
         QRadialGradient g(30, 30, 70);
         g.setColorAt(0, p.c0);
@@ -458,6 +499,129 @@ const QPixmap &VideoFxPane::presetSampleImage()
     // Loaded once: the pane rebuilds its tiles on every search keystroke and category switch.
     static const QPixmap sample(QStringLiteral(":/images/eye_preview.png"));
     return sample;
+}
+
+bool VideoFxPane::eventFilter(QObject *watched, QEvent *event)
+{
+    if (m_presetGrid && watched == m_presetGrid->viewport()) {
+        if (event->type() == QEvent::MouseMove) {
+            const auto *me = static_cast<QMouseEvent *>(event);
+            const QModelIndex idx = m_presetGrid->indexAt(me->pos());
+            if (idx.isValid()) {
+                startHoverAnimation(idx.row());
+            } else {
+                stopHoverAnimation();
+            }
+        } else if (event->type() == QEvent::Leave) {
+            stopHoverAnimation();
+        }
+    }
+    return QWidget::eventFilter(watched, event);
+}
+
+void VideoFxPane::renderPresetPreviews(int catalogIndex)
+{
+    if (catalogIndex < 0 || catalogIndex >= m_plugins.size()) {
+        return;
+    }
+    Plugin &plugin = m_plugins[catalogIndex];
+    if (plugin.path.isEmpty()) {
+        return; // nothing installed to render through
+    }
+    const QPixmap &sample = presetSampleImage();
+    if (sample.isNull()) {
+        return;
+    }
+
+    const QSize target = sample.size().scaled(QSize(100, 62), Qt::KeepAspectRatioByExpanding);
+    const QImage base =
+        sample.scaled(target, Qt::KeepAspectRatioByExpanding, Qt::SmoothTransformation)
+            .toImage()
+            .convertToFormat(QImage::Format_ARGB32);
+
+    // Some effects are far too slow to preview — the AI ones load models on first render.
+    // Rather than special-casing them by name, time the first preset and give up on the
+    // rest of the effect if it blew the budget. The tiles then stay on the clean sample.
+    constexpr qint64 kBudgetMs = 400;
+    QElapsedTimer clock;
+
+    for (Preset &preset : plugin.presets) {
+        if (preset.renderAttempted) {
+            continue;
+        }
+        preset.renderAttempted = true;
+
+        FxSlot slot = VegasVideoPluginCatalog::slotFromDisplayName(plugin.name);
+        if (slot.format != PluginFormat::Ofx) {
+            continue; // builtins have no plug-in to run
+        }
+        if (!preset.params.isEmpty()) {
+            slot.state = packFxParams(preset.params);
+        }
+
+        QImage frame = base;
+        clock.start();
+        const bool ok = OfxHost::instance().processSlot(slot, &frame, 0.0);
+        const qint64 elapsed = clock.elapsed();
+        if (ok && frame.size() == base.size()) {
+            preset.rendered = QPixmap::fromImage(frame);
+        }
+        if (elapsed > kBudgetMs) {
+            for (Preset &rest : plugin.presets) {
+                rest.renderAttempted = true;
+            }
+            break;
+        }
+    }
+}
+
+void VideoFxPane::startHoverAnimation(int row)
+{
+    if (m_hoverRow == row) {
+        return;
+    }
+    m_hoverRow = row;
+    m_hoverProgress = 0.0;
+    if (!m_hoverTimer) {
+        m_hoverTimer = new QTimer(this);
+        m_hoverTimer->setInterval(40);
+        connect(m_hoverTimer, &QTimer::timeout, this, [this] {
+            if (m_hoverRow < 0 || m_currentIndex < 0) {
+                stopHoverAnimation();
+                return;
+            }
+            const QVector<Preset> &presets = m_plugins[m_currentIndex].presets;
+            if (m_hoverRow >= presets.size() || m_hoverRow >= m_presetGrid->count()) {
+                stopHoverAnimation();
+                return;
+            }
+            // 0 → 2 → wrap: strip the effect, put it back, repeat while hovered.
+            m_hoverProgress += 0.05;
+            if (m_hoverProgress >= 2.0) {
+                m_hoverProgress = 0.0;
+            }
+            m_presetGrid->item(m_hoverRow)
+                ->setIcon(presetIcon(presets[m_hoverRow], m_hoverProgress));
+        });
+    }
+    m_hoverTimer->start();
+}
+
+void VideoFxPane::stopHoverAnimation()
+{
+    if (m_hoverTimer) {
+        m_hoverTimer->stop();
+    }
+    const int row = m_hoverRow;
+    m_hoverRow = -1;
+    m_hoverProgress = 0.0;
+    if (row < 0 || m_currentIndex < 0 || m_currentIndex >= m_plugins.size()) {
+        return;
+    }
+    const QVector<Preset> &presets = m_plugins[m_currentIndex].presets;
+    if (row < presets.size() && row < m_presetGrid->count()) {
+        m_presetGrid->item(row)->setIcon(presetIcon(presets[row])); // back to fully applied
+    }
 }
 
 void VideoFxPane::rebuildPluginList()
@@ -516,7 +680,10 @@ void VideoFxPane::showPlugin(int catalogIndex)
     if (catalogIndex < 0 || catalogIndex >= m_plugins.size()) {
         return;
     }
+    stopHoverAnimation();
     m_currentIndex = catalogIndex;
+    // Lazily: only the effect being shown is rendered, and only once.
+    renderPresetPreviews(catalogIndex);
     const Plugin &p = m_plugins[catalogIndex];
 
     m_presetGrid->clear();
@@ -531,8 +698,12 @@ void VideoFxPane::showPlugin(int catalogIndex)
         m_presetGrid->setCurrentRow(0);
     }
 
-    m_metaLine1->setText(tr("%1: OFX, 32-bit floating point, Grouping: %2, Version %3")
-                             .arg(p.name, p.grouping, p.version));
+    // Mirrors VEGAS's own status line, which quotes the plug-in's full label (brand and
+    // all) rather than the trimmed name shown in the list. "GPU Accelerated" is
+    // deliberately absent: the manifest doesn't say, and only the loaded binary does.
+    m_metaLine1->setText(tr("%1: OFX, 32-bit floating point, Grouping %2, Version %3")
+                             .arg(p.fullLabel.isEmpty() ? p.name : p.fullLabel, p.grouping,
+                                  p.version));
     m_metaLine2->setText(tr("Description: %1").arg(p.description));
 }
 

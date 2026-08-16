@@ -415,3 +415,62 @@ TEST_CASE("A dropped Video FX becomes a real slot carrying its preset",
         VegasVideoPluginCatalog::slotFromDisplayName(QStringLiteral("No Such Effect"))
             .displayName.isEmpty());
 }
+
+TEST_CASE("Transitions and generators are not video effects", "[video-fx][vegas-video]")
+{
+    int argc = 1;
+    char arg0[] = "test";
+    char *argv[] = {arg0, nullptr};
+    ensureQtApp(argc, argv);
+    const QString root = samplesVegasRoot();
+    if (root.isEmpty() || !QDir(root).exists()) {
+        SKIP("SAMPLES/VEGAS-PRO-22-PROGRAM-FILES not available");
+    }
+    VegasVideoPluginCatalog::invalidateCache();
+    const auto entries = VegasVideoPluginCatalog::discover({root});
+    VegasVideoPluginCatalog::invalidateCache();
+    REQUIRE_FALSE(entries.isEmpty());
+
+    auto find = [&](const QString &effectId) -> const VegasVideoPluginEntry * {
+        for (const VegasVideoPluginEntry &e : entries) {
+            if (e.effectId.compare(effectId, Qt::CaseInsensitive) == 0) {
+                return &e;
+            }
+        }
+        return nullptr;
+    };
+
+    // VEGAS groups Page Roll under a bare "VEGAS" — exactly like a real effect — so only
+    // the declared OFX context separates them. Without this the Video FX pane listed every
+    // transition in the bundle (Page Roll, Push, Slide, Swap, …) as an effect.
+    const VegasVideoPluginEntry *pageRoll = find(QStringLiteral("com.vegascreativesoftware:pageroll"));
+    REQUIRE(pageRoll != nullptr);
+    REQUIRE(pageRoll->isTransition());
+    REQUIRE_FALSE(pageRoll->isVideoFx());
+
+    const VegasVideoPluginEntry *blur = find(QStringLiteral("com.vegascreativesoftware:chromablur"));
+    REQUIRE(blur != nullptr);
+    REQUIRE(blur->isVideoFx());
+    REQUIRE_FALSE(blur->isTransition());
+
+    // A generator belongs to the Media Generator pane, not Video FX.
+    const VegasVideoPluginEntry *checker =
+        find(QStringLiteral("com.vegascreativesoftware:checkerboard"));
+    REQUIRE(checker != nullptr);
+    REQUIRE_FALSE(checker->isVideoFx());
+
+    // Category chips are the pane's own labels, not the raw grouping tail.
+    const VegasVideoPluginEntry *stab =
+        find(QStringLiteral("com.magix.ofx.vr.stabilization"));
+    if (stab) {
+        REQUIRE(stab->grouping == QStringLiteral(R"(VEGAS\360)"));
+        REQUIRE(stab->categories == QStringList{QStringLiteral("360°")});
+        // Read from the manifest named after the bundle, not whichever XML sorted first.
+        REQUIRE(stab->displayName == QStringLiteral("360° Stabilization"));
+    }
+    // Chroma Blur is filed under VEGAS\Utility, not VEGAS\Blur — the chip follows the
+    // manifest, not the effect's name.
+    REQUIRE(blur->grouping == QStringLiteral(R"(VEGAS\Utility)"));
+    REQUIRE(blur->categories == QStringList{QStringLiteral("Utility")});
+    REQUIRE_FALSE(blur->description.isEmpty());
+}

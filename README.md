@@ -6,7 +6,7 @@
 
 Цель — привычный workspace Vegas (таймлайн, events, fades/crossfades, media bin, Trimmer, Properties, Event FX, Media Generators, Transitions) и открытие проектов `.veg`.
 
-Сейчас: **рабочий MVP** — playback A/V, compositor, Builtin/VST/OFX (настоящие OFX-плагины, включая бандлы VEGAS, реально рендерят), Render As, interchange, импорт `.veg` (v1 + Event FX + Titles & Text + переходы), редактирование на таймлайне и сохранение проекта в собственный формат.
+Сейчас: **рабочий MVP** — playback A/V, compositor, Builtin/VST/OFX (OFX-хост грузит и рендерит настоящие `.ofx`; видеоплагины из Vegas Pro при этом пока не работают — см. ниже), Render As, interchange, импорт `.veg` (v1 + Event FX + Titles & Text + переходы), редактирование на таймлайне и сохранение проекта в собственный формат.
 
 ---
 
@@ -31,7 +31,7 @@
 | **Видеоплагины из Vegas Pro — пока НЕ работают**³ | Не работает |
 | OFX кроссплатформенно — стандартные корни (`OFX_PLUGIN_PATH`, `/usr/OFX/Plugins`, `/Library/OFX/Plugins`) + ABI-гейт | Done |
 | Event FX UI (Video / Audio, немодальные) | Done |
-| Video FX — Drag'n'Drop эффекта/пресета на видеоклип | Done |
+| Video FX — Drag'n'Drop эффекта/пресета на видеоклип | Частично: перетаскивание из панели есть, приём на таймлайне не реализован |
 | Render As (FFmpeg) + progress UI | Done |
 | NLE interchange (Vegas CSV / FCP7 / FCPX / Premiere scrape) | Done MVP¹ |
 | Media Generator — VEGAS Titles & Text (анимации, hover-preview, Drag'n'Drop) | Done MVP |
@@ -127,8 +127,8 @@ cmake -S . -B build/Windows_MinGW-x64 -DCMAKE_PREFIX_PATH=<Qt6.8>
 | Linux | `/usr/OFX/Plugins`, `/usr/local/OFX/Plugins`, `~/OFX/Plugins` |
 
 Бандлы VEGAS содержат только `Contents/Win64`, поэтому на Linux и macOS они видны в
-каталоге, но не загружаются — рендер идёт через встроенную эмуляцию по имени эффекта.
-Сторонние OFX-плагины, собранные для вашей ОС, работают полноценно.
+каталоге, но не загружаются. Собственные подмены отключены, поэтому такой эффект просто не
+рендерится. Сторонние OFX-плагины, собранные для вашей ОС, работают полноценно.
 
 Если плагин не грузится:
 
@@ -195,6 +195,7 @@ OpenVegas/
 3. **Video / Audio stack** — [`MARKDOWN/PLAN_VIDEOAUDIOSTACK.md`](MARKDOWN/PLAN_VIDEOAUDIOSTACK.md)
 4. **Plugins stack** — [`MARKDOWN/PLAN_VIDEO-AUDIO-PLUGINS-STACK.md`](MARKDOWN/PLAN_VIDEO-AUDIO-PLUGINS-STACK.md)
 5. **OFX / видеоплагины Vegas + кроссплатформенность** — [`MARKDOWN/PLAN_OFX_VIDEO_PLUGINS.md`](MARKDOWN/PLAN_OFX_VIDEO_PLUGINS.md)
+6. **Нативные формы OFX (реверс `OfxHWndInteractSuite`)** — [`MARKDOWN/PLAN_OFX_HWND_INTERACT_RE.md`](MARKDOWN/PLAN_OFX_HWND_INTERACT_RE.md)
 6. **Открытие `.veg` (кратко)** — [`docs/VEG_OPEN.md`](docs/VEG_OPEN.md)
 7. **Открытие `.veg` (развёрнуто)** — [`MARKDOWN/VEG_READER_V0.md`](MARKDOWN/VEG_READER_V0.md)
 8. **Перенос на Qt + парсер** — [`MARKDOWN/QT68_PORT_AND_VEG_OPEN.md`](MARKDOWN/QT68_PORT_AND_VEG_OPEN.md)
