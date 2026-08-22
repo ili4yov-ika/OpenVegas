@@ -49,10 +49,13 @@ inline QString fxVegasPresetName(const FxSlot &slot)
 struct BuiltinDspState {
     QString pluginId;
     double sampleRate = 48000.0;
+    // Gate / Comp envelopes hold the *current gain*, so they start at unity. Starting
+    // them at zero made both effects fade in from silence over their release time at the
+    // start of playback — measurable as a level drop the real VEGAS effects do not have.
     // Gate
-    float gateEnv = 0.f;
+    float gateEnv = 1.f;
     // Comp
-    float compEnv = 0.f;
+    float compEnv = 1.f;
     // EQ biquad (4 bands × 2 ch)
     struct Biquad {
         float b0 = 1, b1 = 0, b2 = 0, a1 = 0, a2 = 0;

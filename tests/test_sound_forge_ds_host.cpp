@@ -4,6 +4,8 @@
 #include "plugins/SoundForgeHost.h"
 #include "plugins/VegasSharedAudioCatalog.h"
 
+#include <QRegularExpression>
+#include <QHash>
 #include <QSet>
 #include <QString>
 
@@ -289,5 +291,116 @@ TEST_CASE("Slots without an instance pass audio through untouched",
     for (int i = 0; i < frames; ++i) {
         CHECK(outL[size_t(i)] == expected[size_t(i)]);
         CHECK(outR[size_t(i)] == expected[size_t(i)]);
+    }
+}
+
+TEST_CASE("Property pages are not offered as effects", "[plugins][soundforge][dshost]")
+{
+    const QVector<SoundForgeClass> all = SoundForgeHost::discoverRegistered();
+    if (all.isEmpty()) {
+        WARN("No Shared Plug-Ins registered — page filter check skipped");
+        return;
+    }
+
+    // Every effect on this machine hosts; a dialog page slipping through shows up as an
+    // entry that cannot even be created. "VEGAS Resonant Filter Prop Page" did exactly
+    // that, because it is the one page not spelled "… Property Page".
+    static const QRegularExpression pageName(
+        QStringLiteral(R"(\bProp(erty)? Page\s*\d*$)"),
+        QRegularExpression::CaseInsensitiveOption);
+    for (const SoundForgeClass &c : SoundForgeHost::discoverEffects()) {
+        INFO(c.name.toStdString() << " is a dialog page, not an effect");
+        CHECK_FALSE(pageName.match(c.name).hasMatch());
+    }
+
+    // The pages far outnumber nothing: they should account for roughly half the classes.
+    int pages = 0;
+    for (const SoundForgeClass &c : all) {
+        if (c.isPropertyPage) {
+            ++pages;
+        }
+    }
+    CHECK(pages > 0);
+    CHECK(pages + SoundForgeHost::discoverEffects().size() == all.size());
+}
+
+TEST_CASE("Effects with several dialog pages expose all of them",
+          "[plugins][soundforge][dshost]")
+{
+    if (!SoundForgeDsHost::isAvailable()) {
+        WARN("Sound Forge hosting unavailable on this platform — page check skipped");
+        return;
+    }
+
+    // Wave Hammer Surround splits into Compressor / Volume Maximizer / Routing. Hosting
+    // only the first page — which is what the editor did at first — hides two thirds of
+    // its controls, so the count is what this guards.
+    QString waveHammer;
+    for (const SoundForgeClass &c : SoundForgeHost::discoverEffects()) {
+        if (c.name.compare(QStringLiteral("Wave Hammer Surround"), Qt::CaseInsensitive) == 0) {
+            waveHammer = c.clsid;
+            break;
+        }
+    }
+    if (waveHammer.isEmpty()) {
+        WARN("Wave Hammer Surround not registered — page check skipped");
+        return;
+    }
+
+    const QStringList titles = SoundForgeDsHost::propertyPageTitles(waveHammer);
+    INFO("pages: " << titles.join(QStringLiteral(" | ")).toStdString());
+    CHECK(titles.size() >= 3);
+    CHECK_FALSE(titles.contains(QString()));
+
+    // A single-page effect must still report exactly one, or the editor would build a
+    // pointless tab bar around it.
+    QString chorus;
+    for (const SoundForgeClass &c : SoundForgeHost::discoverEffects()) {
+        if (c.name.compare(QStringLiteral("Chorus"), Qt::CaseInsensitive) == 0) {
+            chorus = c.clsid;
+            break;
+        }
+    }
+    if (!chorus.isEmpty()) {
+        CHECK(SoundForgeDsHost::propertyPageTitles(chorus).size() == 1);
+    }
+}
+
+TEST_CASE("Every look-alike dialog that was retired has a real plug-in behind it",
+          "[plugins][soundforge][dshost]")
+{
+    if (!SoundForgeDsHost::isAvailable()) {
+        WARN("Sound Forge hosting unavailable on this platform — replacement check skipped");
+        return;
+    }
+
+    // These are the effects whose VEGAS dialogs OpenVegas used to redraw in Qt
+    // (OPENVEGAS_EMULATED_AUDIO_FX_UI, now off). Retiring a copy is only an improvement
+    // while the genuine plug-in is there to take its place, so that is what is checked:
+    // each name must be registered *and* actually host audio.
+    const QStringList redrawn = {
+        QStringLiteral("Chorus"),          QStringLiteral("Reverb"),
+        QStringLiteral("Simple Delay"),    QStringLiteral("Noise Gate"),
+        QStringLiteral("Track EQ"),        QStringLiteral("Track Compressor"),
+    };
+
+    QHash<QString, QString> byName;
+    for (const SoundForgeClass &c : SoundForgeHost::discoverEffects()) {
+        byName.insert(normalizeVegasPluginKey(c.name), c.clsid);
+    }
+
+    for (const QString &name : redrawn) {
+        const QString clsid = byName.value(normalizeVegasPluginKey(name));
+        INFO(name.toStdString() << " has no registered counterpart");
+        if (clsid.isEmpty()) {
+            WARN(name.toStdString() + " not registered on this machine — skipped");
+            continue;
+        }
+        double meanDiff = 0.0;
+        QString error;
+        INFO(error.toStdString());
+        // Building the graph is the point; several of these are deliberately transparent
+        // at default settings, so the amount of change is not what makes them valid.
+        CHECK(SoundForgeDsHost::probeProcess(clsid, &meanDiff, &error));
     }
 }

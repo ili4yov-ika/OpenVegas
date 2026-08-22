@@ -6,6 +6,9 @@
 #include <QDebug>
 #include <QMutex>
 #include <QMutexLocker>
+#include <QPointer>
+#include <QTabWidget>
+#include <QVBoxLayout>
 #include <QWidget>
 
 #include <algorithm>
@@ -120,6 +123,11 @@ bool SoundForgeDsHost::probeProcess(const QString &, double *, QString *errorOut
         *errorOut = QStringLiteral("Sound Forge Shared Plug-Ins are COM servers (Windows only)");
     }
     return false;
+}
+
+QStringList SoundForgeDsHost::propertyPageTitles(const QString &)
+{
+    return {};
 }
 
 #else // Q_OS_WIN
@@ -1006,21 +1014,36 @@ struct SoundForgeDsHost::Instance {
     QByteArray pendingState;
     std::vector<float> scratchIn;
     std::vector<float> scratchOut;
-    /** Live embedded property page, while an editor is open. */
-    IPropertyPage *page = nullptr;
-    PropertyPageSite site;
+    /**
+     * Live embedded property pages, while an editor is open.
+     *
+     * Several effects register more than one — Wave Hammer Surround and Graphic EQ have
+     * three, Track EQ and Multi-Band Dynamics two — and showing only the first hides
+     * whole sections of their controls, so all of them are hosted.
+     */
+    QVector<IPropertyPage *> pages;
+    QVector<PropertyPageSite *> sites;
+    QPointer<QWidget> pageContainer;
 
     void closePage()
     {
-        if (!page) {
-            return;
+        for (IPropertyPage *page : pages) {
+            if (!page) {
+                continue;
+            }
+            page->Deactivate();
+            page->SetPageSite(nullptr);
+            page->SetObjects(0, nullptr);
+            page->Release();
         }
-        page->Deactivate();
-        page->SetPageSite(nullptr);
-        page->SetObjects(0, nullptr);
-        page->Release();
-        page = nullptr;
-        site.page = nullptr;
+        pages.clear();
+        qDeleteAll(sites);
+        sites.clear();
+        // Deactivate first, then the widgets whose HWNDs the pages were drawing into.
+        if (pageContainer) {
+            delete pageContainer.data();
+        }
+        pageContainer = nullptr;
     }
 
     /**
@@ -1340,59 +1363,108 @@ bool SoundForgeDsHost::openEditor(FxSlot *slot, QWidget *parent)
         return false;
     }
 
-    // The first page is the effect's own dialog; the companion classes registered
-    // alongside each effect are exactly these pages.
-    IPropertyPage *page = nullptr;
-    HRESULT hr = CoCreateInstance(pages.pElems[0], nullptr, CLSCTX_INPROC_SERVER,
-                                  IID_IPropertyPage, reinterpret_cast<void **>(&page));
-    CoTaskMemFree(pages.pElems);
-    if (FAILED(hr) || !page) {
-        return false;
+    // Host every page the effect offers. One page fills the widget; several become tabs,
+    // which is how VEGAS presents these same dialogs.
+    QWidget *container = nullptr;
+    QTabWidget *tabs = nullptr;
+    if (!parent->layout()) {
+        auto *lay = new QVBoxLayout(parent);
+        lay->setContentsMargins(0, 0, 0, 0);
+    }
+    if (pages.cElems > 1) {
+        tabs = new QTabWidget(parent);
+        container = tabs;
     }
 
     IUnknown *unk = nullptr;
     inst->graph.effect->QueryInterface(IID_IUnknown, reinterpret_cast<void **>(&unk));
-    inst->site.page = page;
-    page->SetPageSite(static_cast<IPropertyPageSite *>(&inst->site));
-    hr = page->SetObjects(1, &unk);
+
+    int widest = 0;
+    int tallest = 0;
+    for (ULONG i = 0; i < pages.cElems; ++i) {
+        IPropertyPage *page = nullptr;
+        if (FAILED(CoCreateInstance(pages.pElems[i], nullptr, CLSCTX_INPROC_SERVER,
+                                    IID_IPropertyPage, reinterpret_cast<void **>(&page)))
+            || !page) {
+            continue; // a page that will not instantiate simply does not appear
+        }
+
+        auto *site = new PropertyPageSite;
+        site->page = page;
+        page->SetPageSite(static_cast<IPropertyPageSite *>(site));
+        if (FAILED(page->SetObjects(1, &unk))) {
+            page->SetPageSite(nullptr);
+            page->Release();
+            delete site;
+            continue;
+        }
+
+        PROPPAGEINFO info{};
+        info.cb = sizeof(info);
+        QSize pageSize(360, 240);
+        QString title = QStringLiteral("Page %1").arg(i + 1);
+        if (SUCCEEDED(page->GetPageInfo(&info))) {
+            if (info.size.cx > 0 && info.size.cy > 0) {
+                pageSize = QSize(int(info.size.cx), int(info.size.cy));
+            }
+            if (info.pszTitle) {
+                title = QString::fromWCharArray(info.pszTitle);
+                CoTaskMemFree(info.pszTitle);
+            }
+            if (info.pszDocString) {
+                CoTaskMemFree(info.pszDocString);
+            }
+            if (info.pszHelpFile) {
+                CoTaskMemFree(info.pszHelpFile);
+            }
+        }
+        widest = std::max(widest, pageSize.width());
+        tallest = std::max(tallest, pageSize.height());
+
+        // Each page needs its own native window to draw into.
+        auto *host = new QWidget(tabs ? static_cast<QWidget *>(tabs) : parent);
+        host->setMinimumSize(pageSize);
+        host->setAttribute(Qt::WA_NativeWindow);
+        const HWND hwnd = reinterpret_cast<HWND>(host->winId());
+
+        RECT rect{0, 0, pageSize.width(), pageSize.height()};
+        if (FAILED(page->Activate(hwnd, &rect, FALSE))) {
+            page->SetPageSite(nullptr);
+            page->SetObjects(0, nullptr);
+            page->Release();
+            delete site;
+            delete host;
+            continue;
+        }
+        page->Show(SW_SHOW);
+
+        inst->pages.push_back(page);
+        inst->sites.push_back(site);
+        if (tabs) {
+            tabs->addTab(host, title);
+        } else {
+            container = host;
+        }
+    }
     if (unk) {
         unk->Release();
     }
-    if (FAILED(hr)) {
-        page->SetPageSite(nullptr);
-        page->Release();
-        inst->site.page = nullptr;
+    CoTaskMemFree(pages.pElems);
+
+    if (inst->pages.isEmpty()) {
+        delete container;
         return false;
     }
 
-    // Give the widget the dialog's own size before activating, so the page is not
-    // clipped by whatever the surrounding layout happened to allocate.
-    PROPPAGEINFO info{};
-    info.cb = sizeof(info);
-    if (SUCCEEDED(page->GetPageInfo(&info)) && info.size.cx > 0 && info.size.cy > 0) {
-        parent->setMinimumSize(int(info.size.cx), int(info.size.cy));
-        if (info.pszTitle) {
-            CoTaskMemFree(info.pszTitle);
-        }
-        if (info.pszDocString) {
-            CoTaskMemFree(info.pszDocString);
-        }
-        if (info.pszHelpFile) {
-            CoTaskMemFree(info.pszHelpFile);
-        }
+    if (widest > 0 && tallest > 0) {
+        // Property pages are fixed-size dialogs; give the surrounding widget the room
+        // they expect rather than letting the layout clip them.
+        const int chromeH = tabs ? 32 : 0;
+        parent->setMinimumSize(widest, tallest + chromeH);
     }
-
-    RECT rect{0, 0, parent->width(), parent->height()};
-    hr = page->Activate(reinterpret_cast<HWND>(parent->winId()), &rect, FALSE);
-    if (FAILED(hr)) {
-        page->SetPageSite(nullptr);
-        page->SetObjects(0, nullptr);
-        page->Release();
-        inst->site.page = nullptr;
-        return false;
-    }
-    page->Show(SW_SHOW);
-    inst->page = page;
+    parent->layout()->addWidget(container);
+    container->show();
+    inst->pageContainer = container;
 
     // The page draws into the widget's HWND, so it must go down with the widget.
     QObject::connect(parent, &QObject::destroyed, parent, [inst]() {
@@ -1433,6 +1505,63 @@ bool SoundForgeDsHost::setState(FxSlot *slot, const QByteArray &state)
         inst->applyState(state);
     }
     return true;
+}
+
+QStringList SoundForgeDsHost::propertyPageTitles(const QString &clsidText)
+{
+    const QString text = clsidText.startsWith(QLatin1Char('{'))
+                             ? clsidText
+                             : clsidFromPluginId(clsidText);
+    CLSID clsid{};
+    if (text.isEmpty()
+        || FAILED(CLSIDFromString(reinterpret_cast<LPCOLESTR>(text.utf16()), &clsid))) {
+        return {};
+    }
+    ensureComOnThread();
+
+    IBaseFilter *effect = nullptr;
+    if (FAILED(CoCreateInstance(clsid, nullptr, CLSCTX_INPROC_SERVER, IID_IBaseFilter,
+                                reinterpret_cast<void **>(&effect)))
+        || !effect) {
+        return {};
+    }
+    QStringList titles;
+    ISpecifyPropertyPages *spec = nullptr;
+    if (SUCCEEDED(effect->QueryInterface(IID_ISpecifyPropertyPages,
+                                         reinterpret_cast<void **>(&spec)))
+        && spec) {
+        CAUUID pages{};
+        if (SUCCEEDED(spec->GetPages(&pages))) {
+            for (ULONG i = 0; i < pages.cElems; ++i) {
+                IPropertyPage *page = nullptr;
+                if (FAILED(CoCreateInstance(pages.pElems[i], nullptr, CLSCTX_INPROC_SERVER,
+                                            IID_IPropertyPage,
+                                            reinterpret_cast<void **>(&page)))
+                    || !page) {
+                    continue;
+                }
+                PROPPAGEINFO info{};
+                info.cb = sizeof(info);
+                if (SUCCEEDED(page->GetPageInfo(&info))) {
+                    if (info.pszTitle) {
+                        titles << QString::fromWCharArray(info.pszTitle);
+                        CoTaskMemFree(info.pszTitle);
+                    }
+                    if (info.pszDocString) {
+                        CoTaskMemFree(info.pszDocString);
+                    }
+                    if (info.pszHelpFile) {
+                        CoTaskMemFree(info.pszHelpFile);
+                    }
+                }
+                page->Release();
+            }
+            CoTaskMemFree(pages.pElems);
+        }
+        spec->Release();
+    }
+    effect->Release();
+    return titles;
 }
 
 bool SoundForgeDsHost::probeProcess(const QString &clsidText, double *meanDiffOut,

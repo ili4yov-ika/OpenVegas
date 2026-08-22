@@ -1,4 +1,5 @@
 #include "ui/PreferencesDialog.h"
+#include "plugins/VegasSharedAudioCatalog.h"
 #include "ui_PreferencesDialog.h"
 #include "io/FFmpegStreamDecoder.h"
 #include "io/MediaFilmstripCache.h"
@@ -118,6 +119,9 @@ QString PreferencesDialog::vegasProPath() const
 
 void PreferencesDialog::loadSettings()
 {
+    ui->sharedFxModeCombo->setCurrentIndex(
+        VegasSharedAudioCatalog::substitutionPolicy() == VegasSharedSubstitution::UseOriginal ? 1
+                                                                                              : 0);
     QSettings settings(QStringLiteral("OpenVegas"), QStringLiteral("OpenVegas"));
     QString vegas = settings.value(QStringLiteral("plugins/vegasProPath")).toString();
     if (vegas.isEmpty()) {
@@ -198,6 +202,11 @@ void PreferencesDialog::saveSettings()
     settings.setValue(QStringLiteral("plugins/vegasProPath"), ui->vegasPathEdit->text().trimmed());
     settings.setValue(QStringLiteral("plugins/ofxPath"), ui->ofxPathEdit->text().trimmed());
     settings.setValue(QStringLiteral("plugins/useVegasOfx"), ui->checkUseVegasOfx->isChecked());
+    // Index 0 = replace with OpenVegas's own, 1 = always use the VEGAS plug-in. Written
+    // through the catalog so the key and its default live in one place.
+    VegasSharedAudioCatalog::setSubstitutionPolicy(
+        ui->sharedFxModeCombo->currentIndex() == 1 ? VegasSharedSubstitution::UseOriginal
+                                                   : VegasSharedSubstitution::ReplaceWithBuiltin);
     settings.setValue(QStringLiteral("general/autosave"), ui->checkAutoSave->isChecked());
     settings.setValue(QStringLiteral("media/hwAccel"), ui->checkHwDecode->isChecked());
     settings.setValue(QStringLiteral("media/hwDecoder"),

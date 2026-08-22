@@ -158,15 +158,15 @@ void BuiltinDspState::prepare(double sr)
         revApR[i].assign(size_t(n), 0.f);
         revApIdx[i] = 0;
     }
-    gateEnv = 0.f;
-    compEnv = 0.f;
+    gateEnv = 1.f;
+    compEnv = 1.f;
     eqReady = false;
 }
 
 void BuiltinDspState::reset()
 {
-    gateEnv = 0.f;
-    compEnv = 0.f;
+    gateEnv = 1.f;
+    compEnv = 1.f;
     for (auto &b : eq) {
         b.z1[0] = b.z1[1] = b.z2[0] = b.z2[1] = 0.f;
     }
@@ -193,7 +193,15 @@ void BuiltinDspState::reset()
 
 void processGate(BuiltinDspState *st, const QVariantMap &p, float *L, float *R, int n)
 {
-    const float thr = dbToLinear(p.value(QStringLiteral("thresholdDb"), -60.0).toDouble());
+    const double thresholdDb = p.value(QStringLiteral("thresholdDb"), -60.0).toDouble();
+    // The fader's bottom position reads "-Inf", and in VEGAS that means the gate does
+    // nothing at all — its Track Noise Gate is bit-transparent at defaults. Ours treated
+    // the same position as a literal -60 dB and still muted anything below it, which ate
+    // the tail of a fade-out.
+    if (thresholdDb <= -59.5) {
+        return;
+    }
+    const float thr = dbToLinear(thresholdDb);
     const float atk = float(std::exp(-1.0 / (st->sampleRate * std::max(0.001,
         p.value(QStringLiteral("attackMs"), 3.0).toDouble() / 1000.0))));
     const float rel = float(std::exp(-1.0 / (st->sampleRate * std::max(0.001,
@@ -249,31 +257,56 @@ void processEq(BuiltinDspState *st, const QVariantMap &p, float *L, float *R, in
 
 void processComp(BuiltinDspState *st, const QVariantMap &p, float *L, float *R, int n)
 {
-    const float thr = dbToLinear(p.value(QStringLiteral("threshold"), 0.0).toDouble());
-    const float amount = float(std::clamp(p.value(QStringLiteral("amount"), 1.0).toDouble(), 0.0, 10.0));
-    const float ratio = 1.f + amount; // soft knee-ish
+    const double thresholdDb = p.value(QStringLiteral("threshold"), 0.0).toDouble();
+    // "Amount (x:1)" is the ratio itself, exactly as the dialog spells it — 1,0 means
+    // 1:1, i.e. no compression. This used to be read as `1 + amount`, so a compressor
+    // sitting at its default setting squeezed 2:1 while the dialog claimed it was doing
+    // nothing. The clamp follows the dialog's range too (it was 0…10 against a 1…20 UI,
+    // which quietly capped the top half of the control).
+    const double ratio = std::clamp(p.value(QStringLiteral("amount"), 1.0).toDouble(), 1.0, 20.0);
+    const bool autoGain = p.value(QStringLiteral("autoGain"), true).toBool();
+    const bool smoothSat = p.value(QStringLiteral("smoothSat"), false).toBool();
     const float inG = dbToLinear(p.value(QStringLiteral("inputGain"), 0.0).toDouble());
     const float outG = dbToLinear(p.value(QStringLiteral("outputGain"), 0.0).toDouble());
     const float atk = float(std::exp(-1.0 / (st->sampleRate * std::max(0.001,
         p.value(QStringLiteral("attackMs"), 15.0).toDouble() / 1000.0))));
     const float rel = float(std::exp(-1.0 / (st->sampleRate * std::max(0.001,
         p.value(QStringLiteral("releaseMs"), 250.0).toDouble() / 1000.0))));
+
+    // Auto gain compensation: cancel the reduction a full-scale signal would take, so
+    // raising Amount does not simply make the track quieter. The dialog ships this on,
+    // and until now the checkbox was wired to nothing at all.
+    const float makeup =
+        autoGain ? dbToLinear(-thresholdDb * (1.0 - 1.0 / ratio)) : 1.f;
+    // Smooth saturation softens the corner of the gain computer rather than adding any
+    // waveshaping — the knee is the part that is audible as harshness on a hard corner.
+    const double kneeDb = smoothSat ? 6.0 : 0.0;
+    const double slope = 1.0 / ratio - 1.0;
+
     for (int i = 0; i < n; ++i) {
         float xL = L[i] * inG;
         float xR = R[i] * inG;
         const float level = std::max(std::abs(xL), std::abs(xR));
         float target = 1.f;
-        if (level > thr && thr > 1e-8f) {
-            const float over = level / thr;
-            target = std::pow(over, 1.f / ratio - 1.f);
+        if (level > 1e-8f) {
+            const double levelDb = 20.0 * std::log10(double(level));
+            const double over = levelDb - thresholdDb;
+            double reductionDb = 0.0;
+            if (kneeDb > 0.0 && over > -kneeDb / 2.0 && over < kneeDb / 2.0) {
+                const double x = over + kneeDb / 2.0;
+                reductionDb = slope * x * x / (2.0 * kneeDb);
+            } else if (over > 0.0) {
+                reductionDb = slope * over;
+            }
+            target = dbToLinear(reductionDb);
         }
         if (target < st->compEnv) {
             st->compEnv = atk * st->compEnv + (1.f - atk) * target;
         } else {
             st->compEnv = rel * st->compEnv + (1.f - rel) * target;
         }
-        L[i] = xL * st->compEnv * outG;
-        R[i] = xR * st->compEnv * outG;
+        L[i] = xL * st->compEnv * makeup * outG;
+        R[i] = xR * st->compEnv * makeup * outG;
     }
 }
 

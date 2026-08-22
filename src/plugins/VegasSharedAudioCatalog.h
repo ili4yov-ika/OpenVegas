@@ -19,6 +19,21 @@ enum class VegasSharedReplacementStatus {
 };
 
 /**
+ * What to do when a standard VEGAS / Sound Forge audio effect is available both as the
+ * real plug-in and as an OpenVegas builtin of the same name.
+ *
+ * Both are real processors now: the plug-in is hosted through DirectShow, and the
+ * builtins have been measured against it (see MARKDOWN/VEGAS_SHARED_PLUGINS_REVERSE_FULL.md).
+ * So this is a genuine choice rather than a fallback, and it is the user's to make.
+ */
+enum class VegasSharedSubstitution {
+    /** Offer OpenVegas's own implementation for names it covers. Default. */
+    ReplaceWithBuiltin = 0,
+    /** Never substitute — offer the VEGAS plug-in itself for every registered effect. */
+    UseOriginal
+};
+
+/**
  * One Vegas Shared audio FX → OpenVegas builtin substitute.
  * Does **not** LoadLibrary proprietary DLLs — discovery is path/file presence only.
  */
@@ -49,6 +64,10 @@ class VegasSharedAudioCatalog {
 public:
     /** Prefer VEGAS Shared, then Sony Shared (legacy). */
     static QStringList defaultSharedRoots();
+
+    /** Current substitution policy (persisted in Preferences). */
+    static VegasSharedSubstitution substitutionPolicy();
+    static void setSubstitutionPolicy(VegasSharedSubstitution policy);
 
     /** Full static map (independent of install). */
     static QVector<VegasSharedFxEntry> catalog();

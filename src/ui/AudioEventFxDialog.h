@@ -7,6 +7,35 @@
 #include <QPoint>
 #include <QVector>
 
+/**
+ * OpenVegas's hand-drawn copies of the VEGAS / Sound Forge effect dialogs — **off,
+ * deliberately.**
+ *
+ * Chorus, Reverb, Delay, Noise Gate, Track EQ and Track Compressor each had a Qt form
+ * built to look like the plug-in's own window, down to the control layout and the
+ * "(0.001 to 20.0 Hz)" label text. They were never the plug-in's dialog, only a drawing
+ * of one: the controls drive OpenVegas's builtin DSP, not the VEGAS effect, so the same
+ * knob in the same place produced a different sound — and there was no way to tell from
+ * looking.
+ *
+ * The real dialogs are available now. Every one of these effects is a registered
+ * DirectShow filter that SoundForgeDsHost hosts, `ISpecifyPropertyPages` hands over the
+ * plug-in's own property pages, and they are embedded straight into this window — the
+ * genuine article, with the genuine DSP behind it.
+ *
+ * With this off, a builtin slot falls back to the neutral generic editor (gain, dry/wet),
+ * which does not pretend to be anyone's dialog. **Do not draw more of these copies** —
+ * a slot that should look like the VEGAS plug-in should *be* the VEGAS plug-in, i.e.
+ * PluginFormat::DirectShow. See MARKDOWN/VEGAS_SHARED_PLUGINS_REVERSE_FULL.md §6б.
+ *
+ * The code is compiled out rather than deleted: it is a usable starting point if
+ * OpenVegas ever grows its own effects with their own honest UI, and it is worth keeping
+ * for A/B comparison against the real plug-in.
+ */
+#ifndef OPENVEGAS_EMULATED_AUDIO_FX_UI
+#define OPENVEGAS_EMULATED_AUDIO_FX_UI 0
+#endif
+
 class QLabel;
 class QComboBox;
 class QScrollArea;
@@ -110,9 +139,13 @@ public:
 private:
     QWidget *buildBuiltinEditor(FxSlot &slot);
     QWidget *buildColorGradingEditor(FxSlot &slot);
+#if OPENVEGAS_EMULATED_AUDIO_FX_UI
+    // Copies of plug-in dialogs for effects outside the default chain — see the note above.
     QWidget *buildChorusEditor(FxSlot &slot);
     QWidget *buildDelayEditor(FxSlot &slot);
     QWidget *buildReverbEditor(FxSlot &slot);
+#endif
+    // The standard audio-track chain: OpenVegas's own track effects, always compiled in.
     QWidget *buildNoiseGateEditor(FxSlot &slot);
     QWidget *buildTrackEqEditor(FxSlot &slot);
     QWidget *buildTrackCompressorEditor(FxSlot &slot);

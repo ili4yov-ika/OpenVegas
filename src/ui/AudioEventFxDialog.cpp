@@ -3,6 +3,7 @@
 #include "ui/PluginChooserDialog.h"
 #include "ui/IconFactory.h"
 #include "plugins/AudioPluginHost.h"
+#include "plugins/SoundForgeHost.h"
 #include "audio/CompositePluginHost.h"
 
 #include <QHBoxLayout>
@@ -650,6 +651,10 @@ QWidget *AudioEventFxDialog::buildBuiltinEditor(FxSlot &slot)
         || n.compare(QLatin1String("ColorGrading"), Qt::CaseInsensitive) == 0) {
         return buildColorGradingEditor(slot);
     }
+#if OPENVEGAS_EMULATED_AUDIO_FX_UI
+    // Copies of plug-in dialogs for effects that are *not* part of a track's default
+    // chain — a user reaches these by inserting the VEGAS plug-in itself, so a redrawn
+    // stand-in only got in the way. Compiled out; see AudioEventFxDialog.h.
     if (n.contains(QLatin1String("chorus"), Qt::CaseInsensitive)) {
         return buildChorusEditor(slot);
     }
@@ -659,6 +664,10 @@ QWidget *AudioEventFxDialog::buildBuiltinEditor(FxSlot &slot)
     if (n.contains(QLatin1String("delay"), Qt::CaseInsensitive)) {
         return buildDelayEditor(slot);
     }
+#endif
+    // The standard audio-track chain. These three are OpenVegas's own track effects with
+    // their own DSP, present on every audio track from the moment it is created, so they
+    // need real controls — a gain/dry-wet stand-in would leave the default chain unusable.
     if (n.contains(QLatin1String("noise gate"), Qt::CaseInsensitive)
         || n.compare(QLatin1String("Noise Gate"), Qt::CaseInsensitive) == 0) {
         return buildNoiseGateEditor(slot);
@@ -678,6 +687,20 @@ QWidget *AudioEventFxDialog::buildColorGradingEditor(FxSlot &slot)
 {
     return new ColorGradingEditor(&slot, this);
 }
+
+// ---------------------------------------------------------------------------
+// Hand-drawn copies of the VEGAS / Sound Forge effect dialogs.
+//
+// Compiled out (OPENVEGAS_EMULATED_AUDIO_FX_UI, see AudioEventFxDialog.h). These forms
+// imitate the plug-in's own window but drive OpenVegas's builtin DSP, so they looked like
+// the VEGAS effect while sounding like something else. The real dialogs are hosted now —
+// SoundForgeDsHost embeds the plug-in's own property pages into this same window.
+//
+// Kept rather than deleted: a starting point should OpenVegas ever grow its own effects
+// with an honest UI of their own, and useful for A/B against the real plug-in.
+// The helper classes below (EqCurveWidget, makePluginChrome) are used only from here.
+// ---------------------------------------------------------------------------
+#if OPENVEGAS_EMULATED_AUDIO_FX_UI
 
 QWidget *AudioEventFxDialog::buildDelayEditor(FxSlot &slot)
 {
@@ -1054,6 +1077,8 @@ QWidget *AudioEventFxDialog::buildChorusEditor(FxSlot &slot)
     root->addWidget(body, 1);
     return page;
 }
+
+#endif // OPENVEGAS_EMULATED_AUDIO_FX_UI — copies of plug-in dialogs end here
 
 namespace {
 
@@ -1696,6 +1721,7 @@ QWidget *AudioEventFxDialog::buildTrackCompressorEditor(FxSlot &slot)
     return page;
 }
 
+
 QWidget *AudioEventFxDialog::buildGenericBuiltinEditor(FxSlot &slot)
 {
     FxSlot *slotPtr = &slot;
@@ -1721,6 +1747,30 @@ QWidget *AudioEventFxDialog::buildGenericBuiltinEditor(FxSlot &slot)
     auto *form = new QFormLayout(body);
     form->setContentsMargins(16, 16, 16, 16);
     form->setSpacing(10);
+
+    // If a Shared Plug-In of the same name is installed, say so. This slot runs
+    // OpenVegas's own DSP with generic controls; the VEGAS effect it is named after is
+    // a different processor with its own dialog, and it can be added from the chooser.
+    // Without this the two are indistinguishable in the FX chain.
+    {
+        const QString wanted = normalizeVegasPluginKey(slot.displayName);
+        for (const SoundForgeClass &c : SoundForgeHost::discoverEffects()) {
+            if (normalizeVegasPluginKey(c.name) != wanted) {
+                continue;
+            }
+            auto *note = new QLabel(
+                tr("This is OpenVegas's own \"%1\" — generic controls, OpenVegas DSP.\n"
+                   "The VEGAS plug-in of the same name is installed and can be added from "
+                   "the Plug-In Chooser (category VEGAS Shared); it brings its own dialog "
+                   "and its own processing.")
+                    .arg(builtinFxDisplayName(slot.displayName)),
+                body);
+            note->setWordWrap(true);
+            note->setObjectName(QStringLiteral("aefxBuiltinNote"));
+            form->addRow(note);
+            break;
+        }
+    }
 
     auto *gain = new QDoubleSpinBox(body);
     gain->setObjectName(QStringLiteral("aefxSpin"));

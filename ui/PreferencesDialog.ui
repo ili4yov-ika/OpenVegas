@@ -263,9 +263,47 @@
      </widget>
      <widget class="QWidget" name="tabVst">
       <attribute name="title">
-       <string>VST Effects</string>
+       <string>Audio Plug-Ins</string>
       </attribute>
       <layout class="QVBoxLayout" name="vstLayout">
+       <item>
+        <widget class="QLabel" name="sharedFxLabel">
+         <property name="text">
+          <string>Standard VEGAS Pro (Sound Forge) audio effects</string>
+         </property>
+        </widget>
+       </item>
+       <item>
+        <widget class="QComboBox" name="sharedFxModeCombo">
+         <item>
+          <property name="text">
+           <string>Replace with your own plugin implementations</string>
+          </property>
+         </item>
+         <item>
+          <property name="text">
+           <string>Disable your own plugin implementations</string>
+          </property>
+         </item>
+        </widget>
+       </item>
+       <item>
+        <widget class="QLabel" name="sharedFxHint">
+         <property name="text">
+          <string>Effects such as Chorus, Reverb, Track EQ and Track Compressor exist both as the installed VEGAS plug-in and as an OpenVegas implementation of the same name. Replacing offers OpenVegas's version; disabling offers the VEGAS plug-in itself, with its own dialog. Effects OpenVegas has no implementation for always come from the plug-in.</string>
+         </property>
+         <property name="wordWrap">
+          <bool>true</bool>
+         </property>
+        </widget>
+       </item>
+       <item>
+        <widget class="Line" name="sharedFxSeparator">
+         <property name="orientation">
+          <enum>Qt::Horizontal</enum>
+         </property>
+        </widget>
+       </item>
        <item>
         <widget class="QLabel" name="vstIntro">
          <property name="text">

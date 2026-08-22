@@ -2,6 +2,7 @@
 #include <catch2/catch_approx.hpp>
 
 #include "audio/BuiltinDsp.h"
+#include "plugins/SoundForgeHost.h"
 #include "plugins/VegasSharedAudioCatalog.h"
 
 #include <QFileInfo>
@@ -54,6 +55,15 @@ TEST_CASE("Vegas Shared resolveBuiltinName aliases", "[vegas-shared]")
 
 TEST_CASE("Vegas Shared replacementSlot yields processable builtins", "[vegas-shared][dsp]")
 {
+    // This asks specifically about the substitutes, so pin the policy rather than
+    // inherit whatever the machine happens to be set to.
+    const VegasSharedSubstitution original = VegasSharedAudioCatalog::substitutionPolicy();
+    struct Restore {
+        VegasSharedSubstitution value;
+        ~Restore() { VegasSharedAudioCatalog::setSubstitutionPolicy(value); }
+    } restore{original};
+    VegasSharedAudioCatalog::setSubstitutionPolicy(VegasSharedSubstitution::ReplaceWithBuiltin);
+
     for (const VegasSharedFxEntry &e : VegasSharedAudioCatalog::implementedEntries()) {
         FxSlot slot = VegasSharedAudioCatalog::replacementSlot(e.vegasFxName);
         REQUIRE_FALSE(slot.displayName.isEmpty());
@@ -116,4 +126,58 @@ TEST_CASE("Vegas Shared chooserDescriptors unique ids", "[vegas-shared]")
         REQUIRE_FALSE(ids.contains(d.id));
         ids.insert(d.id);
     }
+}
+
+TEST_CASE("Substitution policy decides who owns a shared FX name", "[vegas-shared][policy]")
+{
+    // This writes a real user setting, so put it back whatever the test does.
+    const VegasSharedSubstitution original = VegasSharedAudioCatalog::substitutionPolicy();
+    struct Restore {
+        VegasSharedSubstitution value;
+        ~Restore() { VegasSharedAudioCatalog::setSubstitutionPolicy(value); }
+    } restore{original};
+
+    auto namesFor = [](PluginFormat format) {
+        QSet<QString> names;
+        for (const AudioPluginDesc &d : VegasSharedAudioCatalog::chooserDescriptors(false)) {
+            if (d.format == format) {
+                names.insert(normalizeVegasPluginKey(d.name));
+            }
+        }
+        return names;
+    };
+
+    VegasSharedAudioCatalog::setSubstitutionPolicy(VegasSharedSubstitution::ReplaceWithBuiltin);
+    REQUIRE(VegasSharedAudioCatalog::substitutionPolicy()
+            == VegasSharedSubstitution::ReplaceWithBuiltin);
+    const QSet<QString> builtinWhenReplacing = namesFor(PluginFormat::Builtin);
+    const QSet<QString> hostedWhenReplacing = namesFor(PluginFormat::DirectShow);
+
+    VegasSharedAudioCatalog::setSubstitutionPolicy(VegasSharedSubstitution::UseOriginal);
+    REQUIRE(VegasSharedAudioCatalog::substitutionPolicy() == VegasSharedSubstitution::UseOriginal);
+    const QSet<QString> builtinWhenOriginal = namesFor(PluginFormat::Builtin);
+    const QSet<QString> hostedWhenOriginal = namesFor(PluginFormat::DirectShow);
+
+    // Whichever way round, a name is offered exactly once — two rows reading the same
+    // would be indistinguishable in the chooser while behaving differently once inserted.
+    CHECK((builtinWhenReplacing & hostedWhenReplacing).isEmpty());
+    CHECK((builtinWhenOriginal & hostedWhenOriginal).isEmpty());
+
+    if (!SoundForgeHost::anyRegistered()) {
+        WARN("No Shared Plug-Ins registered — the two modes cannot differ here");
+        return;
+    }
+
+    // A name OpenVegas implements must swap sides with the policy, and only that side.
+    const QSet<QString> contested = builtinWhenReplacing & hostedWhenOriginal;
+    INFO("names implemented on both sides: " << contested.size());
+    CHECK_FALSE(contested.isEmpty());
+    for (const QString &name : contested) {
+        INFO(name.toStdString() << " should come from the plug-in when substitution is off");
+        CHECK_FALSE(builtinWhenOriginal.contains(name));
+    }
+    // Effects OpenVegas has no implementation for come from the plug-in either way,
+    // otherwise turning substitution on would lose most of the catalog.
+    CHECK_FALSE(hostedWhenReplacing.isEmpty());
+    CHECK(hostedWhenOriginal.size() > hostedWhenReplacing.size());
 }

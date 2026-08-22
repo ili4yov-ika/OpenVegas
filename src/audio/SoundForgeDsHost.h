@@ -4,6 +4,7 @@
 
 #include <QHash>
 #include <QString>
+#include <QStringList>
 #include <memory>
 
 namespace openvegas {
@@ -70,6 +71,15 @@ public:
      */
     static bool probeProcess(const QString &clsid, double *meanDiffOut = nullptr,
                              QString *errorOut = nullptr);
+
+    /**
+     * Titles of the property pages an effect registers, in order.
+     *
+     * Several effects have more than one — Wave Hammer Surround splits into Compressor /
+     * Volume Maximizer / Routing — and the editor shows them as tabs. Empty when the
+     * effect has no pages or cannot be created.
+     */
+    static QStringList propertyPageTitles(const QString &clsid);
 
 private:
     struct Instance;

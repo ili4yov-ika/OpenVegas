@@ -3,6 +3,7 @@
 #include <QFileInfo>
 #include <QMutex>
 #include <QMutexLocker>
+#include <QRegularExpression>
 
 #include <algorithm>
 #include <string>
@@ -100,8 +101,14 @@ QVector<SoundForgeClass> scanRegistry()
         if (entry.name.isEmpty()) {
             entry.name = entry.clsid;
         }
-        entry.isPropertyPage = entry.name.contains(QLatin1String("Property Page"),
-                                                   Qt::CaseInsensitive);
+        // 45 of the 84 registered classes are dialog pages, not effects. Almost all spell
+        // it "… Property Page", but "VEGAS Resonant Filter Prop Page" does not — matching
+        // only the long form let that one through and it showed up in the chooser as an
+        // effect that could not be instantiated at all (E_NOINTERFACE).
+        static const QRegularExpression pageName(
+            QStringLiteral(R"(\bProp(erty)? Page\s*\d*$)"),
+            QRegularExpression::CaseInsensitiveOption);
+        entry.isPropertyPage = pageName.match(entry.name).hasMatch();
         out.push_back(std::move(entry));
     }
 

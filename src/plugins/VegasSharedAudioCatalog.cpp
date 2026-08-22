@@ -2,6 +2,8 @@
 
 #include "plugins/SoundForgeHost.h"
 
+#include <QSettings>
+
 #include <QDir>
 #include <QFileInfo>
 #include <QHash>
@@ -220,11 +222,45 @@ QString VegasSharedAudioCatalog::resolveBuiltinName(const QString &vegasOrAliasN
 
 FxSlot VegasSharedAudioCatalog::replacementSlot(const QString &vegasOrAliasName)
 {
+    if (substitutionPolicy() == VegasSharedSubstitution::UseOriginal) {
+        // No substitution: hand back the registered plug-in itself when it is there.
+        // When it is not, return nothing rather than quietly substituting anyway — the
+        // whole point of this setting is that the caller asked for the original.
+        const QString wanted = normalizeVegasPluginKey(vegasOrAliasName);
+        for (const SoundForgeClass &c : SoundForgeHost::discoverEffects()) {
+            if (normalizeVegasPluginKey(c.name) == wanted) {
+                return makeFxSlot(c.name, PluginFormat::DirectShow,
+                                  SoundForgeHost::pluginId(c.clsid));
+            }
+        }
+        return {};
+    }
     const QString builtin = resolveBuiltinName(vegasOrAliasName);
     if (builtin.isEmpty()) {
         return {};
     }
     return makeFxSlot(builtin, PluginFormat::Builtin, QStringLiteral("builtin:") + builtin);
+}
+
+namespace {
+const char *kSubstitutionKey = "plugins/vegasSharedSubstitution";
+} // namespace
+
+VegasSharedSubstitution VegasSharedAudioCatalog::substitutionPolicy()
+{
+    QSettings settings(QStringLiteral("OpenVegas"), QStringLiteral("OpenVegas"));
+    const int raw = settings.value(QString::fromLatin1(kSubstitutionKey),
+                                   int(VegasSharedSubstitution::ReplaceWithBuiltin))
+                        .toInt();
+    return raw == int(VegasSharedSubstitution::UseOriginal)
+               ? VegasSharedSubstitution::UseOriginal
+               : VegasSharedSubstitution::ReplaceWithBuiltin;
+}
+
+void VegasSharedAudioCatalog::setSubstitutionPolicy(VegasSharedSubstitution policy)
+{
+    QSettings settings(QStringLiteral("OpenVegas"), QStringLiteral("OpenVegas"));
+    settings.setValue(QString::fromLatin1(kSubstitutionKey), int(policy));
 }
 
 QVector<AudioPluginDesc> VegasSharedAudioCatalog::chooserDescriptors(bool onlyIfInstalled,
@@ -243,13 +279,28 @@ QVector<AudioPluginDesc> VegasSharedAudioCatalog::chooserDescriptors(bool onlyIf
     QVector<AudioPluginDesc> out;
     QSet<QString> seenIds;
 
-    // Registered effects come first and are the real thing: hosted through DirectShow,
-    // with the plug-in's own DSP and its own dialog. The builtin substitutes below stay
-    // for machines where VEGAS is not installed, but a name covered by a real plug-in is
-    // not offered twice — two identical entries would be indistinguishable in the chooser.
+    // A name is never offered twice: whichever of the two the policy prefers wins, and
+    // the other is left out. Two identical rows would be indistinguishable in the chooser
+    // while behaving differently once inserted.
+    const bool preferBuiltin =
+        substitutionPolicy() == VegasSharedSubstitution::ReplaceWithBuiltin;
+
+    QSet<QString> builtinNames;
+    if (preferBuiltin) {
+        for (const VegasSharedFxEntry &e : catalog()) {
+            if (e.status != VegasSharedReplacementStatus::Unmapped
+                && !e.openvegasBuiltinName.isEmpty()) {
+                builtinNames.insert(normalizeVegasPluginKey(e.vegasFxName));
+            }
+        }
+    }
+
+    // The registered plug-ins: the real thing, hosted through DirectShow with their own
+    // DSP and their own dialog. Under "replace" they step aside for the names OpenVegas
+    // implements itself; everything else still comes from here, which is most of them.
     QSet<QString> hostedNames;
     for (const AudioPluginDesc &d : SoundForgeHost::pluginDescriptors()) {
-        if (seenIds.contains(d.id)) {
+        if (seenIds.contains(d.id) || builtinNames.contains(normalizeVegasPluginKey(d.name))) {
             continue;
         }
         seenIds.insert(d.id);
