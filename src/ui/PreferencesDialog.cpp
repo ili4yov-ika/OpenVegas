@@ -96,6 +96,16 @@ PreferencesDialog::~PreferencesDialog()
     delete ui;
 }
 
+void PreferencesDialog::showAudioPluginPaths()
+{
+    ui->tabs->setCurrentWidget(ui->tabVst);
+}
+
+void PreferencesDialog::showVideoPluginPaths()
+{
+    ui->tabs->setCurrentWidget(ui->tabPlugins);
+}
+
 QString PreferencesDialog::ofxPath() const
 {
     return ui->ofxPathEdit->text().trimmed();

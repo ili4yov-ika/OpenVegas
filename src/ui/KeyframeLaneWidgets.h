@@ -18,6 +18,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <iterator>
 #include <functional>
 
 namespace openvegas {
@@ -400,12 +401,33 @@ protected:
         QFont f = font();
         f.setPointSize(8);
         p.setFont(f);
-        const double step = m_duration > 30.0 ? 2.0 : 1.0;
+        // Label spacing is chosen from the available width, not from the duration: a fixed
+        // 1–2 s step drew well over a hundred overlapping timecodes on a four-minute event,
+        // which is what made the ruler an unreadable band of ticks. Vegas labels whole
+        // minutes on a clip this long and leaves plain ticks in between.
+        static const double kNiceSteps[] = {1,   2,   5,   10,   15,   30,   60,
+                                            120, 300, 600, 900, 1800, 3600};
+        constexpr double kMinLabelPx = 92.0; // widest "00:00:00,00" plus breathing room
+        double step = kNiceSteps[std::size(kNiceSteps) - 1];
+        for (const double candidate : kNiceSteps) {
+            if ((candidate / m_duration) * width() >= kMinLabelPx) {
+                step = candidate;
+                break;
+            }
+        }
+        const double minor = step / 5.0;
+
+        p.setPen(QColor(0x55, 0x55, 0x5c));
+        for (double t = minor; t <= m_duration + 0.01; t += minor) {
+            const double x = (t / m_duration) * width();
+            p.drawLine(QPointF(x, height() - 3), QPointF(x, height()));
+        }
+        p.setPen(QColor(0xaa, 0xaa, 0xaa));
         for (double t = 0.0; t <= m_duration + 0.01; t += step) {
             const double x = (t / m_duration) * width();
-            p.drawLine(QPointF(x, height() - 4), QPointF(x, height()));
-            p.drawText(QRectF(x + 2, 0, 64, height() - 2), Qt::AlignLeft | Qt::AlignVCenter,
-                       formatTc(t).left(8));
+            p.drawLine(QPointF(x, height() - 7), QPointF(x, height()));
+            p.drawText(QRectF(x + 3, 0, kMinLabelPx, height() - 2),
+                       Qt::AlignLeft | Qt::AlignVCenter, formatTc(t));
         }
         const double phX = (m_playhead / m_duration) * width();
         p.setPen(QPen(QColor(0xf0, 0x90, 0x20), 1));

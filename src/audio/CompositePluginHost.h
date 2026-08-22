@@ -34,6 +34,15 @@ public:
     bool ensureInstance(FxSlot *slot, QString *errorOut = nullptr);
     /** ensureInstance for every non-builtin slot in a chain. */
     void ensureChainLoaded(QVector<FxSlot> *chain);
+    /**
+     * Pull each slot's parameter blob out of its live plug-in instance.
+     *
+     * Call before saving: a plug-in edited in its own native window keeps the change
+     * inside the plug-in object, and FxSlot::state — which is what the project file
+     * actually stores — would otherwise still hold whatever was there when the slot
+     * was created. Slots with no live instance are left untouched.
+     */
+    void captureChainState(QVector<FxSlot> *chain);
     /** Match Preferences VST paths by display name + format. */
     static AudioPluginDesc resolveDesc(const FxSlot &slot);
 

@@ -34,6 +34,16 @@ struct VegasVideoPluginEntry {
     /** OfxPropPluginDescription — the line VEGAS shows under the plug-in list. */
     QString description;
     /**
+     * Illustration the bundle ships for this effect, if any
+     * (`Contents/Resources/<effectId with ':' as '.'>.png`).
+     *
+     * VEGAS shows it instead of a rendered preview — which is how AI Colorization gets its
+     * diagonal before/after split and Auto Reframe its crop guides. Both are pictures of
+     * what the effect does, not output the plug-in could produce on a still frame, and
+     * both are identical across the effect's presets.
+     */
+    QString previewImagePath;
+    /**
      * OFX contexts the effect declares (`OfxImageEffectContextFilter`, `…Transition`, …).
      *
      * This is what separates a video effect from a transition or a media generator: VEGAS's

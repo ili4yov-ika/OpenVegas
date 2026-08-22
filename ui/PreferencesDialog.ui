@@ -269,7 +269,7 @@
        <item>
         <widget class="QLabel" name="vstIntro">
          <property name="text">
-          <string>Folders scanned for VST1/VST2 (.dll) and VST3 (.vst3). Plug-ins are discovered by path only — DSP host is not loaded yet.</string>
+          <string>Folders scanned for VST1/VST2 (.dll) and VST3 (.vst3). Plug-ins found here are hosted and processed; VST3 needs the Steinberg SDK to have been present at build time.</string>
          </property>
          <property name="wordWrap">
           <bool>true</bool>

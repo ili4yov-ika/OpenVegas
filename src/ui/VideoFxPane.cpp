@@ -179,6 +179,7 @@ void VideoFxPane::loadCatalog()
         p.grouping = e.grouping.isEmpty() ? QStringLiteral("VEGAS") : e.grouping;
         p.version = QStringLiteral("1.0");
         p.description = e.description.isEmpty() ? e.effectId : e.description;
+        p.previewImagePath = e.previewImagePath;
         p.path = e.binaryPath;
         // Every plug-in leads with "(Default)" in VEGAS, then its named presets; the
         // bundle's preset package only lists the named ones.
@@ -491,7 +492,20 @@ QIcon VideoFxPane::presetIcon(const Preset &p, double progress) const
     painter.setPen(QColor(0x33, 0x33, 0x33));
     painter.drawRect(0, 0, 99, 61);
     painter.end();
-    return QIcon(pm);
+
+    // Supply every mode explicitly. With only Normal set, Qt synthesises the Selected
+    // pixmap by tinting it with the highlight colour — which washed the whole preview
+    // blue as soon as the tile was selected. VEGAS keeps the image untouched and shows
+    // the selection with the frame and label alone.
+    QIcon icon;
+    icon.addPixmap(pm, QIcon::Normal, QIcon::Off);
+    icon.addPixmap(pm, QIcon::Normal, QIcon::On);
+    icon.addPixmap(pm, QIcon::Selected, QIcon::Off);
+    icon.addPixmap(pm, QIcon::Selected, QIcon::On);
+    icon.addPixmap(pm, QIcon::Active, QIcon::Off);
+    icon.addPixmap(pm, QIcon::Active, QIcon::On);
+    icon.addPixmap(pm, QIcon::Disabled, QIcon::Off);
+    return icon;
 }
 
 const QPixmap &VideoFxPane::presetSampleImage()
@@ -525,6 +539,26 @@ void VideoFxPane::renderPresetPreviews(int catalogIndex)
         return;
     }
     Plugin &plugin = m_plugins[catalogIndex];
+
+    // A bundle that ships its own illustration wins over rendering: that picture is what
+    // VEGAS shows, it is the same for every preset, and for the AI effects it depicts
+    // something a still frame could not produce anyway (crop guides, before/after split).
+    if (!plugin.previewImagePath.isEmpty()) {
+        const QPixmap shipped(plugin.previewImagePath);
+        if (!shipped.isNull()) {
+            const QSize target =
+                shipped.size().scaled(QSize(100, 62), Qt::KeepAspectRatioByExpanding);
+            const QPixmap scaled =
+                shipped.scaled(target, Qt::KeepAspectRatioByExpanding, Qt::SmoothTransformation);
+            for (Preset &preset : plugin.presets) {
+                preset.rendered = scaled;
+                preset.fromBundleImage = true;
+                preset.renderAttempted = true;
+            }
+            return;
+        }
+    }
+
     if (plugin.path.isEmpty()) {
         return; // nothing installed to render through
     }
@@ -579,6 +613,16 @@ void VideoFxPane::startHoverAnimation(int row)
 {
     if (m_hoverRow == row) {
         return;
+    }
+    // Nothing to wipe to when the tile is just the sample photo — the effect could not be
+    // previewed at all (360° Stabilization and friends). VEGAS leaves such a tile static on
+    // hover, and without this we spun a 25 fps timer repainting an unchanging image.
+    if (m_currentIndex >= 0 && m_currentIndex < m_plugins.size()) {
+        const QVector<Preset> &presets = m_plugins[m_currentIndex].presets;
+        if (row >= 0 && row < presets.size() && presets[row].rendered.isNull()) {
+            stopHoverAnimation();
+            return;
+        }
     }
     m_hoverRow = row;
     m_hoverProgress = 0.0;

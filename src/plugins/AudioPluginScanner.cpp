@@ -28,6 +28,33 @@ bool looksLikeSystemDll(const QString &baseName)
     return false;
 }
 
+/**
+ * Instrument or effect, judged only by the folder the installer chose.
+ *
+ * The real answer lives in the binary (VST2's synth flag, VST3's class category), and
+ * scanning deliberately never loads plug-ins. A directory literally named "VSTi" or
+ * "Instruments" is the installer stating its own intent, which is a strong enough signal
+ * to badge with; anything vaguer is left alone, because mislabelling an effect as an
+ * instrument is the more confusing of the two errors in an effects chooser.
+ */
+bool looksLikeInstrumentPath(const QString &absolutePath)
+{
+    const QStringList parts =
+        QDir::fromNativeSeparators(absolutePath).split(QLatin1Char('/'), Qt::SkipEmptyParts);
+    // Skip the file itself — only the folders it sits in count.
+    for (int i = 0; i + 1 < parts.size(); ++i) {
+        const QString part = parts.at(i).trimmed();
+        if (part.compare(QLatin1String("VSTi"), Qt::CaseInsensitive) == 0
+            || part.compare(QLatin1String("VST3i"), Qt::CaseInsensitive) == 0
+            || part.compare(QLatin1String("Instruments"), Qt::CaseInsensitive) == 0
+            || part.compare(QLatin1String("VST Instruments"), Qt::CaseInsensitive) == 0
+            || part.compare(QLatin1String("VST3 Instruments"), Qt::CaseInsensitive) == 0) {
+            return true;
+        }
+    }
+    return false;
+}
+
 } // namespace
 
 QStringList AudioPluginScanner::defaultVst1Roots()
@@ -175,6 +202,7 @@ void AudioPluginScanner::scanDllDir(const QString &root, PluginFormat format,
         d.path = abs;
         d.category = QStringLiteral("VST");
         d.automatable = true;
+        d.isInstrument = looksLikeInstrumentPath(abs);
         out->push_back(d);
         if (seenPaths) {
             seenPaths->insert(abs.toLower());
@@ -201,6 +229,7 @@ void AudioPluginScanner::scanVst3Dir(const QString &root, QVector<AudioPluginDes
         d.path = abs;
         d.category = QStringLiteral("VST");
         d.automatable = true;
+        d.isInstrument = looksLikeInstrumentPath(abs);
         out->push_back(d);
         if (seenPaths) {
             seenPaths->insert(abs.toLower());

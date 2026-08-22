@@ -1,9 +1,15 @@
-<!DOCTYPE RCC>
 <RCC version="1.0">
-  <qresource prefix="/">
-    <file>openvegas.qss</file>
-    <file>icons/logo.svg</file>
-    <file>icons/logo.png</file>
-    <file>images/eye_preview.png</file>
-  </qresource>
+    <qresource prefix="/">
+        <file>openvegas.qss</file>
+        <file>icons/logo.svg</file>
+        <file>icons/logo.png</file>
+        <file>images/eye_preview.png</file>
+        <file>icons/ico-sf.svg</file>
+        <file>icons/ico-vst2.svg</file>
+        <file>icons/ico-vst2i.svg</file>
+        <file>icons/ico-vst.svg</file>
+        <file>icons/ico-vst3.svg</file>
+        <file>icons/ico-vst3i.svg</file>
+        <file>icons/ico-vsti.svg</file>
+    </qresource>
 </RCC>

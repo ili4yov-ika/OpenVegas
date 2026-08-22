@@ -6,7 +6,11 @@
 Журнал: [`ISSUES_AND_PLANS.md`](ISSUES_AND_PLANS.md).
 
 **Статус:** этап 0 выполнен (2026-08-12) и **изменил постановку задачи** — см. «Результаты
-этапа 0». Этапы 1–4 не начаты.
+этапа 0». **Этап 2 закрыт** (2026-08-21): раскладка `OfxHWndInteractSuite` восстановлена
+декомпиляцией, перепроверена независимо и реализована в хосте — разбор в
+[`RE_OFX_HWND_INTERACT_REPORT.md`](RE_OFX_HWND_INTERACT_REPORT.md), раздел 4а.
+Остаются этап 1 (провести `CreateWindow` вживую) и этап 3 (встроить окно в Qt);
+этап 4 (overlay-ветка) — отдельно, там разбора ещё не делали.
 
 ---
 
@@ -178,6 +182,34 @@ out-параметры — только на второй итерации, по
 
 **DoD:** документированная раскладка `OfxHWndInteractSuiteV1` — имя, индекс, сигнатура на
 каждое поле — в этом файле.
+
+### Результаты статического реверса (2026-08-21, Ghidra + MCP)
+
+Вместо пробного suite раскладка снята статически из `Vfx1.ofx` (Ghidra 12.1.2 + GhidraMCP;
+настройка стека и полные выкладки — [`RE_OFX_HWND_INTERACT_REPORT.md`](RE_OFX_HWND_INTERACT_REPORT.md),
+дампы — `build/re-ghidra/extract/`). Ключевое:
+
+1. **Диспетчер найден:** `FUN_180487cc0` = `hwndInteractMainEntry`, внутри `FUN_180487a10`
+   разбирает действия по `kOfxPropActionType`. Аргументы действий подтверждены по коду:
+   `CreateWindow` читает `OfxHWndInteractPropParent` (pointer) и пишет в outArgs
+   `MinSize` int×2 + `PrefferedSize` int×2; `MoveWindow` читает `Location` int×4;
+   `ShowWindow`/`DisposeWindow` без аргументов.
+2. **Suite нужен плагину ровно в двух слотах:** +0x00
+   `getPropertySet(interactHandle, OfxPropertySetHandle*)` и +0x08 — функция одного
+   аргумента-handle, вызывается legacy-диалоговым кодом после `InvalidateRect`
+   (вероятно redraw/уведомление хоста; семантика не подтверждена). Остальные слоты
+   плагин не вызывает вовсе.
+3. **Vtable C++-объекта interact** (сторона плагина): +0x00 destroy, +0x08 createWindow(parent)
+   (реализация `FUN_1802bd7e0` — Win32-диалог из ресурса шаблона), +0x10 moveWindow(int[4]),
+   +0x18 disposeWindow, +0x20 showWindow. RTTI: `colorcurvesInteract`,
+   `OFX::HWNDInteractMainEntry<colorcurvesInteractDescriptor>` и др.
+4. Interact-handle property set: хост пишет `OfxPropEffectInstance`, плагин —
+   `OfxPropInstanceData` (его C++ объект).
+
+Следствие для этапа 2: пробный suite больше не нужен как основной инструмент — достаточно
+реализовать слоты +0x00 и +0x08 (остальные — заглушки с `kOfxStatFailed`) и идти сразу в
+этап 1: `CreateWindow(Parent)` → чтение MinSize/PrefferedSize → `ShowWindow`.
+Осталось подтвердить семантику слота +0x08 уже в рантайме.
 
 ### Этап 3 — встроить окно в Qt по-настоящему
 

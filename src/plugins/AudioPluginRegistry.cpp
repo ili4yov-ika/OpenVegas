@@ -94,6 +94,19 @@ QVector<AudioPluginDesc> AudioPluginRegistry::filtered(const QString &category,
 {
     QVector<AudioPluginDesc> out;
     for (const AudioPluginDesc &d : m_all) {
+        // "Automatable" cuts across the format folders — it is a property of the plug-in,
+        // not a place it was installed.
+        if (category == QLatin1String("Automatable")) {
+            if (!d.automatable) {
+                continue;
+            }
+            if (!text.isEmpty() && !d.name.contains(text, Qt::CaseInsensitive)
+                && !d.vendor.contains(text, Qt::CaseInsensitive)) {
+                continue;
+            }
+            out.push_back(d);
+            continue;
+        }
         if (!category.isEmpty() && category != QLatin1String("All")
             && d.category.compare(category, Qt::CaseInsensitive) != 0) {
             // "VST" folder also shows Vst1/Vst2/Vst3 regardless of category string

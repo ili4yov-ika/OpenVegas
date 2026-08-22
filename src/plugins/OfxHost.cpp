@@ -1444,6 +1444,20 @@ OfxStatus paramGetPropertySet(OfxParamHandle param, OfxPropertySetHandle *propHa
  */
 void writeParamValue(const ParamRec &p, va_list &ap)
 {
+    // Strings first: leaving this out-pointer untouched handed the plug-in whatever was on
+    // the stack. VEGAS AutoLooks then passed that garbage straight to its DIB loader and
+    // faulted inside Vfx1.ofx — a crash in our host's clothing.
+    if (p.type == kOfxParamTypeString || p.type == kOfxParamTypeCustom) {
+        if (char **out = va_arg(ap, char **)) {
+            static const char kEmpty[] = "";
+            const auto it = p.props.props.find(kOfxParamPropDefault);
+            *out = (it != p.props.props.end() && it->second.kind == PropValue::String
+                    && !it->second.strings.empty())
+                       ? const_cast<char *>(it->second.strings.front().c_str())
+                       : const_cast<char *>(kEmpty);
+        }
+        return;
+    }
     if (p.type == kOfxParamTypeDouble || p.type == kOfxParamTypeParametric) {
         if (double *out = va_arg(ap, double *)) {
             *out = p.value;
@@ -1894,17 +1908,29 @@ OfxImageEffectSuiteV1 g_imageEffectSuite = {
     imageMemoryUnlock};
 
 // ---------------------------------------------------------------------------
-// Native plug-in UI (OfxHWndInteractSuite) — reverse-engineering scaffolding.
+// Native plug-in UI: OfxHWndInteractSuite.
 //
-// VEGAS plug-ins draw their own panel through an HWND-based custom interact. The suite
-// they expect from the host has no published layout, so it is *measured* rather than
-// guessed: fetchSuite hands back an array of distinct stubs, and whichever slot the
-// plug-in calls identifies the field's offset in the real struct. Stage 1 of that probe
-// deliberately returns an error and touches no out-parameter, so the plug-in backs out
-// cleanly instead of reading whatever the stub failed to write.
+// VEGAS plug-ins that ship their own panel (only Color Curves does, in the whole
+// VEGAS Pro 22 catalogue) draw it into an HWND and talk back to the host through this
+// suite. Its layout is not published; the two slots below were recovered from
+// Vfx1.ofx by decompilation and are documented in
+// MARKDOWN/RE_OFX_HWND_INTERACT_REPORT.md:
 //
-// Off unless OPENVEGAS_OFX_INTERACT is set — it changes what the host claims to support,
-// which affects every plug-in, not just the one under investigation.
+//   +0x00  getPropertySet(handle, OfxPropertySetHandle *out)
+//          Proven, not inferred: the plug-in immediately wraps the returned handle in
+//          OFX::PropertySet and reads "OfxPropInstanceData" / "OfxPropEffectInstance"
+//          out of it. Called first on every action.
+//   +0x08  redraw(handle)                     — one argument
+//          Called straight after the plug-in InvalidateRect()s its own window, i.e.
+//          "my contents changed". Mirrors OfxInteractSuiteV1::interactRedraw.
+//
+// Beyond those two the plug-in indexes nothing, so a short struct is enough; extra
+// slots would simply never be reached.
+//
+// Off unless OPENVEGAS_OFX_INTERACT is set — it changes what the host claims to
+// support, which affects every plug-in, not just the one under investigation.
+// `OPENVEGAS_OFX_INTERACT=probe` swaps the real suite for the measuring harness that
+// found this layout, so the same trick can be repeated on another bundle.
 // See MARKDOWN/PLAN_OFX_HWND_INTERACT_RE.md.
 // ---------------------------------------------------------------------------
 
@@ -1914,6 +1940,51 @@ bool ofxInteractProbeEnabled()
                            && qEnvironmentVariable("OPENVEGAS_OFX_INTERACT") != QLatin1String("0");
     return on;
 }
+
+/** `OPENVEGAS_OFX_INTERACT=probe` — hand out the measuring stubs instead of the suite. */
+bool ofxInteractProbeOnly()
+{
+    static const bool probe =
+        qEnvironmentVariable("OPENVEGAS_OFX_INTERACT") == QLatin1String("probe");
+    return probe;
+}
+
+/**
+ * One interact instance. The plug-in reaches its own C++ object through
+ * kOfxPropInstanceData on this property set, and the host publishes the owning effect
+ * as kOfxPropEffectInstance.
+ */
+struct InteractRec {
+    PropSet props;
+    EffectRec *effect = nullptr;
+};
+
+OfxStatus hwndInteractGetPropertySet(void *interactHandle, OfxPropertySetHandle *out)
+{
+    auto *rec = reinterpret_cast<InteractRec *>(interactHandle);
+    if (!rec || !out) {
+        return kOfxStatErrBadHandle;
+    }
+    *out = reinterpret_cast<OfxPropertySetHandle>(&rec->props);
+    OPENVEGAS_OFX_TRACE(QStringLiteral("  hwndInteract getPropertySet"));
+    return kOfxStatOK;
+}
+
+OfxStatus hwndInteractRedraw(void *interactHandle)
+{
+    // The plug-in has already repainted its own HWND; nothing for a host that does not
+    // composite the panel itself to do beyond noting it.
+    OPENVEGAS_OFX_TRACE(QStringLiteral("  hwndInteract redraw"));
+    return interactHandle ? kOfxStatOK : kOfxStatErrBadHandle;
+}
+
+/** Recovered layout — see the note above. */
+struct OfxHWndInteractSuiteV1 {
+    OfxStatus (*interactGetPropertySet)(void *, OfxPropertySetHandle *);
+    OfxStatus (*interactRedraw)(void *);
+};
+
+OfxHWndInteractSuiteV1 g_hwndInteractSuite = {hwndInteractGetPropertySet, hwndInteractRedraw};
 
 /** Widest plausible suite; the real one is far smaller, spare slots simply never fire. */
 constexpr int kInteractProbeSlots = 32;
@@ -1959,6 +2030,15 @@ const void *resolveSuite(const char *suiteName, int suiteVersion)
     if (ofxInteractProbeEnabled()
         && (std::strcmp(suiteName, kOfxHWndInteractSuite) == 0
             || std::strcmp(suiteName, kOfxHWndOverlayInteractSuite) == 0)) {
+        if (ofxInteractProbeOnly()) {
+            return g_interactProbeSuite.data();
+        }
+        // The overlay variant's layout has not been recovered yet (no VEGAS bundle in
+        // Vfx1.ofx uses it; Titles & Text does, and is a separate binary), so only the
+        // panel suite is answered for real.
+        if (std::strcmp(suiteName, kOfxHWndInteractSuite) == 0) {
+            return &g_hwndInteractSuite;
+        }
         return g_interactProbeSuite.data();
     }
     if (std::strcmp(suiteName, kOfxPropertySuite) == 0 && suiteVersion == 1) {

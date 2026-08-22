@@ -474,3 +474,81 @@ TEST_CASE("Transitions and generators are not video effects", "[video-fx][vegas-
     REQUIRE(blur->categories == QStringList{QStringLiteral("Utility")});
     REQUIRE_FALSE(blur->description.isEmpty());
 }
+
+TEST_CASE("Category chips match VEGAS for Creative / Utility / Color effects",
+          "[video-fx][vegas-video]")
+{
+    // Reference: SAMPLES/screenshots/Video_FX/{AutoLooks,Bézier_Masking,Black_and_White}.png —
+    // VEGAS's own status line quotes the grouping each effect is filed under.
+    int argc = 1;
+    char arg0[] = "test";
+    char *argv[] = {arg0, nullptr};
+    ensureQtApp(argc, argv);
+    const QString root = samplesVegasRoot();
+    if (root.isEmpty() || !QDir(root).exists()) {
+        SKIP("SAMPLES/VEGAS-PRO-22-PROGRAM-FILES not available");
+    }
+    VegasVideoPluginCatalog::invalidateCache();
+    VegasVideoPluginCatalog::discover({root});
+
+    struct Expect {
+        const char *effectId;
+        const char *grouping;
+        const char *chip;
+    };
+    const Expect cases[] = {
+        {"com.vegascreativesoftware:autolooks", "Creative", "Creative"},
+        {"com.vegascreativesoftware:bzmasking", "Utility", "Utility"},
+        {"com.vegascreativesoftware:blackandwhite", "Color", "Color"},
+    };
+    for (const Expect &e : cases) {
+        const VegasVideoPluginEntry *entry =
+            VegasVideoPluginCatalog::findByEffectId(QString::fromLatin1(e.effectId));
+        INFO("effect " << e.effectId);
+        REQUIRE(entry != nullptr);
+        // Grouping is "VEGAS\<leaf>"; the separator is a backslash, kept out of the
+        // literal so the test source has no escape to get wrong.
+        REQUIRE(entry->grouping
+                == QStringLiteral("VEGAS") + QChar(u'\\') + QString::fromLatin1(e.grouping));
+        REQUIRE(entry->categories.contains(QString::fromLatin1(e.chip)));
+    }
+}
+
+TEST_CASE("Rendering every AutoLooks preset does not fault inside the plug-in",
+          "[video-fx][ofx][vegas-video]")
+{
+    // Regression: selecting AutoLooks in the Video FX pane took the whole app down. The
+    // pane renders a preview tile per preset, and the very first render segfaulted *inside*
+    // Vfx1.ofx (its DIB loader) because paramGetValue left the out-pointer of a string
+    // parameter untouched — the plug-in dereferenced whatever was on the stack. With 41
+    // presets this effect is also the broadest exercise of the render path we have.
+    int argc = 1;
+    char arg0[] = "test";
+    char *argv[] = {arg0, nullptr};
+    ensureQtApp(argc, argv);
+    const QString root = samplesVegasRoot();
+    if (root.isEmpty() || !QDir(root).exists()) {
+        SKIP("SAMPLES/VEGAS-PRO-22-PROGRAM-FILES not available");
+    }
+    VegasVideoPluginCatalog::invalidateCache();
+    VegasVideoPluginCatalog::discover({root});
+
+    const VegasVideoPluginEntry *e = VegasVideoPluginCatalog::findByEffectId(
+        QStringLiteral("com.vegascreativesoftware:autolooks"));
+    REQUIRE(e != nullptr);
+    REQUIRE(e->presets.size() > 10);
+
+    QImage base(100, 62, QImage::Format_ARGB32);
+    base.fill(qRgb(120, 90, 70));
+    for (const QString &name : e->presets) {
+        INFO("preset " << name.toStdString());
+        FxSlot slot = VegasVideoPluginCatalog::slotFromDisplayName(e->displayName);
+        const QVariantMap presetParams = e->presetParams.value(name);
+        if (!presetParams.isEmpty()) {
+            slot.state = packFxParams(presetParams);
+        }
+        QImage frame = base;
+        OfxHost::instance().processSlot(slot, &frame, 0.0);
+        REQUIRE(frame.size() == base.size());
+    }
+}

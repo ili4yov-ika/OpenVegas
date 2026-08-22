@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>560</width>
-    <height>420</height>
+    <width>1040</width>
+    <height>560</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -15,21 +15,25 @@
   </property>
   <layout class="QVBoxLayout" name="verticalLayout">
    <item>
-    <widget class="QLabel" name="sourceLabel">
-     <property name="text">
-      <string>Source: (none)</string>
-     </property>
-     <property name="wordWrap">
-      <bool>true</bool>
-     </property>
-    </widget>
-   </item>
-   <item>
-    <widget class="QLineEdit" name="filterEdit">
-     <property name="placeholderText">
-      <string>Filter plugins…</string>
-     </property>
-    </widget>
+    <layout class="QHBoxLayout" name="filterRow">
+     <item>
+      <widget class="QLineEdit" name="filterEdit">
+       <property name="placeholderText">
+        <string>Filter plugins…</string>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QToolButton" name="settingsButton">
+       <property name="toolTip">
+        <string>Plug-in search paths…</string>
+       </property>
+       <property name="autoRaise">
+        <bool>true</bool>
+       </property>
+      </widget>
+     </item>
+    </layout>
    </item>
    <item>
     <widget class="QListWidget" name="pluginList"/>

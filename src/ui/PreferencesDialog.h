@@ -17,6 +17,11 @@ public:
     QString ofxPath() const;
     QString vegasProPath() const;
 
+    /** Open on the tab holding the audio plug-in search paths (VST1 / VST2 / VST3). */
+    void showAudioPluginPaths();
+    /** Open on the tab holding the OFX / VEGAS video plug-in paths. */
+    void showVideoPluginPaths();
+
 protected:
     void accept() override;
 

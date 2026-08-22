@@ -1,6 +1,7 @@
 #include "audio/CompositePluginHost.h"
 
 #include "audio/BuiltinDsp.h"
+#include "audio/SoundForgeDsHost.h"
 #include "audio/Vst3Host.h"
 #include "plugins/AudioPluginScanner.h"
 
@@ -118,6 +119,8 @@ AudioPluginHost *CompositePluginHost::hostForFormat(PluginFormat format) const
     case PluginFormat::Vst1:
     case PluginFormat::Vst2:
         return &Vst2Host::instance();
+    case PluginFormat::DirectShow:
+        return &SoundForgeDsHost::instance();
     default:
         return &BuiltinPluginHost::instance();
     }
@@ -273,6 +276,27 @@ bool CompositePluginHost::ensureInstance(FxSlot *slot, QString *errorOut)
     if (slot->format == PluginFormat::Builtin || slot->format == PluginFormat::Ofx) {
         return true;
     }
+    if (slot->format == PluginFormat::DirectShow) {
+        // Identified by CLSID in the pluginId, not by a DLL path: the COM registration
+        // already points at the server, so there is nothing to search for on disk.
+        if (SoundForgeDsHost::instance().hasInstance(*slot)) {
+            return true;
+        }
+        AudioPluginDesc d;
+        d.id = slot->pluginId;
+        d.name = slot->displayName;
+        d.format = PluginFormat::DirectShow;
+        const bool ok = SoundForgeDsHost::instance().createInstance(d, slot);
+        if (ok) {
+            if (!slot->state.isEmpty()) {
+                SoundForgeDsHost::instance().setState(slot, slot->state);
+            }
+        } else if (errorOut) {
+            *errorOut = QObject::tr("\"%1\" is not a registered Shared Plug-In effect.")
+                            .arg(slot->displayName);
+        }
+        return ok;
+    }
 
     AudioPluginDesc d = resolveDesc(*slot);
     if (d.path.isEmpty() || !QFileInfo::exists(d.path)) {
@@ -317,6 +341,24 @@ void CompositePluginHost::ensureChainLoaded(QVector<FxSlot> *chain)
     }
     for (FxSlot &slot : *chain) {
         ensureInstance(&slot, nullptr);
+    }
+}
+
+void CompositePluginHost::captureChainState(QVector<FxSlot> *chain)
+{
+    if (!chain) {
+        return;
+    }
+    for (FxSlot &slot : *chain) {
+        if (slot.format == PluginFormat::Builtin) {
+            // Builtin slots (Titles & Text, Media Generator, …) own their blob outright —
+            // the UI writes it into the slot, so there is no instance to ask.
+            continue;
+        }
+        const QByteArray blob = getState(&slot);
+        if (!blob.isEmpty()) {
+            slot.state = blob;
+        }
     }
 }
 

@@ -1,5 +1,7 @@
 #pragma once
 
+#include "plugins/AudioPluginTypes.h"
+
 #include <QIcon>
 #include <QString>
 #include <QToolButton>
@@ -88,6 +90,19 @@ public:
     static QString svgAutomation();
     static QString svgLockFader();
     static QString svgMasterTitle();
+
+    /**
+     * Badge for a plug-in format, as used by the Plug-In Chooser and the FX chain.
+     *
+     * The artwork is colour-coded the way VEGAS codes it — VST pink, VST2 blue,
+     * VST3 green — with separate "i" variants for instruments, and the white SF badge
+     * for the VEGAS / Sound Forge effects (both the hosted Shared Plug-Ins and the
+     * builtin stand-ins for them). OFX has no badge and returns a null icon.
+     */
+    static QIcon pluginFormatIcon(PluginFormat format, bool isInstrument = false);
+
+    /** Short human label for a format ("VST3", "VEGAS Shared", …); empty when unknown. */
+    static QString pluginFormatLabel(PluginFormat format, bool isInstrument = false);
 };
 
 } // namespace openvegas

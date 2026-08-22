@@ -1,11 +1,15 @@
 #include "ui/PluginChooserDialog.h"
 #include "ui_PluginChooserDialog.h"
 #include "plugins/AudioPluginRegistry.h"
+#include "ui/IconFactory.h"
+#include "ui/PreferencesDialog.h"
 
 #include <QHBoxLayout>
-#include <QTreeWidget>
-#include <QSplitter>
+#include <QHeaderView>
 #include <QListWidget>
+#include <QSplitter>
+#include <QToolButton>
+#include <QTreeWidget>
 
 namespace openvegas {
 
@@ -29,10 +33,27 @@ PluginChooserDialog::PluginChooserDialog(PluginScanner *scanner, QWidget *parent
     ui->verticalLayout->removeWidget(ui->pluginList);
     ui->pluginList->setParent(split);
     ui->pluginList->setSelectionMode(QAbstractItemView::ExtendedSelection);
+    // VEGAS lays the chooser out in columns: entries fill downwards and wrap into the
+    // next column, so the window scrolls sideways instead of becoming one long strip.
+    ui->pluginList->setFlow(QListView::TopToBottom);
+    ui->pluginList->setWrapping(true);
+    ui->pluginList->setResizeMode(QListView::Adjust);
+    ui->pluginList->setUniformItemSizes(true);
+    // 18px rather than the usual 16: the badges carry lettering, and below this it
+    // collapses. Colour is what actually identifies the format at list size — the dark-ink
+    // badges (VST2 especially) have too little contrast against #1e1e1e for their glyphs
+    // to read — so the exact format is also spelled out in each row's tooltip.
+    ui->pluginList->setIconSize(QSize(18, 18));
+    ui->pluginList->setGridSize(QSize(216, 22));
+    ui->pluginList->setHorizontalScrollMode(QAbstractItemView::ScrollPerPixel);
+    ui->pluginList->setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
     split->addWidget(tree);
     split->addWidget(ui->pluginList);
     split->setStretchFactor(1, 1);
-    ui->verticalLayout->insertWidget(2, split);
+    ui->verticalLayout->insertWidget(1, split);
+
+    ui->settingsButton->setIcon(IconFactory::iconFromSvgBody(IconFactory::svgGear()));
+    connect(ui->settingsButton, &QToolButton::clicked, this, [this]() { openPluginSettings(); });
 
     connect(ui->filterEdit, &QLineEdit::textChanged, this, [this](const QString &) { applyFilter(); });
     connect(tree, &QTreeWidget::currentItemChanged, this, [this](QTreeWidgetItem *, QTreeWidgetItem *) {
@@ -69,21 +90,25 @@ void PluginChooserDialog::rebuildTree()
     }
     tree->clear();
     if (m_audioMode) {
-        auto *vst = new QTreeWidgetItem(tree, {tr("VST")});
-        vst->setData(0, Qt::UserRole, QStringLiteral("All"));
+        // Folder set as VEGAS shows it. "FX Packages" is deliberately absent: those are
+        // saved plug-in chains, which OpenVegas has none of, and an always-empty folder
+        // reads as a broken feature rather than an empty one.
+        auto *root = new QTreeWidgetItem(tree, {tr("Audio")});
+        root->setData(0, Qt::UserRole, QStringLiteral("All"));
         auto add = [&](QTreeWidgetItem *parent, const QString &label, const QString &cat) {
             auto *it = new QTreeWidgetItem(parent, {label});
             it->setData(0, Qt::UserRole, cat);
             return it;
         };
-        add(vst, tr("All"), QStringLiteral("All"));
-        add(vst, tr("VEGAS"), QStringLiteral("VEGAS"));
-        add(vst, tr("Third Party"), QStringLiteral("Third Party"));
-        add(vst, tr("Track Optimized FX"), QStringLiteral("Track Optimized"));
-        add(vst, tr("VST"), QStringLiteral("VST"));
-        add(vst, tr("5.1 FX"), QStringLiteral("5.1 FX"));
+        add(root, tr("All"), QStringLiteral("All"));
+        add(root, tr("VEGAS"), QStringLiteral("VEGAS"));
+        add(root, tr("Third Party"), QStringLiteral("Third Party"));
+        add(root, tr("Automatable"), QStringLiteral("Automatable"));
+        add(root, tr("Track Optimized FX"), QStringLiteral("Track Optimized"));
+        add(root, tr("VST"), QStringLiteral("VST"));
+        add(root, tr("5.1 FX"), QStringLiteral("5.1 FX"));
         tree->expandAll();
-        tree->setCurrentItem(vst->child(0));
+        tree->setCurrentItem(root->child(0));
         m_currentCategory = QStringLiteral("All");
     } else {
         auto *ofx = new QTreeWidgetItem(tree, {tr("OFX")});
@@ -113,15 +138,41 @@ void PluginChooserDialog::refresh()
     if (m_audioMode) {
         AudioPluginRegistry::instance().refresh();
         m_audioPlugins = AudioPluginRegistry::instance().all();
-        ui->sourceLabel->setText(
-            tr("Source: %1").arg(AudioPluginRegistry::instance().sourceSummary()));
+        setSourceHint(AudioPluginRegistry::instance().sourceSummary());
     } else if (m_scanner) {
         m_ofxPlugins = m_scanner->scanOfx();
-        ui->sourceLabel->setText(tr("Source: %1").arg(m_scanner->resolvedSource()));
+        setSourceHint(m_scanner->resolvedSource());
     } else {
-        ui->sourceLabel->setText(tr("Source: (none)"));
+        setSourceHint(QString());
     }
     applyFilter();
+}
+
+void PluginChooserDialog::setSourceHint(const QString &summary)
+{
+    // The scanned folders used to sit above the list as a wrapping paragraph that pushed
+    // everything down. They belong with the button that edits them, not in the way.
+    const QString what = summary.trimmed();
+    const QString title = m_audioMode ? tr("Audio plug-in search paths…")
+                                      : tr("Video plug-in search paths…");
+    ui->settingsButton->setToolTip(what.isEmpty() ? title
+                                                  : tr("%1\n\nScanned: %2").arg(title, what));
+}
+
+void PluginChooserDialog::openPluginSettings()
+{
+    PreferencesDialog dlg(this);
+    // Same button, different settings depending on what this chooser is listing —
+    // sending the video chooser to the VST paths would just be misleading.
+    if (m_audioMode) {
+        dlg.showAudioPluginPaths();
+    } else {
+        dlg.showVideoPluginPaths();
+    }
+    if (dlg.exec() == QDialog::Accepted) {
+        // Paths may have changed under us — rescan so the list matches the new settings.
+        refresh();
+    }
 }
 
 void PluginChooserDialog::applyFilter()
@@ -132,22 +183,22 @@ void PluginChooserDialog::applyFilter()
         const QVector<AudioPluginDesc> list =
             AudioPluginRegistry::instance().filtered(m_currentCategory, text);
         for (const AudioPluginDesc &d : list) {
-            QString label = d.name;
-            if (d.format == PluginFormat::Vst3) {
-                label += QStringLiteral("  [VST3]");
-            } else if (d.format == PluginFormat::Vst2) {
-                label += QStringLiteral("  [VST2]");
-            } else if (d.format == PluginFormat::Vst1) {
-                label += QStringLiteral("  [VST1]");
-            }
-            auto *item = new QListWidgetItem(label, ui->pluginList);
-            item->setToolTip(d.path.isEmpty() ? d.id : d.path);
+            // The format used to be spelled out after the name; the badge carries it now,
+            // which is what keeps the columns narrow enough to fit several across.
+            auto *item = new QListWidgetItem(d.name, ui->pluginList);
+            item->setIcon(IconFactory::pluginFormatIcon(d.format, d.isInstrument));
+            const QString kind = IconFactory::pluginFormatLabel(d.format, d.isInstrument);
+            const QString where = d.path.isEmpty() ? d.id : d.path;
+            item->setToolTip(kind.isEmpty()
+                                 ? where
+                                 : QStringLiteral("%1 — %2\n%3").arg(d.name, kind, where));
             item->setData(Qt::UserRole, d.id);
             item->setData(Qt::UserRole + 1, d.name);
             item->setData(Qt::UserRole + 2, int(d.format));
             item->setData(Qt::UserRole + 3, d.path);
             item->setData(Qt::UserRole + 4, d.category);
             item->setData(Qt::UserRole + 5, d.vendor);
+            item->setData(Qt::UserRole + 6, d.isInstrument);
         }
     } else {
         for (const PluginInfo &info : m_ofxPlugins) {
@@ -172,6 +223,7 @@ QVector<AudioPluginDesc> PluginChooserDialog::selectedAudioPlugins() const
         d.path = item->data(Qt::UserRole + 3).toString();
         d.category = item->data(Qt::UserRole + 4).toString();
         d.vendor = item->data(Qt::UserRole + 5).toString();
+        d.isInstrument = item->data(Qt::UserRole + 6).toBool();
         out.push_back(d);
     }
     return out;

@@ -169,6 +169,13 @@ private:
     void setupStatusBar();
     void restoreUiSettings();
     void saveUiSettings();
+    /**
+     * Refresh every FX slot's parameter blob from its live plug-in before the project is
+     * written. Native plug-in windows (VST3 IPlugView, the Shared Plug-Ins' own dialogs)
+     * apply edits inside the plug-in object, and those windows are non-modal — so without
+     * this the user can change a setting, hit Save, and get the old values back on reload.
+     */
+    void captureFxStateForSave();
     void refreshStatusBar();
     void ensureAudioFxDialog();
     void addToolbarSep(QLayout *layout);

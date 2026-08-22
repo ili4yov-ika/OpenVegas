@@ -1655,12 +1655,12 @@ void VideoEventFxDialogExact::buildUi()
     sel->setObjectName(QStringLiteral("pcPresetSelect"));
     sel->addItem(tr("(Default)"));
     sel->setFixedHeight(20);
-    sel->setMinimumWidth(160);
+    sel->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
     m_presetCombo = sel;
-    presetLay->addWidget(sel);
+    presetLay->addWidget(sel, 1);
     presetLay->addWidget(makeIcoBtn(preset, QStringLiteral("💾"), tr("Save Preset")));
     presetLay->addWidget(makeIcoBtn(preset, QStringLiteral("✕"), tr("Delete Preset")));
-    presetLay->addStretch(1);
+
     root->addWidget(preset);
 
     m_stack = new QStackedWidget(this);
@@ -2327,7 +2327,13 @@ QWidget *VideoEventFxDialogExact::buildPluginKeyframePanel()
     for (auto *b : {btnSync, btnFirst, btnPrev, btnNext, btnLast, btnAdd, btnDel}) {
         tbLay->addWidget(b);
     }
+    // Vegas order: navigation, then the timecode, then the Lanes/Curves pair at the right.
+    // Ours had the mode buttons wedged between the navigation and the timecode.
     tbLay->addSpacing(8);
+    m_pluginKfTc = new QLabel(QStringLiteral("00:00:00,00"), tb);
+    m_pluginKfTc->setObjectName(QStringLiteral("pcKfTc"));
+    tbLay->addWidget(m_pluginKfTc);
+    tbLay->addStretch(1);
     m_btnPluginLanes = makeIcoBtn(tb, QStringLiteral("Lanes"), tr("Lanes"));
     m_btnPluginCurves = makeIcoBtn(tb, QStringLiteral("Curves"), tr("Curves"));
     m_btnPluginLanes->setCheckable(true);
@@ -2341,10 +2347,6 @@ QWidget *VideoEventFxDialogExact::buildPluginKeyframePanel()
     auto *btnZoomOut = makeIcoBtn(tb, QStringLiteral("−"), tr("Zoom Out"));
     tbLay->addWidget(btnZoomIn);
     tbLay->addWidget(btnZoomOut);
-    tbLay->addStretch(1);
-    m_pluginKfTc = new QLabel(QStringLiteral("00:00:00,00"), tb);
-    m_pluginKfTc->setObjectName(QStringLiteral("pcKfTc"));
-    tbLay->addWidget(m_pluginKfTc);
     root->addWidget(tb);
 
     connect(btnFirst, &QPushButton::clicked, this,
@@ -2795,7 +2797,9 @@ void VideoEventFxDialogExact::rebuildPluginKeyframeLanes()
         labHost->setFixedWidth(140);
         auto *labLay = new QHBoxLayout(labHost);
         labLay->setContentsMargins(paramRow ? 18 : 8, 0, 8, 0);
-        auto *name = new QLabel(label, labHost);
+        // Vegas marks a plug-in row with a disclosure triangle and indents its parameter
+        // rows underneath; without it the two kinds of row were indistinguishable.
+        auto *name = new QLabel(paramRow ? label : QStringLiteral("▼ ") + label, labHost);
         name->setObjectName(QStringLiteral("pcKfLaneName"));
         labLay->addWidget(name, 1);
         rowLay->addWidget(labHost);

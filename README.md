@@ -27,6 +27,7 @@
 | Audio engine + mixer + Builtin DSP (Delay/Reverb, …) | Done |
 | VST1 / VST2 process + editor | Done |
 | VST3 process + `IPlugView` editor | Done (нужен SDK) |
+| Аудиоплагины Sound Forge / VEGAS Shared — хостинг + родное окно | Done (Windows)⁴ |
 | OFX host — загрузка и рендер реальных `.ofx` (включая бандлы VEGAS) | Done (хост) |
 | **Видеоплагины из Vegas Pro — пока НЕ работают**³ | Не работает |
 | OFX кроссплатформенно — стандартные корни (`OFX_PLUGIN_PATH`, `/usr/OFX/Plugins`, `/Library/OFX/Plugins`) + ABI-гейт | Done |
@@ -44,6 +45,8 @@
 ¹ Переходы не переносит **ни один** формат обмена — это предел самих форматов, а не наш дефект: Vegas в своих же экспортах вырождает 3D Blinds в `Cross Dissolve`. Что именно выживает в каждом формате — таблица в [`MARKDOWN/ISSUES_AND_PLANS.md`](MARKDOWN/ISSUES_AND_PLANS.md) (раздел «Render As / interchange»).
 ² Остальные ~24 группы каталога (3D Cascade, Barn Door, Iris, …) — намеренно нерабочие плейсхолдеры: тайлы не перетаскиваются, чтобы нельзя было поставить переход, который ничего не делает.
 ³ **Видеоплагины из Vegas Pro сейчас не открываются и не рендерят.** Цепочка Event FX из `.veg` восстанавливается, плагины видны в каталоге и в окне Event FX, но картинки не дают. Сам хост исправен — настоящий `Vfx1.ofx` проходит `Load → Describe → DescribeInContext → CreateInstance → Render` со статусом 0; не работает **перенос значений из проекта**: OFX-блоб параметров в `.veg` не разобран, слот приезжает пустым, и плагин честно рендерит с радиусом `0`.
+
+⁴ Эффекты Sound Forge / VEGAS Shared (Reverb, Chorus, Track EQ, Wave Hammer Surround, …) оказались обычными **DirectShow transform filter**, поэтому хостятся документированными интерфейсами, без реверса. Звук идёт 32-битным float, окно параметров — родное, встроенное в диалог Event FX. Только Windows: это COM in-process сервера; на других системах остаются builtin-подстановки. Настройки, сделанные в родном окне, сохраняются в проект и восстанавливаются при открытии. Параметры правятся **только** в этом окне — поканальной автоматизации и чтения настроек из `.veg` нет. Разбор: [`MARKDOWN/VEGAS_SHARED_PLUGINS_REVERSE_FULL.md`](MARKDOWN/VEGAS_SHARED_PLUGINS_REVERSE_FULL.md) §6б.
 
 Собственные подмены (box blur вместо Chroma Blur, sepia-матрица вместо Sepia, gain на любой упавший рендер) **намеренно отключены** — `OPENVEGAS_EMULATED_VIDEO_FX = 0` в [`src/plugins/OfxHost.h`](src/plugins/OfxHost.h). Раньше они создавали впечатление, что приложение крутит эффекты VEGAS, тогда как оно крутило их приближения. Теперь эффект, который нельзя отрендерить по-настоящему, не рендерится вовсе. **Писать новые такие реализации не следует** — путь вперёд один: разобрать настоящие параметры. Замеры и план — [`MARKDOWN/PLAN_OFX_VIDEO_PLUGINS.md`](MARKDOWN/PLAN_OFX_VIDEO_PLUGINS.md).
 

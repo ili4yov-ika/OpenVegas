@@ -96,6 +96,7 @@ endif()
     src/plugins/OfxPluginPaths.cpp
     src/plugins/BuiltinAudioCatalog.cpp
     src/plugins/VegasSharedAudioCatalog.cpp
+    src/plugins/SoundForgeHost.cpp
     src/plugins/VegasVideoPluginCatalog.cpp
     src/plugins/AudioPluginScanner.cpp
     src/plugins/AudioPluginRegistry.cpp
@@ -107,6 +108,7 @@ endif()
     src/audio/AudioEngine.cpp
     src/audio/CompositePluginHost.cpp
     src/audio/Vst3Host.cpp
+    src/audio/SoundForgeDsHost.cpp
     src/audio/miniaudio_impl.cpp
     src/video/VideoFrameCache.cpp
     src/video/VideoKeyframeEval.cpp
@@ -192,6 +194,7 @@ set(OPENVGAS_HEADERS
     src/plugins/AudioPluginTypes.h
     src/plugins/BuiltinAudioCatalog.h
     src/plugins/VegasSharedAudioCatalog.h
+    src/plugins/SoundForgeHost.h
     src/plugins/VegasVideoPluginCatalog.h
     src/plugins/AudioPluginScanner.h
     src/plugins/AudioPluginRegistry.h
@@ -204,6 +207,7 @@ set(OPENVGAS_HEADERS
     src/audio/AudioEngine.h
     src/audio/CompositePluginHost.h
     src/audio/Vst3Host.h
+    src/audio/SoundForgeDsHost.h
     src/video/VideoFrameCache.h
     src/video/VideoKeyframeEval.h
     src/video/PanCropApply.h
@@ -284,7 +288,9 @@ else()
 endif()
 
 if(WIN32)
-    target_link_libraries(OpenVegas PRIVATE ole32 shell32 uuid user32 gdi32 winmm)
+    # oleaut32/strmiids: DirectShow hosting of the Sound Forge Shared Plug-Ins
+    # (OleCreatePropertyFrame for the native dialogs comes from oleaut32).
+    target_link_libraries(OpenVegas PRIVATE ole32 oleaut32 shell32 uuid strmiids user32 gdi32 winmm)
     # Native EXE icon (Explorer / taskbar). Path relative to this .rc file.
     target_sources(OpenVegas PRIVATE resources/openvegas.rc)
 endif()
@@ -386,9 +392,12 @@ if(OPENVGAS_BUILD_TESTS)
         tests/test_automation_lane.cpp
         tests/test_builtin_dsp.cpp
         tests/test_vegas_shared_catalog.cpp
+        tests/test_sound_forge_ds_host.cpp
         src/audio/FadeCurves.cpp
         src/audio/BuiltinDsp.cpp
+        src/audio/SoundForgeDsHost.cpp
         src/plugins/VegasSharedAudioCatalog.cpp
+        src/plugins/SoundForgeHost.cpp
         src/plugins/OfxHost.cpp
         src/plugins/OfxTrace.cpp
         src/plugins/OfxPluginPaths.cpp
@@ -404,7 +413,12 @@ if(OPENVGAS_BUILD_TESTS)
         Catch2::Catch2WithMain
         Qt6::Core
         Qt6::Gui
+        Qt6::Widgets
     )
+    if(WIN32)
+        target_link_libraries(openvegas_audio_tests PRIVATE
+            ole32 oleaut32 uuid strmiids)
+    endif()
     if(MSVC)
         target_compile_options(openvegas_audio_tests PRIVATE /W4 /permissive-)
     endif()
@@ -470,6 +484,7 @@ if(OPENVGAS_BUILD_TESTS)
         tests/test_plugin_scanner_paths.cpp
         tests/test_ofx_host.cpp
         tests/test_ofx_plugin_paths.cpp
+        tests/test_sound_forge_host.cpp
         tests/test_vst3_host.cpp
         tests/test_project_interchange.cpp
         tests/test_plugin_state.cpp
@@ -493,6 +508,7 @@ if(OPENVGAS_BUILD_TESTS)
         src/model/ProjectModel.cpp
         src/plugins/BuiltinAudioCatalog.cpp
         src/plugins/VegasSharedAudioCatalog.cpp
+        src/plugins/SoundForgeHost.cpp
         src/plugins/VegasVideoPluginCatalog.cpp
         src/plugins/PluginScanner.cpp
         src/plugins/OfxHost.cpp
@@ -500,6 +516,7 @@ if(OPENVGAS_BUILD_TESTS)
         src/plugins/OfxPluginPaths.cpp
         src/plugins/AudioPluginScanner.cpp
         src/audio/Vst3Host.cpp
+        src/audio/SoundForgeDsHost.cpp
         src/audio/BuiltinDsp.cpp
         src/audio/FadeCurves.cpp
         src/video/VideoKeyframeEval.cpp
@@ -532,7 +549,8 @@ if(OPENVGAS_BUILD_TESTS)
         target_compile_options(openvegas_media_tests PRIVATE /W4 /permissive-)
     endif()
     if(WIN32)
-        target_link_libraries(openvegas_media_tests PRIVATE ole32 shell32 uuid user32 gdi32)
+        target_link_libraries(openvegas_media_tests PRIVATE
+            ole32 oleaut32 shell32 uuid strmiids user32 gdi32)
     endif()
     add_test(NAME openvegas_media_tests COMMAND openvegas_media_tests)
 

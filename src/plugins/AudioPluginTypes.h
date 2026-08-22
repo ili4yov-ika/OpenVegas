@@ -16,7 +16,16 @@ enum class PluginFormat {
     Vst1,
     Vst2,
     Vst3,
-    Ofx
+    Ofx,
+    /**
+     * VEGAS / Sound Forge Shared Plug-In. Each effect is a COM in-process class
+     * registered DirectShow-style (Merit + Pins), hosted through the documented
+     * DirectShow transform interfaces — see SoundForgeDsHost.
+     *
+     * Appended last on purpose: ProjectInterchange writes this enum as a plain int,
+     * so existing .ovproj files keep their meaning only while earlier values stay put.
+     */
+    DirectShow
 };
 
 /** One plug-in instance in an event or track FX chain. */
@@ -319,6 +328,16 @@ struct AudioPluginDesc {
     QString category; // VEGAS | Third Party | Track Optimized | 5.1 FX | VST | …
     bool automatable = true;
     bool trackOptimized = false;
+    /**
+     * Instrument (VSTi) rather than an effect — drives the chooser's icon.
+     *
+     * The scanner never loads plug-in binaries, so the synth flag itself is out of
+     * reach; this is set only when the *installer's own folder layout* says so
+     * (a directory literally named "VSTi" / "Instruments" / …). Anything unclear
+     * stays false, because in an effects chooser calling an effect an instrument is
+     * the more misleading of the two mistakes.
+     */
+    bool isInstrument = false;
 };
 
 inline FxSlot fxSlotFromDesc(const AudioPluginDesc &d)

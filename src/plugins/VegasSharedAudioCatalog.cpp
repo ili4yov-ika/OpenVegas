@@ -1,5 +1,7 @@
 #include "plugins/VegasSharedAudioCatalog.h"
 
+#include "plugins/SoundForgeHost.h"
+
 #include <QDir>
 #include <QFileInfo>
 #include <QHash>
@@ -53,7 +55,7 @@ QVector<VegasSharedFxEntry> VegasSharedAudioCatalog::catalog()
 
     // Wave Hammer
     out.push_back(
-        entry("mchammer_x64.dll", "Wave Hammer 5.1", "Wave Hammer", "Wave Hammer", S::CatalogOnly));
+        entry("mchammer_x64.dll", "Wave Hammer 5.1", "Wave Hammer Surround", "Wave Hammer", S::CatalogOnly));
 
     // XFX 1 — Chorus / Reverb / Pitch (RTTI CSfChorus / CSfReverb / CSfPitchs)
     out.push_back(entry("sfppack1_x64.dll", "XFX 1 Plug-In Pack", "Chorus", "Chorus", S::Implemented));
@@ -71,7 +73,7 @@ QVector<VegasSharedFxEntry> VegasSharedAudioCatalog::catalog()
 
     // XFX 3 — Flange / Distortion
     out.push_back(
-        entry("sfppack3_x64.dll", "XFX 3 Plug-In Pack", "Flange", "Flange", S::CatalogOnly));
+        entry("sfppack3_x64.dll", "XFX 3 Plug-In Pack", "Flange/Wah-wah", "Flange", S::CatalogOnly));
     out.push_back(entry("sfppack3_x64.dll", "XFX 3 Plug-In Pack", "Distortion", "Distortion",
                         S::CatalogOnly));
 
@@ -81,7 +83,7 @@ QVector<VegasSharedFxEntry> VegasSharedAudioCatalog::catalog()
     out.push_back(entry("sfxpfx1_x64.dll", "ExpressFX 1", "ExpressFX Distortion",
                         "ExpressFX Distortion", S::CatalogOnly));
     out.push_back(
-        entry("sfxpfx1_x64.dll", "ExpressFX 1", "ExpressFX Flange", "Flange", S::CatalogOnly));
+        entry("sfxpfx1_x64.dll", "ExpressFX 1", "ExpressFX Flange/Wah-Wah", "Flange", S::CatalogOnly));
     out.push_back(
         entry("sfxpfx1_x64.dll", "ExpressFX 1", "ExpressFX Reverb", "Reverb", S::Implemented));
 
@@ -89,7 +91,7 @@ QVector<VegasSharedFxEntry> VegasSharedAudioCatalog::catalog()
                         S::Implemented));
     out.push_back(
         entry("sfxpfx2_x64.dll", "ExpressFX 2", "Simple Delay", "Simple Delay", S::Implemented));
-    out.push_back(entry("sfxpfx2_x64.dll", "ExpressFX 2", "ExpressFX EQ", "ExpressFX EQ",
+    out.push_back(entry("sfxpfx2_x64.dll", "ExpressFX 2", "ExpressFX Equalization", "ExpressFX Equalization",
                         S::CatalogOnly));
 
     out.push_back(entry("sfxpfx3_x64.dll", "ExpressFX 3", "Amplitude Modulation",
@@ -102,11 +104,34 @@ QVector<VegasSharedFxEntry> VegasSharedAudioCatalog::catalog()
     out.push_back(entry("sffrgpnv_x64.dll", "Sound Forge Pro Pan and Volume 1", "Volume", "Volume",
                         S::CatalogOnly));
     out.push_back(entry("sfresfilter_x64.dll", "Resonant Filter", "Resonant Filter", {}, S::Unmapped));
-    out.push_back(entry("xpvinyl_x64.dll", "ExpressFX Audio Restoration", "Vinyl Restoration", {},
+    out.push_back(entry("xpvinyl_x64.dll", "ExpressFX Audio Restoration", "ExpressFX Audio Restoration", {},
                         S::Unmapped));
 
     // Shared kernel present on VEGAS install only (not an FX by itself)
     out.push_back(entry("apluginsk.dll", "VEGAS Pro", "apluginsk (runtime)", {}, S::Unmapped));
+
+    // Anything the packs actually register but the curated list above does not name yet.
+    // The hand-written entries drifted from reality (Wave Hammer is registered as "Wave
+    // Hammer Surround", Flange as "Flange/Wah-wah") and were missing a dozen effects
+    // outright, so the inventory is completed from the registration itself rather than
+    // maintained by hand. These arrive Unmapped: discovering an effect says nothing about
+    // being able to run it.
+    QSet<QString> known;
+    for (const VegasSharedFxEntry &e : out) {
+        known.insert(e.vegasFxName.toLower());
+    }
+    for (const SoundForgeClass &c : SoundForgeHost::discoverEffects()) {
+        if (known.contains(c.name.toLower())) {
+            continue;
+        }
+        known.insert(c.name.toLower());
+        VegasSharedFxEntry e;
+        e.dllFileName = c.dllFileName;
+        e.packProductName = QStringLiteral("Shared Plug-Ins");
+        e.vegasFxName = c.name;
+        e.status = S::Unmapped;
+        out.push_back(std::move(e));
+    }
 
     return out;
 }
@@ -217,8 +242,26 @@ QVector<AudioPluginDesc> VegasSharedAudioCatalog::chooserDescriptors(bool onlyIf
 
     QVector<AudioPluginDesc> out;
     QSet<QString> seenIds;
+
+    // Registered effects come first and are the real thing: hosted through DirectShow,
+    // with the plug-in's own DSP and its own dialog. The builtin substitutes below stay
+    // for machines where VEGAS is not installed, but a name covered by a real plug-in is
+    // not offered twice — two identical entries would be indistinguishable in the chooser.
+    QSet<QString> hostedNames;
+    for (const AudioPluginDesc &d : SoundForgeHost::pluginDescriptors()) {
+        if (seenIds.contains(d.id)) {
+            continue;
+        }
+        seenIds.insert(d.id);
+        hostedNames.insert(normalizeVegasPluginKey(d.name));
+        out.push_back(d);
+    }
+
     for (const VegasSharedFxEntry &e : catalog()) {
         if (e.status == VegasSharedReplacementStatus::Unmapped || e.openvegasBuiltinName.isEmpty()) {
+            continue;
+        }
+        if (hostedNames.contains(normalizeVegasPluginKey(e.vegasFxName))) {
             continue;
         }
         if (onlyIfInstalled && !installedDll.contains(e.dllFileName.toLower())) {

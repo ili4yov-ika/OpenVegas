@@ -1,5 +1,7 @@
 #include "ui/IconFactory.h"
 
+#include <QHash>
+
 #include <QPainter>
 #include <QPixmap>
 #include <QSvgRenderer>
@@ -491,6 +493,67 @@ QString IconFactory::svgMasterTitle()
     return QStringLiteral(
         "<rect x=\"2\" y=\"2\" width=\"12\" height=\"12\" fill=\"none\" stroke=\"currentColor\" "
         "stroke-width=\"1.2\"/><rect x=\"5.5\" y=\"5.5\" width=\"5\" height=\"5\" fill=\"currentColor\"/>");
+}
+
+QIcon IconFactory::pluginFormatIcon(PluginFormat format, bool isInstrument)
+{
+    // Cached: the chooser builds hundreds of rows and every one of them asks for a badge.
+    static QHash<int, QIcon> cache;
+    const int key = int(format) * 2 + (isInstrument ? 1 : 0);
+    auto hit = cache.constFind(key);
+    if (hit != cache.constEnd()) {
+        return hit.value();
+    }
+
+    QString file;
+    switch (format) {
+    case PluginFormat::Vst1:
+        file = isInstrument ? QStringLiteral(":/icons/ico-vsti.svg")
+                            : QStringLiteral(":/icons/ico-vst.svg");
+        break;
+    case PluginFormat::Vst2:
+        file = isInstrument ? QStringLiteral(":/icons/ico-vst2i.svg")
+                            : QStringLiteral(":/icons/ico-vst2.svg");
+        break;
+    case PluginFormat::Vst3:
+        file = isInstrument ? QStringLiteral(":/icons/ico-vst3i.svg")
+                            : QStringLiteral(":/icons/ico-vst3.svg");
+        break;
+    case PluginFormat::Builtin:
+    case PluginFormat::DirectShow:
+        // Both are VEGAS/Sound Forge-family effects: the hosted Shared Plug-In and the
+        // builtin that stands in for it wear the same badge, as they do in VEGAS.
+        file = QStringLiteral(":/icons/ico-sf.svg");
+        break;
+    case PluginFormat::Ofx:
+        break;
+    }
+
+    QIcon icon;
+    if (!file.isEmpty()) {
+        icon = QIcon(file);
+    }
+    cache.insert(key, icon);
+    return icon;
+}
+
+QString IconFactory::pluginFormatLabel(PluginFormat format, bool isInstrument)
+{
+    switch (format) {
+    case PluginFormat::Vst1:
+        return isInstrument ? QStringLiteral("VSTi") : QStringLiteral("VST");
+    case PluginFormat::Vst2:
+        return isInstrument ? QStringLiteral("VST2i") : QStringLiteral("VST2");
+    case PluginFormat::Vst3:
+        return isInstrument ? QStringLiteral("VST3i") : QStringLiteral("VST3");
+    case PluginFormat::DirectShow:
+        return QStringLiteral("VEGAS Shared");
+    case PluginFormat::Ofx:
+        return QStringLiteral("OFX");
+    case PluginFormat::Builtin:
+        break;
+    }
+    return {};
 }
 
 } // namespace openvegas

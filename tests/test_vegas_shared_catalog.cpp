@@ -94,14 +94,25 @@ TEST_CASE("Vegas Shared discoverInstalled optional", "[vegas-shared][discovery]"
     CHECK(hasTrackFx);
 }
 
-TEST_CASE("Vegas Shared chooserDescriptors unique builtin ids", "[vegas-shared]")
+TEST_CASE("Vegas Shared chooserDescriptors unique ids", "[vegas-shared]")
 {
     const auto descs = VegasSharedAudioCatalog::chooserDescriptors(false);
     REQUIRE_FALSE(descs.isEmpty());
     QSet<QString> ids;
     for (const AudioPluginDesc &d : descs) {
+        INFO(d.name.toStdString() << " / " << d.id.toStdString());
         REQUIRE(d.category == QLatin1String("VEGAS Shared"));
-        REQUIRE(d.format == PluginFormat::Builtin);
+        // Two kinds live here now: DirectShow entries are the registered Shared
+        // Plug-Ins hosted for real, Builtin entries are OpenVegas substitutes for the
+        // names no registered plug-in covers (or for machines without VEGAS at all).
+        REQUIRE((d.format == PluginFormat::Builtin || d.format == PluginFormat::DirectShow));
+        if (d.format == PluginFormat::DirectShow) {
+            REQUIRE(d.id.startsWith(QLatin1String("sfds:{")));
+        } else {
+            REQUIRE(d.id.startsWith(QLatin1String("builtin:")));
+        }
+        // Ids address either a builtin or a COM class; a duplicate would make two
+        // chooser rows resolve to the same instance.
         REQUIRE_FALSE(ids.contains(d.id));
         ids.insert(d.id);
     }

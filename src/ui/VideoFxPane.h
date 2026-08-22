@@ -47,6 +47,11 @@ public:
          */
         QPixmap rendered;
         bool renderAttempted = false;
+        /**
+         * `rendered` came from the bundle's own illustration rather than from running the
+         * plug-in. Such a tile has no "before" to wipe to, so hovering must not animate it.
+         */
+        bool fromBundleImage = false;
     };
     struct Plugin {
         /** Trimmed name shown in the list ("AI Upscale"). */
@@ -58,6 +63,8 @@ public:
         QString version;
         QString description;
         QVector<Preset> presets;
+        /** Illustration shipped by the bundle for this effect, if any. */
+        QString previewImagePath;
         bool favorite = false;
         QString path;
     };

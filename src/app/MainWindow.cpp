@@ -3292,6 +3292,7 @@ void MainWindow::onExportProjectArchive()
     const bool copyMedia = (reply == QMessageBox::Yes);
 
     QString error;
+    captureFxStateForSave();
     if (!ProjectInterchange::exportProjectArchive(m_project, archiveDir, copyMedia, &error)) {
         QMessageBox::warning(this, tr("Export Archive"), error);
         return;
@@ -3303,12 +3304,24 @@ void MainWindow::onExportProjectArchive()
                                       copyMedia ? tr(", and Media/") : QString()));
 }
 
+void MainWindow::captureFxStateForSave()
+{
+    auto &host = CompositePluginHost::instance();
+    for (Track &t : m_project.tracks()) {
+        host.captureChainState(&t.fxChain);
+        for (TrackEvent &ev : t.events) {
+            host.captureChainState(&ev.fxChain);
+        }
+    }
+}
+
 void MainWindow::onSaveProject()
 {
     if (m_currentArchivePath.isEmpty()) {
         onSaveProjectAs();
         return;
     }
+    captureFxStateForSave();
     QString error;
     if (!ProjectInterchange::exportProjectArchive(m_project, m_currentArchivePath,
                                                   /*copyMedia=*/false, &error)) {
@@ -3345,6 +3358,7 @@ void MainWindow::onSaveProjectAs()
     }
     const QString archiveDir = QDir(dir).filePath(name.trimmed());
 
+    captureFxStateForSave();
     QString error;
     if (!ProjectInterchange::exportProjectArchive(m_project, archiveDir, /*copyMedia=*/false,
                                                   &error)) {

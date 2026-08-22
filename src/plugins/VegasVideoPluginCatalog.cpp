@@ -87,6 +87,33 @@ QString findOfxBinaryInBundle(const QString &bundlePath)
     return {};
 }
 
+/**
+ * Illustration a bundle ships for one effect, or empty.
+ *
+ * The file is the effect id with the colon written as a dot:
+ * `de.magix:colorization` → `Contents/Resources/de.magix.colorization.png`. Matching is
+ * case-insensitive because the shipped names are inconsistent (`de.magix.AiSharpen.png`).
+ */
+QString bundlePreviewImage(const QString &bundlePath, const QString &effectId)
+{
+    if (effectId.isEmpty()) {
+        return {};
+    }
+    const QDir res(QDir(bundlePath).filePath(QStringLiteral("Contents/Resources")));
+    if (!res.exists()) {
+        return {};
+    }
+    QString wanted = effectId;
+    wanted.replace(QLatin1Char(':'), QLatin1Char('.'));
+    wanted += QStringLiteral(".png");
+    for (const QFileInfo &fi : res.entryInfoList({QStringLiteral("*.png")}, QDir::Files)) {
+        if (fi.fileName().compare(wanted, Qt::CaseInsensitive) == 0) {
+            return fi.absoluteFilePath();
+        }
+    }
+    return {};
+}
+
 /** One bundle's presets: ordered names per effect, plus the values each preset sets. */
 struct BundlePresets {
     QHash<QString, QStringList> names;
@@ -302,6 +329,7 @@ QVector<VegasVideoPluginEntry> parseResourceXml(const QString &xmlPath, const QS
         e.hasBinary = !binaryPath.isEmpty() && QFileInfo::exists(binaryPath);
         e.presets = presets.names.value(e.effectId);
         e.presetParams = presets.params.value(e.effectId);
+        e.previewImagePath = bundlePreviewImage(bundlePath, e.effectId);
         out.push_back(std::move(e));
     }
     return out;

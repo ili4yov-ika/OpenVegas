@@ -30,6 +30,10 @@ public:
 
 private:
     void applyFilter();
+    /** Put the scanned-source summary on the settings button's tooltip. */
+    void setSourceHint(const QString &summary);
+    /** Preferences, opened straight on the audio plug-in paths. */
+    void openPluginSettings();
     void rebuildTree();
     void onCategoryChanged();
 

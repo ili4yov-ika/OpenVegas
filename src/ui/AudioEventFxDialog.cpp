@@ -57,6 +57,8 @@ QString formatName(PluginFormat f)
         return QStringLiteral("VST, 64 Bit");
     case PluginFormat::Ofx:
         return QStringLiteral("OFX");
+    case PluginFormat::DirectShow:
+        return QStringLiteral("VEGAS Shared");
     default:
         return {};
     }
