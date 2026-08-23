@@ -18,6 +18,9 @@
 
 # Generated peak / interchange media copies (keep canonical sources in veg_project)
 SAMPLES/veg_project/**/*-0-*-1.sfk
+# Audio proxies VEGAS writes beside a project. Generated, and the one for the Big
+# Buck Bunny sample is 243 MB — past what GitHub accepts for a single file.
+*.sfap0
 SAMPLES/veg_project/premiere_after-effect/*.wav
 SAMPLES/veg_project/final-cut-pro-x/*.wav
 SAMPLES/**/node_modules/
