@@ -42,6 +42,13 @@ public:
     /** Realtime-safe: returns cached buffer only (never decodes). */
     std::shared_ptr<const DecodedAudioBuffer> peek(const QString &mediaPath) const;
 
+    /**
+     * The mixdown sidecar beside a ".veg" used as media (a nested project), or empty.
+     * Public because it answers a question about a path, not about this cache: callers
+     * deciding whether a .veg clip can produce sound at all need the same answer.
+     */
+    static QString sfap0Beside(const QString &mediaPath);
+
     /** Insert a ready buffer (tests / pre-seed). */
     void put(const QString &mediaPath, std::shared_ptr<DecodedAudioBuffer> buffer);
 
@@ -55,6 +62,8 @@ private:
     explicit AudioDecodeCache(QObject *parent = nullptr);
     std::shared_ptr<DecodedAudioBuffer> decodeFile(const QString &mediaPath, int targetSampleRate);
     static std::shared_ptr<DecodedAudioBuffer> loadWav(const QString &path);
+    /** Audio of a nested VEGAS project, from its ".veg.sfap0" mixdown sidecar. */
+    static std::shared_ptr<DecodedAudioBuffer> loadSfap0(const QString &path);
     static std::shared_ptr<DecodedAudioBuffer> decodeViaFfmpeg(const QString &path, int targetSr);
     static std::shared_ptr<DecodedAudioBuffer> resample(
         const std::shared_ptr<DecodedAudioBuffer> &src, int targetSr);

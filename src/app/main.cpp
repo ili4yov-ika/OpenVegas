@@ -1,5 +1,6 @@
 #include "app/MainWindow.h"
 #include "ui/Theme.h"
+#include "video/NestedProjectSource.h"
 #include "io/SamplePaths.h"
 
 #include <QApplication>
@@ -19,6 +20,11 @@ int main(int argc, char *argv[])
     QApplication::setWindowIcon(appIcon);
 
     openvegas::applyTheme(app);
+
+    // Lets the filmstrip and preview caches draw a VEGAS project used as a clip. They
+    // reach it through a hook rather than a direct call, so drawing thumbnails does not
+    // drag project loading in with it.
+    openvegas::NestedProjectSource::installAsFrameProvider();
 
     openvegas::MainWindow window;
     window.setWindowIcon(appIcon);

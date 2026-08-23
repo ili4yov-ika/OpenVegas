@@ -47,7 +47,50 @@ struct VegEventInfo {
  * for the byte layout and how it was derived). Kept as its own plain struct so src/io
  * stays independent of src/video's TransitionInstance, which ProjectModel converts to.
  */
+/**
+ * Which legacy VEGAS transition a record belongs to.
+ *
+ * Each is identified by the 16-byte plug-in GUID the record carries. The GUID → plug-in
+ * mapping was established by locating those GUIDs inside VEGAS's own binaries and reading
+ * the class names beside them, not by guessing from preset names:
+ *
+ *   vfx1.dll        3D Blinds, 3D Cascade, 3D Shuffle, Flash   (CDXBlinds/CDXCascade/…)
+ *   vidpcore.dll    Gradient Wipe                              (VEGAS Gradient Wipe)
+ *   sftrans1.dll    Venetian Blinds                            (VEGAS Venetian Blinds)
+ *   SfPagePeel.dll  Portals                                    (DXTSfPortal)
+ *
+ * See MARKDOWN/VEG_TRANSITIONS_REVERSE.md and decompile-src/ for the raw evidence.
+ */
+enum class VegTransitionKind {
+    Unknown = 0,
+    Blinds3D,
+    Cascade3D,
+    /** "VEGAS 3D Fly In/Out" — presets Default / Spin Away / Tumble In. */
+    FlyInOut3D,
+    /** "VEGAS Shuffle", shown as 3D Shuffle — presets Bright Light / Low Light. */
+    Shuffle3D,
+    GradientWipe,
+    VenetianBlinds,
+    Portals,
+    /**
+     * A transition stored the *other* way VEGAS has: keyed by an identifier string such
+     * as "{Svfx:com.vegascreativesoftware:iris}" rather than by a 16-byte GUID. These
+     * are the majority — Iris, Linear Wipe, Push, Dissolve and the rest — and they carry
+     * their parameters as named values, so `ofxPluginId` and `ofxParams` hold what the
+     * fixed fields above cannot.
+     */
+    Ofx
+};
+
 struct VegTransitionInfo {
+    /** Which plug-in this record belongs to. */
+    VegTransitionKind kind = VegTransitionKind::Blinds3D;
+    /**
+     * Plug-in display name as VEGAS shows it ("3D Blinds", "Venetian Blinds", …).
+     * For `kind == Ofx` this is the identifier's tail ("iris") — the catalog turns that
+     * into the label the timeline draws.
+     */
+    QString pluginName;
     /** Vegas preset name as stored ("Simple", "Slot Machine", …). */
     QString presetName;
     int divisions = 8;
@@ -65,6 +108,37 @@ struct VegTransitionInfo {
     int offset = -1;
     /** Offset of the owning event's timing record; internal to the owner search. */
     int eventOffsetForCompare = -1;
+
+    // --- Venetian Blinds ---------------------------------------------------------
+    /** Number of blinds. The preset names state it outright — "Seven Horizontal
+     *  Blinds" stores 7.0 — which is what confirmed this field. */
+    double blindCount = 5.0;
+    /** Blind angle in degrees; 0 = vertical, 90 = horizontal (again matching names). */
+    double blindAngleDeg = 0.0;
+    /** Small edge softness, 0…1 (0.01 for "Fifteen Tilted", 0.07 for "Sloped"). */
+    double blindFeather = 0.0;
+
+    // --- 3D Shuffle --------------------------------------------------------------
+    // Its dialog has exactly one control, "Specular light", and the stored double is
+    // 1.0 for the "Bright Light" preset and 0.2 for "Low Light" — which is what the
+    // preset names describe. Reuses `specularLight` above rather than a second field.
+
+    /**
+     * True when the record was recognised but its parameters were deliberately not
+     * decoded — Gradient Wipe, 3D Fly In/Out and Portals carry layouts that the sample
+     * project does not pin down, so their numbers are left at defaults rather than
+     * invented. The preset name is still recovered.
+     */
+    bool paramsUndecoded = false;
+
+    // --- OFX-stored transitions --------------------------------------------------
+    /** "{Svfx:com.vegascreativesoftware:iris}" when kind == Ofx; empty otherwise. */
+    QString ofxPluginId;
+    /**
+     * Named parameters as the file stores them ("Angle" → 90.0, "Shape" → 4).
+     * A point or a colour arrives as a QVariantList of doubles.
+     */
+    QVariantMap ofxParams;
 };
 
 struct VegTitleTextInfo {
@@ -223,6 +297,8 @@ private:
     static void parseVideoTitlesText(const QByteArray &data, VegOpenResult *result);
     /** Recover transition instances (plug-in GUID + preset + parameters + placement). */
     static void parseTransitions(const QByteArray &data, VegOpenResult *result);
+    /** Transitions keyed by a "{Svfx:…}" identifier rather than a GUID. */
+    static void parseOfxTransitions(const QByteArray &data, VegOpenResult *result);
     static void parseFxStateChunks(const QByteArray &data, VegOpenResult *result);
     /** Recover `<Glint>` / `<Softlight>` XML state — values, keyframe times, preset name. */
     static void parseLegacyVideoFxStates(const QByteArray &data, VegOpenResult *result);

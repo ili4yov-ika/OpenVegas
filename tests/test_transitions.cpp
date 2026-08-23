@@ -2,6 +2,7 @@
 #include <catch2/catch_test_macros.hpp>
 
 #include "video/TransitionApply.h"
+#include "video/TransitionPresetData.h"
 
 #include <QCoreApplication>
 #include <QGuiApplication>
@@ -99,11 +100,15 @@ TEST_CASE("Each 3D Blinds preset carries its documented default values",
         double specular;
         int direction; // 0 = Left to Right, 2 = Top to Bottom
     };
-    // Transcribed from the *-default_set.png captures.
+    // From VEGAS's shipped PresetPackage.xml, which the catalog is now generated from.
+    // It corrected one number that had been transcribed off a *-default_set.png capture:
+    // Slot Machine's Direction is 0, not 2. All four stock presets use 0 — the screenshot
+    // evidently showed an instance someone had rotated, which a picture cannot
+    // distinguish from a preset default.
     const Expected table[] = {
         {"Simple", 8, 0, 0.0, 1.0, 0},
         {"Left to Right", 4, 0, 0.2, 0.7, 0},
-        {"Slot Machine", 4, 4, 0.3, 1.0, 2},
+        {"Slot Machine", 4, 4, 0.3, 1.0, 0},
         {"Spin", 1, 0, 0.0, 1.0, 0},
     };
     for (const Expected &e : table) {
@@ -238,4 +243,88 @@ TEST_CASE("renderTransitionPreview produces a fully opaque tile of the requested
     // The checkerboard backdrop must cover every gap, so no pixel stays transparent.
     CHECK(qAlpha(tile.pixel(0, 0)) == 255);
     CHECK(qAlpha(tile.pixel(129 / 2, 78 / 2)) == 255);
+}
+
+TEST_CASE("Every transition offers the presets VEGAS ships", "[video][transitions]")
+{
+    // The stock set is generated from VEGAS's own PresetPackage.xml, so a group that
+    // came back with three invented "Variant" entries would show up here immediately.
+    const QVector<StockTransitionGroup> &stock = stockTransitionPresets();
+    REQUIRE(stock.size() >= 20);
+
+    int totalPresets = 0;
+    for (const StockTransitionGroup &g : stock) {
+        INFO(g.key.toStdString());
+        CHECK_FALSE(g.key.isEmpty());
+        CHECK_FALSE(g.presets.isEmpty());
+        totalPresets += g.presets.size();
+        for (const StockTransitionPreset &p : g.presets) {
+            CHECK_FALSE(p.name.isEmpty());
+        }
+    }
+    // 215 across 24 groups at the time of writing; the bound guards against a generator
+    // run that silently produced almost nothing.
+    CHECK(totalPresets > 180);
+
+    // Zoom is the group whose full set was missing: fourteen presets, not three.
+    const QVector<StockTransitionPreset> *zoom = stockPresetsFor(QStringLiteral("zoom"));
+    REQUIRE(zoom);
+    CHECK(zoom->size() == 14);
+
+    // And the catalog must actually carry them through, not just hold the table.
+    const TransitionPluginInfo *info = transitionPluginById(transitionZoomId());
+    REQUIRE(info);
+    CHECK(info->presets.size() == 14);
+
+    // A named border preset must carry a colour, or the name is a lie: this is the
+    // mapping that was wrong at first, when the generator emitted "borderColorRed" while
+    // the renderer read "borderRed" and every border came out black.
+    const TransitionInstance red =
+        makeTransitionInstance(transitionZoomId(), QStringLiteral("Zoom Out, Center, Red Border"));
+    REQUIRE(red.isValid());
+    CHECK(transitionParamValue(red, QStringLiteral("borderRed")) == Catch::Approx(1.0));
+    CHECK(transitionParamValue(red, QStringLiteral("borderGreen")) == Catch::Approx(0.0));
+    CHECK(transitionParamValue(red, QStringLiteral("borderSize")) > 0.0);
+}
+
+TEST_CASE("Zoom grows the incoming clip and shrinks the outgoing one",
+          "[video][transitions]")
+{
+    const QSize size(120, 90);
+    QImage a(size, QImage::Format_ARGB32_Premultiplied);
+    a.fill(QColor(0, 0, 0));
+    QImage b(size, QImage::Format_ARGB32_Premultiplied);
+    b.fill(QColor(255, 255, 255));
+
+    auto centreLuma = [&](const QString &preset, double progress) {
+        const TransitionInstance t = makeTransitionInstance(transitionZoomId(), preset);
+        const QImage img = renderTransition(a, b, progress, t);
+        return qRed(img.pixel(size.width() / 2, size.height() / 2));
+    };
+
+    // "Zoom In" brings B up from nothing at the centre; "Zoom Out" takes A away and
+    // leaves B behind. Both end on B and start on A.
+    CHECK(centreLuma(QStringLiteral("Zoom In, Center"), 0.0) < 8);
+    CHECK(centreLuma(QStringLiteral("Zoom In, Center"), 1.0) > 247);
+    CHECK(centreLuma(QStringLiteral("Zoom Out, Center"), 0.0) < 8);
+    CHECK(centreLuma(QStringLiteral("Zoom Out, Center"), 1.0) > 247);
+
+    // Halfway, a corner-anchored zoom must differ from a centred one — otherwise the
+    // Center parameter is being ignored and all ten position presets look alike.
+    const TransitionInstance centre =
+        makeTransitionInstance(transitionZoomId(), QStringLiteral("Zoom In, Center"));
+    const TransitionInstance corner =
+        makeTransitionInstance(transitionZoomId(), QStringLiteral("Zoom In, Top-Left"));
+    const QImage midCentre = renderTransition(a, b, 0.5, centre);
+    const QImage midCorner = renderTransition(a, b, 0.5, corner);
+    int differing = 0;
+    for (int y = 0; y < size.height(); y += 3) {
+        for (int x = 0; x < size.width(); x += 3) {
+            if (midCentre.pixel(x, y) != midCorner.pixel(x, y)) {
+                ++differing;
+            }
+        }
+    }
+    INFO("pixels differing between centred and corner zoom: " << differing);
+    CHECK(differing > 50);
 }

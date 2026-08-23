@@ -1,5 +1,10 @@
 #include "video/TransitionApply.h"
 
+#include "video/TransitionPresetData.h"
+
+#include <QHash>
+#include <QSet>
+
 #include <QFont>
 #include <QPainter>
 
@@ -26,6 +31,24 @@ QStringList blindsDirections()
             QStringLiteral("Top to Bottom"), QStringLiteral("Bottom to Top")};
 }
 
+/** Stock presets for a group, straight from VEGAS's shipped preset package. */
+QVector<TransitionPresetInfo> stockPresets(const QString &key);
+
+// The border rows are three plain 0…1 sliders rather than a colour swatch: the generic
+// properties window has no colour control, and three honest sliders beat a colour that
+// cannot be edited at all.
+QVector<TransitionParamInfo> borderParams(const QString &featherKey,
+                                          const QString &featherLabel)
+{
+    return {
+        {QStringLiteral("borderSize"), QStringLiteral("Border size"), 0.0, 1.0, 4, {}},
+        {featherKey, featherLabel, 0.0, 1.0, 4, {}},
+        {QStringLiteral("borderRed"), QStringLiteral("Border red"), 0.0, 1.0, 3, {}},
+        {QStringLiteral("borderGreen"), QStringLiteral("Border green"), 0.0, 1.0, 3, {}},
+        {QStringLiteral("borderBlue"), QStringLiteral("Border blue"), 0.0, 1.0, 3, {}},
+    };
+}
+
 TransitionPluginInfo makeBlinds()
 {
     TransitionPluginInfo info;
@@ -45,26 +68,500 @@ TransitionPluginInfo makeBlinds()
          blindsDirections()},
     };
 
-    auto preset = [](const QString &name, double divisions, double extraSpins, double stagger,
-                     double specular, int direction) {
-        TransitionPresetInfo p;
-        p.name = name;
-        p.params = QVariantMap{
-            {QStringLiteral("divisions"), divisions},
-            {QStringLiteral("extraSpins"), extraSpins},
-            {QStringLiteral("stagger"), stagger},
-            {QStringLiteral("specularLight"), specular},
-            {QStringLiteral("direction"), direction},
-        };
-        return p;
+    // The full shipped set, from VEGAS's own preset package — the values
+    // previously written out here matched, but only covered part of it.
+    info.presets = stockPresets(QStringLiteral("3dblinds"));
+    return info;
+}
+
+TransitionPluginInfo makeVenetianBlinds()
+{
+    TransitionPluginInfo info;
+    info.id = transitionVenetianBlindsId();
+    info.name = QStringLiteral("Venetian Blinds");
+    info.format = QStringLiteral("DXT, 32-bit floating point");
+    info.description = QStringLiteral("VEGAS Venetian Blinds");
+    // Three doubles, in the order the .veg stores them. The plug-in names them
+    // NumberOfBlinds / Angle / Feather, which is what the preset package confirmed.
+    info.params = {
+        {QStringLiteral("count"), QStringLiteral("Blinds"), 1.0, 32.0, 0, {}},
+        {QStringLiteral("angle"), QStringLiteral("Angle"), 0.0, 360.0, 1, {}},
+        {QStringLiteral("feather"), QStringLiteral("Feather"), 0.0, 1.0, 4, {}},
     };
-    // Defaults transcribed from SAMPLES/screenshots/Transitions/3D_Blinds/*default_set.png.
-    info.presets = {
-        preset(QStringLiteral("Simple"), 8, 0, 0.0, 1.0, DirLeftToRight),
-        preset(QStringLiteral("Left to Right"), 4, 0, 0.2, 0.7, DirLeftToRight),
-        preset(QStringLiteral("Slot Machine"), 4, 4, 0.3, 1.0, DirTopToBottom),
-        preset(QStringLiteral("Spin"), 1, 0, 0.0, 1.0, DirLeftToRight),
+    info.presets = stockPresets(QStringLiteral("venetianblinds"));
+    return info;
+}
+
+TransitionPluginInfo makeLinearWipe()
+{
+    TransitionPluginInfo info;
+    info.id = transitionLinearWipeId();
+    info.name = QStringLiteral("Linear Wipe");
+    info.format = QStringLiteral("OFX");
+    info.description = QStringLiteral("VEGAS Linear Wipe");
+    info.params = {
+        {QStringLiteral("angle"), QStringLiteral("Angle"), 0.0, 360.0, 1, {}},
+        {QStringLiteral("feather"), QStringLiteral("Feather"), 0.0, 1.0, 4, {}},
     };
+    info.presets = stockPresets(QStringLiteral("linearwipe"));
+    return info;
+}
+
+TransitionPluginInfo makeBarnDoor()
+{
+    TransitionPluginInfo info;
+    info.id = transitionBarnDoorId();
+    info.name = QStringLiteral("Barn Door");
+    info.format = QStringLiteral("OFX");
+    info.description = QStringLiteral("VEGAS Barn Door");
+    info.params = {
+        {QStringLiteral("orientation"), QStringLiteral("Orientation"), 0.0, 1.0, 0,
+         {QStringLiteral("Vertical"), QStringLiteral("Horizontal")}},
+        {QStringLiteral("direction"), QStringLiteral("Direction"), 0.0, 1.0, 0,
+         {QStringLiteral("In"), QStringLiteral("Out")}},
+    };
+    info.params += borderParams(QStringLiteral("borderFeather"),
+                                QStringLiteral("Border feather"));
+    info.presets = stockPresets(QStringLiteral("barndoor"));
+    return info;
+}
+
+TransitionPluginInfo makeIris()
+{
+    TransitionPluginInfo info;
+    info.id = transitionIrisId();
+    info.name = QStringLiteral("Iris");
+    info.format = QStringLiteral("OFX");
+    info.description = QStringLiteral("VEGAS Iris");
+    // Shape indices are the plug-in's own. Only the five the shipped presets actually
+    // use are named; the gaps keep their numbers rather than being given invented names.
+    info.params = {
+        {QStringLiteral("shape"), QStringLiteral("Shape"), 0.0, 8.0, 0,
+         {QStringLiteral("Circle"), QStringLiteral("1"), QStringLiteral("2"),
+          QStringLiteral("Rectangle"), QStringLiteral("Diamond"), QStringLiteral("Square"),
+          QStringLiteral("6"), QStringLiteral("7"), QStringLiteral("Triangle Down")}},
+        {QStringLiteral("direction"), QStringLiteral("Direction"), 0.0, 1.0, 0,
+         {QStringLiteral("In"), QStringLiteral("Out")}},
+        {QStringLiteral("centerX"), QStringLiteral("Center X"), 0.0, 1.0, 4, {}},
+        {QStringLiteral("centerY"), QStringLiteral("Center Y"), 0.0, 1.0, 4, {}},
+    };
+    info.params += borderParams(QStringLiteral("feather"), QStringLiteral("Feather"));
+
+    // The full shipped set, from VEGAS's own preset package — the values
+    // previously written out here matched, but only covered part of it.
+    info.presets = stockPresets(QStringLiteral("iris"));
+    return info;
+}
+
+TransitionPluginInfo makeClockWipe()
+{
+    TransitionPluginInfo info;
+    info.id = transitionClockWipeId();
+    info.name = QStringLiteral("Clock Wipe");
+    info.format = QStringLiteral("OFX");
+    info.description = QStringLiteral("VEGAS Clock Wipe");
+    info.params = {
+        {QStringLiteral("direction"), QStringLiteral("Direction"), 0.0, 1.0, 0,
+         {QStringLiteral("Clockwise"), QStringLiteral("Counter Clockwise")}},
+        // The plug-in states this one in degrees, not in screen units.
+        {QStringLiteral("featherAngle"), QStringLiteral("Feather angle"), 0.0, 360.0, 1, {}},
+    };
+    // The full shipped set, from VEGAS's own preset package — the values
+    // previously written out here matched, but only covered part of it.
+    info.presets = stockPresets(QStringLiteral("clockwipe"));
+    return info;
+}
+
+/**
+ * Groups that are recognised but not drawn yet.
+ *
+ * They earn a catalog entry so a project that uses them comes back with the right name
+ * on the timeline strip and a properties window listing the presets VEGAS ships — before
+ * this they were all mislabelled "3D Blinds", because the importer had only one id to
+ * hand out. `renderTransition` has no case for them, so they fall through to the plain
+ * cross-dissolve it uses for anything unknown: a sane picture under an honest name,
+ * rather than some other transition's geometry wearing this one's label.
+ *
+ * Parameters are listed only where the layout is actually known (3D Cascade, 3D Shuffle).
+ * For the rest the preset name is the whole of what was recovered — for Gradient Wipe and
+ * Portals it is also what the plug-in itself keys off, since the preset picks a gradient
+ * image or a height map rather than a set of numbers.
+ */
+TransitionPluginInfo makeStubGroup(const QString &id, const QString &name,
+                                   const QString &format,
+                                   const QVector<TransitionParamInfo> &params,
+                                   const QVector<TransitionPresetInfo> &presets)
+{
+    TransitionPluginInfo info;
+    info.id = id;
+    info.name = name;
+    info.format = format;
+    info.description = QStringLiteral("VEGAS %1 — recognised; drawn as a cross-fade until "
+                                      "its own geometry is implemented.")
+                           .arg(name);
+    info.params = params;
+    info.presets = presets;
+    return info;
+}
+
+TransitionPluginInfo makeCascade3D()
+{
+    // Layout confirmed from the project: two ints then two doubles, the same opening
+    // shape as 3D Blinds but without the extra-spins field.
+    QVector<TransitionParamInfo> params = {
+        {QStringLiteral("divisions"), QStringLiteral("Divisions"), 1.0, 16.0, 0, {}},
+        {QStringLiteral("direction"), QStringLiteral("Direction"), 0.0, 3.0, 0,
+         {QStringLiteral("Left to Right"), QStringLiteral("Right to Left"),
+          QStringLiteral("Top to Bottom"), QStringLiteral("Bottom to Top")}},
+        {QStringLiteral("stagger"), QStringLiteral("Stagger"), 0.0, 1.0, 4, {}},
+        {QStringLiteral("specularLight"), QStringLiteral("Specular light"), 0.0, 1.0, 4, {}},
+    };
+    auto p = [](const QString &n, int div, int dir, double stagger, double light) {
+        TransitionPresetInfo i;
+        i.name = n;
+        i.params = QVariantMap{{QStringLiteral("divisions"), div},
+                               {QStringLiteral("direction"), dir},
+                               {QStringLiteral("stagger"), stagger},
+                               {QStringLiteral("specularLight"), light}};
+        return i;
+    };
+    return makeStubGroup(transitionCascade3dId(), QStringLiteral("3D Cascade"),
+                         QStringLiteral("DXT, 32-bit floating point"), params,
+                         {p(QStringLiteral("Curtain"), 10, 2, 0.4, 1.0),
+                          p(QStringLiteral("Left to Right"), 10, 0, 0.0, 1.0),
+                          p(QStringLiteral("Top to Bottom"), 5, 2, 0.0, 1.0)});
+}
+
+TransitionPluginInfo makeShuffle3D()
+{
+    // One control, exactly as the plug-in's own window shows: Specular light.
+    QVector<TransitionParamInfo> params = {
+        {QStringLiteral("specularLight"), QStringLiteral("Specular light"), 0.0, 1.0, 4, {}},
+    };
+    auto p = [](const QString &n, double light) {
+        TransitionPresetInfo i;
+        i.name = n;
+        i.params = QVariantMap{{QStringLiteral("specularLight"), light}};
+        return i;
+    };
+    return makeStubGroup(transitionShuffle3dId(), QStringLiteral("3D Shuffle"),
+                         QStringLiteral("DXT, 32-bit floating point"), params,
+                         {p(QStringLiteral("Bright Light"), 1.0),
+                          p(QStringLiteral("Low Light"), 0.2)});
+}
+
+TransitionPluginInfo makeFlyInOut3D()
+{
+    // Four doubles whose meaning the sample does not pin down, so no sliders are offered
+    // rather than five made-up labels.
+    auto p = [](const QString &n) {
+        TransitionPresetInfo i;
+        i.name = n;
+        return i;
+    };
+    return makeStubGroup(transitionFlyInOut3dId(), QStringLiteral("3D Fly In/Out"),
+                         QStringLiteral("DXT, 32-bit floating point"), {},
+                         {p(QStringLiteral("Default")), p(QStringLiteral("Spin Away")),
+                          p(QStringLiteral("Tumble In"))});
+}
+
+TransitionPluginInfo makeGradientWipe()
+{
+    // The preset picks a gradient image; the numeric fields barely move between presets,
+    // which is why none are exposed here.
+    auto p = [](const QString &n) {
+        TransitionPresetInfo i;
+        i.name = n;
+        return i;
+    };
+    return makeStubGroup(
+        transitionGradientWipeId(), QStringLiteral("Gradient Wipe"),
+        QStringLiteral("DXT, 32-bit floating point"), {},
+        {p(QStringLiteral("Linear Left-Right")), p(QStringLiteral("Linear Right-Left")),
+         p(QStringLiteral("Linear Top-Bottom")), p(QStringLiteral("Linear Bottom-Top")),
+         p(QStringLiteral("Box In")), p(QStringLiteral("Box Out")),
+         p(QStringLiteral("Circle In")), p(QStringLiteral("Circle Out")),
+         p(QStringLiteral("Horizontal Open")), p(QStringLiteral("Vertical Open")),
+         p(QStringLiteral("Spiral")), p(QStringLiteral("Star")), p(QStringLiteral("Heart")),
+         p(QStringLiteral("Nebulous")), p(QStringLiteral("Paint Splatter")),
+         p(QStringLiteral("Puzzle Pieces")), p(QStringLiteral("Soft Noise")),
+         p(QStringLiteral("Turbulent Noise"))});
+}
+
+TransitionPluginInfo makePortals()
+{
+    // Same story: the preset names a height map, not a set of numbers.
+    auto p = [](const QString &n) {
+        TransitionPresetInfo i;
+        i.name = n;
+        return i;
+    };
+    return makeStubGroup(transitionPortalsId(), QStringLiteral("Portals"),
+                         QStringLiteral("DXT, 32-bit floating point"), {},
+                         {p(QStringLiteral("Jigsaw Puzzle")), p(QStringLiteral("Mondrian")),
+                          p(QStringLiteral("Plaid")), p(QStringLiteral("White Wash")),
+                          p(QStringLiteral("Windowed Fade"))});
+}
+
+/**
+ * The OFX-stored groups that are recognised but not drawn yet.
+ *
+ * Table-driven rather than fifteen near-identical functions, and the preset lists were
+ * generated from a real project rather than typed: these are the names VEGAS itself
+ * stores. A group here gets an id, a name and its presets, which is enough for an
+ * imported project to show the right strip and a properties window — before this the
+ * whole family was invisible, because nothing parsed the "{Svfx:…}" form at all.
+ */
+struct OfxStubSpec {
+    QString key;   ///< tail of the identifier, e.g. "iris" in "{Svfx:…:iris}"
+    QString name;
+    QStringList presets;
+};
+
+const QVector<OfxStubSpec> &ofxStubSpecs()
+{
+    static const QVector<OfxStubSpec> specs = {
+    // Warp Flow ships only a default preset, so it has none listed here.
+    {QStringLiteral("WarpFlowTransition"), QStringLiteral("Warp Flow"), {}},
+    {QStringLiteral("crosseffect"), QStringLiteral("Cross Effect"),
+     {QStringLiteral("Cross Blur A Only"),
+         QStringLiteral("Cross Blur A/B"),
+         QStringLiteral("Cross Blur B Only"),
+         QStringLiteral("Cross Pixelate A Only"),
+         QStringLiteral("Cross Pixelate A/B"),
+         QStringLiteral("Cross Pixelate B Only"),
+         QStringLiteral("Cross Zoom A Only"),
+         QStringLiteral("Cross Zoom A/B"),
+         QStringLiteral("Cross Zoom A/B Slow"),
+         QStringLiteral("Cross Zoom B Only")}},
+    {QStringLiteral("dissolve"), QStringLiteral("Dissolve"),
+     {QStringLiteral("Additive Dissolve"),
+         QStringLiteral("Color Bleed"),
+         QStringLiteral("Color Bleed Fast Alpha"),
+         QStringLiteral("Color Bleed Fast Blue"),
+         QStringLiteral("Color Bleed Fast Green"),
+         QStringLiteral("Color Bleed Fast Red"),
+         QStringLiteral("Color Morph"),
+         QStringLiteral("Color Morph Fast Alpha"),
+         QStringLiteral("Color Morph Fast Blue"),
+         QStringLiteral("Color Morph Fast Green"),
+         QStringLiteral("Color Morph Fast Red"),
+         QStringLiteral("Fade Through Black"),
+         QStringLiteral("Fade Through Blue"),
+         QStringLiteral("Fade Through Grayscale")}},
+    {QStringLiteral("flash"), QStringLiteral("Flash"),
+     {QStringLiteral("Hard Flash"),
+         QStringLiteral("Soft Flash"),
+         QStringLiteral("Yellow Flash")}},
+    {QStringLiteral("glTransition"), QStringLiteral("GL Transition"),
+     {QStringLiteral("Bounce"),
+         QStringLiteral("Bow Tie Horizontal"),
+         QStringLiteral("Bow Tie Vertical"),
+         QStringLiteral("Burn"),
+         QStringLiteral("Butterfly Wave Scrawler"),
+         QStringLiteral("Circle Crop"),
+         QStringLiteral("Circle Open"),
+         QStringLiteral("Color Distance"),
+         QStringLiteral("Color Fade"),
+         QStringLiteral("Color Phase"),
+         QStringLiteral("Color Planes"),
+         QStringLiteral("Crazy Parametric Fun"),
+         QStringLiteral("Cross Hatch"),
+         QStringLiteral("Cross Warp")}},
+    {QStringLiteral("pageloop"), QStringLiteral("Page Loop"),
+     {QStringLiteral("Bottom-Left, Small Translucent Loop"),
+         QStringLiteral("Bottom-Right, Large Opaque Loop"),
+         QStringLiteral("Bottom-Right, Small Translucent Loop"),
+         QStringLiteral("Left, Small Loop, Yellow Light"),
+         QStringLiteral("Top, Large Loop, Red Light"),
+         QStringLiteral("Top-Left, Medium Loop"),
+         QStringLiteral("Top-Left, Opaque, No Loop"),
+         QStringLiteral("Top-Right, Medium Loop")}},
+    {QStringLiteral("pagepeel"), QStringLiteral("Page Peel"),
+     {QStringLiteral("Bottom-Left, Medium Fold"),
+         QStringLiteral("Bottom-Right, Loose Fold, Opaque"),
+         QStringLiteral("Bottom-Right, Medium Fold"),
+         QStringLiteral("Left, Tight Fold, Translucent, Yellow Light"),
+         QStringLiteral("Top, Tight Fold, Opaque, Red Light"),
+         QStringLiteral("Top-Left, Medium Fold"),
+         QStringLiteral("Top-Left, Slide, Tight Fold, Opaque"),
+         QStringLiteral("Top-Right, Medium Fold")}},
+    {QStringLiteral("pageroll"), QStringLiteral("Page Roll"),
+     {QStringLiteral("Bottom-Left, Medium Curl"),
+         QStringLiteral("Bottom-Right, Medium Curl"),
+         QStringLiteral("Bottom-Right, Slide, Loose Curl, Opaque"),
+         QStringLiteral("Left, Tight Curl, Translucent, Yellow Light"),
+         QStringLiteral("Top, Tight Curl, Opaque, Red Light"),
+         QStringLiteral("Top-Left, Medium Curl"),
+         QStringLiteral("Top-Left, Slide, Tight Curl, Opaque"),
+         QStringLiteral("Top-Right, Medium Curl")}},
+    {QStringLiteral("push"), QStringLiteral("Push"),
+     {QStringLiteral("Push Down"),
+         QStringLiteral("Push Down, Blue Border"),
+         QStringLiteral("Push In, Down"),
+         QStringLiteral("Push In, Left"),
+         QStringLiteral("Push In, Left, White Border"),
+         QStringLiteral("Push In, Right"),
+         QStringLiteral("Push In, Right, Yellow Border"),
+         QStringLiteral("Push In, Up"),
+         QStringLiteral("Push Left"),
+         QStringLiteral("Push Right"),
+         QStringLiteral("Push Up"),
+         QStringLiteral("Push Up, Red Border")}},
+    {QStringLiteral("slide"), QStringLiteral("Slide"),
+     {QStringLiteral("Slide In, Bottom-Up"),
+         QStringLiteral("Slide In, Left-Right"),
+         QStringLiteral("Slide In, Right-Left"),
+         QStringLiteral("Slide In, Top-Down"),
+         QStringLiteral("Slide In, Top-Left Corner"),
+         QStringLiteral("Slide Out, Bottom-Right Corner"),
+         QStringLiteral("Slide Out, Bottom-Up"),
+         QStringLiteral("Slide Out, Left-Right"),
+         QStringLiteral("Slide Out, Right-Left"),
+         QStringLiteral("Slide Out, Top-Down")}},
+    {QStringLiteral("spiral"), QStringLiteral("Spiral"),
+     {QStringLiteral("Spiral In, Down, Counter Clockwise"),
+         QStringLiteral("Spiral In, Left, Clockwise"),
+         QStringLiteral("Spiral In, Right, Clockwise"),
+         QStringLiteral("Spiral In, Up, Counter Clockwise"),
+         QStringLiteral("Spiral In, Yellow Border"),
+         QStringLiteral("Spiral Out Down, Counter Clockwise"),
+         QStringLiteral("Spiral Out, Left, Clockwise"),
+         QStringLiteral("Spiral Out, Red Border"),
+         QStringLiteral("Spiral Out, Right, Clockwise"),
+         QStringLiteral("Spiral Out, Up, Counter Clockwise")}},
+    {QStringLiteral("split"), QStringLiteral("Split"),
+     {QStringLiteral("Push, In, Center"),
+         QStringLiteral("Push, In, Top-Left Corner, White Border"),
+         QStringLiteral("Push, Out, Center"),
+         QStringLiteral("Push, Out, Top-Right Corner, Blue Border"),
+         QStringLiteral("Squeeze, In, Center"),
+         QStringLiteral("Squeeze, Out, Center"),
+         QStringLiteral("Wipe, In, Center"),
+         QStringLiteral("Wipe, Out, Center")}},
+    {QStringLiteral("squeeze"), QStringLiteral("Squeeze"),
+     {QStringLiteral("Lateral"),
+         QStringLiteral("Lateral In, White Border"),
+         QStringLiteral("Squeeze Down"),
+         QStringLiteral("Squeeze In, Down"),
+         QStringLiteral("Squeeze In, Down, Blue Border"),
+         QStringLiteral("Squeeze In, Left-Right"),
+         QStringLiteral("Squeeze In, Left-Right, Green Border"),
+         QStringLiteral("Squeeze In, Right-Left"),
+         QStringLiteral("Squeeze In, Up"),
+         QStringLiteral("Squeeze Left-Right"),
+         QStringLiteral("Squeeze Right-Left"),
+         QStringLiteral("Squeeze Up"),
+         QStringLiteral("Vertical"),
+         QStringLiteral("Vertical In, Red Border")}},
+    {QStringLiteral("starwipe"), QStringLiteral("Star Wipe"),
+     {QStringLiteral("Corner Sun Rays"),
+         QStringLiteral("Corner Tooth"),
+         QStringLiteral("Diamond"),
+         QStringLiteral("Double Circles"),
+         QStringLiteral("Double Gears"),
+         QStringLiteral("Double Squares"),
+         QStringLiteral("Four Diamonds"),
+         QStringLiteral("Four Way Split"),
+         QStringLiteral("Gear"),
+         QStringLiteral("Hexagon"),
+         QStringLiteral("Horizontal Tooth Blinds"),
+         QStringLiteral("Opening Eye"),
+         QStringLiteral("Rings"),
+         QStringLiteral("Six Way Split")}},
+    {QStringLiteral("swap"), QStringLiteral("Swap"),
+     {QStringLiteral("Swap Down"),
+         QStringLiteral("Swap Down, Black Border"),
+         QStringLiteral("Swap Left"),
+         QStringLiteral("Swap Left, White Border"),
+         QStringLiteral("Swap Right"),
+         QStringLiteral("Swap Right, Blue Border"),
+         QStringLiteral("Swap Up"),
+         QStringLiteral("Swap Up, Yellow Border")}},
+    {QStringLiteral("zoom"), QStringLiteral("Zoom"),
+     {QStringLiteral("Zoom In, Bottom-Left"),
+         QStringLiteral("Zoom In, Bottom-Right"),
+         QStringLiteral("Zoom In, Bottom-Right, Yellow Border"),
+         QStringLiteral("Zoom In, Center"),
+         QStringLiteral("Zoom In, Center, White Border"),
+         QStringLiteral("Zoom In, Top-Left"),
+         QStringLiteral("Zoom In, Top-Right"),
+         QStringLiteral("Zoom Out, Bottom-Left"),
+         QStringLiteral("Zoom Out, Bottom-Right"),
+         QStringLiteral("Zoom Out, Center"),
+         QStringLiteral("Zoom Out, Center, Red Border"),
+         QStringLiteral("Zoom Out, Top-Left"),
+         QStringLiteral("Zoom Out, Top-Left, Blue Border"),
+         QStringLiteral("Zoom Out, Top-Right")}},
+    };
+    return specs;
+}
+
+QVector<TransitionPresetInfo> stockPresets(const QString &key)
+{
+    QVector<TransitionPresetInfo> out;
+    const QVector<StockTransitionPreset> *stock = stockPresetsFor(key);
+    if (!stock) {
+        return out;
+    }
+    for (const StockTransitionPreset &sp : *stock) {
+        TransitionPresetInfo info;
+        info.name = sp.name;
+        for (const auto &pair : sp.params) {
+            info.params.insert(pair.first, pair.second);
+        }
+        out.push_back(info);
+    }
+    return out;
+}
+
+QVector<TransitionPluginInfo> makeOfxStubs()
+{
+    QVector<TransitionPluginInfo> out;
+    // Groups with a renderer of their own are built above; listing them here too would
+    // put two entries with the same name in the dock, one of which quietly cross-fades.
+    static const QSet<QString> implemented = {
+        QStringLiteral("zoom"), QStringLiteral("iris"), QStringLiteral("linearwipe"),
+        QStringLiteral("barndoor"), QStringLiteral("clockwipe"),
+        QStringLiteral("venetianblinds"),
+    };
+    for (const OfxStubSpec &spec : ofxStubSpecs()) {
+        if (implemented.contains(spec.key)) {
+            continue;
+        }
+        // Names and values now come from PresetPackage.xml — the full shipped set, not
+        // the handful a sample project happened to contain. The hand-listed names in
+        // ofxStubSpecs() remain only as the fallback for a group the package omits.
+        QVector<TransitionPresetInfo> presets = stockPresets(spec.key);
+        if (presets.isEmpty()) {
+            for (const QString &n : spec.presets) {
+                TransitionPresetInfo p;
+                p.name = n;
+                presets.push_back(p);
+            }
+        }
+        out.push_back(makeStubGroup(transitionOfxId(spec.key), spec.name,
+                                    QStringLiteral("OFX"), {}, presets));
+    }
+    return out;
+}
+
+TransitionPluginInfo makeZoom()
+{
+    TransitionPluginInfo info;
+    info.id = transitionZoomId();
+    info.name = QStringLiteral("Zoom");
+    info.format = QStringLiteral("OFX");
+    info.description = QStringLiteral("VEGAS Zoom");
+    info.params = {
+        {QStringLiteral("direction"), QStringLiteral("Direction"), 0.0, 1.0, 0,
+         {QStringLiteral("In"), QStringLiteral("Out")}},
+        {QStringLiteral("centerX"), QStringLiteral("Center X"), 0.0, 1.0, 4, {}},
+        {QStringLiteral("centerY"), QStringLiteral("Center Y"), 0.0, 1.0, 4, {}},
+    };
+    info.params += borderParams(QStringLiteral("borderFeather"),
+                                QStringLiteral("Border feather"));
+    info.presets = stockPresets(QStringLiteral("zoom"));
     return info;
 }
 
@@ -205,9 +702,46 @@ QImage testCard(const QSize &size, const QString &letter, const QColor &top, con
 
 } // namespace
 
+QString transitionIdForOfxPlugin(const QString &svfxId)
+{
+    // "{Svfx:com.vegascreativesoftware:iris}" -> "iris"
+    const int colon = svfxId.lastIndexOf(QLatin1Char(':'));
+    if (colon < 0) {
+        return {};
+    }
+    QString key = svfxId.mid(colon + 1);
+    if (key.endsWith(QLatin1Char('}'))) {
+        key.chop(1);
+    }
+    if (key.isEmpty()) {
+        return {};
+    }
+    // The four with a renderer of their own answer to their own ids; everything else
+    // resolves to the table-driven stub, which exists so the name and presets survive.
+    static const QHash<QString, QString> implemented = {
+        {QStringLiteral("linearwipe"), transitionLinearWipeId()},
+        {QStringLiteral("barndoor"), transitionBarnDoorId()},
+        {QStringLiteral("iris"), transitionIrisId()},
+        {QStringLiteral("clockwipe"), transitionClockWipeId()},
+    };
+    const auto hit = implemented.constFind(key);
+    if (hit != implemented.constEnd()) {
+        return hit.value();
+    }
+    const QString id = transitionOfxId(key);
+    return transitionPluginById(id) ? id : QString();
+}
+
 const QVector<TransitionPluginInfo> &transitionCatalog()
 {
-    static const QVector<TransitionPluginInfo> catalog = {makeBlinds()};
+    static const QVector<TransitionPluginInfo> catalog = [] {
+        QVector<TransitionPluginInfo> c = {
+            makeBlinds(),     makeVenetianBlinds(), makeLinearWipe(), makeBarnDoor(),
+            makeIris(),       makeClockWipe(),      makeCascade3D(),  makeShuffle3D(),
+            makeFlyInOut3D(), makeGradientWipe(),   makePortals(),    makeZoom()};
+        c += makeOfxStubs();
+        return c;
+    }();
     return catalog;
 }
 
@@ -308,6 +842,363 @@ TransitionInstance transitionFromMap(const QVariantMap &m)
     return t;
 }
 
+/**
+ * Venetian Blinds: `count` slats laid across the frame at `angle`, each opening about
+ * its own centre line to reveal B. Feather softens the moving edge.
+ *
+ * Worked on a rotated axis rather than by rotating images: every pixel's position along
+ * the blind normal decides which slat it belongs to and how far into that slat it sits,
+ * which keeps the slats exact at any angle and costs one pass.
+ */
+QImage renderVenetianBlinds(const QImage &from, const QImage &to, double progress,
+                            const TransitionInstance &t, const QSize &size)
+{
+    const QImage a = toArgb(from, size);
+    const QImage b = toArgb(to, size);
+    const int count =
+        std::clamp(int(std::lround(transitionParamValue(t, QStringLiteral("count")))), 1, 64);
+    const double angleDeg = transitionParamValue(t, QStringLiteral("angle"));
+    const double feather = std::clamp(transitionParamValue(t, QStringLiteral("feather")), 0.0, 1.0);
+
+    QImage out(size, QImage::Format_ARGB32_Premultiplied);
+    out.fill(Qt::transparent);
+
+    const double rad = angleDeg * 3.14159265358979323846 / 180.0;
+    // Normal of the blinds. Angle 0 gives vertical slats (normal along x), 90 gives
+    // horizontal ones — matching "Five Vertical Blinds" vs "Seven Horizontal Blinds".
+    const double nx = std::cos(rad);
+    const double ny = std::sin(rad);
+    const double w = size.width();
+    const double h = size.height();
+    // Extent of the projection over the whole frame, so the slats always span it.
+    const double span = std::abs(nx) * w + std::abs(ny) * h;
+    const double slat = span / double(count);
+    const double origin = -(std::abs(nx) * w + std::abs(ny) * h) * 0.5;
+
+    for (int y = 0; y < size.height(); ++y) {
+        const auto *ar = a.isNull() ? nullptr : reinterpret_cast<const QRgb *>(a.constScanLine(y));
+        const auto *br = b.isNull() ? nullptr : reinterpret_cast<const QRgb *>(b.constScanLine(y));
+        auto *orow = reinterpret_cast<QRgb *>(out.scanLine(y));
+        const double cy = double(y) - h * 0.5;
+        for (int x = 0; x < size.width(); ++x) {
+            const double cx = double(x) - w * 0.5;
+            const double d = cx * nx + cy * ny - origin;
+            // Position within this slat, 0…1 measured from its centre outwards.
+            double local = std::fmod(d, slat) / slat;
+            if (local < 0.0) {
+                local += 1.0;
+            }
+            const double fromCentre = std::abs(local - 0.5) * 2.0;
+            // The opening grows from the slat's centre; feather blurs its edge instead of
+            // leaving the hard step a plain threshold would give.
+            const double edge = std::max(1e-4, feather);
+            const double mix =
+                std::clamp((progress - fromCentre * (1.0 - edge)) / edge, 0.0, 1.0);
+
+            const QRgb pa = ar ? ar[x] : qRgba(0, 0, 0, 0);
+            const QRgb pb = br ? br[x] : qRgba(0, 0, 0, 0);
+            const auto lerp = [&](int ca, int cb) {
+                return int(std::lround(ca + (cb - ca) * mix));
+            };
+            orow[x] = qRgba(lerp(qRed(pa), qRed(pb)), lerp(qGreen(pa), qGreen(pb)),
+                            lerp(qBlue(pa), qBlue(pb)), lerp(qAlpha(pa), qAlpha(pb)));
+        }
+    }
+    return out;
+}
+
+/**
+ * Shared machinery for the edge-driven transitions (Linear Wipe, Barn Door, Iris,
+ * Clock Wipe).
+ *
+ * Each one is just a different *signed field*: negative where the outgoing clip still
+ * shows, positive where the incoming one has taken over, measured in normalised screen
+ * units. Feather and the coloured border both fall out of that one number — feather is a
+ * soft ramp across zero, the border is a band around it — so the four transitions share
+ * their whole edge treatment and differ only in a few lines of geometry.
+ */
+struct EdgeStyle {
+    double feather = 0.0;     ///< width of the soft ramp, normalised
+    double borderSize = 0.0;  ///< width of the coloured band, normalised
+    QColor borderColor = Qt::black;
+    /**
+     * Fades the band away as the transition reaches either end. Without it the border
+     * sits on screen at progress 0 and 1, where there is no moving edge for it to trace
+     * and VEGAS shows nothing.
+     */
+    double borderStrength = 1.0;
+};
+
+double smoothStep(double edge0, double edge1, double x)
+{
+    if (edge1 <= edge0) {
+        return x < edge0 ? 0.0 : 1.0;
+    }
+    const double t = std::clamp((x - edge0) / (edge1 - edge0), 0.0, 1.0);
+    return t * t * (3.0 - 2.0 * t);
+}
+
+template <typename Field>
+QImage blendByField(const QImage &from, const QImage &to, const QSize &size,
+                    const EdgeStyle &style, Field field)
+{
+    const QImage a = toArgb(from, size);
+    const QImage b = toArgb(to, size);
+    QImage out(size, QImage::Format_ARGB32_Premultiplied);
+    out.fill(Qt::transparent);
+
+    const double halfFeather = std::max(1e-4, style.feather * 0.5);
+    const double border = std::max(0.0, style.borderSize);
+    const int br = style.borderColor.red();
+    const int bg = style.borderColor.green();
+    const int bb = style.borderColor.blue();
+
+    for (int y = 0; y < size.height(); ++y) {
+        const auto *ar = a.isNull() ? nullptr : reinterpret_cast<const QRgb *>(a.constScanLine(y));
+        const auto *brow = b.isNull() ? nullptr : reinterpret_cast<const QRgb *>(b.constScanLine(y));
+        auto *orow = reinterpret_cast<QRgb *>(out.scanLine(y));
+        const double ny = size.height() > 1 ? double(y) / double(size.height() - 1) : 0.0;
+        for (int x = 0; x < size.width(); ++x) {
+            const double nx = size.width() > 1 ? double(x) / double(size.width() - 1) : 0.0;
+            const double s = field(nx, ny);
+            const double mix = smoothStep(-halfFeather, halfFeather, s);
+
+            const QRgb pa = ar ? ar[x] : qRgba(0, 0, 0, 0);
+            const QRgb pb = brow ? brow[x] : qRgba(0, 0, 0, 0);
+            const auto lerp = [&](int ca, int cb, double t) {
+                return int(std::lround(ca + (cb - ca) * t));
+            };
+            int r = lerp(qRed(pa), qRed(pb), mix);
+            int g = lerp(qGreen(pa), qGreen(pb), mix);
+            int bl = lerp(qBlue(pa), qBlue(pb), mix);
+            int al = lerp(qAlpha(pa), qAlpha(pb), mix);
+
+            if (border > 0.0 && style.borderStrength > 0.0) {
+                // Band hugging the moving edge, fading out over its own width.
+                const double edge =
+                    (1.0 - smoothStep(0.0, border, std::abs(s))) * style.borderStrength;
+                if (edge > 0.0) {
+                    r = lerp(r, br, edge);
+                    g = lerp(g, bg, edge);
+                    bl = lerp(bl, bb, edge);
+                    al = lerp(al, 255, edge);
+                }
+            }
+            orow[x] = qRgba(r, g, bl, al);
+        }
+    }
+    return out;
+}
+
+QColor borderColourOf(const TransitionInstance &t)
+{
+    const auto ch = [&](const char *key) {
+        return int(std::lround(std::clamp(transitionParamValue(t, QString::fromLatin1(key)), 0.0,
+                                          1.0)
+                               * 255.0));
+    };
+    return QColor(ch("borderRed"), ch("borderGreen"), ch("borderBlue"));
+}
+
+EdgeStyle edgeStyleOf(const TransitionInstance &t, const char *featherKey)
+{
+    EdgeStyle s;
+    s.feather = std::clamp(transitionParamValue(t, QString::fromLatin1(featherKey)), 0.0, 1.0);
+    const double size = std::clamp(transitionParamValue(t, QStringLiteral("borderSize")), 0.0, 1.0);
+    // The shipped "… Black/Yellow/Red Border" presets set BorderSize to 0 and give only
+    // BorderFeather, so a band driven by size alone would leave them borderless despite
+    // their names. Both contribute.
+    s.borderSize = size + s.feather * 0.5;
+    s.borderColor = borderColourOf(t);
+    return s;
+}
+
+// --------------------------------------------------------------------- Linear Wipe
+
+QImage renderLinearWipe(const QImage &from, const QImage &to, double progress,
+                        const TransitionInstance &t, const QSize &size)
+{
+    // Angle names the sweep exactly as the shipped presets do: 0 = Left-Right,
+    // 90 = Top-Down, 180 = Right-Left, 270 = Bottom-Up, 45 = the Top-Left diagonal.
+    const double deg = transitionParamValue(t, QStringLiteral("angle"));
+    const double rad = deg * 3.14159265358979323846 / 180.0;
+    const double dx = std::cos(rad);
+    const double dy = std::sin(rad);
+    EdgeStyle style;
+    style.feather = std::clamp(transitionParamValue(t, QStringLiteral("feather")), 0.0, 1.0);
+
+    // Extent of the projection over the frame, so progress 0…1 always sweeps it fully
+    // whatever the angle — including the diagonals.
+    const double span = std::abs(dx) + std::abs(dy);
+    const double threshold = -0.5 * span + progress * (span + style.feather);
+    return blendByField(from, to, size, style, [=](double x, double y) {
+        return threshold - ((x - 0.5) * dx + (y - 0.5) * dy);
+    });
+}
+
+// ----------------------------------------------------------------------- Barn Door
+
+QImage renderBarnDoor(const QImage &from, const QImage &to, double progress,
+                      const TransitionInstance &t, const QSize &size)
+{
+    const bool horizontal =
+        int(std::lround(transitionParamValue(t, QStringLiteral("orientation")))) == 1;
+    // Direction 0 = In (doors close towards the centre), 1 = Out (they open from it).
+    const bool out = int(std::lround(transitionParamValue(t, QStringLiteral("direction")))) == 1;
+    EdgeStyle style = edgeStyleOf(t, "borderFeather");
+    style.borderStrength = smoothStep(0.0, 0.06, progress) * smoothStep(0.0, 0.06, 1.0 - progress);
+
+    return blendByField(from, to, size, style, [=](double x, double y) {
+        const double c = std::abs((horizontal ? y : x) - 0.5) * 2.0; // 0 centre … 1 edge
+        return out ? progress - c : c - (1.0 - progress);
+    });
+}
+
+// ---------------------------------------------------------------------------- Iris
+
+QImage renderIris(const QImage &from, const QImage &to, double progress,
+                  const TransitionInstance &t, const QSize &size)
+{
+    // Shape indices are the ones the .veg stores: 0 Circle, 3 Rectangle, 4 Diamond,
+    // 5 Square, 8 Triangle Down. The rest fall back to a circle rather than guessing.
+    const int shape = int(std::lround(transitionParamValue(t, QStringLiteral("shape"))));
+    const bool out = int(std::lround(transitionParamValue(t, QStringLiteral("direction")))) == 1;
+    const double cx = transitionParamValue(t, QStringLiteral("centerX"));
+    const double cy = transitionParamValue(t, QStringLiteral("centerY"));
+    EdgeStyle style = edgeStyleOf(t, "feather");
+    style.borderStrength = smoothStep(0.0, 0.06, progress) * smoothStep(0.0, 0.06, 1.0 - progress);
+
+    auto shapeDistance = [shape](double dx, double dy) {
+        switch (shape) {
+        case 4: // Diamond
+            return std::abs(dx) + std::abs(dy);
+        case 5: // Square
+            return std::max(std::abs(dx), std::abs(dy));
+        case 3: // Rectangle — wider than tall, as the preset draws it
+            return std::max(std::abs(dx) * 0.75, std::abs(dy));
+        case 8: { // Triangle Down
+            const double a = dy * 0.5 + 0.5;
+            return std::max(std::abs(dx) * 0.9 + a * 0.4, -dy);
+        }
+        default: // Circle / Oval
+            return std::hypot(dx, dy);
+        }
+    };
+
+    // How far the shape must grow to clear the frame, measured with the shape's own
+    // distance rather than a circle's: a diamond reaches |dx|+|dy| at the corners, which
+    // is well past the circular radius, and using the wrong one leaves it unfinished at
+    // progress 1.
+    double reach = 0.0;
+    for (const double px : {0.0, 1.0}) {
+        for (const double py : {0.0, 1.0}) {
+            reach = std::max(reach, shapeDistance(px - cx, py - cy));
+        }
+    }
+    reach += style.borderSize + style.feather;
+
+    const double radius = progress * reach;
+    return blendByField(from, to, size, style, [=](double x, double y) {
+        const double d = shapeDistance(x - cx, y - cy);
+        return out ? radius - d : d - (reach - radius);
+    });
+}
+
+// ---------------------------------------------------------------------- Clock Wipe
+
+QImage renderClockWipe(const QImage &from, const QImage &to, double progress,
+                       const TransitionInstance &t, const QSize &size)
+{
+    const bool counter =
+        int(std::lround(transitionParamValue(t, QStringLiteral("direction")))) == 1;
+    // Feather is given in degrees here, not in screen units — the presets use 0 for a
+    // hard edge, 30 for a soft one and 220 for the "Blend In" look.
+    const double featherDeg =
+        std::clamp(transitionParamValue(t, QStringLiteral("featherAngle")), 0.0, 360.0);
+
+    constexpr double kPi = 3.14159265358979323846;
+    EdgeStyle style;
+    style.feather = std::max(1e-4, featherDeg / 360.0);
+    const double sweep = progress * (1.0 + style.feather);
+
+    return blendByField(from, to, size, style, [=](double x, double y) {
+        // Angle from twelve o'clock, 0…1 around the dial.
+        double a = std::atan2(x - 0.5, 0.5 - y) / (2.0 * kPi);
+        if (a < 0.0) {
+            a += 1.0;
+        }
+        if (counter) {
+            a = 1.0 - a;
+        }
+        return sweep - a;
+    });
+}
+
+/**
+ * Zoom: the incoming clip grows out of a point (In) or the outgoing one shrinks into it
+ * (Out). The centre is a corner in most of the shipped presets, which is what makes the
+ * two directions read differently rather than as one mirrored move.
+ */
+QImage renderZoom(const QImage &from, const QImage &to, double progress,
+                  const TransitionInstance &t, const QSize &size)
+{
+    const bool out = int(std::lround(transitionParamValue(t, QStringLiteral("direction")))) == 1;
+    const double cx = std::clamp(transitionParamValue(t, QStringLiteral("centerX")), 0.0, 1.0);
+    // The preset package measures Y from the bottom, the way the plug-in's own control
+    // does — "Top-Left" stores (0, 1). Images are top-down, so it flips here.
+    const double cy =
+        1.0 - std::clamp(transitionParamValue(t, QStringLiteral("centerY")), 0.0, 1.0);
+    const double borderSize =
+        std::clamp(transitionParamValue(t, QStringLiteral("borderSize")), 0.0, 1.0);
+    const double borderFeather =
+        std::clamp(transitionParamValue(t, QStringLiteral("borderFeather")), 0.0, 1.0);
+    const QColor borderColor = borderColourOf(t);
+
+    const QImage a = toArgb(from, size);
+    const QImage b = toArgb(to, size);
+    QImage result(size, QImage::Format_ARGB32_Premultiplied);
+    result.fill(Qt::transparent);
+
+    QPainter p(&result);
+    p.setRenderHint(QPainter::SmoothPixmapTransform, true);
+    // The clip that stays put is the backdrop; the other one scales over it.
+    const QImage &still = out ? b : a;
+    const QImage &moving = out ? a : b;
+    if (!still.isNull()) {
+        p.drawImage(0, 0, still);
+    }
+
+    // In grows 0 -> 1, Out shrinks 1 -> 0, both about the chosen centre.
+    const double scale = out ? (1.0 - progress) : progress;
+    if (scale > 0.001 && !moving.isNull()) {
+        const double w = size.width() * scale;
+        const double h = size.height() * scale;
+        const double x = cx * size.width() * (1.0 - scale);
+        const double y = cy * size.height() * (1.0 - scale);
+        const QRectF target(x, y, w, h);
+        p.drawImage(target, moving, QRectF(QPointF(0, 0), QSizeF(size)));
+
+        // Border traces the moving edge, and fades out at both ends where there is none.
+        const double band = (borderSize + borderFeather * 0.5) * std::min(w, h);
+        if (band > 0.5) {
+            const double strength =
+                smoothStep(0.0, 0.06, progress) * smoothStep(0.0, 0.06, 1.0 - progress);
+            if (strength > 0.0) {
+                QColor c = borderColor;
+                c.setAlphaF(float(strength));
+                QPen pen(c);
+                pen.setWidthF(band);
+                pen.setJoinStyle(Qt::MiterJoin);
+                p.setPen(pen);
+                p.setBrush(Qt::NoBrush);
+                p.drawRect(target.adjusted(band / 2, band / 2, -band / 2, -band / 2));
+            }
+        }
+    }
+    p.end();
+    return result;
+}
+
 QImage renderTransition(const QImage &from, const QImage &to, double progress,
                         const TransitionInstance &t)
 {
@@ -318,6 +1209,24 @@ QImage renderTransition(const QImage &from, const QImage &to, double progress,
     const double p = std::clamp(progress, 0.0, 1.0);
     if (t.pluginId == transition3dBlindsId()) {
         return renderBlinds(from, to, p, t, size);
+    }
+    if (t.pluginId == transitionVenetianBlindsId()) {
+        return renderVenetianBlinds(from, to, p, t, size);
+    }
+    if (t.pluginId == transitionLinearWipeId()) {
+        return renderLinearWipe(from, to, p, t, size);
+    }
+    if (t.pluginId == transitionBarnDoorId()) {
+        return renderBarnDoor(from, to, p, t, size);
+    }
+    if (t.pluginId == transitionIrisId()) {
+        return renderIris(from, to, p, t, size);
+    }
+    if (t.pluginId == transitionClockWipeId()) {
+        return renderClockWipe(from, to, p, t, size);
+    }
+    if (t.pluginId == transitionZoomId()) {
+        return renderZoom(from, to, p, t, size);
     }
     return crossDissolve(from, to, p, size);
 }

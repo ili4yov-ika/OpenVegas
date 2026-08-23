@@ -119,6 +119,9 @@ endif()
     src/video/MediaGeneratorApply.cpp
     src/video/TransitionApply.cpp
     src/video/VideoCompositor.cpp
+    src/video/TransitionPresetData.cpp
+    src/video/NestedFrameHook.cpp
+    src/video/NestedProjectSource.cpp
     resources/resources.qrc
 )
 
@@ -217,6 +220,9 @@ set(OPENVGAS_HEADERS
     src/video/MediaGeneratorApply.h
     src/video/TransitionApply.h
     src/video/VideoCompositor.h
+    src/video/TransitionPresetData.h
+    src/video/NestedFrameHook.h
+    src/video/NestedProjectSource.h
 )
 
 set(OPENVGAS_UI
@@ -446,9 +452,11 @@ if(OPENVGAS_BUILD_TESTS)
         src/video/TrackMotionApply.cpp
         src/video/ColorCorrectorApply.cpp
         src/video/TitlesTextApply.cpp
+        src/video/TransitionPresetData.cpp
         src/video/TransitionApply.cpp
         src/video/MediaGeneratorApply.cpp
         src/video/VideoCompositor.cpp
+        src/video/NestedFrameHook.cpp
         src/video/VideoFrameCache.cpp
         src/io/FFmpegStreamDecoder.cpp
         src/io/MediaFilmstripCache.cpp
@@ -495,6 +503,7 @@ if(OPENVGAS_BUILD_TESTS)
         tests/test_media_generator.cpp
         tests/test_veg_no_edl_audit.cpp
         tests/test_transitions_veg.cpp
+        tests/test_nested_project_audio.cpp
         src/io/FFmpegEncoder.cpp
         src/io/FFmpegStreamDecoder.cpp
         src/io/MediaFilmstripCache.cpp
@@ -517,12 +526,23 @@ if(OPENVGAS_BUILD_TESTS)
         src/plugins/AudioPluginScanner.cpp
         src/audio/Vst3Host.cpp
         src/audio/SoundForgeDsHost.cpp
+        src/audio/AudioDecodeCache.cpp
         src/audio/BuiltinDsp.cpp
         src/audio/FadeCurves.cpp
         src/video/VideoKeyframeEval.cpp
         src/video/TitlesTextApply.cpp
+        src/video/TransitionPresetData.cpp
         src/video/TransitionApply.cpp
         src/video/MediaGeneratorApply.cpp
+        src/video/NestedFrameHook.cpp
+        src/video/NestedProjectSource.cpp
+        src/video/VideoCompositor.cpp
+        src/video/VideoFrameCache.cpp
+        src/video/PanCropApply.cpp
+        src/video/TrackMotionApply.cpp
+        src/video/ColorCorrectorApply.cpp
+        src/io/FFmpegStreamDecoder.cpp
+        src/io/MediaFilmstripCache.cpp
         src/io/RenderTemplateCatalog.cpp
     )
     target_include_directories(openvegas_media_tests PRIVATE

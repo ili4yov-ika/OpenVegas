@@ -127,15 +127,27 @@ void TransitionsPane::loadCatalog()
     auto add = [this](Plugin p) { m_plugins.push_back(std::move(p)); };
 
     auto addSimple = [&](const QString &name, const QStringList &cats, Thumb thumb,
-                         const QString &fmt = QStringLiteral("DXT")) {
+                         const QString &fmt = QStringLiteral("DXT"),
+                         const QStringList &presetNames = {}) {
         Plugin p;
         p.name = name;
         p.categories = cats;
         p.format = fmt;
         p.description = tr("Transition plug-in.");
-        p.presets = {makePreset(QStringLiteral("(Default)"), thumb),
-                     makePreset(QStringLiteral("Variant A"), thumb, QColor(0x20, 0x60, 0xa0)),
-                     makePreset(QStringLiteral("Variant B"), thumb, QColor(0x40, 0x30, 0x70))};
+        if (presetNames.isEmpty()) {
+            // Still a placeholder group: no renderer and no recovered preset list, so the
+            // names stay obviously generic rather than pretending to be VEGAS's.
+            p.presets = {makePreset(QStringLiteral("(Default)"), thumb),
+                         makePreset(QStringLiteral("Variant A"), thumb, QColor(0x20, 0x60, 0xa0)),
+                         makePreset(QStringLiteral("Variant B"), thumb, QColor(0x40, 0x30, 0x70))};
+        } else {
+            // Real preset names, read out of a VEGAS project — see
+            // MARKDOWN/VEG_TRANSITIONS_REVERSE.md. The picture is still a placeholder
+            // thumbnail, but the list now matches what VEGAS actually offers.
+            for (const QString &n : presetNames) {
+                p.presets.push_back(makePreset(n, thumb));
+            }
+        }
         add(std::move(p));
     };
 
@@ -159,20 +171,81 @@ void TransitionsPane::loadCatalog()
         add(std::move(p));
     }
 
-    addSimple(QStringLiteral("3D Cascade"), {QStringLiteral("3D Effects")}, Thumb::Push);
-    addSimple(QStringLiteral("3D Fly In/Out"), {QStringLiteral("3D Effects")}, Thumb::Push);
-    addSimple(QStringLiteral("3D Shuffle"), {QStringLiteral("3D Effects")}, Thumb::SlotMachine);
-    addSimple(QStringLiteral("Barn Door"), {QStringLiteral("Reveals"), QStringLiteral("Wipes")}, Thumb::Wipe);
-    addSimple(QStringLiteral("Clock Wipe"), {QStringLiteral("Wipes")}, Thumb::Iris);
+    // Groups backed by a real renderer take their presets from the shared catalog, so
+    // the dock, the timeline and the properties window can never disagree.
+    auto addReal = [&](const QString &pluginId, const QStringList &cats, Thumb thumb,
+                       const QString &fmt, const QString &describe) {
+        const TransitionPluginInfo *info = transitionPluginById(pluginId);
+        if (!info) {
+            return;
+        }
+        Plugin p;
+        p.name = info->name;
+        p.categories = cats;
+        p.format = fmt;
+        p.description = describe;
+        p.pluginId = pluginId;
+        for (const TransitionPresetInfo &pr : info->presets) {
+            p.presets.push_back(makePreset(pr.name, thumb));
+        }
+        add(std::move(p));
+    };
+
+    {
+        // The second group with a real renderer. Parameters and preset values both came
+        // out of a VEGAS project, so the dock, the timeline and the properties window
+        // share one source of truth exactly as 3D Blinds does.
+        Plugin p;
+        p.name = QStringLiteral("Venetian Blinds");
+        p.categories = {QStringLiteral("Reveals"), QStringLiteral("Wipes")};
+        p.format = QStringLiteral("DXT");
+        p.description = QStringLiteral("Venetian blinds transition between clips.");
+        p.pluginId = transitionVenetianBlindsId();
+        if (const TransitionPluginInfo *info = transitionPluginById(p.pluginId)) {
+            for (const TransitionPresetInfo &pr : info->presets) {
+                p.presets.push_back(makePreset(pr.name, Thumb::SimpleBlinds));
+            }
+        }
+        add(std::move(p));
+    }
+
+    // Preset names below are the ones VEGAS itself stores; the thumbnails are still
+    // placeholders because these groups have no renderer yet.
+    addSimple(QStringLiteral("3D Cascade"), {QStringLiteral("3D Effects")}, Thumb::Push,
+              QStringLiteral("DXT"),
+              {QStringLiteral("Curtain"), QStringLiteral("Left to Right"),
+               QStringLiteral("Top to Bottom")});
+    addSimple(QStringLiteral("3D Fly In/Out"), {QStringLiteral("3D Effects")}, Thumb::Push,
+              QStringLiteral("DXT"),
+              {QStringLiteral("Default"), QStringLiteral("Spin Away"),
+               QStringLiteral("Tumble In")});
+    addSimple(QStringLiteral("3D Shuffle"), {QStringLiteral("3D Effects")}, Thumb::SlotMachine,
+              QStringLiteral("DXT"),
+              {QStringLiteral("Bright Light"), QStringLiteral("Low Light")});
+    addReal(transitionBarnDoorId(), {QStringLiteral("Reveals"), QStringLiteral("Wipes")}, Thumb::Wipe,
+            QStringLiteral("OFX"), QStringLiteral("Barn door wipe between clips."));
+    addReal(transitionClockWipeId(), {QStringLiteral("Wipes")}, Thumb::Iris,
+            QStringLiteral("OFX"), QStringLiteral("Clock wipe between clips."));
     addSimple(QStringLiteral("Cross Effect"), {QStringLiteral("Fades"), QStringLiteral("Reveals")},
               Thumb::Dissolve);
     addSimple(QStringLiteral("Dissolve"), {QStringLiteral("Fades")}, Thumb::Dissolve);
     addSimple(QStringLiteral("Flash"), {QStringLiteral("Fades")}, Thumb::Dissolve, QStringLiteral("OFX"));
     addSimple(QStringLiteral("GL Transition"), {QStringLiteral("3D Effects"), QStringLiteral("Reveals")},
               Thumb::Spin, QStringLiteral("OFX"));
-    addSimple(QStringLiteral("Gradient Wipe"), {QStringLiteral("Wipes")}, Thumb::Wipe);
-    addSimple(QStringLiteral("Iris"), {QStringLiteral("Wipes"), QStringLiteral("Reveals")}, Thumb::Iris);
-    addSimple(QStringLiteral("Linear Wipe"), {QStringLiteral("Wipes")}, Thumb::Wipe);
+    addSimple(QStringLiteral("Gradient Wipe"), {QStringLiteral("Wipes")}, Thumb::Wipe,
+              QStringLiteral("DXT"),
+              {QStringLiteral("Linear Left-Right"), QStringLiteral("Linear Right-Left"),
+               QStringLiteral("Linear Top-Bottom"), QStringLiteral("Linear Bottom-Top"),
+               QStringLiteral("Box In"), QStringLiteral("Box Out"), QStringLiteral("Circle In"),
+               QStringLiteral("Circle Out"), QStringLiteral("Horizontal Open"),
+               QStringLiteral("Vertical Open"), QStringLiteral("Spiral"), QStringLiteral("Star"),
+               QStringLiteral("Heart"), QStringLiteral("Nebulous"),
+               QStringLiteral("Paint Splatter"), QStringLiteral("Puzzle Pieces"),
+               QStringLiteral("Soft Noise"), QStringLiteral("Turbulent Noise")});
+    addReal(transitionIrisId(), {QStringLiteral("Wipes"), QStringLiteral("Reveals")}, Thumb::Iris,
+            QStringLiteral("OFX"), QStringLiteral("Iris wipe between clips."));
+    addReal(transitionLinearWipeId(), {QStringLiteral("Wipes")}, Thumb::Wipe,
+            QStringLiteral("OFX"), QStringLiteral("Linear wipe between clips."));
     addSimple(QStringLiteral("Page Loop"), {QStringLiteral("Loops and Peels")}, Thumb::Page);
     addSimple(QStringLiteral("Page Peel"), {QStringLiteral("Loops and Peels")}, Thumb::Page);
     addSimple(QStringLiteral("Page Roll"), {QStringLiteral("Loops and Peels")}, Thumb::Page);
@@ -185,8 +258,6 @@ void TransitionsPane::loadCatalog()
     addSimple(QStringLiteral("Squeeze"), {QStringLiteral("Reveals")}, Thumb::Push);
     addSimple(QStringLiteral("Star Wipe"), {QStringLiteral("Wipes")}, Thumb::Iris);
     addSimple(QStringLiteral("Swap"), {QStringLiteral("Reveals")}, Thumb::Push);
-    addSimple(QStringLiteral("Venetian Blinds"), {QStringLiteral("Wipes"), QStringLiteral("Reveals")},
-              Thumb::SimpleBlinds);
     addSimple(QStringLiteral("Warp Flow"), {QStringLiteral("3D Effects"), QStringLiteral("Reveals")},
               Thumb::Spin, QStringLiteral("OFX"));
     addSimple(QStringLiteral("Zoom"), {QStringLiteral("Reveals"), QStringLiteral("3D Effects")}, Thumb::Iris);

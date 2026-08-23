@@ -1068,6 +1068,7 @@ VegOpenResult VegReader::open(const QString &path, QString *error)
     // After parseTimelineEvents: each transition is resolved to its owning event by
     // byte offset, so the event list has to exist first.
     parseTransitions(data, &result);
+    parseOfxTransitions(data, &result);
     parseFxStateChunks(data, &result);
     parseLegacyVideoFxStates(data, &result);
     assignEventNames(&result);
@@ -1095,13 +1096,53 @@ void VegReader::parseTransitions(const QByteArray &data, VegOpenResult *result)
      * Only 3D Blinds is known so far; the GUID identifies that one plug-in, so other
      * transition groups are simply not recovered rather than mis-parsed.
      */
-    static const uchar kBlindsGuid[16] = {0x52, 0xa5, 0x43, 0xc8, 0xeb, 0xaa, 0x1c, 0x41,
-                                          0x84, 0x81, 0xcf, 0x4c, 0x52, 0xa3, 0x36, 0xe3};
+    struct KnownTransition {
+        uchar guid[16];
+        VegTransitionKind kind;
+        const char *name;
+    };
+    // GUID -> plug-in. Taken from the ATL registration scripts embedded in VEGAS's own
+    // DLLs, which spell it out directly:
+    //   ForceRemove '{E38B2B4A-BA99-4f67-B533-1997297850DD}' = s 'VEGAS Shuffle'
+    //   ForceRemove '{573FA5A1-F314-4539-9BB1-77FA92D4E7CD}' = s 'VEGAS 3D Fly In/Out'
+    // Anything not in this table is skipped rather than parsed with the wrong layout.
+    // See MARKDOWN/VEG_TRANSITIONS_REVERSE.md.
+    static const KnownTransition kKnown[] = {
+        {{0x52, 0xa5, 0x43, 0xc8, 0xeb, 0xaa, 0x1c, 0x41, 0x84, 0x81, 0xcf, 0x4c, 0x52, 0xa3,
+          0x36, 0xe3},
+         VegTransitionKind::Blinds3D, "3D Blinds"},
+        {{0x40, 0x20, 0xd8, 0xf4, 0x0f, 0xd4, 0xad, 0x44, 0xbb, 0x24, 0x6a, 0xab, 0x29, 0xdc,
+          0x21, 0xf1},
+         VegTransitionKind::Cascade3D, "3D Cascade"},
+        {{0xa1, 0xa5, 0x3f, 0x57, 0x14, 0xf3, 0x39, 0x45, 0x9b, 0xb1, 0x77, 0xfa, 0x92, 0xd4,
+          0xe7, 0xcd},
+         VegTransitionKind::FlyInOut3D, "3D Fly In/Out"},
+        {{0x4a, 0x2b, 0x8b, 0xe3, 0x99, 0xba, 0x67, 0x4f, 0xb5, 0x33, 0x19, 0x97, 0x29, 0x78,
+          0x50, 0xdd},
+         VegTransitionKind::Shuffle3D, "3D Shuffle"},
+        {{0x31, 0x83, 0x7a, 0xe9, 0x99, 0xd0, 0x0d, 0x44, 0xaa, 0xc5, 0x9b, 0x7c, 0xc8, 0x56,
+          0xae, 0x9f},
+         VegTransitionKind::GradientWipe, "Gradient Wipe"},
+        {{0xda, 0xf6, 0x8e, 0xbf, 0xd5, 0x4e, 0x9c, 0x4f, 0xb5, 0x49, 0x91, 0x94, 0x90, 0xf8,
+          0x8b, 0x2f},
+         VegTransitionKind::VenetianBlinds, "Venetian Blinds"},
+        {{0x7c, 0x93, 0x56, 0x58, 0x03, 0x36, 0x78, 0x43, 0x83, 0xcf, 0x88, 0x94, 0x23, 0x82,
+          0x0f, 0x39},
+         VegTransitionKind::Portals, "Portals"},
+    };
+
     const uchar *base = reinterpret_cast<const uchar *>(data.constData());
     const int n = data.size();
 
     for (int off = 36; off + 16 + 52 <= n; ++off) {
-        if (std::memcmp(base + off, kBlindsGuid, 16) != 0) {
+        const KnownTransition *known = nullptr;
+        for (const KnownTransition &k : kKnown) {
+            if (std::memcmp(base + off, k.guid, 16) == 0) {
+                known = &k;
+                break;
+            }
+        }
+        if (!known) {
             continue;
         }
         const qint32 nameLen = qFromLittleEndian<qint32>(base + off + 48);
@@ -1110,24 +1151,91 @@ void VegReader::parseTransitions(const QByteArray &data, VegOpenResult *result)
         }
         VegTransitionInfo info;
         info.offset = off;
+        info.kind = known->kind;
+        info.pluginName = QString::fromLatin1(known->name);
         info.presetName = QString::fromUtf16(
             reinterpret_cast<const char16_t *>(base + off + 52), (nameLen - 2) / 2);
         const int p = off + 52 + nameLen;
-        info.divisions = qFromLittleEndian<qint32>(base + p);
-        info.extraSpins = qFromLittleEndian<qint32>(base + p + 4);
-        info.stagger = qFromLittleEndian<double>(base + p + 8);
-        info.specularLight = qFromLittleEndian<double>(base + p + 16);
-        info.direction = qFromLittleEndian<qint32>(base + p + 24);
         info.fadeOut = qFromLittleEndian<qint32>(base + off - 36) == 0;
 
-        // Sanity-gate against the ranges the plug-in actually exposes, so a false GUID
-        // match cannot inject nonsense parameters.
-        if (info.divisions < 1 || info.divisions > 16 || info.extraSpins < 0
-            || info.extraSpins > 10 || !std::isfinite(info.stagger) || info.stagger < -0.001
-            || info.stagger > 1.001 || !std::isfinite(info.specularLight)
-            || info.specularLight < -0.001 || info.specularLight > 1.001 || info.direction < 0
-            || info.direction > 3) {
+        switch (known->kind) {
+        case VegTransitionKind::Blinds3D:
+            info.divisions = qFromLittleEndian<qint32>(base + p);
+            info.extraSpins = qFromLittleEndian<qint32>(base + p + 4);
+            info.stagger = qFromLittleEndian<double>(base + p + 8);
+            info.specularLight = qFromLittleEndian<double>(base + p + 16);
+            info.direction = qFromLittleEndian<qint32>(base + p + 24);
+            break;
+        case VegTransitionKind::Cascade3D:
+            // Same opening shape as 3D Blinds but no extra-spins field: the two ints are
+            // divisions and direction, then stagger and a light term.
+            info.divisions = qFromLittleEndian<qint32>(base + p);
+            info.direction = qFromLittleEndian<qint32>(base + p + 4);
+            info.stagger = qFromLittleEndian<double>(base + p + 8);
+            info.specularLight = qFromLittleEndian<double>(base + p + 16);
+            break;
+        case VegTransitionKind::VenetianBlinds:
+            // Three doubles. The preset names name the first two outright — "Seven
+            // Horizontal Blinds" stores 7 and 90 — which is what identified them.
+            info.blindCount = qFromLittleEndian<double>(base + p);
+            info.blindAngleDeg = qFromLittleEndian<double>(base + p + 8);
+            info.blindFeather = qFromLittleEndian<double>(base + p + 16);
+            break;
+        case VegTransitionKind::Shuffle3D:
+            // One control only ("Specular light"), which the dialog confirms.
+            info.specularLight = qFromLittleEndian<double>(base + p);
+            break;
+        case VegTransitionKind::GradientWipe:
+        case VegTransitionKind::FlyInOut3D:
+        case VegTransitionKind::Portals:
+            // Recognised, but the sample project does not pin their layouts down, so the
+            // numbers stay at defaults instead of being invented. The preset name — which
+            // is what selects the gradient / height map for these — is still recovered.
+            info.paramsUndecoded = true;
+            break;
+        case VegTransitionKind::Unknown:
+            break;
+        }
+
+        if (info.paramsUndecoded) {
+            // Nothing numeric to sanity-check; the name gate above already applied.
+            for (const VegEventInfo &ev : result->events) {
+                if (ev.kind != VegEventInfo::Kind::Video || ev.offset < 0 || ev.offset > off) {
+                    continue;
+                }
+                if (info.eventStartSec < 0.0 || ev.offset > info.eventOffsetForCompare) {
+                    info.eventStartSec = ev.startSec;
+                    info.eventOffsetForCompare = ev.offset;
+                }
+            }
+            result->transitions.push_back(info);
             continue;
+        }
+
+        if (known->kind == VegTransitionKind::VenetianBlinds) {
+            if (!std::isfinite(info.blindCount) || info.blindCount < 1.0
+                || info.blindCount > 64.0 || !std::isfinite(info.blindAngleDeg)
+                || info.blindAngleDeg < -360.0 || info.blindAngleDeg > 360.0
+                || !std::isfinite(info.blindFeather) || info.blindFeather < -0.001
+                || info.blindFeather > 1.001) {
+                continue;
+            }
+        } else if (known->kind == VegTransitionKind::Shuffle3D) {
+            if (!std::isfinite(info.specularLight) || info.specularLight < -0.001
+                || info.specularLight > 1.001) {
+                continue;
+            }
+        } else {
+            // Sanity-gate against the ranges the plug-in actually exposes, so a false GUID
+            // match cannot inject nonsense parameters.
+            if (info.divisions < 1 || info.divisions > 16 || info.extraSpins < 0
+                || info.extraSpins > 10 || !std::isfinite(info.stagger)
+                || info.stagger < -0.001 || info.stagger > 1.001
+                || !std::isfinite(info.specularLight)
+                || info.specularLight < -0.001 || info.specularLight > 1.001
+                || info.direction < 0 || info.direction > 3) {
+                continue;
+            }
         }
 
         // The chunk is nested inside its event's chunk, so the owning event is the last
@@ -1147,6 +1255,151 @@ void VegReader::parseTransitions(const QByteArray &data, VegOpenResult *result)
     if (!result->transitions.isEmpty()) {
         result->warnings << QStringLiteral("Recovered %1 transition(s) from the binary.")
                                 .arg(result->transitions.size());
+    }
+}
+
+/**
+ * The other way VEGAS stores a transition: keyed by an identifier string instead of a
+ * 16-byte GUID. Most groups live here — Iris, Linear Wipe, Push, Dissolve and the rest —
+ * which is why a project full of them used to come back with no transition strips at all.
+ *
+ *   [UTF-16 "{Svfx:com.vegascreativesoftware:iris}"] [UTF-16 preset name]
+ *   [int32 blockBytes] [int32 paramCount]
+ *     repeated: [int32 valueBytes] [int32 nameLenBytes] [UTF-16 name] [value]
+ *
+ * `valueBytes` tells the type apart: 8 is an integer (a choice or a flag), 12 one double,
+ * 20 a point, 28 a colour — i.e. N doubles followed by a 4-byte tail.
+ */
+void VegReader::parseOfxTransitions(const QByteArray &data, VegOpenResult *result)
+{
+    if (!result || data.size() < 64) {
+        return;
+    }
+    const uchar *base = reinterpret_cast<const uchar *>(data.constData());
+    const int n = data.size();
+
+    // Reads a null-terminated UTF-16 string; returns false when it is not plausible text.
+    auto readUtf16 = [&](int off, QString *out, int *end, int maxChars) {
+        QString s;
+        int i = off;
+        while (i + 1 < n && s.size() <= maxChars) {
+            const ushort c = ushort(base[i]) | (ushort(base[i + 1]) << 8);
+            if (c == 0) {
+                *out = s;
+                *end = i + 2;
+                return !s.isEmpty();
+            }
+            if (c < 0x20) {
+                return false;
+            }
+            s.append(QChar(c));
+            i += 2;
+        }
+        return false;
+    };
+
+    static const char16_t kMarker[] = u"{Svfx:";
+    const QString marker = QString::fromUtf16(kMarker);
+    const QByteArray needle(reinterpret_cast<const char *>(marker.utf16()),
+                            marker.size() * 2);
+
+    int search = 0;
+    while (true) {
+        const int off = data.indexOf(needle, search);
+        if (off < 0) {
+            break;
+        }
+        search = off + 2;
+
+        QString pluginId;
+        int afterId = 0;
+        if (!readUtf16(off, &pluginId, &afterId, 200) || !pluginId.endsWith(QLatin1Char('}'))) {
+            continue;
+        }
+        QString preset;
+        int afterPreset = 0;
+        if (!readUtf16(afterId, &preset, &afterPreset, 200)) {
+            continue;
+        }
+        if (afterPreset + 8 > n) {
+            continue;
+        }
+        const qint32 blockBytes = qFromLittleEndian<qint32>(base + afterPreset);
+        const qint32 count = qFromLittleEndian<qint32>(base + afterPreset + 4);
+        if (count <= 0 || count > 64 || blockBytes <= 0 || blockBytes > 65536) {
+            continue;
+        }
+
+        QVariantMap params;
+        int p = afterPreset + 8;
+        bool ok = true;
+        for (int i = 0; i < count && ok; ++i) {
+            if (p + 8 > n) {
+                ok = false;
+                break;
+            }
+            const qint32 valueBytes = qFromLittleEndian<qint32>(base + p);
+            const qint32 nameLen = qFromLittleEndian<qint32>(base + p + 4);
+            if (valueBytes < 0 || valueBytes > 4096 || nameLen < 2 || nameLen > 128
+                || (nameLen % 2) != 0 || p + 8 + nameLen + valueBytes > n) {
+                ok = false;
+                break;
+            }
+            QString name;
+            int nameEnd = 0;
+            if (!readUtf16(p + 8, &name, &nameEnd, 64)) {
+                ok = false;
+                break;
+            }
+            const int values = p + 8 + nameLen;
+            if (valueBytes == 8) {
+                params.insert(name, qFromLittleEndian<qint32>(base + values));
+            } else if (valueBytes >= 12 && ((valueBytes - 4) % 8) == 0) {
+                const int doubles = (valueBytes - 4) / 8;
+                if (doubles == 1) {
+                    params.insert(name, qFromLittleEndian<double>(base + values));
+                } else {
+                    QVariantList list;
+                    for (int k = 0; k < doubles; ++k) {
+                        list.push_back(qFromLittleEndian<double>(base + values + 8 * k));
+                    }
+                    params.insert(name, list);
+                }
+            }
+            p = values + valueBytes;
+        }
+        if (!ok || params.isEmpty()) {
+            continue;
+        }
+
+        VegTransitionInfo info;
+        info.kind = VegTransitionKind::Ofx;
+        info.offset = off;
+        info.ofxPluginId = pluginId;
+        // Every recovered transition names itself. For these the name is the tail of the
+        // identifier ("iris", "linearwipe"); the label the timeline shows comes from the
+        // catalog, which VegReader deliberately does not depend on.
+        const int lastColon = pluginId.lastIndexOf(QLatin1Char(':'));
+        QString tail = lastColon >= 0 ? pluginId.mid(lastColon + 1) : pluginId;
+        if (tail.endsWith(QLatin1Char('}'))) {
+            tail.chop(1);
+        }
+        info.pluginName = tail;
+        info.presetName = preset;
+        info.ofxParams = params;
+        info.paramsUndecoded = false;
+        // The record sits inside its event's chunk, so the owner is the last video event
+        // starting before it — the same rule the GUID-keyed path uses.
+        for (const VegEventInfo &ev : result->events) {
+            if (ev.kind != VegEventInfo::Kind::Video || ev.offset < 0 || ev.offset > off) {
+                continue;
+            }
+            if (info.eventStartSec < 0.0 || ev.offset > info.eventOffsetForCompare) {
+                info.eventStartSec = ev.startSec;
+                info.eventOffsetForCompare = ev.offset;
+            }
+        }
+        result->transitions.push_back(info);
     }
 }
 

@@ -29,7 +29,14 @@ public:
 
     void invalidate(const QString &path = {});
 
-    void finishFrameJob(const QString &path, qint64 timeBucket, const QSize &size, const QPixmap &pm);
+    /**
+     * Completion for a whole decoded run. Buckets with no picture are still recorded, so
+     * a gap is remembered rather than re-decoded on every repaint. Counts as **one**
+     * in-flight job — the per-bucket call would zero the throttle after the first tile
+     * and let every remaining range start at once.
+     */
+    void finishFrameRange(const QString &path, qint64 startBucket, int count, const QSize &size,
+                          const QHash<qint64, QPixmap> &frames);
     void finishPosterJob(const QString &path, const QSize &size, const QPixmap &pm);
 
     static QString findFfmpeg();

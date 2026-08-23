@@ -1,5 +1,7 @@
 #include "video/VideoFrameCache.h"
 
+#include "video/NestedFrameHook.h"
+
 #include "io/FFmpegStreamDecoder.h"
 
 #include <QDir>
@@ -59,6 +61,10 @@ public:
                     img = img.copy(x, y, m_size.width(), m_size.height());
                 }
             }
+        } else if (looksLikeProjectMedia(m_path)) {
+            // A VEGAS project used as a clip. There is no file to decode — its picture
+            // has to be composed from the project itself.
+            img = nestedFrame(m_path, double(m_bucket) * VideoFrameCache::bucketSec(), m_size);
         } else {
             // Continuous decode: one seek + raw pipe (no PNG / no seek-per-frame).
             img = FFmpegStreamDecoder::decodeFrame(m_path, double(m_bucket) * VideoFrameCache::bucketSec(),

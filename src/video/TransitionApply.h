@@ -11,11 +11,82 @@
 
 namespace openvegas {
 
-/** Stable id of the only transition group implemented so far. */
+/** Stable ids of the transition groups with a real renderer. */
 inline QString transition3dBlindsId()
 {
     return QStringLiteral("builtin:Transition:3DBlinds");
 }
+
+/**
+ * VEGAS Venetian Blinds. Its parameters were recovered from a real project: the record
+ * stores three doubles, and the shipped preset names state their own values — "Seven
+ * Horizontal Blinds" is 7 blinds at 90 degrees — which is what identified the fields.
+ * See MARKDOWN/VEG_TRANSITIONS_REVERSE.md.
+ */
+inline QString transitionVenetianBlindsId()
+{
+    return QStringLiteral("builtin:Transition:VenetianBlinds");
+}
+
+// The OFX-hosted groups VEGAS ships. Their parameters and preset values were read out of
+// a real project — every number below appears in project_transitions_othersmores.veg.
+inline QString transitionLinearWipeId()
+{
+    return QStringLiteral("builtin:Transition:LinearWipe");
+}
+inline QString transitionBarnDoorId()
+{
+    return QStringLiteral("builtin:Transition:BarnDoor");
+}
+inline QString transitionIrisId()
+{
+    return QStringLiteral("builtin:Transition:Iris");
+}
+inline QString transitionClockWipeId()
+{
+    return QStringLiteral("builtin:Transition:ClockWipe");
+}
+inline QString transitionZoomId()
+{
+    return QStringLiteral("builtin:Transition:Zoom");
+}
+
+// Recognised but not drawn yet. They exist in the catalog so an imported project shows
+// the right name and preset list instead of borrowing another group's identity; the
+// renderer falls through to a cross-fade for them.
+inline QString transitionCascade3dId()
+{
+    return QStringLiteral("builtin:Transition:3DCascade");
+}
+inline QString transitionShuffle3dId()
+{
+    return QStringLiteral("builtin:Transition:3DShuffle");
+}
+inline QString transitionFlyInOut3dId()
+{
+    return QStringLiteral("builtin:Transition:3DFlyInOut");
+}
+inline QString transitionGradientWipeId()
+{
+    return QStringLiteral("builtin:Transition:GradientWipe");
+}
+inline QString transitionPortalsId()
+{
+    return QStringLiteral("builtin:Transition:Portals");
+}
+
+/**
+ * Catalog id for a transition VEGAS stores as "{Svfx:…:key}". `key` is the tail of that
+ * identifier ("iris", "push"), so a project and the catalog agree without either side
+ * carrying the full string around.
+ */
+inline QString transitionOfxId(const QString &key)
+{
+    return QStringLiteral("builtin:Transition:ofx:") + key;
+}
+
+/** Catalog id for a "{Svfx:…}" identifier out of a project; empty when unknown. */
+QString transitionIdForOfxPlugin(const QString &svfxId);
 
 /** One tweakable parameter of a transition group (a row in its properties window). */
 struct TransitionParamInfo {

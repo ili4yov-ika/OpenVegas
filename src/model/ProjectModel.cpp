@@ -2163,22 +2163,131 @@ void ProjectModel::applyTransitionsFromVeg(const VegOpenResult &veg)
             continue;
         }
 
-        TransitionInstance t =
-            makeTransitionInstance(transition3dBlindsId(), info.presetName);
+        // Every group used to be imported as 3D Blinds, because that was the only id
+        // the catalog had: a project full of 3D Cascade and 3D Shuffle came back with
+        // every strip reading "3D Blinds".
+        QString pluginId;
+        switch (info.kind) {
+        case VegTransitionKind::Blinds3D:
+            pluginId = transition3dBlindsId();
+            break;
+        case VegTransitionKind::Cascade3D:
+            pluginId = transitionCascade3dId();
+            break;
+        case VegTransitionKind::FlyInOut3D:
+            pluginId = transitionFlyInOut3dId();
+            break;
+        case VegTransitionKind::Shuffle3D:
+            pluginId = transitionShuffle3dId();
+            break;
+        case VegTransitionKind::GradientWipe:
+            pluginId = transitionGradientWipeId();
+            break;
+        case VegTransitionKind::VenetianBlinds:
+            pluginId = transitionVenetianBlindsId();
+            break;
+        case VegTransitionKind::Portals:
+            pluginId = transitionPortalsId();
+            break;
+        case VegTransitionKind::Ofx:
+            pluginId = transitionIdForOfxPlugin(info.ofxPluginId);
+            break;
+        case VegTransitionKind::Unknown:
+            break;
+        }
+        if (pluginId.isEmpty()) {
+            continue;
+        }
+
+        TransitionInstance t = makeTransitionInstance(pluginId, info.presetName);
         if (!t.isValid()) {
             continue;
         }
         // Parameters come from the file, not from the preset table: a user may have
-        // tweaked sliders away from the stock preset before saving.
-        transitionSetParamValue(&t, QStringLiteral("divisions"), info.divisions);
-        transitionSetParamValue(&t, QStringLiteral("extraSpins"), info.extraSpins);
-        transitionSetParamValue(&t, QStringLiteral("stagger"), info.stagger);
-        transitionSetParamValue(&t, QStringLiteral("specularLight"), info.specularLight);
-        transitionSetParamValue(&t, QStringLiteral("direction"), info.direction);
+        // tweaked sliders away from the stock preset before saving. Only the fields the
+        // record actually decoded are pushed — a group whose layout is still unknown
+        // keeps its preset defaults instead of inheriting another group's numbers.
+        if (!info.paramsUndecoded) {
+            switch (info.kind) {
+            case VegTransitionKind::Blinds3D:
+                transitionSetParamValue(&t, QStringLiteral("divisions"), info.divisions);
+                transitionSetParamValue(&t, QStringLiteral("extraSpins"), info.extraSpins);
+                transitionSetParamValue(&t, QStringLiteral("stagger"), info.stagger);
+                transitionSetParamValue(&t, QStringLiteral("specularLight"),
+                                        info.specularLight);
+                transitionSetParamValue(&t, QStringLiteral("direction"), info.direction);
+                break;
+            case VegTransitionKind::Cascade3D:
+                transitionSetParamValue(&t, QStringLiteral("divisions"), info.divisions);
+                transitionSetParamValue(&t, QStringLiteral("direction"), info.direction);
+                transitionSetParamValue(&t, QStringLiteral("stagger"), info.stagger);
+                transitionSetParamValue(&t, QStringLiteral("specularLight"),
+                                        info.specularLight);
+                break;
+            case VegTransitionKind::Shuffle3D:
+                transitionSetParamValue(&t, QStringLiteral("specularLight"),
+                                        info.specularLight);
+                break;
+            case VegTransitionKind::VenetianBlinds:
+                transitionSetParamValue(&t, QStringLiteral("count"), info.blindCount);
+                transitionSetParamValue(&t, QStringLiteral("angle"), info.blindAngleDeg);
+                transitionSetParamValue(&t, QStringLiteral("feather"), info.blindFeather);
+                break;
+            case VegTransitionKind::Ofx: {
+                // Named values straight from the file. Only keys this group actually has
+                // are taken, so a stub group keeps its preset defaults rather than
+                // collecting parameters that belong to a different transition.
+                static const QHash<QString, QString> keyFor = {
+                    {QStringLiteral("Angle"), QStringLiteral("angle")},
+                    {QStringLiteral("Feather"), QStringLiteral("feather")},
+                    {QStringLiteral("FeatherAngle"), QStringLiteral("featherAngle")},
+                    {QStringLiteral("Direction"), QStringLiteral("direction")},
+                    {QStringLiteral("Orientation"), QStringLiteral("orientation")},
+                    {QStringLiteral("Shape"), QStringLiteral("shape")},
+                    {QStringLiteral("BorderSize"), QStringLiteral("borderSize")},
+                    {QStringLiteral("BorderFeather"), QStringLiteral("borderFeather")},
+                };
+                const TransitionPluginInfo *catalogInfo = transitionPluginById(pluginId);
+                for (auto it = info.ofxParams.constBegin(); it != info.ofxParams.constEnd();
+                     ++it) {
+                    const QString key = keyFor.value(it.key());
+                    if (key.isEmpty() || !catalogInfo) {
+                        continue;
+                    }
+                    bool known = false;
+                    for (const TransitionParamInfo &pi : catalogInfo->params) {
+                        if (pi.key == key) {
+                            known = true;
+                            break;
+                        }
+                    }
+                    if (known) {
+                        transitionSetParamValue(&t, key, it.value().toDouble());
+                    }
+                }
+                // Centre arrives as a pair.
+                const QVariantList centre =
+                    info.ofxParams.value(QStringLiteral("Center")).toList();
+                if (centre.size() == 2 && catalogInfo) {
+                    for (const TransitionParamInfo &pi : catalogInfo->params) {
+                        if (pi.key == QLatin1String("centerX")) {
+                            transitionSetParamValue(&t, QStringLiteral("centerX"),
+                                                    centre[0].toDouble());
+                            transitionSetParamValue(&t, QStringLiteral("centerY"),
+                                                    centre[1].toDouble());
+                            break;
+                        }
+                    }
+                }
+                break;
+            }
+            default:
+                break;
+            }
+        }
         // transitionSetParamValue clears presetName once anything differs from the stock
         // preset; restore it when the file's values still match it exactly.
-        if (const TransitionPresetInfo *preset =
-                transitionPreset(transition3dBlindsId(), info.presetName)) {
+        if (const TransitionPresetInfo *preset = transitionPreset(pluginId, info.presetName)) {
             if (preset->params == t.params) {
                 t.presetName = preset->name;
             }

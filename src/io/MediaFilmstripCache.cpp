@@ -1,6 +1,8 @@
 #include "MediaFilmstripCache.h"
 #include "MediaThumbCache.h"
 
+#include "video/NestedFrameHook.h"
+
 #include <QCoreApplication>
 #include <QDir>
 #include <QFileInfo>
@@ -19,57 +21,179 @@ namespace {
 
 constexpr int kMaxInflight = 6;
 constexpr double kBucketSec = 0.25; // quantize seeks (~4 buckets/sec)
+// One decode job covers this many buckets — 30 s of timeline. Chosen so the ffprobe
+// interval scan stays about a second; larger runs make the first tile appear later
+// without decoding any faster per frame.
+constexpr int kRangeBuckets = 120;
 
-class FrameJob : public QRunnable {
+class FrameRangeJob : public QRunnable
+{
 public:
-    FrameJob(MediaFilmstripCache *cache, QString path, qint64 bucket, QSize size)
+    FrameRangeJob(MediaFilmstripCache *cache, QString path, qint64 startBucket, int count,
+                  QSize size)
         : m_cache(cache)
         , m_path(std::move(path))
-        , m_bucket(bucket)
-        , m_size(size)
+        , m_startBucket(startBucket)
+        , m_count(count)
+        , m_size(std::move(size))
     {
         setAutoDelete(true);
     }
 
     void run() override
     {
-        QPixmap pm;
-        const QString ffmpeg = MediaFilmstripCache::findFfmpeg();
-        if (!ffmpeg.isEmpty() && QFileInfo::exists(m_path) && m_size.width() > 1
-            && m_size.height() > 1) {
-            const double t = double(m_bucket) * kBucketSec;
-            QTemporaryDir tmp;
-            if (tmp.isValid()) {
-                const QString out =
-                    tmp.path() + QStringLiteral("/f_%1.jpg").arg(m_bucket);
-                QProcess proc;
-                QStringList args;
-                args << QStringLiteral("-hide_banner") << QStringLiteral("-loglevel")
-                     << QStringLiteral("error") << QStringLiteral("-ss")
-                     << QString::number(t, 'f', 3) << QStringLiteral("-i") << m_path
-                     << QStringLiteral("-frames:v") << QStringLiteral("1")
-                     << QStringLiteral("-vf")
-                     << QStringLiteral("scale=%1:%2:force_original_aspect_ratio=increase,crop=%1:%2")
-                            .arg(m_size.width())
-                            .arg(m_size.height())
-                     << QStringLiteral("-q:v") << QStringLiteral("4") << QStringLiteral("-y")
-                     << out;
-                proc.start(ffmpeg, args);
-                if (proc.waitForFinished(20000) && proc.exitStatus() == QProcess::NormalExit
-                    && proc.exitCode() == 0 && QFileInfo::exists(out)) {
-                    pm = QPixmap(out);
-                }
+        QHash<qint64, QPixmap> produced;
+        if (looksLikeProjectMedia(m_path)) {
+            // A VEGAS project used as a clip: composed, not decoded. One frame per bucket
+            // would be wasteful here too, so the run is sampled — the pictures a
+            // filmstrip shows are a guide, and composing every quarter second of a
+            // nested timeline is far more work than reading keyframes off a file.
+            produced = composeNested();
+        } else {
+            const QString ffmpeg = MediaFilmstripCache::findFfmpeg();
+            if (!ffmpeg.isEmpty() && QFileInfo::exists(m_path) && m_size.width() > 1
+                && m_size.height() > 1) {
+                produced = extract(ffmpeg);
             }
         }
-        if (m_cache) {
-            m_cache->finishFrameJob(m_path, m_bucket, m_size, pm);
-        }
+        m_cache->finishFrameRange(m_path, m_startBucket, m_count, m_size, produced);
     }
 
 private:
+    /** Keyframe timestamps inside [from, from+duration], in seconds. */
+    QVector<double> keyframeTimes(const QString &ffmpeg, double from, double duration) const
+    {
+        QString ffprobe = ffmpeg;
+        const int cut = ffprobe.lastIndexOf(QLatin1String("ffmpeg"));
+        if (cut < 0) {
+            return {};
+        }
+        ffprobe.replace(cut, 6, QStringLiteral("ffprobe"));
+        if (!QFileInfo::exists(ffprobe)) {
+            return {};
+        }
+        QProcess proc;
+        proc.start(ffprobe,
+                   {QStringLiteral("-v"), QStringLiteral("error"),
+                    QStringLiteral("-select_streams"), QStringLiteral("v:0"),
+                    QStringLiteral("-skip_frame"), QStringLiteral("nokey"),
+                    QStringLiteral("-show_entries"), QStringLiteral("frame=pts_time"),
+                    QStringLiteral("-of"), QStringLiteral("csv=p=0"),
+                    QStringLiteral("-read_intervals"),
+                    QStringLiteral("%1%+%2").arg(from, 0, 'f', 3).arg(duration, 0, 'f', 3),
+                    m_path});
+        if (!proc.waitForFinished(20000) || proc.exitStatus() != QProcess::NormalExit) {
+            return {};
+        }
+        QVector<double> times;
+        const QList<QByteArray> lines = proc.readAllStandardOutput().split('\n');
+        for (const QByteArray &line : lines) {
+            bool ok = false;
+            const double t = line.trimmed().toDouble(&ok);
+            if (ok) {
+                times.push_back(t);
+            }
+        }
+        std::sort(times.begin(), times.end());
+        return times;
+    }
+
+    /** Frames of a nested project, composed at a coarser step than the bucket grid. */
+    QHash<qint64, QPixmap> composeNested() const
+    {
+        QHash<qint64, QPixmap> out;
+        if (m_size.width() < 2 || m_size.height() < 2) {
+            return out;
+        }
+        // One composed frame per this many buckets; the rest reuse it. Composing a
+        // nested timeline costs about what a full preview frame costs, so a tile every
+        // two seconds keeps the strip informative without stalling the pool.
+        constexpr int kStride = 8;
+        QPixmap current;
+        for (int i = 0; i < m_count; ++i) {
+            const qint64 bucket = m_startBucket + i;
+            if (i % kStride == 0) {
+                const QImage img = nestedFrame(m_path, double(bucket) * kBucketSec, m_size);
+                if (!img.isNull()) {
+                    current = QPixmap::fromImage(img);
+                }
+            }
+            if (!current.isNull()) {
+                out.insert(bucket, current);
+            }
+        }
+        return out;
+    }
+
+    QHash<qint64, QPixmap> extract(const QString &ffmpeg) const
+    {
+        QHash<qint64, QPixmap> out;
+        const double from = double(m_startBucket) * kBucketSec;
+        const double duration = double(m_count) * kBucketSec;
+
+        const QVector<double> times = keyframeTimes(ffmpeg, from, duration);
+        if (times.isEmpty()) {
+            return out;
+        }
+        QTemporaryDir tmp;
+        if (!tmp.isValid()) {
+            return out;
+        }
+        QProcess proc;
+        proc.start(ffmpeg,
+                   {QStringLiteral("-hide_banner"), QStringLiteral("-loglevel"),
+                    QStringLiteral("error"), QStringLiteral("-skip_frame"),
+                    QStringLiteral("nokey"), QStringLiteral("-ss"),
+                    QString::number(from, 'f', 3), QStringLiteral("-t"),
+                    QString::number(duration, 'f', 3), QStringLiteral("-i"), m_path,
+                    QStringLiteral("-vsync"), QStringLiteral("0"), QStringLiteral("-vf"),
+                    QStringLiteral("scale=%1:%2:force_original_aspect_ratio=increase,crop=%1:%2")
+                        .arg(m_size.width())
+                        .arg(m_size.height()),
+                    QStringLiteral("-q:v"), QStringLiteral("4"), QStringLiteral("-y"),
+                    tmp.path() + QStringLiteral("/f_%04d.jpg")});
+        if (!proc.waitForFinished(60000) || proc.exitStatus() != QProcess::NormalExit) {
+            return out;
+        }
+
+        // The i-th image is the i-th keyframe of the interval, so the two lists line up.
+        QVector<QPixmap> images;
+        for (int i = 1; i <= times.size() + 4; ++i) {
+            const QString file =
+                tmp.path() + QStringLiteral("/f_%1.jpg").arg(i, 4, 10, QLatin1Char('0'));
+            if (!QFileInfo::exists(file)) {
+                break;
+            }
+            images.push_back(QPixmap(file));
+        }
+        if (images.isEmpty()) {
+            return out;
+        }
+
+        for (int i = 0; i < m_count; ++i) {
+            const qint64 bucket = m_startBucket + i;
+            const double t = double(bucket) * kBucketSec;
+            // Last keyframe at or before this bucket — what the viewer would be looking
+            // at while scrubbing there.
+            int pick = 0;
+            for (int k = 0; k < times.size() && k < images.size(); ++k) {
+                if (times[k] <= t + 1e-6) {
+                    pick = k;
+                } else {
+                    break;
+                }
+            }
+            if (pick < images.size() && !images[pick].isNull()) {
+                out.insert(bucket, images[pick]);
+            }
+        }
+        return out;
+    }
+
     MediaFilmstripCache *m_cache = nullptr;
     QString m_path;
-    qint64 m_bucket = 0;
+    qint64 m_startBucket = 0;
+    int m_count = 1;
     QSize m_size;
 };
 
@@ -312,19 +436,35 @@ QPixmap MediaFilmstripCache::posterIfReady(const QString &path, const QSize &siz
 
 void MediaFilmstripCache::requestFrame(const QString &path, qint64 timeBucket, const QSize &size)
 {
-    const QString key = frameKey(path, timeBucket, size);
+    // Decode a run of buckets per job, not one. Starting ffmpeg and opening a 4K file
+    // costs far more than the decode itself at this scale, so asking for one thumbnail
+    // at a time made a filmstrip take tens of seconds to fill in.
+    const qint64 start = (timeBucket / kRangeBuckets) * kRangeBuckets;
+
+    QVector<qint64> claimed;
     {
         QMutexLocker lock(&m_mutex);
-        if (m_frameInflight.value(key, false) || m_frames.contains(key)) {
+        if (m_frameInflight.value(frameKey(path, timeBucket, size), false)
+            || m_frames.contains(frameKey(path, timeBucket, size))) {
             return;
         }
         if (m_inflightCount >= kMaxInflight) {
             return; // try again on next paint / ready signal
         }
-        m_frameInflight.insert(key, true);
+        for (int i = 0; i < kRangeBuckets; ++i) {
+            const QString key = frameKey(path, start + i, size);
+            if (m_frameInflight.value(key, false) || m_frames.contains(key)) {
+                continue;
+            }
+            m_frameInflight.insert(key, true);
+            claimed.push_back(start + i);
+        }
+        if (claimed.isEmpty()) {
+            return;
+        }
         ++m_inflightCount;
     }
-    QThreadPool::globalInstance()->start(new FrameJob(this, path, timeBucket, size));
+    QThreadPool::globalInstance()->start(new FrameRangeJob(this, path, start, kRangeBuckets, size));
 }
 
 void MediaFilmstripCache::requestPoster(const QString &path, const QSize &size)
@@ -339,29 +479,24 @@ void MediaFilmstripCache::requestPoster(const QString &path, const QSize &size)
     QThreadPool::globalInstance()->start(new PosterJob(this, path, size));
 }
 
-void MediaFilmstripCache::finishFrameJob(const QString &path, qint64 timeBucket, const QSize &size,
-                                        const QPixmap &pm)
+void MediaFilmstripCache::finishFrameRange(const QString &path, qint64 startBucket, int count,
+                                          const QSize &size,
+                                          const QHash<qint64, QPixmap> &frames)
 {
-    const QString key = frameKey(path, timeBucket, size);
     {
         QMutexLocker lock(&m_mutex);
-        if (!pm.isNull()) {
-            m_frames.insert(key, pm);
-        } else {
-            // Cache miss marker (empty) to avoid hammering ffmpeg on broken seeks
-            m_frames.insert(key, QPixmap());
+        for (int i = 0; i < count; ++i) {
+            const qint64 bucket = startBucket + i;
+            const QString key = frameKey(path, bucket, size);
+            // An empty pixmap is a miss marker: without it a bucket the decoder could not
+            // fill would be requested again on every repaint.
+            m_frames.insert(key, frames.value(bucket));
+            m_frameInflight.remove(key);
         }
-        m_frameInflight.remove(key);
         m_inflightCount = std::max(0, m_inflightCount - 1);
     }
-    if (!pm.isNull()) {
-        QMetaObject::invokeMethod(
-            this, [this, path]() { emit frameReady(path); }, Qt::QueuedConnection);
-    } else {
-        // Still notify so timeline can refill queue for other buckets
-        QMetaObject::invokeMethod(
-            this, [this, path]() { emit frameReady(path); }, Qt::QueuedConnection);
-    }
+    QMetaObject::invokeMethod(
+        this, [this, path]() { emit frameReady(path); }, Qt::QueuedConnection);
 }
 
 void MediaFilmstripCache::finishPosterJob(const QString &path, const QSize &size, const QPixmap &pm)
