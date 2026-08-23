@@ -42,8 +42,12 @@ public:
      * Null while the nested project's own media is still decoding — the caller should
      * ask again, the same contract VideoCompositor already has. Null too when the file
      * is not a project, cannot be loaded, or the nesting is circular.
+     *
+     * With `exact` the nested timeline is composed from the source frames at this very
+     * time and nothing else; without it, frames already decoded near it will do.
      */
-    QImage frameAt(const QString &vegPath, double timeSec, const QSize &size);
+    QImage frameAt(const QString &vegPath, double timeSec, const QSize &size,
+                   bool exact = false);
 
     /** Timeline length of the nested project in seconds; 0 when unknown. */
     double durationOf(const QString &vegPath);

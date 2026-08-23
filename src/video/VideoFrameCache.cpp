@@ -63,8 +63,13 @@ public:
             }
         } else if (looksLikeProjectMedia(m_path)) {
             // A VEGAS project used as a clip. There is no file to decode — its picture
-            // has to be composed from the project itself.
-            img = nestedFrame(m_path, double(m_bucket) * VideoFrameCache::bucketSec(), m_size);
+            // has to be composed from the project itself. Exactly this frame: a nearest
+            // one would be cached below as though it were the frame for this bucket, and
+            // scrubbing would keep showing it. Null just means the nested timeline's own
+            // media is still decoding, and null is never cached — the next repaint asks
+            // again and gets the real frame.
+            img = nestedFrame(m_path, double(m_bucket) * VideoFrameCache::bucketSec(), m_size,
+                              /*exact=*/true);
         } else {
             // Continuous decode: one seek + raw pipe (no PNG / no seek-per-frame).
             img = FFmpegStreamDecoder::decodeFrame(m_path, double(m_bucket) * VideoFrameCache::bucketSec(),

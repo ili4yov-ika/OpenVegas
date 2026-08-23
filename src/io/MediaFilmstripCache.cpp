@@ -11,6 +11,7 @@
 #include <QRunnable>
 #include <QStandardPaths>
 #include <QTemporaryDir>
+#include <QThread>
 #include <QThreadPool>
 
 #include <algorithm>
@@ -56,7 +57,9 @@ public:
                 produced = extract(ffmpeg);
             }
         }
-        m_cache->finishFrameRange(m_path, m_startBucket, m_count, m_size, produced);
+        // A nested project that returned nothing is still decoding, not broken.
+        m_cache->finishFrameRange(m_path, m_startBucket, m_count, m_size, produced,
+                                  !looksLikeProjectMedia(m_path));
     }
 
 private:
@@ -98,6 +101,34 @@ private:
         return times;
     }
 
+    /**
+     * The nested project's frame at `timeSec`, waiting for it to be composed.
+     *
+     * The compose is asynchronous underneath: it starts decoding the nested timeline's
+     * own media and returns null until those frames arrive. In a paint that means "ask
+     * again next repaint", but this runs in a background job that may as well wait — and
+     * must, because the alternative it used to take (accept the nearest frame already
+     * decoded) hands back the same picture for every time in the run, and the strip fills
+     * with one frame repeated.
+     *
+     * The wait gives the pool its thread back, since the decodes being waited on are
+     * queued on that same pool and would otherwise never get a thread to run on.
+     */
+    QImage awaitNested(double timeSec) const
+    {
+        constexpr int kTries = 30;
+        constexpr int kSleepMs = 100; // so: up to 3 s for a frame
+        QImage img = nestedFrame(m_path, timeSec, m_size, /*exact=*/true);
+        for (int i = 0; img.isNull() && i < kTries; ++i) {
+            QThreadPool *pool = QThreadPool::globalInstance();
+            pool->releaseThread();
+            QThread::msleep(kSleepMs);
+            pool->reserveThread();
+            img = nestedFrame(m_path, timeSec, m_size, /*exact=*/true);
+        }
+        return img;
+    }
+
     /** Frames of a nested project, composed at a coarser step than the bucket grid. */
     QHash<qint64, QPixmap> composeNested() const
     {
@@ -105,21 +136,21 @@ private:
         if (m_size.width() < 2 || m_size.height() < 2) {
             return out;
         }
-        // One composed frame per this many buckets; the rest reuse it. Composing a
-        // nested timeline costs about what a full preview frame costs, so a tile every
-        // two seconds keeps the strip informative without stalling the pool.
+        // One composed frame per this many buckets; the rest of the block reuses it.
+        // Composing a nested timeline costs about what a full preview frame costs, so a
+        // tile every two seconds keeps the strip informative without stalling the pool.
         constexpr int kStride = 8;
-        QPixmap current;
-        for (int i = 0; i < m_count; ++i) {
+        for (int i = 0; i < m_count; i += kStride) {
             const qint64 bucket = m_startBucket + i;
-            if (i % kStride == 0) {
-                const QImage img = nestedFrame(m_path, double(bucket) * kBucketSec, m_size);
-                if (!img.isNull()) {
-                    current = QPixmap::fromImage(img);
-                }
+            const QImage img = awaitNested(double(bucket) * kBucketSec);
+            if (img.isNull()) {
+                // Leave the block empty rather than filling it with the previous one:
+                // the buckets stay unclaimed misses and are asked for again.
+                continue;
             }
-            if (!current.isNull()) {
-                out.insert(bucket, current);
+            const QPixmap pm = QPixmap::fromImage(img);
+            for (int j = i; j < std::min(i + kStride, m_count); ++j) {
+                out.insert(m_startBucket + j, pm);
             }
         }
         return out;
@@ -481,16 +512,20 @@ void MediaFilmstripCache::requestPoster(const QString &path, const QSize &size)
 
 void MediaFilmstripCache::finishFrameRange(const QString &path, qint64 startBucket, int count,
                                           const QSize &size,
-                                          const QHash<qint64, QPixmap> &frames)
+                                          const QHash<qint64, QPixmap> &frames,
+                                          bool missesAreFinal)
 {
     {
         QMutexLocker lock(&m_mutex);
         for (int i = 0; i < count; ++i) {
             const qint64 bucket = startBucket + i;
             const QString key = frameKey(path, bucket, size);
-            // An empty pixmap is a miss marker: without it a bucket the decoder could not
-            // fill would be requested again on every repaint.
-            m_frames.insert(key, frames.value(bucket));
+            const QPixmap pm = frames.value(bucket);
+            if (!pm.isNull() || missesAreFinal) {
+                // An empty pixmap is a miss marker: without it a bucket the decoder could
+                // not fill would be requested again on every repaint.
+                m_frames.insert(key, pm);
+            }
             m_frameInflight.remove(key);
         }
         m_inflightCount = std::max(0, m_inflightCount - 1);

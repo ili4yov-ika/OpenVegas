@@ -22,12 +22,12 @@ bool looksLikeProjectMedia(const QString &path)
     return path.endsWith(QLatin1String(".veg"), Qt::CaseInsensitive);
 }
 
-QImage nestedFrame(const QString &path, double timeSec, const QSize &size)
+QImage nestedFrame(const QString &path, double timeSec, const QSize &size, bool exact)
 {
     if (!g_provider || !looksLikeProjectMedia(path)) {
         return {};
     }
-    return g_provider(path, timeSec, size);
+    return g_provider(path, timeSec, size, exact);
 }
 
 } // namespace openvegas

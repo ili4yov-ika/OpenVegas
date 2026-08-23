@@ -173,6 +173,21 @@ TEST_CASE("The frame caches reach a nested project only once the provider is ins
         }
     }
     CHECK_FALSE(img.isNull());
+
+    // An exact frame arrives too, given the same patience. Both callers of this seam ask
+    // for one, because settling for the nearest frame already decoded returns the same
+    // picture for every time asked in a run — which is how a filmstrip ends up as one
+    // frame repeated. Getting null for a while is the contract, never getting a frame
+    // is not.
+    QImage exact;
+    for (int attempt = 0; attempt < 40 && exact.isNull(); ++attempt) {
+        exact = nestedFrame(veg, 24.0, QSize(64, 36), /*exact=*/true);
+        if (exact.isNull()) {
+            QThread::msleep(250);
+            QCoreApplication::processEvents();
+        }
+    }
+    CHECK_FALSE(exact.isNull());
 }
 
 TEST_CASE("The preview cache itself returns a nested project's frame",

@@ -95,7 +95,8 @@ std::shared_ptr<const ProjectModel> NestedProjectSource::modelFor(const QString 
     return shared;
 }
 
-QImage NestedProjectSource::frameAt(const QString &vegPath, double timeSec, const QSize &size)
+QImage NestedProjectSource::frameAt(const QString &vegPath, double timeSec, const QSize &size,
+                                    bool exact)
 {
     if (size.width() < 2 || size.height() < 2) {
         return {};
@@ -104,9 +105,11 @@ QImage NestedProjectSource::frameAt(const QString &vegPath, double timeSec, cons
     if (!model) {
         return {};
     }
-    // Same call the program monitor makes. `softRealtime` is on so a frame still being
-    // decoded resolves to the nearest cached one instead of blocking a paint.
-    return VideoCompositor::compose(*model, std::max(0.0, timeSec), size, /*softRealtime=*/true);
+    // Same call the program monitor makes. `softRealtime` lets a frame still being
+    // decoded resolve to the nearest cached one instead of blocking a paint — right for
+    // a monitor, wrong for a caller that wants this frame and no other.
+    return VideoCompositor::compose(*model, std::max(0.0, timeSec), size,
+                                    /*softRealtime=*/!exact);
 }
 
 double NestedProjectSource::durationOf(const QString &vegPath)
@@ -126,8 +129,9 @@ double NestedProjectSource::durationOf(const QString &vegPath)
 
 void NestedProjectSource::installAsFrameProvider()
 {
-    setNestedFrameProvider([](const QString &path, double timeSec, const QSize &size) {
-        return NestedProjectSource::instance().frameAt(path, timeSec, size);
+    setNestedFrameProvider([](const QString &path, double timeSec, const QSize &size,
+                              bool exact) {
+        return NestedProjectSource::instance().frameAt(path, timeSec, size, exact);
     });
 }
 
