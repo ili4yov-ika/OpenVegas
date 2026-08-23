@@ -5,6 +5,7 @@
 #include <QImage>
 #include <QSize>
 #include <QString>
+#include <QPair>
 #include <QStringList>
 #include <QVariantMap>
 #include <QVector>
@@ -50,6 +51,37 @@ inline QString transitionZoomId()
 {
     return QStringLiteral("builtin:Transition:Zoom");
 }
+inline QString transitionPushId()
+{
+    return QStringLiteral("builtin:Transition:Push");
+}
+inline QString transitionSlideId()
+{
+    return QStringLiteral("builtin:Transition:Slide");
+}
+inline QString transitionSqueezeId()
+{
+    return QStringLiteral("builtin:Transition:Squeeze");
+}
+inline QString transitionSplitId()
+{
+    return QStringLiteral("builtin:Transition:Split");
+}
+inline QString transitionFlashId()
+{
+    return QStringLiteral("builtin:Transition:Flash");
+}
+
+/**
+ * The one table saying which "{Svfx:…:key}" groups have a renderer, and under what id.
+ *
+ * Two places need this and used to keep their own copy: the importer, to give a project's
+ * transition the right identity, and the catalog, to leave those groups out of the
+ * cross-fading stubs. The copies drifted — Zoom was excluded from the stubs but missing
+ * from the importer, so a project's Zoom resolved to a stub id that no longer existed and
+ * came back nameless.
+ */
+const QVector<QPair<QString, QString>> &renderedOfxGroups();
 
 // Recognised but not drawn yet. They exist in the catalog so an imported project shows
 // the right name and preset list instead of borrowing another group's identity; the

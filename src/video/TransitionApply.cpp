@@ -515,16 +515,116 @@ QVector<TransitionPresetInfo> stockPresets(const QString &key)
     return out;
 }
 
+TransitionPluginInfo makePush()
+{
+    TransitionPluginInfo info;
+    info.id = transitionPushId();
+    info.name = QStringLiteral("Push");
+    info.format = QStringLiteral("OFX");
+    info.description = QStringLiteral("VEGAS Push");
+    info.params = {
+        {QStringLiteral("direction"), QStringLiteral("Direction"), 0.0, 3.0, 0,
+         {QStringLiteral("Up"), QStringLiteral("Down"), QStringLiteral("Left"),
+          QStringLiteral("Right")}},
+        {QStringLiteral("pushOffPreviousImage"), QStringLiteral("Push off previous image"), 0.0,
+         1.0, 0, {QStringLiteral("Off"), QStringLiteral("On")}},
+    };
+    info.params += borderParams(QStringLiteral("borderFeather"),
+                                QStringLiteral("Border feather"));
+    info.presets = stockPresets(QStringLiteral("push"));
+    return info;
+}
+
+TransitionPluginInfo makeSlide()
+{
+    TransitionPluginInfo info;
+    info.id = transitionSlideId();
+    info.name = QStringLiteral("Slide");
+    info.format = QStringLiteral("OFX");
+    info.description = QStringLiteral("VEGAS Slide");
+    info.params = {
+        {QStringLiteral("angle"), QStringLiteral("Angle"), 0.0, 360.0, 1, {}},
+        {QStringLiteral("direction"), QStringLiteral("Direction"), 0.0, 1.0, 0,
+         {QStringLiteral("In"), QStringLiteral("Out")}},
+    };
+    info.params += borderParams(QStringLiteral("borderFeather"),
+                                QStringLiteral("Border feather"));
+    info.presets = stockPresets(QStringLiteral("slide"));
+    return info;
+}
+
+TransitionPluginInfo makeSqueeze()
+{
+    TransitionPluginInfo info;
+    info.id = transitionSqueezeId();
+    info.name = QStringLiteral("Squeeze");
+    info.format = QStringLiteral("OFX");
+    info.description = QStringLiteral("VEGAS Squeeze");
+    info.params = {
+        {QStringLiteral("start"), QStringLiteral("Start"), 0.0, 5.0, 0,
+         {QStringLiteral("Down"), QStringLiteral("Up"), QStringLiteral("Left-Right"),
+          QStringLiteral("Right-Left"), QStringLiteral("Vertical"), QStringLiteral("Lateral")}},
+        {QStringLiteral("squeezePreviousImage"), QStringLiteral("Squeeze previous image"), 0.0,
+         1.0, 0, {QStringLiteral("Off"), QStringLiteral("On")}},
+    };
+    info.params += borderParams(QStringLiteral("borderFeather"),
+                                QStringLiteral("Border feather"));
+    info.presets = stockPresets(QStringLiteral("squeeze"));
+    return info;
+}
+
+TransitionPluginInfo makeSplit()
+{
+    TransitionPluginInfo info;
+    info.id = transitionSplitId();
+    info.name = QStringLiteral("Split");
+    info.format = QStringLiteral("OFX");
+    info.description = QStringLiteral("VEGAS Split");
+    // "Split mode" and its three choices are the plug-in own labels, out of its binary.
+    info.params = {
+        {QStringLiteral("splitMode"), QStringLiteral("Split mode"), 0.0, 2.0, 0,
+         {QStringLiteral("Push"), QStringLiteral("Wipe"), QStringLiteral("Squeeze")}},
+        {QStringLiteral("direction"), QStringLiteral("Direction"), 0.0, 1.0, 0,
+         {QStringLiteral("In"), QStringLiteral("Out")}},
+        {QStringLiteral("centerX"), QStringLiteral("Center X"), 0.0, 1.0, 4, {}},
+        {QStringLiteral("centerY"), QStringLiteral("Center Y"), 0.0, 1.0, 4, {}},
+    };
+    info.params += borderParams(QStringLiteral("borderFeather"),
+                                QStringLiteral("Border feather"));
+    info.presets = stockPresets(QStringLiteral("split"));
+    return info;
+}
+
+TransitionPluginInfo makeFlash()
+{
+    TransitionPluginInfo info;
+    info.id = transitionFlashId();
+    info.name = QStringLiteral("Flash");
+    info.format = QStringLiteral("OFX");
+    info.description = QStringLiteral("VEGAS Flash");
+    // Flash has no border: the burst covers the whole frame, so there is no seam.
+    info.params = {
+        {QStringLiteral("horizontalDiffusion"), QStringLiteral("Horizontal diffusion"), 0.0, 1.0,
+         3, {}},
+        {QStringLiteral("verticalDiffusion"), QStringLiteral("Vertical diffusion"), 0.0, 1.0, 3,
+         {}},
+        {QStringLiteral("tintRed"), QStringLiteral("Tint red"), 0.0, 1.0, 3, {}},
+        {QStringLiteral("tintGreen"), QStringLiteral("Tint green"), 0.0, 1.0, 3, {}},
+        {QStringLiteral("tintBlue"), QStringLiteral("Tint blue"), 0.0, 1.0, 3, {}},
+    };
+    info.presets = stockPresets(QStringLiteral("flash"));
+    return info;
+}
+
 QVector<TransitionPluginInfo> makeOfxStubs()
 {
     QVector<TransitionPluginInfo> out;
     // Groups with a renderer of their own are built above; listing them here too would
     // put two entries with the same name in the dock, one of which quietly cross-fades.
-    static const QSet<QString> implemented = {
-        QStringLiteral("zoom"), QStringLiteral("iris"), QStringLiteral("linearwipe"),
-        QStringLiteral("barndoor"), QStringLiteral("clockwipe"),
-        QStringLiteral("venetianblinds"),
-    };
+    QSet<QString> implemented;
+    for (const auto &pair : renderedOfxGroups()) {
+        implemented.insert(pair.first);
+    }
     for (const OfxStubSpec &spec : ofxStubSpecs()) {
         if (implemented.contains(spec.key)) {
             continue;
@@ -702,6 +802,24 @@ QImage testCard(const QSize &size, const QString &letter, const QColor &top, con
 
 } // namespace
 
+const QVector<QPair<QString, QString>> &renderedOfxGroups()
+{
+    static const QVector<QPair<QString, QString>> groups = {
+        {QStringLiteral("linearwipe"), transitionLinearWipeId()},
+        {QStringLiteral("barndoor"), transitionBarnDoorId()},
+        {QStringLiteral("iris"), transitionIrisId()},
+        {QStringLiteral("clockwipe"), transitionClockWipeId()},
+        {QStringLiteral("zoom"), transitionZoomId()},
+        {QStringLiteral("venetianblinds"), transitionVenetianBlindsId()},
+        {QStringLiteral("push"), transitionPushId()},
+        {QStringLiteral("slide"), transitionSlideId()},
+        {QStringLiteral("squeeze"), transitionSqueezeId()},
+        {QStringLiteral("split"), transitionSplitId()},
+        {QStringLiteral("flash"), transitionFlashId()},
+    };
+    return groups;
+}
+
 QString transitionIdForOfxPlugin(const QString &svfxId)
 {
     // "{Svfx:com.vegascreativesoftware:iris}" -> "iris"
@@ -716,17 +834,12 @@ QString transitionIdForOfxPlugin(const QString &svfxId)
     if (key.isEmpty()) {
         return {};
     }
-    // The four with a renderer of their own answer to their own ids; everything else
+    // Groups with a renderer of their own answer to their own ids; everything else
     // resolves to the table-driven stub, which exists so the name and presets survive.
-    static const QHash<QString, QString> implemented = {
-        {QStringLiteral("linearwipe"), transitionLinearWipeId()},
-        {QStringLiteral("barndoor"), transitionBarnDoorId()},
-        {QStringLiteral("iris"), transitionIrisId()},
-        {QStringLiteral("clockwipe"), transitionClockWipeId()},
-    };
-    const auto hit = implemented.constFind(key);
-    if (hit != implemented.constEnd()) {
-        return hit.value();
+    for (const auto &pair : renderedOfxGroups()) {
+        if (pair.first == key) {
+            return pair.second;
+        }
     }
     const QString id = transitionOfxId(key);
     return transitionPluginById(id) ? id : QString();
@@ -738,7 +851,9 @@ const QVector<TransitionPluginInfo> &transitionCatalog()
         QVector<TransitionPluginInfo> c = {
             makeBlinds(),     makeVenetianBlinds(), makeLinearWipe(), makeBarnDoor(),
             makeIris(),       makeClockWipe(),      makeCascade3D(),  makeShuffle3D(),
-            makeFlyInOut3D(), makeGradientWipe(),   makePortals(),    makeZoom()};
+            makeFlyInOut3D(), makeGradientWipe(),   makePortals(),    makeZoom(),
+            makePush(),       makeSlide(),          makeSqueeze(),    makeSplit(),
+            makeFlash()};
         c += makeOfxStubs();
         return c;
     }();
@@ -1007,8 +1122,10 @@ EdgeStyle edgeStyleOf(const TransitionInstance &t, const char *featherKey)
     const double size = std::clamp(transitionParamValue(t, QStringLiteral("borderSize")), 0.0, 1.0);
     // The shipped "… Black/Yellow/Red Border" presets set BorderSize to 0 and give only
     // BorderFeather, so a band driven by size alone would leave them borderless despite
-    // their names. Both contribute.
-    s.borderSize = size + s.feather * 0.5;
+    // their names. Feather stands in for the missing width there — but it does not add to
+    // a width that is set: Split ships 0.1 with a feather of 0.3, and adding them put a
+    // quarter of the frame under border.
+    s.borderSize = size > 0.0 ? size : s.feather * 0.5;
     s.borderColor = borderColourOf(t);
     return s;
 }
@@ -1199,6 +1316,405 @@ QImage renderZoom(const QImage &from, const QImage &to, double progress,
     return result;
 }
 
+// --------------------------------------------------------------- moving-edge border
+
+/**
+ * Border band traced along the edges of an image that moves as a whole.
+ *
+ * Push, Slide, Squeeze and Split all show the same thing at the seam: a coloured band
+ * travelling with the moving picture. It fades in and out at the two ends, where there is
+ * no seam to draw and a band would sit on the frame edge looking like a frame.
+ */
+void strokeMovingEdge(QPainter &p, const QRectF &rect, const EdgeStyle &style, double progress,
+                      double refSize)
+{
+    const double band = style.borderSize * refSize;
+    if (band < 0.5) {
+        return;
+    }
+    const double strength =
+        smoothStep(0.0, 0.06, progress) * smoothStep(0.0, 0.06, 1.0 - progress);
+    if (strength <= 0.0) {
+        return;
+    }
+    QColor c = style.borderColor;
+    c.setAlphaF(float(std::clamp(strength, 0.0, 1.0)));
+    QPen pen(c);
+    pen.setWidthF(band);
+    pen.setJoinStyle(Qt::MiterJoin);
+    p.save();
+    p.setPen(pen);
+    p.setBrush(Qt::NoBrush);
+    p.drawRect(rect.adjusted(band / 2, band / 2, -band / 2, -band / 2));
+    p.restore();
+}
+
+// ----------------------------------------------------------------------------- Push
+
+/**
+ * Push: the incoming clip drives in from one side. With "Push off previous image" the
+ * outgoing clip is shoved out ahead of it — the two move together, which is the classic
+ * push; without it only the new clip moves and the old one stays put ("Push In, ...").
+ *
+ * Direction is the plug-in own numbering, read off its preset names: 0 Up, 1 Down,
+ * 2 Left, 3 Right, naming the way the picture travels.
+ */
+QImage renderPush(const QImage &from, const QImage &to, double progress,
+                  const TransitionInstance &t, const QSize &size)
+{
+    const int dir = int(std::lround(transitionParamValue(t, QStringLiteral("direction"))));
+    const bool pushOff = transitionParamValue(t, QStringLiteral("pushOffPreviousImage")) >= 0.5;
+    const EdgeStyle style = edgeStyleOf(t, "borderFeather");
+
+    // Where the picture travels, in frame widths/heights.
+    double ux = 0.0;
+    double uy = 0.0;
+    switch (dir) {
+    case 0: uy = -1.0; break; // Up
+    case 1: uy = 1.0; break;  // Down
+    case 2: ux = -1.0; break; // Left
+    default: ux = 1.0; break; // Right
+    }
+
+    const QImage a = toArgb(from, size);
+    const QImage b = toArgb(to, size);
+    QImage result(size, QImage::Format_ARGB32_Premultiplied);
+    result.fill(Qt::transparent);
+
+    QPainter p(&result);
+    p.setRenderHint(QPainter::SmoothPixmapTransform, true);
+    const double w = size.width();
+    const double h = size.height();
+    if (!a.isNull()) {
+        const double ax = pushOff ? ux * w * progress : 0.0;
+        const double ay = pushOff ? uy * h * progress : 0.0;
+        p.drawImage(QRectF(ax, ay, w, h), a, QRectF(0, 0, w, h));
+    }
+    if (!b.isNull()) {
+        // B starts one frame back along the travel and ends flush.
+        const QRectF target(ux * w * (progress - 1.0), uy * h * (progress - 1.0), w, h);
+        p.drawImage(target, b, QRectF(0, 0, w, h));
+        strokeMovingEdge(p, target, style, progress, std::min(w, h));
+    }
+    p.end();
+    return result;
+}
+
+// ---------------------------------------------------------------------------- Slide
+
+/**
+ * Slide: one clip slides over the other, which stays where it is.
+ *
+ * Angle names the travel the same way Linear Wipe does — 0 Left-Right, 90 Top-Down,
+ * 180 Right-Left, 270 Bottom-Up, 45 the top-left diagonal. Direction 0 slides the new
+ * clip in; 1 slides the old one out, and its presets pair each angle with the opposite
+ * name ("Slide Out, Left-Right" stores 180), so Out travels against the angle.
+ */
+QImage renderSlide(const QImage &from, const QImage &to, double progress,
+                   const TransitionInstance &t, const QSize &size)
+{
+    constexpr double kPi = 3.14159265358979323846;
+    const double rad = transitionParamValue(t, QStringLiteral("angle")) * kPi / 180.0;
+    const bool out = int(std::lround(transitionParamValue(t, QStringLiteral("direction")))) == 1;
+    const EdgeStyle style = edgeStyleOf(t, "borderFeather");
+    const double ux = std::cos(rad);
+    const double uy = std::sin(rad);
+
+    const QImage a = toArgb(from, size);
+    const QImage b = toArgb(to, size);
+    QImage result(size, QImage::Format_ARGB32_Premultiplied);
+    result.fill(Qt::transparent);
+
+    QPainter p(&result);
+    p.setRenderHint(QPainter::SmoothPixmapTransform, true);
+    const double w = size.width();
+    const double h = size.height();
+    // The still one is the backdrop; the other travels over it.
+    const QImage &still = out ? b : a;
+    const QImage &moving = out ? a : b;
+    if (!still.isNull()) {
+        p.drawImage(0, 0, still);
+    }
+    if (!moving.isNull()) {
+        // In: B arrives from off-frame along +u. Out: A leaves along -u.
+        const double k = out ? -progress : (progress - 1.0);
+        const QRectF target(ux * w * k, uy * h * k, w, h);
+        p.drawImage(target, moving, QRectF(0, 0, w, h));
+        strokeMovingEdge(p, target, style, progress, std::min(w, h));
+    }
+    p.end();
+    return result;
+}
+
+// -------------------------------------------------------------------------- Squeeze
+
+/**
+ * Squeeze: one clip is scaled away along an axis while the other is revealed.
+ *
+ * Start is the plug-in own numbering, again read off the preset names: 0 Down, 1 Up,
+ * 2 Left-Right, 3 Right-Left, 4 Vertical, 5 Lateral. The first four name the direction
+ * the squeeze travels and pin the far edge; the last two squeeze about the centre line
+ * from both sides at once. "Squeeze previous image" chooses which clip moves — the old
+ * one collapsing away, or the new one opening out.
+ */
+QImage renderSqueeze(const QImage &from, const QImage &to, double progress,
+                     const TransitionInstance &t, const QSize &size)
+{
+    const int start = int(std::lround(transitionParamValue(t, QStringLiteral("start"))));
+    const bool squeezeOld = transitionParamValue(t, QStringLiteral("squeezePreviousImage")) >= 0.5;
+    const EdgeStyle style = edgeStyleOf(t, "borderFeather");
+
+    const QImage a = toArgb(from, size);
+    const QImage b = toArgb(to, size);
+    QImage result(size, QImage::Format_ARGB32_Premultiplied);
+    result.fill(Qt::transparent);
+
+    const double w = size.width();
+    const double h = size.height();
+    // The moving clip extent: the old one shrinks 1 -> 0, the new one grows 0 -> 1.
+    const double extent = squeezeOld ? (1.0 - progress) : progress;
+
+    QPainter p(&result);
+    p.setRenderHint(QPainter::SmoothPixmapTransform, true);
+    const QImage &still = squeezeOld ? b : a;
+    const QImage &moving = squeezeOld ? a : b;
+    if (!still.isNull()) {
+        p.drawImage(0, 0, still);
+    }
+    if (moving.isNull() || extent <= 0.001) {
+        p.end();
+        return result;
+    }
+
+    // Which axis the extent runs along, and which way the squeeze travels.
+    bool vertical = true;
+    bool positive = true;
+    bool centred = false;
+    switch (start) {
+    case 0: vertical = true;  positive = true;  break; // Down
+    case 1: vertical = true;  positive = false; break; // Up
+    case 2: vertical = false; positive = true;  break; // Left-Right
+    case 3: vertical = false; positive = false; break; // Right-Left
+    case 4: vertical = true;  centred = true;   break; // Vertical
+    default: vertical = false; centred = true;  break; // Lateral
+    }
+
+    // The anchor is the edge that stays put, and it differs between the two cases so the
+    // motion reads the same in both. Squeezing the old clip away, the edge it travels
+    // towards is pinned and the trailing one chases it; opening the new clip out, the
+    // edge it starts from is pinned and the leading one runs ahead. Anchoring both the
+    // same way would send "Squeeze In, Down" upwards.
+    const double full = vertical ? h : w;
+    const double span = full * extent;
+    double offset = 0.0;
+    if (centred) {
+        offset = (full - span) / 2.0;
+    } else if (squeezeOld == positive) {
+        offset = full - span;
+    }
+    const QRectF target = vertical ? QRectF(0, offset, w, span) : QRectF(offset, 0, span, h);
+    p.drawImage(target, moving, QRectF(0, 0, w, h));
+    strokeMovingEdge(p, target, style, progress, std::min(w, h));
+    p.end();
+    return result;
+}
+
+// ---------------------------------------------------------------------------- Split
+
+/**
+ * Split: the frame is cut at a point and the pieces move apart (Out) or close in (In).
+ *
+ * The cut is made on both axes, giving four quadrants. That the plug-in stores Center as
+ * a 2D point is the evidence for it: a split into two halves would use one coordinate and
+ * leave the other doing nothing, and the shipped presets do set both ("Top-Left Corner"
+ * is 0.06, 0.94). With the centre on an edge this degenerates to two halves on its own.
+ * The plug-in carries no orientation parameter — its binary lists only the three Split
+ * mode choices — so nothing VEGAS ships settles the axis question further.
+ *
+ * Split mode says what the pieces do: Push slides them out whole, Wipe uncovers them
+ * without moving them, Squeeze scales them away.
+ */
+QImage renderSplit(const QImage &from, const QImage &to, double progress,
+                   const TransitionInstance &t, const QSize &size)
+{
+    const int mode = int(std::lround(transitionParamValue(t, QStringLiteral("splitMode"))));
+    const bool out = int(std::lround(transitionParamValue(t, QStringLiteral("direction")))) == 1;
+    const double cx = std::clamp(transitionParamValue(t, QStringLiteral("centerX")), 0.0, 1.0);
+    // The preset package measures Y from the bottom, as the plug-in own control does.
+    const double cy =
+        1.0 - std::clamp(transitionParamValue(t, QStringLiteral("centerY")), 0.0, 1.0);
+    const EdgeStyle style = edgeStyleOf(t, "borderFeather");
+
+    const QImage a = toArgb(from, size);
+    const QImage b = toArgb(to, size);
+    QImage result(size, QImage::Format_ARGB32_Premultiplied);
+    result.fill(Qt::transparent);
+
+    const double w = size.width();
+    const double h = size.height();
+    // Out: the old clip pieces leave over the new one. In: the new clip pieces arrive
+    // over the old one, so the same geometry runs backwards.
+    const double travel = out ? progress : (1.0 - progress);
+    const QImage &still = out ? b : a;
+    const QImage &moving = out ? a : b;
+
+    QPainter p(&result);
+    p.setRenderHint(QPainter::SmoothPixmapTransform, true);
+    if (!still.isNull()) {
+        p.drawImage(0, 0, still);
+    }
+    if (moving.isNull()) {
+        p.end();
+        return result;
+    }
+
+    const double mx = cx * w;
+    const double my = cy * h;
+    // The four pieces, each with the direction it leaves in.
+    const struct {
+        QRectF src;
+        double ux;
+        double uy;
+    } quads[4] = {
+        {QRectF(0, 0, mx, my), -1.0, -1.0},
+        {QRectF(mx, 0, w - mx, my), 1.0, -1.0},
+        {QRectF(0, my, mx, h - my), -1.0, 1.0},
+        {QRectF(mx, my, w - mx, h - my), 1.0, 1.0},
+    };
+    for (const auto &q : quads) {
+        if (q.src.width() < 0.5 || q.src.height() < 0.5) {
+            continue;
+        }
+        QRectF dest = q.src;
+        QRectF src = q.src;
+        switch (mode) {
+        case 1: { // Wipe — the piece stays put and is eaten away from the cut outwards
+            const double kw = q.src.width() * (1.0 - travel);
+            const double kh = q.src.height() * (1.0 - travel);
+            dest.setX(q.ux < 0 ? q.src.x() : q.src.right() - kw);
+            dest.setWidth(kw);
+            dest.setY(q.uy < 0 ? q.src.y() : q.src.bottom() - kh);
+            dest.setHeight(kh);
+            src = dest; // uncovering, so the source keeps its place
+            break;
+        }
+        case 2: // Squeeze — scaled away towards its own outer corner
+            dest.setWidth(q.src.width() * (1.0 - travel));
+            dest.setHeight(q.src.height() * (1.0 - travel));
+            if (q.ux < 0) {
+                dest.moveLeft(q.src.x());
+            } else {
+                dest.moveRight(q.src.right());
+            }
+            if (q.uy < 0) {
+                dest.moveTop(q.src.y());
+            } else {
+                dest.moveBottom(q.src.bottom());
+            }
+            break;
+        default: // 0 Push — slides out whole
+            dest.translate(q.ux * q.src.width() * travel, q.uy * q.src.height() * travel);
+            break;
+        }
+        if (dest.width() < 0.5 || dest.height() < 0.5) {
+            continue;
+        }
+        p.drawImage(dest, moving, src);
+        strokeMovingEdge(p, dest, style, progress, std::min(w, h));
+    }
+    p.end();
+    return result;
+}
+
+// ---------------------------------------------------------------------------- Flash
+
+/** Separable box blur, radius in pixels per axis. Cheap, and enough for a flash. */
+QImage boxBlur(const QImage &src, int rx, int ry)
+{
+    if (rx < 1 && ry < 1) {
+        return src;
+    }
+    const auto pass = [](const QImage &in, QImage &dst, int radius, bool horizontal) {
+        const int w = in.width();
+        const int h = in.height();
+        const int n = radius * 2 + 1;
+        for (int y = 0; y < h; ++y) {
+            auto *drow = reinterpret_cast<QRgb *>(dst.scanLine(y));
+            for (int x = 0; x < w; ++x) {
+                int r = 0;
+                int g = 0;
+                int b = 0;
+                int a = 0;
+                for (int k = -radius; k <= radius; ++k) {
+                    const int sx = horizontal ? std::clamp(x + k, 0, w - 1) : x;
+                    const int sy = horizontal ? y : std::clamp(y + k, 0, h - 1);
+                    const QRgb px = reinterpret_cast<const QRgb *>(in.constScanLine(sy))[sx];
+                    r += qRed(px);
+                    g += qGreen(px);
+                    b += qBlue(px);
+                    a += qAlpha(px);
+                }
+                drow[x] = qRgba(r / n, g / n, b / n, a / n);
+            }
+        }
+    };
+    QImage out = src;
+    if (rx >= 1) {
+        pass(src, out, rx, true);
+    }
+    if (ry >= 1) {
+        const QImage mid = out;
+        pass(mid, out, ry, false);
+    }
+    return out;
+}
+
+/**
+ * Flash: a burst of colour covers the cut between the two clips.
+ *
+ * The two diffusion amounts blur the picture under the burst, per axis — that is what
+ * separates "Hard Flash" (no diffusion, a clean strobe) from "Soft Flash" and the yellow
+ * one, which smear as they peak. The cut itself happens at the peak, where the tint is at
+ * full strength and hides it.
+ */
+QImage renderFlash(const QImage &from, const QImage &to, double progress,
+                   const TransitionInstance &t, const QSize &size)
+{
+    constexpr double kPi = 3.14159265358979323846;
+    const double hDiff =
+        std::clamp(transitionParamValue(t, QStringLiteral("horizontalDiffusion")), 0.0, 1.0);
+    const double vDiff =
+        std::clamp(transitionParamValue(t, QStringLiteral("verticalDiffusion")), 0.0, 1.0);
+    const auto ch = [&](const char *key) {
+        return int(std::lround(
+            std::clamp(transitionParamValue(t, QString::fromLatin1(key)), 0.0, 1.0) * 255.0));
+    };
+    const QColor tint(ch("tintRed"), ch("tintGreen"), ch("tintBlue"));
+
+    const double strength = std::sin(kPi * std::clamp(progress, 0.0, 1.0));
+    QImage base = toArgb(progress < 0.5 ? from : to, size);
+    if (base.isNull()) {
+        base = QImage(size, QImage::Format_ARGB32_Premultiplied);
+        base.fill(Qt::black);
+    }
+
+    // Diffusion is a fraction of the frame; a tenth of it at full strength reads as a
+    // smear without turning the picture to soup.
+    const int rx = int(std::lround(hDiff * strength * size.width() * 0.1));
+    const int ry = int(std::lround(vDiff * strength * size.height() * 0.1));
+    QImage result = boxBlur(base, rx, ry);
+
+    QPainter p(&result);
+    QColor c = tint;
+    // The tint peaks harder than the blur does, so the diffused picture is still visible
+    // on the way in and out. Sharing one curve made "Soft Flash" indistinguishable from
+    // the hard one: wherever the blur was wide the tint had already covered everything.
+    c.setAlphaF(float(strength * strength));
+    p.fillRect(result.rect(), c);
+    p.end();
+    return result;
+}
+
 QImage renderTransition(const QImage &from, const QImage &to, double progress,
                         const TransitionInstance &t)
 {
@@ -1227,6 +1743,21 @@ QImage renderTransition(const QImage &from, const QImage &to, double progress,
     }
     if (t.pluginId == transitionZoomId()) {
         return renderZoom(from, to, p, t, size);
+    }
+    if (t.pluginId == transitionPushId()) {
+        return renderPush(from, to, p, t, size);
+    }
+    if (t.pluginId == transitionSlideId()) {
+        return renderSlide(from, to, p, t, size);
+    }
+    if (t.pluginId == transitionSqueezeId()) {
+        return renderSqueeze(from, to, p, t, size);
+    }
+    if (t.pluginId == transitionSplitId()) {
+        return renderSplit(from, to, p, t, size);
+    }
+    if (t.pluginId == transitionFlashId()) {
+        return renderFlash(from, to, p, t, size);
     }
     return crossDissolve(from, to, p, size);
 }

@@ -9,6 +9,8 @@
 #include <QImage>
 #include <QPainter>
 
+#include <algorithm>
+
 using namespace openvegas;
 
 namespace {
@@ -327,4 +329,197 @@ TEST_CASE("Zoom grows the incoming clip and shrinks the outgoing one",
     }
     INFO("pixels differing between centred and corner zoom: " << differing);
     CHECK(differing > 50);
+}
+
+TEST_CASE("Every rendered group resolves from the project side and is not also a stub",
+          "[video][transitions]")
+{
+    // Two places used to keep their own list of which "{Svfx:…:key}" groups have a
+    // renderer: the importer, and the catalog that fills in cross-fading stubs for the
+    // rest. They drifted — Zoom was left out of the stubs but never added to the
+    // importer, so a project's Zoom resolved to a stub id nothing answered to and came
+    // back nameless. One table feeds both now, and this is what that table owes.
+    const QVector<QPair<QString, QString>> &groups = renderedOfxGroups();
+    REQUIRE(groups.size() >= 11);
+
+    for (const auto &pair : groups) {
+        INFO(pair.first.toStdString());
+        // The importer must land on the group's own id, not on a stub.
+        const QString svfx =
+            QStringLiteral("{Svfx:com.vegascreativesoftware:%1}").arg(pair.first);
+        CHECK(transitionIdForOfxPlugin(svfx) == pair.second);
+
+        // And that id must be a real catalog entry, with the shipped presets on it.
+        const TransitionPluginInfo *info = transitionPluginById(pair.second);
+        REQUIRE(info);
+        CHECK_FALSE(info->name.isEmpty());
+        CHECK_FALSE(info->presets.isEmpty());
+
+        // Nothing may answer to the stub id for the same key: two entries with one name
+        // in the dock, one of which quietly cross-fades, is the failure being prevented.
+        CHECK(transitionPluginById(transitionOfxId(pair.first)) == nullptr);
+    }
+}
+
+TEST_CASE("Presets of a rendered group never draw the same picture",
+          "[video][transitions]")
+{
+    ensureQtGuiApp();
+    const QSize size(96, 54);
+
+    // Structure on both axes and no repeat. A grid of identical stripes hides a
+    // translation that lands on a multiple of its pitch, which is exactly how a first
+    // pass at this check reported Push Up and Push In, Up as identical when they are not.
+    auto source = [&](bool second) {
+        QImage img(size, QImage::Format_ARGB32_Premultiplied);
+        for (int y = 0; y < size.height(); ++y) {
+            auto *row = reinterpret_cast<QRgb *>(img.scanLine(y));
+            for (int x = 0; x < size.width(); ++x) {
+                const int u = 255 * x / (size.width() - 1);
+                const int v = 255 * y / (size.height() - 1);
+                row[x] = second ? qRgb(255 - u, v, 200) : qRgb(u, 255 - v, 40);
+            }
+        }
+        return img;
+    };
+    const QImage a = source(false);
+    const QImage b = source(true);
+    const QVector<double> steps = {0.2, 0.35, 0.5, 0.65, 0.8};
+
+    for (const auto &group : renderedOfxGroups()) {
+        const TransitionPluginInfo *info = transitionPluginById(group.second);
+        REQUIRE(info);
+        QVector<QVector<QImage>> frames;
+        for (const TransitionPresetInfo &preset : info->presets) {
+            TransitionInstance t;
+            t.pluginId = info->id;
+            t.presetName = preset.name;
+            t.params = preset.params;
+            QVector<QImage> row;
+            for (double p : steps) {
+                row.push_back(renderTransition(a, b, p, t));
+            }
+            frames.push_back(row);
+        }
+
+        for (int i = 0; i < frames.size(); ++i) {
+            for (int j = i + 1; j < frames.size(); ++j) {
+                double best = 0.0;
+                for (int k = 0; k < steps.size(); ++k) {
+                    int diff = 0;
+                    for (int y = 0; y < size.height(); ++y) {
+                        const auto *r1 =
+                            reinterpret_cast<const QRgb *>(frames[i][k].constScanLine(y));
+                        const auto *r2 =
+                            reinterpret_cast<const QRgb *>(frames[j][k].constScanLine(y));
+                        for (int x = 0; x < size.width(); ++x) {
+                            if (r1[x] != r2[x]) {
+                                ++diff;
+                            }
+                        }
+                    }
+                    best = std::max(best, 100.0 * diff / (size.width() * size.height()));
+                }
+                INFO(info->name.toStdString() << ": " << info->presets[i].name.toStdString()
+                                              << " vs " << info->presets[j].name.toStdString());
+                // A preset that reads the same as another is one whose parameter is being
+                // ignored — the whole point of a preset list is that the entries differ.
+                CHECK(best >= 2.0);
+            }
+        }
+    }
+}
+
+TEST_CASE("Squeeze travels the way its preset is named", "[video][transitions]")
+{
+    const QSize size(80, 80);
+    QImage a(size, QImage::Format_ARGB32_Premultiplied);
+    a.fill(QColor(0, 0, 0));
+    QImage b(size, QImage::Format_ARGB32_Premultiplied);
+    b.fill(QColor(255, 255, 255));
+
+    auto lumaAt = [&](const QString &preset, double progress, int x, int y) {
+        const TransitionInstance t = makeTransitionInstance(transitionSqueezeId(), preset);
+        REQUIRE(t.isValid());
+        return qRed(renderTransition(a, b, progress, t).pixel(x, y));
+    };
+
+    // "Squeeze Down": the old clip is pushed down, so halfway it holds the bottom and the
+    // new one has taken the top.
+    CHECK(lumaAt(QStringLiteral("Squeeze Down"), 0.5, 40, 4) > 200);
+    CHECK(lumaAt(QStringLiteral("Squeeze Down"), 0.5, 40, 76) < 55);
+
+    // "Squeeze In, Down" moves the same way — down — but it is the new clip that does the
+    // moving, opening out from the top. Anchoring both cases to the same edge sent this
+    // one upwards, which is the bug this pins: the name said Down, the picture went up.
+    CHECK(lumaAt(QStringLiteral("Squeeze In, Down"), 0.5, 40, 4) > 200);
+    CHECK(lumaAt(QStringLiteral("Squeeze In, Down"), 0.5, 40, 76) < 55);
+
+    // And "Squeeze In, Up" is its mirror.
+    CHECK(lumaAt(QStringLiteral("Squeeze In, Up"), 0.5, 40, 4) < 55);
+    CHECK(lumaAt(QStringLiteral("Squeeze In, Up"), 0.5, 40, 76) > 200);
+}
+
+TEST_CASE("Push moves the old clip only when told to", "[video][transitions]")
+{
+    const QSize size(80, 80);
+    // A gradient, so a shift of the old clip is visible rather than hidden by flat fill.
+    QImage a(size, QImage::Format_ARGB32_Premultiplied);
+    for (int y = 0; y < size.height(); ++y) {
+        auto *row = reinterpret_cast<QRgb *>(a.scanLine(y));
+        for (int x = 0; x < size.width(); ++x) {
+            row[x] = qRgb(255 * y / (size.height() - 1), 0, 0);
+        }
+    }
+    QImage b(size, QImage::Format_ARGB32_Premultiplied);
+    b.fill(QColor(0, 255, 0));
+
+    auto redAt = [&](const QString &preset, int x, int y) {
+        const TransitionInstance t = makeTransitionInstance(transitionPushId(), preset);
+        REQUIRE(t.isValid());
+        return qRed(renderTransition(a, b, 0.5, t).pixel(x, y));
+    };
+
+    // Both drive upwards, so halfway the new clip owns the bottom either way.
+    CHECK(qGreen(renderTransition(a, b, 0.5,
+                                  makeTransitionInstance(transitionPushId(),
+                                                         QStringLiteral("Push Up")))
+                     .pixel(40, 76))
+          > 200);
+
+    // What separates them is the old clip. "Push Up" shoves it off, so the row that shows
+    // at the top comes from halfway down the picture and is mid-grey; "Push In, Up" leaves
+    // it where it is, so the top row is still the dark end of the gradient.
+    CHECK(redAt(QStringLiteral("Push Up"), 40, 2) > 100);
+    CHECK(redAt(QStringLiteral("Push In, Up"), 40, 2) < 30);
+}
+
+TEST_CASE("Flash burns through its tint and hides the cut", "[video][transitions]")
+{
+    const QSize size(64, 64);
+    QImage a(size, QImage::Format_ARGB32_Premultiplied);
+    a.fill(QColor(10, 20, 30));
+    QImage b(size, QImage::Format_ARGB32_Premultiplied);
+    b.fill(QColor(40, 50, 60));
+
+    auto mid = [&](const QString &preset, double progress) {
+        const TransitionInstance t = makeTransitionInstance(transitionFlashId(), preset);
+        REQUIRE(t.isValid());
+        return renderTransition(a, b, progress, t).pixel(32, 32);
+    };
+
+    // At the peak the frame is the tint, which is what hides the cut underneath it.
+    const QRgb hard = mid(QStringLiteral("Hard Flash"), 0.5);
+    CHECK(qRed(hard) > 250);
+    CHECK(qGreen(hard) > 250);
+    CHECK(qBlue(hard) > 250);
+
+    // The yellow one is yellow, so the tint is read rather than assumed white.
+    const QRgb yellow = mid(QStringLiteral("Yellow Flash"), 0.5);
+    CHECK(qRed(yellow) > 250);
+    CHECK(qBlue(yellow) < 40);
+
+    // Both ends are the untouched clips.
+    CHECK(qRed(mid(QStringLiteral("Hard Flash"), 0.0)) < 20);
+    CHECK(qRed(mid(QStringLiteral("Hard Flash"), 1.0)) < 60);
 }
