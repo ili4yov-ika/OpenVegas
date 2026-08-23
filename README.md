@@ -204,6 +204,7 @@ OpenVegas/
 8. **Перенос на Qt + парсер** — [`MARKDOWN/QT68_PORT_AND_VEG_OPEN.md`](MARKDOWN/QT68_PORT_AND_VEG_OPEN.md)
 9. **Поддерживаемые файлы** — [`docs/support_files.md`](docs/support_files.md)
 10. **Формат `.veg`** — [`SAMPLES/veg_analyzators/00_format_overview.md`](SAMPLES/veg_analyzators/00_format_overview.md)
+10a. **Контейнер `.veg` (riff64, реверс через Ghidra)** — [`MARKDOWN/VEG_CONTAINER_FORMAT.md`](MARKDOWN/VEG_CONTAINER_FORMAT.md)
 11. **Родной формат проекта** — [`MARKDOWN/PROJECT_ARCHIVE_FORMAT.md`](MARKDOWN/PROJECT_ARCHIVE_FORMAT.md)
 12. **Сайдкары `.sfk` / `.sfl`** — [`MARKDOWN/SFK_SFL_SIDECAR_FILES.md`](MARKDOWN/SFK_SFL_SIDECAR_FILES.md)
 13. **Что в UI ещё заглушка** — [`MARKDOWN/UI_STUBS_AUDIT.md`](MARKDOWN/UI_STUBS_AUDIT.md)

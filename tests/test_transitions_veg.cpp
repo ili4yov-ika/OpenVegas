@@ -3,6 +3,7 @@
 
 #include "io/SamplePaths.h"
 #include "io/VegReader.h"
+#include "io/VegRiff.h"
 #include "model/ProjectModel.h"
 #include "video/TransitionApply.h"
 
@@ -11,6 +12,8 @@
 #include <QHash>
 #include <QPair>
 #include <QSet>
+
+#include <cstring>
 
 using namespace openvegas;
 
@@ -491,4 +494,129 @@ TEST_CASE("Linear Wipe angle picks the sweep direction", "[video][transitions]")
     // "Top-Down" splits the other axis entirely.
     CHECK(litAt(QStringLiteral("Top-Down, Hard Edge"), 60, 5));
     CHECK_FALSE(litAt(QStringLiteral("Top-Down, Hard Edge"), 60, 84));
+}
+
+TEST_CASE("A .veg walks as a riff64 container, exactly to its last byte",
+          "[io][veg][riff]")
+{
+    const QString root = SamplePaths::vegProjectDir();
+    if (root.isEmpty()) {
+        SKIP("SAMPLES/veg_project not available");
+    }
+    const QString veg = QDir(root).filePath(QStringLiteral("project_transitions_3d-blinds.veg"));
+    if (!QFile::exists(veg)) {
+        SKIP("transition sample missing");
+    }
+    QFile f(veg);
+    REQUIRE(f.open(QIODevice::ReadOnly));
+    const QByteArray data = f.readAll();
+    f.close();
+
+    const QVector<VegChunk> chunks = vegRiffChunks(data);
+    REQUIRE_FALSE(chunks.isEmpty());
+
+    // The outermost chunk is the file. If the size field were the payload alone rather
+    // than payload plus its 24-byte header, this would be short by exactly 24 — which is
+    // the reading the host's own riff64_ReadChunkHeader settles, subtracting 0x18 from
+    // what it read before handing the size back.
+    CHECK(chunks.first().offset == 0);
+    CHECK(chunks.first().isList);
+    CHECK(chunks.first().end == data.size());
+
+    // A container walk either lands on every boundary or derails; there is no partial
+    // credit. Every child must sit inside its parent and none may overlap a sibling.
+    for (const VegChunk &c : chunks) {
+        INFO(c.id.toStdString() << " at " << c.offset);
+        CHECK(c.offset >= 0);
+        CHECK(c.payload > c.offset);
+        // An empty list is legal and this project has one: header and no children.
+        CHECK(c.end >= c.payload);
+        CHECK(c.end <= data.size());
+    }
+
+    // The chunks this project reads by name are all there.
+    auto countOf = [&](const QString &id) {
+        int n = 0;
+        for (const VegChunk &c : chunks) {
+            if ((c.isList ? c.listType : c.id) == id) {
+                ++n;
+            }
+        }
+        return n;
+    };
+    CHECK(countOf(VegChunkIds::event()) == 32);
+    CHECK(countOf(VegChunkIds::fxChain()) == 16);
+    CHECK(countOf(VegChunkIds::fxRecord()) == 16);
+    CHECK(countOf(VegChunkIds::marker()) == 12);
+}
+
+TEST_CASE("A plug-in record names its own event by nesting", "[io][veg][riff]")
+{
+    const QString root = SamplePaths::vegProjectDir();
+    if (root.isEmpty()) {
+        SKIP("SAMPLES/veg_project not available");
+    }
+    const QString veg = QDir(root).filePath(QStringLiteral("project_transitions_3d-blinds.veg"));
+    if (!QFile::exists(veg)) {
+        SKIP("transition sample missing");
+    }
+    QFile f(veg);
+    REQUIRE(f.open(QIODevice::ReadOnly));
+    const QByteArray data = f.readAll();
+    f.close();
+
+    const QVector<VegChunk> chunks = vegRiffChunks(data);
+    REQUIRE_FALSE(chunks.isEmpty());
+
+    int records = 0;
+    int withPlugin = 0;
+    for (const VegChunk &c : chunks) {
+        if (c.id != VegChunkIds::fxRecord()) {
+            continue;
+        }
+        ++records;
+        // Every slot sits inside a chain, which sits inside an event. That nesting is
+        // what identifies the owner; before this the owner was taken to be the last event
+        // header earlier in the file, which cannot tell a record inside an event from one
+        // that merely follows it.
+        const VegChunk *chain = vegRiffEnclosing(chunks, c.offset, VegChunkIds::fxChain());
+        REQUIRE(chain);
+        const VegChunk *event = vegRiffEnclosing(chunks, c.offset, VegChunkIds::event());
+        REQUIRE(event);
+        CHECK(event->offset < chain->offset);
+        CHECK(chain->end <= event->end);
+
+        // The fixed header's length is the first field, and it is what places the CLSID —
+        // not a constant offset. A slot exactly that long carries no plug-in, which is
+        // how an event with a plain fade is stored.
+        REQUIRE(c.payload + 4 <= data.size());
+        qint32 headerLen = 0;
+        std::memcpy(&headerLen, data.constData() + c.payload, sizeof(headerLen));
+        CHECK(headerLen == 0x90);
+        if (c.end - c.payload == headerLen) {
+            continue;
+        }
+        ++withPlugin;
+        const int clsidAt = c.payload + headerLen + 4;
+        REQUIRE(clsidAt + 16 <= data.size());
+        static const unsigned char kBlinds[16] = {0x52, 0xa5, 0x43, 0xc8, 0xeb, 0xaa,
+                                                  0x1c, 0x41, 0x84, 0x81, 0xcf, 0x4c,
+                                                  0x52, 0xa3, 0x36, 0xe3};
+        CHECK(data.mid(clsidAt, 16)
+              == QByteArray(reinterpret_cast<const char *>(kBlinds), 16));
+    }
+    // Sixteen slots, twelve of them filled — which is exactly the transition count this
+    // project is known for, the other four being fades with nothing on them.
+    CHECK(records == 16);
+    CHECK(withPlugin == 12);
+}
+
+TEST_CASE("A file that is not a container walks to nothing rather than guessing",
+          "[io][veg][riff]")
+{
+    // The scanning path stays for these, so an empty result has to mean "not a
+    // container", never "no records" — otherwise the fallback would never run.
+    CHECK(vegRiffChunks(QByteArray()).isEmpty());
+    CHECK(vegRiffChunks(QByteArray(200, '\0')).isEmpty());
+    CHECK(vegRiffChunks(QByteArray("riff but not really, no size field here")).isEmpty());
 }

@@ -1,4 +1,6 @@
 #include "io/VegReader.h"
+
+#include "io/VegRiff.h"
 #include "video/VideoKeyframeEval.h"
 
 #include <QDir>
@@ -1076,8 +1078,50 @@ VegOpenResult VegReader::open(const QString &path, QString *error)
     return result;
 }
 
+namespace {
+
+/**
+ * Attach a plug-in record to the event that owns it.
+ *
+ * The record is nested inside its event's chunk, so the container answers this outright:
+ * find the enclosing event chunk and take the timing record that lies within it. That is
+ * ownership by construction rather than by guesswork.
+ *
+ * The fallback below — the last video event whose header starts before the record — is
+ * what this used to do on its own. It happens to agree whenever the file is written in
+ * the usual order, but it has no way to tell a record inside one event from a record that
+ * merely follows it, so it stays only for a file that does not open as a container.
+ */
+void attachOwningEvent(const QVector<VegChunk> &chunks, int recordOffset,
+                       const VegOpenResult *result, VegTransitionInfo *info)
+{
+    if (const VegChunk *owner = vegRiffEnclosing(chunks, recordOffset, VegChunkIds::event())) {
+        for (const VegEventInfo &ev : result->events) {
+            if (ev.kind != VegEventInfo::Kind::Video || ev.offset < owner->offset
+                || ev.offset >= owner->end) {
+                continue;
+            }
+            info->eventStartSec = ev.startSec;
+            info->eventOffsetForCompare = ev.offset;
+            return;
+        }
+    }
+    for (const VegEventInfo &ev : result->events) {
+        if (ev.kind != VegEventInfo::Kind::Video || ev.offset < 0 || ev.offset > recordOffset) {
+            continue;
+        }
+        if (info->eventStartSec < 0.0 || ev.offset > info->eventOffsetForCompare) {
+            info->eventStartSec = ev.startSec;
+            info->eventOffsetForCompare = ev.offset;
+        }
+    }
+}
+
+} // namespace
+
 void VegReader::parseTransitions(const QByteArray &data, VegOpenResult *result)
 {
+    const QVector<VegChunk> chunks = vegRiffChunks(data);
     /*
      * Byte layout, reverse-engineered from SAMPLES/veg_project/
      * project_transitions_3d-blinds.veg (12 instances = 4 presets x fade-in/fade-out/
@@ -1199,15 +1243,7 @@ void VegReader::parseTransitions(const QByteArray &data, VegOpenResult *result)
 
         if (info.paramsUndecoded) {
             // Nothing numeric to sanity-check; the name gate above already applied.
-            for (const VegEventInfo &ev : result->events) {
-                if (ev.kind != VegEventInfo::Kind::Video || ev.offset < 0 || ev.offset > off) {
-                    continue;
-                }
-                if (info.eventStartSec < 0.0 || ev.offset > info.eventOffsetForCompare) {
-                    info.eventStartSec = ev.startSec;
-                    info.eventOffsetForCompare = ev.offset;
-                }
-            }
+            attachOwningEvent(chunks, off, result, &info);
             result->transitions.push_back(info);
             continue;
         }
@@ -1240,15 +1276,7 @@ void VegReader::parseTransitions(const QByteArray &data, VegOpenResult *result)
 
         // The chunk is nested inside its event's chunk, so the owning event is the last
         // timing record that starts before it.
-        for (const VegEventInfo &ev : result->events) {
-            if (ev.kind != VegEventInfo::Kind::Video || ev.offset < 0 || ev.offset > off) {
-                continue;
-            }
-            if (info.eventStartSec < 0.0 || ev.offset > info.eventOffsetForCompare) {
-                info.eventStartSec = ev.startSec;
-                info.eventOffsetForCompare = ev.offset;
-            }
-        }
+        attachOwningEvent(chunks, off, result, &info);
         result->transitions.push_back(info);
     }
 
@@ -1272,6 +1300,7 @@ void VegReader::parseTransitions(const QByteArray &data, VegOpenResult *result)
  */
 void VegReader::parseOfxTransitions(const QByteArray &data, VegOpenResult *result)
 {
+    const QVector<VegChunk> chunks = vegRiffChunks(data);
     if (!result || data.size() < 64) {
         return;
     }
@@ -1390,15 +1419,7 @@ void VegReader::parseOfxTransitions(const QByteArray &data, VegOpenResult *resul
         info.paramsUndecoded = false;
         // The record sits inside its event's chunk, so the owner is the last video event
         // starting before it — the same rule the GUID-keyed path uses.
-        for (const VegEventInfo &ev : result->events) {
-            if (ev.kind != VegEventInfo::Kind::Video || ev.offset < 0 || ev.offset > off) {
-                continue;
-            }
-            if (info.eventStartSec < 0.0 || ev.offset > info.eventOffsetForCompare) {
-                info.eventStartSec = ev.startSec;
-                info.eventOffsetForCompare = ev.offset;
-            }
-        }
+        attachOwningEvent(chunks, off, result, &info);
         result->transitions.push_back(info);
     }
 }

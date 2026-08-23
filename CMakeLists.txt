@@ -78,6 +78,7 @@ endif()
     src/model/ProjectSnapshot.cpp
     src/model/SnapshotCommand.cpp
     src/io/VegReader.cpp
+    src/io/VegRiff.cpp
     src/io/ProjectInterchange.cpp
     src/io/SamplePaths.cpp
     src/io/MediaMime.cpp
@@ -511,6 +512,7 @@ if(OPENVGAS_BUILD_TESTS)
         src/io/ProjectInterchange.cpp
         src/io/SamplePaths.cpp
         src/io/VegReader.cpp
+        src/io/VegRiff.cpp
         src/io/MediaMime.cpp
         src/io/MediaProbe.cpp
         src/io/MediaWaveformCache.cpp
