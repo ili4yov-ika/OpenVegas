@@ -1,282 +1,247 @@
-# Аудит незавершённого интерфейса — пустые пункты меню и недоделанные UI-элементы
+# Аудит интерфейсных пустышек
 
-**Дата:** 2026-08-07
-**Область:** `src/ui/`, `src/app/MainWindow.cpp`, `src/plugins/`, `src/io/`.
-**Метод:** построчный разбор `MenuBuilder.cpp`, `ContextMenuBuilder.cpp` (каждый `addAction`/`QAction` проверен на наличие рабочего `connect()`), плюс grep по всему `src/` на маркеры незавершённости (`not implemented`, `coming soon`, `planned`, `stub`, `placeholder`, `no-op`, перманентный `setEnabled(false)`).
+**Дата:** 2026-08-24
+**Область:** `src/`, `ui/*.ui`
+**Инструмент:** `python tools/audit_ui_stubs.py` (счётчики) / `--json` (машинный вывод для диффа)
 
-См. также: [`ISSUES_AND_PLANS.md`](ISSUES_AND_PLANS.md) — стратегический backlog; этот файл — конкретный построчный список с `file:line`.
+Отчёт перечисляет элементы интерфейса, которые **видны и выглядят рабочими, но ничего не
+делают**. Полностью рабочие элементы сюда не попадают.
+
+Инструмент даёт **кандидатов, а не приговор**: каждая строка ниже прочитана в коде. Формы
+ложных срабатываний, которые он уже отсеивает, и те, что отсеять нельзя, — в §7.
+
+Связанные документы: [`ISSUES_AND_PLANS.md`](ISSUES_AND_PLANS.md) — стратегический backlog;
+здесь — построчный список с `file:line`.
 
 ---
 
-## Легенда статусов
+## Статусы
 
 | Статус | Значение |
 |--------|----------|
-| **DEAD** | Пункт меню создан, но не имеет `connect()` вообще — клик не делает ничего (и не выглядит disabled, что хуже: пользователь думает, что что-то произошло). |
-| **DISABLED** | Пункт создан перманентно disabled (`setEnabled(false)`), в коде нет пути, который бы его включил. |
-| **STUB** | Обработчик есть, но внутри — заглушка: `QMessageBox`/`statusBar()` с текстом «not implemented yet» / «coming soon», либо hardcoded/no-op логика. |
-
-Полностью рабочие пункты (OK) в списки ниже **не включены** — см. итоговую сводку.
+| **DEAD** | Кликается, выглядит обычным, при клике не происходит ничего. Худший случай: пользователь считает, что действие выполнено. |
+| **DISABLED** | Намеренно `setEnabled(false)`. На экране честно: видно, что пока нельзя. |
+| **NO SINK** | Поле/ползунок/флажок, чьё значение никто не читает. Вводить можно, значение никуда не уходит. |
+| **DISCARDED** | Кнопка создана прямо в вызове layout, указатель не сохранён. Связать её нечем в принципе. |
+| **ORPHAN** | `.ui`-файл собирается, но ни один исходник его не подключает. |
 
 ---
 
 ## Сводка
 
-| Область | DEAD | DISABLED | STUB | Всего проверено |
-|---------|------|----------|------|------------------|
-| `MenuBuilder.cpp` (строка меню) | ~60 | 8 | 2 | ~130 actions |
-| `ContextMenuBuilder.cpp` (контекстные меню) | ~70 | ~25 | 5 целых меню | весь файл (1658 строк) |
-| Диалоги/панели (см. §3) | — | 4+ | 8+ | точечно |
+| Категория | Кол-во | Где |
+|-----------|-------:|-----|
+| Пункты строки меню, DEAD | 79 | `MenuBuilder.cpp` |
+| Пункты строки меню, DISABLED | 13 | `MenuBuilder.cpp` |
+| Пункты прочих меню, DEAD | 14 | Mixing Console, Trimmer, контекстные |
+| Пункты прочих меню, DISABLED | 6 | Explorer, Trimmer, контекстные |
+| Кнопки без обработчика | 17 | MainWindow и диалоги |
+| Кнопки, созданные «на выброс» | 24 | MainWindow (22), ExplorerPane (2) |
+| Поля/ползунки без потребителя | 31 | Project Properties и др. |
+| Осиротевшие `.ui` | 2 | `ProjectPropertiesDialog.ui`, `TrimmerWindow.ui` |
 
-Из ~130 пунктов в главном меню примерно **половина** — мёртвые заглушки. В контекстных меню картина хуже: несколько **целых подменю** (Time Display, Split Screen, Preview, Take, показ «…» на событии) не имеют ни одного рабочего действия.
-
----
-
-## 1. Главное меню (`src/ui/MenuBuilder.cpp`)
-
-Файл использует два внутренних хелпера — `addStub()` (строки 19-28, добавляет action без `connect()`) и `addStubDisabled()` (строки 30-38, добавляет disabled action). Их наличие само по себе является сигналом: авторы явно помечали недоделанные пункты, но не убрали/не спрятали их из UI.
-
-### File
-
-| Пункт | Место | Статус | Заметка |
-|-------|-------|--------|---------|
-| Save | `MenuBuilder.cpp:58` | ✅ Implemented (2026-08-09) | `MainWindow::onSaveProject()`. `.veg` по-прежнему нельзя писать (закрытый бинарный формат) — сохраняет в собственный round-trip формат «OpenVegas Project Archive» (`project.json`, теперь с полным `fxChain`/Pan-Crop/маркерами — v1 хранил только тайминг). Первый Save в сессии ведёт себя как Save As; далее — тихая перезапись. См. [`PROJECT_ARCHIVE_FORMAT.md`](PROJECT_ARCHIVE_FORMAT.md). |
-| Save As… | `MenuBuilder.cpp:60` | ✅ Implemented (2026-08-09) | `MainWindow::onSaveProjectAs()` — диалог папки-назначения + имя проекта. |
-| Incremental Save | `MenuBuilder.cpp:62` | DEAD | Всё ещё стаб — авто-нумерация имени при каждом Save не реализована. |
-| Close | `MenuBuilder.cpp:55-56` | STUB | Подключено к `MainWindow::onNewProject` — по факту это «New», а не «Close»: нет запроса на сохранение несохранённых изменений. |
-| Real-Time Render… | `MenuBuilder.cpp:67` | DEAD | — |
-| Capture… | `MenuBuilder.cpp:99` | DEAD | Соответствует отсутствию pipeline захвата (см. §2). |
-| Export → Premiere/After Effects (*.prproj)… | `MenuBuilder.cpp:91` → `MainWindow::onExportPremiere` (`MainWindow.cpp:2966-2973`) | STUB | Показывает `QMessageBox::information("Native .prproj export is not available yet…")`. Файл не пишется. |
-
-### Edit
-
-| Пункт | Место | Статус |
-|-------|-------|--------|
-| Paste Repeat…, Paste Insert, Paste Event Attributes, Selectively Paste Event Attributes | `155-158` | DISABLED |
-| Trim | `161` | DISABLED |
-| Smart Split | `168` | DISABLED |
-| Quantize to Frames, Close Gaps, Freeze selected/all Adjustment Events to Project | `169-172` | DEAD |
-| Navigate → Go to Previous/Next Marker | `180-181` | DEAD |
-| Post-Edit Ripple (все 3 варианта) | `184-186` | DEAD |
-| Select → Select Event Start/End, Select Events to End | `190-192` | DEAD |
-| Editing Tool → Normal/Envelope/Selection/Zoom Edit Tool, Delete | `195-199` | DEAD | Vegas-стандартный toolbox переключения инструментов вообще не реализован. |
-| Extensions → «(none)» | `202` | DISABLED | Плейсхолдер; ничто в репозитории не сканирует и не заполняет это меню. |
-| Switches (Mute/Lock/Loop/Invert Phase/Normalize/Maintain Aspect Ratio/Reduce Interlace Flicker) | `207-213` | DEAD |
-| Tags → «(none)» | `216` | DISABLED | Тот же паттерн, что Extensions. |
-| Group (Group/Ungroup/Ignore Event Grouping/Clear Group/Select Group/Create New Group) | `219-224` | DEAD | «Ignore Event Grouping» здесь — **дубликат** рабочего тумблера на панели инструментов (`MainWindow.cpp:1224-1229`), но эта копия в меню не синхронизирована с `m_project.ignoreEventGrouping()`. |
-| Stream → Stream 0/1 | `227-228` | DEAD |
-| Channels (Both/Left Only/Right Only/Combine/Swap) | `231-235` | DEAD |
-| Undo All | `238` | DISABLED |
-| Clear Edit History… | `239` | DISABLED |
-
-### View
-
-| Пункт | Место | Статус |
-|-------|-------|--------|
-| Show Bus Tracks, Active Take Information | `242-243` | DEAD |
-| Zoom In/Out Time, Zoom Time to Selection | `245-247` | DEAD |
-| Window Layouts (Default/Save/Load Layout…) | `251-253` | DEAD |
-| Toolbar → Main Toolbar | `257` | DEAD | Чекбокс есть и предустановлен, но переключение ничего не показывает/не прячет. |
-| Docking Layouts (Default/Save Docking Layout…) | `263-264` | DEAD |
-
-### Insert / Tools / Options / Help
-
-| Пункт | Место | Статус |
-|-------|-------|--------|
-| Audio/Video Envelope (Volume, Pan, Composite Level, Fade to Color) | `299-305` | DEAD |
-| Audio/Video Bus Track, Empty Event, Text Media… | `308-312` | DEAD |
-| Scripting (Run Script…, Rescan Script Menu Folder) | `317-318` | DEAD | Скриптинга нет вообще. |
-| External Tools → «(none)» | `322` | DISABLED |
-| Build/Prune Dynamic RAM Preview | `325-326` | DEAD |
-| Audio Mixer, Rebuild Audio Peaks | `330-331` | DEAD |
-| Video Scopes, Apply Non-Real-Time Event FX… | `335-336` | DEAD |
-| Enable Snapping | `343` | DEAD | Чекбокс не связан с `m_project.snappingEnabled()` — реальный snap живёт только в отдельной кнопке на панели инструментов. |
-| Quantize to Frames | `348` | DEAD |
-| Enable Ripple Editing (все 3 варианта) | `355-357` | DEAD |
-| Metronome | `360` | DEAD |
-| Ignore Event Grouping | `370` | DEAD | Тот же дубликат, что в Edit (см. выше). |
-| Customize Toolbar…, Customize Timeline Toolbar…, Export/Import Preferences… | `374-378` | DEAD | (Соседний «Customize Keyboard…» на `376` — рабочий.) |
-| Contents and Index, OpenVegas Interactive Tutorials | `382-383` | DEAD | Справочной системы нет. |
+Из 91 просмотренной кнопки **41 не делает ничего** (17 без обработчика + 24 «на выброс»).
+Из 166 полей ввода — **31** без потребителя.
 
 ---
 
-## 2. Контекстные меню (`src/ui/ContextMenuBuilder.cpp`)
+## 1. Главные находки
 
-Здесь ситуация хуже — есть **целые функции**, где ни один пункт не подключён:
+Три вещи стоит починить раньше остального — не потому, что их много, а потому, что они
+обманывают сильнее всего.
 
-- **`showEventMoreMenu`** (`939-984`, кнопка «…» на событии) — Active Take Information, Playback Rate, Event Headers, Event Length, Color Grading, Media FX, Event Handles, Motion Tracking, Detect Scenes and Split, Normalize, Auto Normalize, Edit Visible Button Set… — всё DEAD/DISABLED, ни одного рабочего пункта.
-- **`showTimeDisplayMenu`** (`1468-1491`) — весь Time Format submenu и MIDI-опции — DEAD.
-- **`showSplitScreenMenu`** (`1494-1507`) — целиком DEAD.
-- **`showZoomMenu`** (`1540-1559`) — «+»/«−»/Original resolution/Bypass Zoom без `connect()`; проценты 50–800% только переписывают текст на чипе тулбара, реального зума превью не меняют.
-- **`showPreviewMenu`** (`1604-1655`) — Video Output Color Grading…, Background, Preview Quality, Display Frame Rate, Copy/Save Frame — всё DEAD.
+### 1.1 Мастер-фейдер громкости не подключён
 
-Прочие находки по областям:
+`src/app/MainWindow.cpp:1190` — `QSlider` с `objectName("masterFader")` и подсказкой
+«Master volume». Создан, положен в layout, установлен в 32. Ни `connect`, ни чтения. Ползунок
+двигается, громкость не меняется.
 
-| Область | Место | Статус | Заметка |
-|---------|-------|--------|---------|
-| Video/Audio event → Switches submenu | `51-86`, `93-102` | DEAD | Mute/Lock/Loop/Hold Last Frame/Trim to include all frames/Invert Phase/Normalize/Auto Normalize и т.д. |
-| Group → Cut All / Copy All | `139-140` | DEAD | Соседний «Delete All» рабочий. |
-| Take submenu (Rename/Choose/Delete Active, Delete…) | `153-171` | DEAD/DISABLED | Весь subMenu декоративный. |
-| Video track → Compositing Mode (15 blend-режимов) | `483-508` | DEAD | Ни Add/Subtract/Multiply/Screen/Overlay и т.д. не подключены. |
-| Make Compositing Parent/Child | `510-511` | DISABLED |
-| Track Group submenu (Rename/Group/Ungroup/Collapse/Expand/Mute/Solo) | `405-417` | DISABLED | Весь submenu недоступен. |
-| Sound Mapper / Input device submenu | `450-465`, `625` | DEAD |
-| Pan Type submenu | `640-651` | DEAD |
-| Track-empty-area меню: видео-ветка «Track FX…» | `1163` | DEAD | **Несогласованность**: у аудио-ветки соседний пункт (`1167-1169`) рабочий (`window->onTrackFx`), у видео — нет. Видеотрек нельзя открыть Track FX через клик по пустой области. |
-| Markers/Regions submenu (Region, Command Marker, CD Track/Index Marker, Delete All in Selection) | `1322-1325`, `1334` | DISABLED | Работают только обычные «Marker» и «Delete All». |
-| Selectively Prerender Video… / Clean Up Prerendered Video… | `1430-1433` | DISABLED/DEAD |
-| Overlays → Closed Captioning CC1-4, channel-view radios | `1578-1599` | DEAD | Соседние Grid/Safe Areas рабочие. |
-| Ruler → Audio CD Time формат | `1241` | DISABLED |
-| Ruler → Set Time at Cursor…, Set Project Tempo… | `1243-1244` | DEAD |
+### 1.2 Project Properties собирает данные и выбрасывает их
 
-Полный построчный список (~70 DEAD + ~25 DISABLED пунктов) см. в истории ревью; здесь приведены наиболее показательные/пользователь-заметные группы.
+`src/ui/ProjectPropertiesDialog.cpp`. Диалог **выглядит полностью рабочим**: каждое поле
+связано с лямбдой, помечающей диалог изменённым, поэтому кнопка Apply загорается. Но
+`applyToModel()` (строка 741) пишет в модель ровно четыре значения — размер кадра, частоту
+кадров, частоту дискретизации и темп. Всё остальное не доходит никуда:
 
----
+| Строка | Поле | Вкладка |
+|-------:|------|---------|
+| 293 | `m_adjustSource` Adjust source media to better match project | Video |
+| 340 | `m_startAllVideo` Start all new projects with these settings | Video |
+| 354 | `m_stereoBusses` Number of stereo busses | Audio |
+| 409 | `m_startAllAudio` | Audio |
+| 427 | `m_rulerStart` Ruler start time | Ruler |
+| 442 | `m_beatsPerMeasure` | Ruler |
+| 453 | `m_startAllRuler` | Ruler |
+| 465–468 | `m_title`, `m_artist`, `m_engineer`, `m_copyright` | Summary |
+| 481 | `m_startAllSummary` | Summary |
+| 493 | `m_upc` UPC/EAN | Audio CD |
+| 496 | `m_firstTrack` First track number | Audio CD |
+| 526 | `m_360` 360 Output | Advanced |
+| 532 | `m_swapLR` | Advanced |
+| 550 | `m_includeCancel` | Advanced |
+| 569 | `m_startAllAdvanced` | Advanced |
 
-## 3. Диалоги и панели
+Отдельно: `m_overridePrerender`, `m_lfeFilter` и ползунок `m_crosstalk` **связаны и делают
+видимую работу** — включают соседние контролы и обновляют подпись, — но их собственное
+значение в модель тоже не уходит. Полурабочие, а не мёртвые.
 
-### Color Grading Editor (`src/ui/ColorGradingEditor.cpp`)
-Хелпер `makeStubTab()` (`357-369`) рисует по центру серую надпись вместо реальных контролов. Из 8 вкладок **6 — заглушки**:
-`Input LUT` (`422`), `HL Color Wheels` (`425`), `Utilities` (`427`), `HSL Curves` (`434`), `HSL` (`435`), `Look LUT` (`436`) — везде текст вида «…coming soon.» Реально работают только `Color Wheels` и `Color Curves`.
+Кнопка `customize` (строка 517) — без обработчика.
 
-### Video Event FX (Pan/Crop) — `src/ui/VideoEventFxDialog.cpp`
-`syncUiFromChain()` (`251-260`): комментарий в коде прямо говорит, что параметры — «display-only placeholders»; width/height/center/angle всегда хардкод 1920×1080/960/540/0, не читаются и не пишутся в событие. Правка значений в UI ни на что не влияет.
-*(Замечание: это отдельный, более старый диалог `VideoEventFxDialog`, не путать с рабочим `VideoEventFxDialogExact`, который используется в актуальном flow — см. `MainWindow::onVideoEventFx`.)*
+### 1.3 Панель инструментов Media/Preview: 24 кнопки «на выброс»
 
-### Render As (`src/ui/RenderAsDialog.cpp`)
-- «Customize Template» — перманентно disabled (`36`, `143-150`), обработчик клика (на случай если когда-то включат) показывает «Template customization is not implemented yet.»
-- «Help» — всегда показывает «No help is currently available for this subject.» независимо от контекста.
-- Apple ProRes в списке шаблонов выбирается как обычный формат, но `RenderTemplateCatalog.cpp:373-376` содержит `note`: «ProRes templates are provided for interchange. Encoding requires a future FFmpeg/ProRes pipeline» — этот текст **нигде не показывается пользователю** в `RenderAsDialog`, то есть выбор ProRes визуально ничем не отличается от рабочего формата.
+Идиома `layout->addWidget(IconFactory::toolButton(this, tr("…"), …))` создаёт кнопку и
+сразу теряет указатель. Подключиться к ней нельзя ничем: фабрика ставит всем один
+`objectName("iconBtn")`, так что и `findChild` не поможет.
 
-### Customize Keyboard (`src/ui/CustomizeKeyboardDialog.cpp`)
-- «Save As…» (именованная раскладка) — disabled, tooltip: «Custom named maps — planned» (`57-59`).
-- «Delete» (раскладки) — disabled, нигде не включается (`61-63`).
-(Add/Replace/Remove/Locate — рабочие, для контраста.)
+`src/app/MainWindow.cpp` (22): Auto Preview (834), Capture Video (835), Get Media from the
+Web (841), Remove Selected Media (843), Media Properties (844), Start Preview (853), Stop
+Preview (854), Open in Audio Editor (855), Views (857), Search Media (859), Filter Media
+(860), Preview on External Monitor (874), Copy Snapshot to Clipboard (970), Save Snapshot to
+File (971), Record into Track (1404), Trim (1458), Heal (1468), Lock (1469), Enable Snapping
+(1488), Auto Ripple (1496), Lock Envelopes (1497), Video Output Color Grading (1509).
 
-### Trimmer (`src/ui/TrimmerWindow.cpp`)
-- «Add to Timeline up to Cursor» (Shift+A) — disabled (`1244-1247`).
-- «Create Subclip…» — DEAD, нет `connect()` (`1249`).
-- «Detect Scenes and Add to Timeline from Cursor» — DEAD (`1274`).
-- «Edit Visible Button Set…» — DEAD (`1281`).
+`src/ui/ExplorerPane.cpp` (2): Views (709), Search (710).
 
 ---
 
-## 4. Функциональные дыры за пределами меню
+## 2. Кнопки без обработчика
 
-### Transport / Capture
-- `MainWindow.cpp:3413-3414` — команда `Transport.Record`: `statusBar()->showMessage(tr("Record — not implemented yet"))`. Кнопка/шорткат записи ничего не делает.
-- `MainWindow.cpp:1346-1349` — индикатор «Record Time» на статус-баре — хардкод-строка `"Record Time (2 channels): 41:06:27:05"`, комментарий подтверждает: placeholder до появления capture I/O. Никогда не меняется.
-- Соответствует File → Capture… (DEAD, см. выше) — pipeline захвата отсутствует полностью.
+| Файл:строка | Кнопка | Подпись/назначение |
+|---|---|---|
+| `src/app/MainWindow.cpp:845` | `fx` | Apply Non-Real-Time Event FX |
+| `src/app/MainWindow.cpp:876` | `fx` | второй такой же на другой панели |
+| `src/app/MainWindow.cpp:973` | `btn360` | 360° Video |
+| `src/app/MainWindow.cpp:982` | `btnHdr` | HDR |
+| `src/app/MainWindow.cpp:1169` | `autoWrite` | Automation Settings |
+| `src/app/MainWindow.cpp:1197` | `lock` | Lock fader |
+| `src/app/MainWindow.cpp:1259` | `maxBtn` | Maximize панели |
+| `src/app/MainWindow.cpp:1266` | `closeBtn` | Close панели |
+| `src/ui/ColorGradingEditor.cpp:406` | `help` | «?» в заголовке |
+| `src/ui/CustomizeKeyboardDialog.cpp:57` | `saveAs` | Save As… |
+| `src/ui/CustomizeKeyboardDialog.cpp:61` | `m_deleteMapBtn` | Delete |
+| `src/ui/FindMissingFileDialog.cpp:141` | `customBtn` | Custom… |
+| `src/ui/FindMissingFileDialog.cpp:143` | `aboutBtn` | About… |
+| `src/ui/MatchMediaVideoSettingsDialog.cpp:165` | `customBtn` | Custom… |
+| `src/ui/MatchMediaVideoSettingsDialog.cpp:167` | `aboutBtn` | About… |
+| `src/ui/MediaPropertiesDialog.cpp:132` | `snapshotBtn` | снимок кадра |
+| `src/ui/ProjectPropertiesDialog.cpp:517` | `customize` | Customize… |
 
-### Плагины: редактор GUI для VST1/2/3
-`src/plugins/AudioPluginHost.cpp:47-56` (`NullAudioPluginHost::openEditor`) и `src/audio/Vst3Host.cpp:1709-1712` — попытка открыть нативный editor плагина показывает: «Plug-in editor host is not implemented yet (VST1/VST2/VST3 SDK + audio engine — next stage).» Обработка звука через builtin DSP fallback работает, но нативный GUI — нет.
-*(Пересекается с [`PLAN_VIDEO-AUDIO-PLUGINS-STACK.md`](PLAN_VIDEO-AUDIO-PLUGINS-STACK.md), где для видео OFX / VST3 `IPlugView` уже реализован — этот пробел специфичен для более старого audio-host пути.)*
+---
 
-### VEGAS Shared audio-FX — часть каталога без реального DSP
-`src/plugins/VegasSharedAudioCatalog.h:11-19` документирует статусы `Implemented` / `CatalogOnly` / `Unmapped`. Из ~24 записей в `catalog()` (`VegasSharedAudioCatalog.cpp:42-111`) только 12 — `Implemented`; 16 — `CatalogOnly`, и `chooserDescriptors()` (`220-243`) фильтрует только `Unmapped`, то есть **`CatalogOnly` эффекты попадают в реальный Plug-In Chooser** как обычные пункты: Wave Hammer, Pitch Shift, Flange, Distortion, Vibrato, Amplitude Modulation, Smooth/Enhance, ExpressFX Distortion, ExpressFX EQ, Volume. При добавлении в цепочку они падают в identity pass-through host (`AudioPluginHost.cpp:31-45`) — звук не меняется, и UI никак это не показывает.
-Также `BuiltinAudioCatalog.cpp:141-155` — «Third Party» (Auto-Key, GClip, GGate, GMulti, GNormal, GSnap) и «5.1 FX» (Surround Panner) существуют только чтобы список чузера выглядел полным — без DSP.
+## 3. Поля и ползунки без потребителя
 
-### Transitions / Media Generator / Video FX панели — активация косметическая
-**Обновление 2026-08-08:** для `MediaGeneratorPane` эта находка закрыта — см. `ISSUES_AND_PLANS.md` («Исправлено»). Double-click создаёт настоящий timeline-event для Titles & Text, и добавлен Drag'n'Drop (плагин-строка + пресет-тайлы → `mimeData`/`startDrag` в `GeneratorDragListWidget`, `dragEnterEvent`/`dropEvent` уже были в `TimelineView` для media-дропов). **Обновление 2026-08-08 (2):** Drag'n'Drop теперь работает для всех Media Generator плагинов, не только Titles & Text — Checkerboard, Color Gradient, Credit Roll, Noise Texture, Solid Color и Test Pattern получили реальный (паттерн-based) рендер-бэкенд, `video/MediaGeneratorApply.h`; double-click на них по-прежнему показывает toast (не переведён на insert-по-клику, только DnD).
+Помимо перечисленных в §1.2:
 
-**Поправка 2026-08-10:** предыдущая запись была преждевременной — Drag'n'Drop пресет-тайлов на самом деле НЕ запускался (пользователь подтвердил вживую: работал только double-click). Причина была не в `mimeData()`/payload (та часть цепочки была и остаётся корректной), а в том, что `QAbstractItemView`'s собственный механизм автозапуска drag (`dragEnabled()` + виртуальный `startDrag()`) просто не срабатывал для этой конфигурации виджета (`IconMode` + `SingleSelection` + свежий, ранее не выделенный тайл) — headless-проба (`QApplication` с `-platform offscreen`, синтетические `QMouseEvent`press/move) подтвердила: `startDrag()` не вызывался ни при какой комбинации (пресёлект/не пресёлект, `SingleSelection`/`ExtendedSelection`, второй клик по уже выделенному, движение на 100px). `GeneratorDragListWidget` переписан на явное отслеживание press→move→launch в собственных `mousePressEvent`/`mouseMoveEvent` (тот же паттерн, что уже проверенно работает в `TimelineView`'s внутреннем drag клипов) — та же headless-проба подтверждает, что новый путь действительно доходит до запуска `QDrag`. Живое подтверждение от пользователя всё ещё не получено (см. `ISSUES_AND_PLANS.md`). Обе другие панели (`TransitionsPane`, `VideoFxPane`) — по-прежнему как описано ниже (косметическая активация, drag-and-drop не реализован).
+| Файл:строка | Контрол | Тип |
+|---|---|---|
+| `src/app/MainWindow.cpp:1190` | `fader` (masterFader) | QSlider |
+| `src/ui/ColorGradingEditor.cpp:596` | `channel` | QComboBox |
+| `src/ui/CustomizeKeyboardDialog.cpp:53` | `m_mapCombo` | QComboBox |
+| `src/ui/FindMissingFileDialog.cpp:136` | `seq` | QCheckBox |
+| `src/ui/MatchMediaVideoSettingsDialog.cpp:152` | `m_openSequence` | QCheckBox |
+| `src/ui/MatchMediaVideoSettingsDialog.cpp:156` | `m_firstImage` | QLineEdit |
+| `src/ui/MatchMediaVideoSettingsDialog.cpp:158` | `m_lastImage` | QLineEdit |
+| `src/ui/MediaPropertiesDialog.cpp:120` | `m_timecodeFormatCombo` | QComboBox |
+| `src/ui/MediaPropertiesDialog.cpp:129` | `m_streamCombo` | QComboBox |
+| `src/ui/MixingConsoleWindow.cpp:178` | `c` | QComboBox |
+| `src/ui/TitlesTextKeyframePane.cpp:525` | `m_timecodeEdit` | QLineEdit |
+| `src/ui/TrackMotionDialog.cpp:510` | `m_preset` | QComboBox |
+| `src/ui/TrackMotionDialog.cpp:767` | `cb` | QCheckBox |
+| `src/ui/VideoEventFxDialog.cpp:184` | `s` | QDoubleSpinBox |
+| `src/ui/VideoEventFxDialogExact.cpp:1654` | `sel` | QComboBox |
+| `src/ui/AudioEventFxDialog.cpp:128` | `s` | QSlider |
 
-**Обновление 2026-08-11 (`TransitionsPane`):** для группы **3D Blinds** находка закрыта — у неё появился реальный рендерер (`video/TransitionApply.h`), тайлы пресетов показывают настоящий переход и играют демо-анимацию при наведении, перетаскиваются на фейд/кроссфейд таймлайна (`TransitionDragListWidget`, ручное отслеживание жеста — тот же паттерн, что у Media Generator), на таймлайне рисуется полоска перехода с кнопкой свойств, а `TransitionPropertiesDialog` даёт слайдеры/пресеты/Animate. Остальные ~24 группы каталога (3D Cascade, Barn Door, Iris, …) по-прежнему без рендерера: их тайлы остаются нарисованными плейсхолдерами и намеренно НЕ перетаскиваются (`pluginId` пуст), чтобы не создавать переход, который ничего не делает.
+---
 
-`MainWindow.cpp:1553-1601` — во всех трёх панелях активация элемента (даблклик/Enter) подключена одинаково:
-```cpp
-connect(m_transitions, &TransitionsPane::transitionActivated, this, [this](const QString &name) {
-    statusBar()->showMessage(tr("Transition: %1").arg(name), 2500);
-});
+## 4. Строка меню (`src/ui/MenuBuilder.cpp`)
+
+Файл сам помечает свои недоделки хелперами `addStub()` (строка 19) и `addStubDisabled()`
+(строка 30) — поэтому счёт здесь точный: **79 DEAD, 13 DISABLED** из ~136 пунктов.
+
+| Меню | DEAD | DISABLED | Примеры |
+|------|-----:|---------:|---------|
+| Edit | 4 | 10 | Undo/Redo (disabled), Quantize to Frames, Close Gaps |
+| Options → Enable/Quantize/Metronome | 7 | 0 | Enable Snapping, Metronome, Customize Toolbar… |
+| Event switches | 7 | 0 | Mute, Lock, Loop, Invert Phase, Normalize |
+| Group | 6 | 0 | Group, Ungroup, Clear Group, Select Group |
+| Edit tool | 5 | 0 | Normal/Envelope/Selection/Zoom Edit Tool |
+| Channels | 5 | 0 | Both, Left Only, Right Only, Combine, Swap |
+| View | 5 | 0 | Show Bus Tracks, Zoom In/Out Time |
+| Insert | 4 | 0 | Audio/Video Bus Track, Empty Event, Text Media… |
+| File | 3 | 0 | Incremental Save, Real-Time Render…, Capture… |
+| Ripple / Select / Layouts | по 3 | 0 | Affected Tracks, Select Event Start, Save Layout… |
+| Navigate / Stream / Dock / Scripting / Tools / Audio / Video / Help | по 2 | 0 | Go to Next Marker, Run Script…, Video Scopes, Contents and Index |
+| Toolbars | 1 | 0 | Main Toolbar |
+| Extensions / Tags / Ext | 0 | 3 | целиком disabled |
+
+---
+
+## 5. Прочие меню
+
+| Файл:строка | Статус | Пункт |
+|---|---|---|
+| `ContextMenuBuilder.cpp:1336` | DEAD | Delete All in &Selection |
+| `ContextMenuBuilder.cpp:1432` | DISABLED | &Selectively Prerender Video… |
+| `ContextMenuBuilder.cpp:1435` | DEAD | &Clean Up Prerendered Video… |
+| `ExplorerPane.cpp:1118,1121,1124,1127` | DISABLED | Rename, Cut, Copy, Remove |
+| `MixingConsoleWindow.cpp:682` | DEAD | Audio Properties… |
+| `MixingConsoleWindow.cpp:699–704` | DEAD | Show Channels: Audio Tracks, Audio Busses, Input Busses, Assignable FX Busses, Master Bus, Preview Bus |
+| `MixingConsoleWindow.cpp:714` | DEAD | Label Control Regions |
+| `MixingConsoleWindow.cpp:762` | DEAD | Reset Meter Clip |
+| `TrimmerWindow.cpp:1245` | DISABLED | Add to Timeline up to Cursor |
+| `TrimmerWindow.cpp:1249` | DEAD | Create Subclip… |
+| `TrimmerWindow.cpp:1274` | DEAD | Detect Scenes and Add to Timeline from Cursor |
+| `TrimmerWindow.cpp:1281` | DEAD | Edit Visible Button Set… |
+
+Контекстные меню за прошедший год почти доделаны: из 77 `addAction` в
+`ContextMenuBuilder.cpp` подключено 57, три не подключены, остальные — добавление уже
+существующих действий в группу.
+
+---
+
+## 6. Осиротевшие `.ui`
+
+| Файл | Виджетов | Состояние |
+|---|---:|---|
+| `ui/ProjectPropertiesDialog.ui` | 21 | Диалог целиком написан руками в `.cpp` (758 строк); `.ui` собирается AUTOUIC, но `ui_ProjectPropertiesDialog.h` никто не подключает |
+| `ui/TrimmerWindow.ui` | 7 | То же: `TrimmerWindow.cpp` строит окно сам |
+
+Оба перечислены и в `CMakeLists.txt`, и в `OpenVegas.pro`. На экране они не видны — это не
+пустышки интерфейса, а мусор сборки, но найдены тем же проходом и держатся здесь, чтобы не
+искать заново.
+
+---
+
+## 7. Что инструмент отсеивает и чего он не видит
+
+Отсеивается автоматически (эти формы **не** являются пустышками):
+
+- `addAction(текст, receiver, slot)` и вариант с лямбдой — перегрузка связывает сразу;
+- `group->addAction(существующее)` — не создание;
+- действие, сравниваемое с результатом `menu.exec()` (контекстное меню Pan/Crop);
+- кнопка с `setMenu()` — работу делают пункты меню (кнопка Overlays в превью);
+- кнопка или контрол, возвращаемые из фабрики (`IconFactory::toolButton`, лямбда
+  `makeFader`) — связывает вызывающая сторона;
+- `buttonBox` в диалогах — Designer связывает его в секции `<connections>` самого `.ui`.
+
+**Слепое пятно, которое закрыть нечем:** контрол, связанный только с «пометить изменённым».
+Для инструмента он неотличим от рабочего — есть `connect`, значит жив. Именно так выглядит
+весь §1.2, и найден он чтением `applyToModel()`, а не проходом. Поэтому при правках диалогов
+с кнопкой Apply проверять надо не наличие `connect`, а то, доходит ли значение до модели.
+
+Локальные имена ищутся **в своём файле**: раньше поиск шёл по всем сразу, и `closeBtn`,
+подключённый в другом диалоге, поручался за мёртвого однофамильца в `MainWindow`. Так одна
+находка и пряталась.
+
+---
+
+## Как обновлять
+
+```text
+python tools/audit_ui_stubs.py           # счётчики
+python tools/audit_ui_stubs.py --json    # полный список, удобно диффать
 ```
-**Поправка 2026-08-12 (Video FX):** Drag'n'Drop из `VideoFxPane` **реализован**. `FxDragListWidget`
-(тем же явным press→move→launch, что и в Media Generator — автозапуск drag у `QAbstractItemView`
-для этой конфигурации не срабатывает) обслуживает обе половины панели: строка плагина тащит эффект
-с пресетом по умолчанию, тайл пресета — с этим пресетом. Payload —
-`MediaMime::fromSynthetic("videofx", <плагин>, <пресет>)`; `TimelineView::applyVideoFxDrop`
-добавляет `FxSlot` в цепочку события под курсором (только видеодорожка, только внутри клипа),
-кладёт запись в undo и открывает Video Event FX, как это делает VEGAS. Вне клипа drag отклоняется,
-и «призрак клипа» для `videofx`/`transition` больше не рисуется — они ничего не вставляют.
-Регрессии: `[video-fx][vegas-video][dnd]`.
 
-Осталось косметическим: **double-click** в `VideoFxPane` по-прежнему только тост
-(`statusBar()->showMessage`) — эффект не добавляется. То же для `TransitionsPane`
-(у него DnD пресет-тайлов есть, double-click — тост).
-
-### Каталог Video FX сверен с VEGAS (2026-08-12)
-
-Панель показывала не тот список. Исправлено по эталонным скриншотам:
-
-| Было | Стало |
-|---|---|
-| В списке эффектов лежали **переходы** (Page Roll, Push, Slide, Swap, Spiral, Zoom…) и генераторы | Только эффекты. VEGAS группирует Page Roll как обычный `VEGAS` — разделяет их лишь объявленный OFX-контекст (`…ContextTransition` / `…ContextGenerator`), теперь он читается из манифеста |
-| Порядок сканирования бандлов | Алфавит |
-| Категории = хвост grouping (`AI`, `360`) | Реальные чипы панели: `VEGAS\AI` → **AI/ML**, `VEGAS\360` → **360°**, не-`VEGAS\…` → **Third Party** |
-| `Version OFX`, описание = effectId | `Version 1.0`, описание из `OfxPropPluginDescription` |
-| Строка статуса с обрезанным именем | Полный лейбл, как у VEGAS: `VEGAS AI Style Transfer: OFX, 32-bit floating point, Grouping VEGAS\AI, Version 1.0` |
-| Тайлы пресетов без `(Default)` | `(Default)` первым, затем именованные пресеты |
-| `360° Stabilization` под локализованным именем | Манифест выбирается по имени бандла, а не «первый по алфавиту» (в бандле лежат ещё `gui.xml` и старый `ofxStabilizer.xml`) |
-
-Осталось расхождение: у нас в списке есть **AI Smart Mask** рядом с **AI Smart Mask 2.0**, у VEGAS — только 2.0. Похоже, VEGAS прячет предыдущую версию, но правило по скриншотам не восстанавливается, а гадать хуже, чем оставить лишнюю строку.
-
-`VEGAS\Light` и голый `VEGAS` своих чипов не имеют — такие эффекты доступны только через «All Plug-ins». Под какой чип их кладёт сам VEGAS, по эталонам не видно.
-
-Регрессия: `Transitions and generators are not video effects` (`[video-fx][vegas-video]`).
-
-### Превью пресетов в Video FX — настоящий рендер (2026-08-12)
-
-Тайлы больше не плейсхолдер: `:/images/eye_preview.png` прогоняется **через настоящий
-OFX-плагин** с параметрами конкретного пресета, как это делает VEGAS. Никаких собственных
-реализаций эффектов при этом не появилось — рендерит сам плагин.
-
-Заработало это потому, что параметры пресетов лежат в бандле открытым текстом:
-`Contents/Presets/PresetPackage.xml` содержит на каждый пресет полный набор
-`<OfxParamType…name="…"><OfxParamValue>`. `parsePresetParams()` их читает
-(`true`/`false` → 1/0, у многозначных берётся первое значение), и они попадают в
-`VegasVideoPluginEntry::presetParams`.
-
-Механика:
-
-- рендер **ленивый** — только для выбранного эффекта и только один раз (`renderPresetPreviews`);
-- **бюджет времени**: первый пресет замеряется, и если он превысил 400 мс, остальные пресеты
-  этого эффекта не рендерятся. Так AI-эффекты, тянущие модели на первом кадре, не вешают панель.
-  Их тайлы остаются на чистом семпле — честнее, чем подделка;
-- при наведении — цикл: эффект **стирается слева направо**, затем **возвращается слева направо**,
-  и так по кругу, пока курсор на тайле (`presetIcon(preset, progress)`, `progress` 0…2).
-
-Попутно вскрылись два дефекта хоста, которые видны были только на этих тайлах:
-
-1. **Статика показывала чистый кадр.** Покоем считалось `progress = 1.0`, а при этом значении
-   полоса эффекта получается нулевой ширины — то есть ровно «эффект полностью снят». Покой
-   теперь `0`.
-2. **Булевы параметры не доходили до плагина.** `paramGetValue` обрабатывал только
-   `kOfxParamTypeDouble`, а для Boolean/Choice/Int **не писал в выходной указатель вообще** —
-   плагин читал мусор со стека. Плюс `processFrame` применял значения только к Double-параметрам.
-   Из-за этого `Monochromatic=true` у пресета Medium не срабатывал и превью выходило цветным
-   вместо монохромного. Это касается не только тайлов, а любого рендера через OFX.
-
-Оставшееся расхождение: тайл **(Default)** у нас цветной, у VEGAS — монохромный. Для «(Default)»
-мы не передаём параметров, и плагин берёт свои объявленные дефолты; откуда VEGAS берёт значения
-для этого тайла, из бандла не видно.
-
-### CD Audio
-`src/io/CdAudioReader.h:23` — «Windows CDDA: TOC + raw sector rip to WAV. Stub elsewhere.» — File → Extract Audio from CD… работает только на Windows, на остальных платформах — заглушка.
-
----
-
-## Не считать находками (для контраста / уже отслежено в ISSUES_AND_PLANS.md)
-
-- `ExplorerPane.cpp` — Rename/Cut/Copy/Remove в контекстном меню пустой области disabled — это ожидаемо (нет выделения), не баг.
-- `MediaThumbCache` — плейсхолдеры превью — легитимный паттерн асинхронной подгрузки.
-- Explorer/Transitions панели как таковые уже отмечены в `ISSUES_AND_PLANS.md` («Неработающие / backlog») как «Placeholders» — этот файл уточняет: панели **визуально не заглушки** (полноценный UI), проблема именно в отсутствии insert-действия. (Media Generator из этого списка исключён — 2026-08-08, Drag'n'Drop insert-действие есть для всех плагинов; double-click остаётся toast для всех, кроме Titles & Text.)
-- Shadow/Glow/blend/mask interpolate, soft bypass fade, `.prproj`/`.veg` write — уже в roadmap `PLAN_VIDEOAUDIOSTACK.md`/`PLAN_VIDEO-AUDIO-PLUGINS-STACK.md`.
-
----
-
-## Приоритеты (предложение)
-
-1. ~~**File → Save/Save As**~~ — реализовано 2026-08-09 (родной round-trip формат «OpenVegas Project Archive», не `.veg` — см. [`PROJECT_ARCHIVE_FORMAT.md`](PROJECT_ARCHIVE_FORMAT.md)). Track Motion / Mixing Console / Automation Lanes всё ещё не входят в архив — задокументированный, не тихий пробел.
-2. ~~**Transitions/Video FX panes** — drag&drop на таймлайн~~ — сделано (Transitions, Video FX — 2026-08-12). Осталось: insert по двойному клику в обеих панелях — сейчас это тост.
-3. **VEGAS Shared `CatalogOnly` эффекты** — либо пометить в UI чузера (например суффиксом «(no DSP)»), либо скрыть из списка до реализации.
-4. **Video Event FX (`VideoEventFxDialog`, старый)** — проверить, не является ли он мёртвым кодом, если весь flow уже идёт через `VideoEventFxDialogExact`; если мёртв — удалить, а не оставлять диалог с фейковыми параметрами.
-5. Остальное (Editing Tool submenu, Group/Switches/Channels в Edit, Compositing Mode blend-режимы, Time Display/Split Screen/Preview context-меню) — низкий приоритет, это Vegas-паритет «для галочки», а не блокер базового редактирования.
+Правило проекта — в [`INIT.MD`](INIT.MD) («Пустышки интерфейса»): при появлении нового
+неподключённого элемента или при подключении существующего этот файл правится в том же
+коммите.
