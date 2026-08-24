@@ -612,6 +612,38 @@ TransitionPluginInfo makeFlash()
     return info;
 }
 
+TransitionPluginInfo makeStarWipe()
+{
+    TransitionPluginInfo info;
+    info.id = transitionStarWipeId();
+    info.name = QStringLiteral("Star Wipe");
+    info.format = QStringLiteral("OFX");
+    info.description = QStringLiteral("VEGAS Star Wipe");
+    info.params = {
+        {QStringLiteral("arms"), QStringLiteral("Arms"), 2.0, 32.0, 0, {}},
+        {QStringLiteral("ratio"), QStringLiteral("Ratio"), 0.0, 1.0, 4, {}},
+        {QStringLiteral("angle"), QStringLiteral("Angle"), 0.0, 360.0, 1, {}},
+        {QStringLiteral("cycles"), QStringLiteral("Cycles"), 1.0, 16.0, 0, {}},
+        {QStringLiteral("waveform"), QStringLiteral("Waveform"), 0.0, 1.0, 0,
+         {QStringLiteral("Pointed"), QStringLiteral("Rounded")}},
+        {QStringLiteral("direction"), QStringLiteral("Direction"), 0.0, 1.0, 0,
+         {QStringLiteral("In"), QStringLiteral("Out")}},
+        {QStringLiteral("centerX"), QStringLiteral("Center X"), 0.0, 1.0, 4, {}},
+        {QStringLiteral("centerY"), QStringLiteral("Center Y"), 0.0, 1.0, 4, {}},
+        {QStringLiteral("horizontalMirror"), QStringLiteral("Horizontal mirror"), 0.0, 1.0, 0,
+         {QStringLiteral("Off"), QStringLiteral("On")}},
+        {QStringLiteral("verticalMirror"), QStringLiteral("Vertical mirror"), 0.0, 1.0, 0,
+         {QStringLiteral("Off"), QStringLiteral("On")}},
+        {QStringLiteral("horizontalFlip"), QStringLiteral("Horizontal flip"), 0.0, 1.0, 0,
+         {QStringLiteral("Off"), QStringLiteral("On")}},
+        {QStringLiteral("verticalFlip"), QStringLiteral("Vertical flip"), 0.0, 1.0, 0,
+         {QStringLiteral("Off"), QStringLiteral("On")}},
+    };
+    info.params += borderParams(QStringLiteral("feather"), QStringLiteral("Feather"));
+    info.presets = stockPresets(QStringLiteral("starwipe"));
+    return info;
+}
+
 QVector<TransitionPluginInfo> makeOfxStubs()
 {
     QVector<TransitionPluginInfo> out;
@@ -812,6 +844,7 @@ const QVector<QPair<QString, QString>> &renderedOfxGroups()
         {QStringLiteral("squeeze"), transitionSqueezeId()},
         {QStringLiteral("split"), transitionSplitId()},
         {QStringLiteral("flash"), transitionFlashId()},
+        {QStringLiteral("starwipe"), transitionStarWipeId()},
     };
     return groups;
 }
@@ -849,7 +882,7 @@ const QVector<TransitionPluginInfo> &transitionCatalog()
             makeIris(),       makeClockWipe(),      makeCascade3D(),  makeShuffle3D(),
             makeFlyInOut3D(), makeGradientWipe(),   makePortals(),    makeZoom(),
             makePush(),       makeSlide(),          makeSqueeze(),    makeSplit(),
-            makeFlash()};
+            makeFlash(),      makeStarWipe()};
         c += makeOfxStubs();
         return c;
     }();
@@ -1711,6 +1744,106 @@ QImage renderFlash(const QImage &from, const QImage &to, double progress,
     return result;
 }
 
+// ------------------------------------------------------------------------- Star Wipe
+
+/**
+ * Star Wipe: a shape with `arms` points opens out of a centre, or closes into it.
+ *
+ * Every field here is named by VEGAS's own preset package, and its eighteen presets are
+ * enough to read all of them:
+ *
+ *   Arms      how many points. 32 with Ratio 1 is a circle ("Double Circles"), 32 with a
+ *             small ratio is a burst of spikes ("Sun Rays"), 2 is a diamond.
+ *   Ratio     inner radius over outer. 1 flattens the star into a circle.
+ *   Waveform  how a point is shaped: 0 comes to a tip, 1 is rounded. "Gear" and
+ *             "Double Gears" differ by this and nothing else.
+ *   Cycles    concentric repeats. "Rings" is a circle with five of them.
+ *   Angle     turns the shape; "Three/Four/Six Way Split" are stars rotated to sit square.
+ *   Center    where it opens from, measured with Y running up as the package always does.
+ *   Horizontal/VerticalMirror  reflect the field about the frame's middle, which is how
+ *             "Four Diamonds" gets four of them and how "Opening Eye" gets its two lids.
+ *   Direction 0 opens, 1 closes.
+ */
+QImage renderStarWipe(const QImage &from, const QImage &to, double progress,
+                      const TransitionInstance &t, const QSize &size)
+{
+    constexpr double kPi = 3.14159265358979323846;
+    const double arms = std::max(2.0, transitionParamValue(t, QStringLiteral("arms")));
+    const double ratio = std::clamp(transitionParamValue(t, QStringLiteral("ratio")), 0.0, 1.0);
+    const double angle = transitionParamValue(t, QStringLiteral("angle")) * kPi / 180.0;
+    const double cycles = std::max(1.0, transitionParamValue(t, QStringLiteral("cycles")));
+    const bool rounded =
+        int(std::lround(transitionParamValue(t, QStringLiteral("waveform")))) == 1;
+    const bool out = int(std::lround(transitionParamValue(t, QStringLiteral("direction")))) == 1;
+    const bool hMirror = transitionParamValue(t, QStringLiteral("horizontalMirror")) >= 0.5;
+    const bool vMirror = transitionParamValue(t, QStringLiteral("verticalMirror")) >= 0.5;
+    const double cx = std::clamp(transitionParamValue(t, QStringLiteral("centerX")), 0.0, 1.0);
+    // The package measures Y from the bottom, as it does everywhere else.
+    const double cy =
+        1.0 - std::clamp(transitionParamValue(t, QStringLiteral("centerY")), 0.0, 1.0);
+
+    EdgeStyle style = edgeStyleOf(t, "feather");
+    style.borderStrength = smoothStep(0.0, 0.06, progress) * smoothStep(0.0, 0.06, 1.0 - progress);
+    // Even a hard-edged preset needs a sliver of overshoot to land exactly on B.
+    const double feather = std::max(1e-3, style.feather);
+    const double halfFeather = feather * 0.5;
+
+    // A mirror folds the frame onto the half that holds the centre, so whatever is drawn
+    // there appears again reflected.
+    const auto fold = [](double v, bool mirror) {
+        return mirror ? 0.5 - std::abs(v - 0.5) : v;
+    };
+    const double fcx = fold(cx, hMirror);
+    const double fcy = fold(cy, vMirror);
+
+    // Plain distance from the centre to the farthest corner: the shape is normalised
+    // against this, not against itself. Measuring the reach with the shape's own distance
+    // does not work here, because a star with Ratio 0 has zero radius between its arms
+    // and the reach runs away to infinity — which collapsed Sun Rays and the three Way
+    // Split presets into an instant cut.
+    double reachR = 1e-6;
+    for (const double px : {0.0, 0.5, 1.0}) {
+        for (const double py : {0.0, 0.5, 1.0}) {
+            reachR = std::max(reachR, std::hypot(fold(px, hMirror) - fcx,
+                                                 fold(py, vMirror) - fcy));
+        }
+    }
+
+    // How far the edge sits in a given direction, as a fraction of the outer radius.
+    // Ratio 0 means the arms meet at a point, so the trough would have no extent at all
+    // and could never close; a small floor keeps those presets thin and still lets the
+    // wipe finish.
+    const auto edgeAt = [=](double dx, double dy) {
+        const double phase = (std::atan2(dy, dx) + angle) * arms / (2.0 * kPi);
+        double w = phase - std::floor(phase); // 0…1 within one arm
+        // 0…1…0 across the arm, either pointed or rounded.
+        w = rounded ? 0.5 - 0.5 * std::cos(2.0 * kPi * w) : 1.0 - std::abs(2.0 * w - 1.0);
+        return std::max(0.06, ratio + (1.0 - ratio) * w);
+    };
+
+    return blendByField(from, to, size, style, [=](double x, double y) {
+        const double px = fold(x, hMirror);
+        const double py = fold(y, vMirror);
+        const double dx = px - fcx;
+        const double dy = py - fcy;
+        const double r = std::hypot(dx, dy);
+        const double d = r / (edgeAt(dx, dy) * reachR);
+        // Cycles cuts the run into concentric bands that open together. The distance has
+        // to be clamped first: past the frame it climbs to many times one — the arms of a
+        // Ratio 0 star are thin, so the troughs are far "outside" — and wrapping that
+        // unbounded value produced a dozen phantom rings instead of the asked-for few.
+        const double dn = std::min(1.0, d);
+        const double v = dn * cycles;
+        const double frac = dn >= 1.0 ? 1.0 : v - std::floor(v);
+        // The sweep runs half a feather short of the start and half past the end, the
+        // same way Linear Wipe does it. Driving it from 0 to 1 exactly leaves the far
+        // corners sitting on the threshold at progress 1 — half blended rather than
+        // finished — and with a Ratio 0 star that was most of the frame.
+        const double sweep = -halfFeather + progress * (1.0 + feather);
+        return out ? frac - (1.0 - sweep) : sweep - frac;
+    });
+}
+
 QImage renderTransition(const QImage &from, const QImage &to, double progress,
                         const TransitionInstance &t)
 {
@@ -1754,6 +1887,9 @@ QImage renderTransition(const QImage &from, const QImage &to, double progress,
     }
     if (t.pluginId == transitionFlashId()) {
         return renderFlash(from, to, p, t, size);
+    }
+    if (t.pluginId == transitionStarWipeId()) {
+        return renderStarWipe(from, to, p, t, size);
     }
     return crossDissolve(from, to, p, size);
 }

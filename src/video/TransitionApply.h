@@ -71,6 +71,10 @@ inline QString transitionFlashId()
 {
     return QStringLiteral("builtin:Transition:Flash");
 }
+inline QString transitionStarWipeId()
+{
+    return QStringLiteral("builtin:Transition:StarWipe");
+}
 
 /**
  * The one table saying which "{Svfx:…:key}" groups have a renderer, and under what id.

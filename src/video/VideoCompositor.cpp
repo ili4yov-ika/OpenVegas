@@ -219,11 +219,12 @@ QImage VideoCompositor::compose(const ProjectModel &model, double t, const QSize
             pan.ensureDefault(fw, fh);
             // Pan/Crop KF are event-local (not reversed source time).
             const PanCropKeyframe pkf = evaluatePanCrop(pan, eventLocal, fw, fh);
-            const MaskKeyframe *mask =
-                pan.maskEnabled ? maskHoldAt(pan, eventLocal) : nullptr;
+            MaskKeyframe maskNow;
+            const bool haveMask = pan.maskEnabled && maskAt(pan, eventLocal, &maskNow);
 
             QImage layer = applyPanCrop(src, pkf, fw, fh, sz.width(), sz.height(),
-                                        pan.stretchToFillFrame, mask);
+                                        pan.stretchToFillFrame,
+                                        haveMask ? &maskNow : nullptr);
             // Event then track FX (builtins + OFX / emulated).
             applyVideoFxChain(&layer, ev.fxChain, eventLocal);
             applyVideoFxChain(&layer, track.fxChain, mediaTime);

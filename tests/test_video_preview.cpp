@@ -9,6 +9,7 @@
 #include "video/VideoKeyframeEval.h"
 
 #include <QDir>
+#include <QPointF>
 #include <QFileInfo>
 #include <QImage>
 #include <QPainter>
@@ -71,6 +72,74 @@ TEST_CASE("evaluatePanCrop interpolates centers", "[video][kf]")
     st.positionKeyframes = {a, b};
     const PanCropKeyframe mid = evaluatePanCrop(st, 0.5, 100, 100);
     REQUIRE(mid.xCenter == Catch::Approx(50.0));
+}
+
+TEST_CASE("mask keyframes morph, and only a changed contour holds", "[video][kf][mask]")
+{
+    auto square = [](double x, double y, double s, int extraAnchor = 0) {
+        MaskPath p;
+        p.closed = true;
+        p.mode = MaskPathMode::Positive;
+        for (const QPointF &d : {QPointF(-1, -1), QPointF(1, -1), QPointF(1, 1), QPointF(-1, 1)}) {
+            MaskAnchor a;
+            a.x = x + d.x() * s;
+            a.y = y + d.y() * s;
+            p.anchors.push_back(a);
+        }
+        for (int i = 0; i < extraAnchor; ++i) {
+            MaskAnchor a;
+            a.x = x;
+            a.y = y - s;
+            p.anchors.push_back(a);
+        }
+        return p;
+    };
+
+    EventPanCropState st;
+    st.maskEnabled = true;
+
+    MaskKeyframe k0;
+    k0.timeSec = 0.0;
+    k0.type = VideoKeyframeType::Linear;
+    k0.paths = {square(100, 100, 10), square(500, 500, 10)};
+
+    MaskKeyframe k1;
+    k1.timeSec = 2.0;
+    k1.type = VideoKeyframeType::Linear;
+    // First contour moves; second gains an anchor, so it cannot be put in correspondence.
+    k1.paths = {square(300, 100, 10), square(900, 500, 10, /*extraAnchor=*/1)};
+    st.maskKeyframes = {k0, k1};
+
+    MaskKeyframe mid;
+    REQUIRE(maskAt(st, 1.0, &mid));
+    REQUIRE(mid.paths.size() == 2);
+
+    // Halfway the moving contour is halfway. Holding the whole keyframe until the next
+    // one — which is what this did before — left it at 90 and made the mask jump.
+    CHECK(mid.paths[0].anchors[0].x == Catch::Approx(190.0));
+    CHECK(mid.paths[0].anchors[1].x == Catch::Approx(210.0));
+
+    // The contour whose anchor count changed keeps its earlier shape rather than
+    // freezing the rest of the mask along with it.
+    REQUIRE(mid.paths[1].anchors.size() == 4);
+    CHECK(mid.paths[1].anchors[0].x == Catch::Approx(490.0));
+
+    // Before the first keyframe and after the last, the ends hold.
+    MaskKeyframe edge;
+    REQUIRE(maskAt(st, -1.0, &edge));
+    CHECK(edge.paths[0].anchors[0].x == Catch::Approx(90.0));
+    REQUIRE(maskAt(st, 9.0, &edge));
+    CHECK(edge.paths[0].anchors[0].x == Catch::Approx(290.0));
+
+    // A Hold keyframe stays put for its whole segment.
+    st.maskKeyframes[0].type = VideoKeyframeType::Hold;
+    REQUIRE(maskAt(st, 1.0, &mid));
+    CHECK(mid.paths[0].anchors[0].x == Catch::Approx(90.0));
+
+    // No mask at all is reported as such rather than as an empty shape.
+    EventPanCropState none;
+    MaskKeyframe unused;
+    CHECK_FALSE(maskAt(none, 0.0, &unused));
 }
 
 TEST_CASE("evaluateTrackMotion interpolates position", "[video][kf]")
