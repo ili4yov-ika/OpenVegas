@@ -8,6 +8,7 @@
 #include <QGuiApplication>
 #include <QImage>
 #include <QPainter>
+#include <QSet>
 
 #include <algorithm>
 
@@ -522,4 +523,59 @@ TEST_CASE("Flash burns through its tint and hides the cut", "[video][transitions
     // Both ends are the untouched clips.
     CHECK(qRed(mid(QStringLiteral("Hard Flash"), 0.0)) < 20);
     CHECK(qRed(mid(QStringLiteral("Hard Flash"), 1.0)) < 60);
+}
+
+TEST_CASE("Every group VEGAS ships presets for takes them from the package",
+          "[video][transitions]")
+{
+    // The generated table is the whole shipped set. A group that hand-lists its presets
+    // instead gets whatever someone transcribed — which is how Zoom ended up with three
+    // invented entries against fourteen real ones, and how 3D Fly In/Out and Portals were
+    // left with no parameters at all while the package named every one of them.
+    struct Expect {
+        const char *key;
+        QString (*id)();
+    };
+    const Expect groups[] = {
+        {"3dblinds", &transition3dBlindsId},
+        {"3dcascade", &transitionCascade3dId},
+        {"3dshuffle", &transitionShuffle3dId},
+        {"3dflyinout", &transitionFlyInOut3dId},
+        {"portals", &transitionPortalsId},
+        {"venetianblinds", &transitionVenetianBlindsId},
+    };
+
+    for (const Expect &e : groups) {
+        const QString key = QString::fromLatin1(e.key);
+        INFO(e.key);
+        const QVector<StockTransitionPreset> *stock = stockPresetsFor(key);
+        REQUIRE(stock);
+        REQUIRE_FALSE(stock->isEmpty());
+
+        const TransitionPluginInfo *info = transitionPluginById(e.id());
+        REQUIRE(info);
+        REQUIRE(info->presets.size() == stock->size());
+        for (int i = 0; i < stock->size(); ++i) {
+            CHECK(info->presets[i].name == stock->at(i).name);
+        }
+    }
+
+    // Every parameter a shipped preset sets must be a parameter the group declares, or
+    // the value is loaded and then has nowhere to go. 3D Cascade is the case that failed:
+    // its third field is Twist in the package and was declared here as "stagger".
+    for (const Expect &e : groups) {
+        const TransitionPluginInfo *info = transitionPluginById(e.id());
+        REQUIRE(info);
+        QSet<QString> declared;
+        for (const TransitionParamInfo &p : info->params) {
+            declared.insert(p.key);
+        }
+        for (const TransitionPresetInfo &preset : info->presets) {
+            for (auto it = preset.params.cbegin(); it != preset.params.cend(); ++it) {
+                INFO(info->name.toStdString() << " / " << preset.name.toStdString()
+                                              << " / " << it.key().toStdString());
+                CHECK(declared.contains(it.key()));
+            }
+        }
+    }
 }

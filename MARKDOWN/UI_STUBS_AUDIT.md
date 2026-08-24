@@ -1,6 +1,6 @@
 # Аудит интерфейсных пустышек
 
-**Дата:** 2026-08-24
+**Дата:** 2026-08-24 (обновлено после подключения мастер-фейдера)
 **Область:** `src/`, `ui/*.ui`
 **Инструмент:** `python tools/audit_ui_stubs.py` (счётчики) / `--json` (машинный вывод для диффа)
 
@@ -35,13 +35,13 @@
 | Пункты строки меню, DISABLED | 13 | `MenuBuilder.cpp` |
 | Пункты прочих меню, DEAD | 14 | Mixing Console, Trimmer, контекстные |
 | Пункты прочих меню, DISABLED | 6 | Explorer, Trimmer, контекстные |
-| Кнопки без обработчика | 17 | MainWindow и диалоги |
+| Кнопки без обработчика | 16 | MainWindow и диалоги |
 | Кнопки, созданные «на выброс» | 24 | MainWindow (22), ExplorerPane (2) |
-| Поля/ползунки без потребителя | 31 | Project Properties и др. |
+| Поля/ползунки без потребителя | 30 | Project Properties и др. |
 | Осиротевшие `.ui` | 2 | `ProjectPropertiesDialog.ui`, `TrimmerWindow.ui` |
 
-Из 91 просмотренной кнопки **41 не делает ничего** (17 без обработчика + 24 «на выброс»).
-Из 166 полей ввода — **31** без потребителя.
+Из 91 просмотренной кнопки **40 не делает ничего** (16 без обработчика + 24 «на выброс»).
+Из 166 полей ввода — **30** без потребителя.
 
 ---
 
@@ -50,11 +50,14 @@
 Три вещи стоит починить раньше остального — не потому, что их много, а потому, что они
 обманывают сильнее всего.
 
-### 1.1 Мастер-фейдер громкости не подключён
+### 1.1 ~~Мастер-фейдер громкости не подключён~~ — исправлено
 
-`src/app/MainWindow.cpp:1190` — `QSlider` с `objectName("masterFader")` и подсказкой
-«Master volume». Создан, положен в layout, установлен в 32. Ни `connect`, ни чтения. Ползунок
-двигается, громкость не меняется.
+Был `QSlider` с подсказкой «Master volume», созданный, положенный в layout и установленный
+в 32; ни `connect`, ни чтения. Теперь ведёт в `ProjectModel::setMasterVolumeDb()` по той же
+шкале, что и микшер (70 = 0 дБ), толкает изменение в живой микс на каждом шаге и пишет одну
+запись отмены на всё перетаскивание. Начальное положение берётся из модели, а не из
+случайного 32 (это примерно −33 дБ — выглядело неправильно даже до подключения). Кнопка
+Lock Fader рядом тоже ожила: блокирует ползунок, не трогая саму громкость.
 
 ### 1.2 Project Properties собирает данные и выбрасывает их
 
@@ -113,7 +116,6 @@ File (971), Record into Track (1404), Trim (1458), Heal (1468), Lock (1469), Ena
 | `src/app/MainWindow.cpp:973` | `btn360` | 360° Video |
 | `src/app/MainWindow.cpp:982` | `btnHdr` | HDR |
 | `src/app/MainWindow.cpp:1169` | `autoWrite` | Automation Settings |
-| `src/app/MainWindow.cpp:1197` | `lock` | Lock fader |
 | `src/app/MainWindow.cpp:1259` | `maxBtn` | Maximize панели |
 | `src/app/MainWindow.cpp:1266` | `closeBtn` | Close панели |
 | `src/ui/ColorGradingEditor.cpp:406` | `help` | «?» в заголовке |
@@ -134,7 +136,6 @@ File (971), Record into Track (1404), Trim (1458), Heal (1468), Lock (1469), Ena
 
 | Файл:строка | Контрол | Тип |
 |---|---|---|
-| `src/app/MainWindow.cpp:1190` | `fader` (masterFader) | QSlider |
 | `src/ui/ColorGradingEditor.cpp:596` | `channel` | QComboBox |
 | `src/ui/CustomizeKeyboardDialog.cpp:53` | `m_mapCombo` | QComboBox |
 | `src/ui/FindMissingFileDialog.cpp:136` | `seq` | QCheckBox |

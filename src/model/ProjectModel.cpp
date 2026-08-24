@@ -2220,7 +2220,9 @@ void ProjectModel::applyTransitionsFromVeg(const VegOpenResult &veg)
             case VegTransitionKind::Cascade3D:
                 transitionSetParamValue(&t, QStringLiteral("divisions"), info.divisions);
                 transitionSetParamValue(&t, QStringLiteral("direction"), info.direction);
-                transitionSetParamValue(&t, QStringLiteral("stagger"), info.stagger);
+                // 3D Cascade calls this field Twist. The reader still carries it under
+                // the 3D Blinds name, where the same slot really is a stagger.
+                transitionSetParamValue(&t, QStringLiteral("twist"), info.stagger);
                 transitionSetParamValue(&t, QStringLiteral("specularLight"),
                                         info.specularLight);
                 break;

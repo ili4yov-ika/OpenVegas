@@ -20,6 +20,7 @@ class QAction;
 class QUndoStack;
 class QShortcut;
 class QProgressBar;
+class QSlider;
 
 QT_BEGIN_NAMESPACE
 namespace Ui {
@@ -109,6 +110,8 @@ public slots:
     void refreshTimeline();
     /** Repaint ruler labels based on current ruler format selection. */
     void refreshTimecodeLabels();
+    /** Follow the model's master gain after a load or a change from the mixing console. */
+    void syncMasterFaderFromProject();
     void openEventProperties(int eventId);
     void openTrimmer(int eventId);
     void beginTrackRename(int trackIndex);
@@ -280,6 +283,8 @@ private:
     bool m_dimOutput = false;
     QToolButton *m_masterDownmixBtn = nullptr;
     QToolButton *m_masterDimBtn = nullptr;
+    QSlider *m_masterFader = nullptr;
+    QToolButton *m_masterLockBtn = nullptr;
     QProgressBar *m_masterMeterL = nullptr;
     QProgressBar *m_masterMeterR = nullptr;
     QLabel *m_masterPeakL = nullptr;

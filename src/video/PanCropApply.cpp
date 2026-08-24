@@ -145,44 +145,6 @@ void applyMaskAlpha(QImage *layerArgbPremul, const MaskKeyframe &mask, int frame
 
 namespace {
 
-/**
- * VEG Event Pan/Crop for “Match Output Aspect” often stores width/height/center in
- * *media* pixels (e.g. 2880×2160 crop of 3840×2160 into a 640×480 project). Our
- * compositor works in project-frame pixels — map oversized keyframes down.
- */
-PanCropKeyframe toProjectSpace(const PanCropKeyframe &kf, int frameW, int frameH)
-{
-    const double aw = std::abs(kf.width);
-    const double ah = std::abs(kf.height);
-    if (aw <= frameW * 1.25 && ah <= frameH * 1.25) {
-        return kf;
-    }
-
-    PanCropKeyframe out = kf;
-    const double frameAr = double(frameW) / double(std::max(1, frameH));
-    const double kfAr = aw / std::max(1e-9, ah);
-
-    // Crop AR matches project → that media rect fills the frame (Match Output Aspect).
-    if (std::abs(kfAr - frameAr) < 0.05) {
-        out.width = (kf.width < 0.0) ? -double(frameW) : double(frameW);
-        out.height = (kf.height < 0.0) ? -double(frameH) : double(frameH);
-        out.xCenter = frameW * 0.5;
-        out.yCenter = frameH * 0.5;
-        out.rotationXCenter = out.xCenter;
-        out.rotationYCenter = out.yCenter;
-        return out;
-    }
-
-    // Otherwise scale the crop into the frame, centered.
-    const double s = std::min(double(frameW) / aw, double(frameH) / ah);
-    out.width = kf.width * s;
-    out.height = kf.height * s;
-    out.xCenter = frameW * 0.5;
-    out.yCenter = frameH * 0.5;
-    out.rotationXCenter = out.xCenter;
-    out.rotationYCenter = out.yCenter;
-    return out;
-}
 
 } // namespace
 
@@ -194,22 +156,14 @@ QImage applyPanCrop(const QImage &source, const PanCropKeyframe &kfIn, int frame
     frameW = std::max(1, frameW);
     frameH = std::max(1, frameH);
 
-    const PanCropKeyframe kf = toProjectSpace(kfIn, frameW, frameH);
-
-    // Media-space Match Output Aspect must keep AR (center-crop), not stretch.
-    const double aw0 = std::abs(kfIn.width);
-    const double ah0 = std::abs(kfIn.height);
-    const bool mediaSpace = (aw0 > frameW * 1.25 || ah0 > frameH * 1.25);
-    const bool stretch = stretchToFill && !mediaSpace;
-
-    const QImage fitted = fitSourceToFrame(source, frameW, frameH, stretch);
+    const PanCropKeyframe &kf = kfIn;
+    const QImage fitted = fitSourceToFrame(source, frameW, frameH, stretchToFill);
 
     const double absW = std::max(1.0, std::abs(kf.width));
     const double absH = std::max(1.0, std::abs(kf.height));
     const bool flipH = kf.width < 0.0;
     const bool flipV = kf.height < 0.0;
 
-    // Work in project-frame pixels, then scale to out.
     QImage layer(frameW, frameH, QImage::Format_ARGB32_Premultiplied);
     layer.fill(Qt::transparent);
 
@@ -220,18 +174,31 @@ QImage applyPanCrop(const QImage &source, const PanCropKeyframe &kfIn, int frame
     const QPointF center(kf.xCenter, kf.yCenter);
     const QPointF rotCenter(kf.rotationXCenter, kf.rotationYCenter);
 
+    // The keyframe is a rectangle over the *source*, and what it frames is stretched to
+    // fill the output. That is the whole of Pan/Crop: a smaller rectangle zooms in, a
+    // larger one zooms out with the frame showing through around it, and moving it pans.
+    //
+    // This used to draw the rectangle back onto its own coordinates
+    // (drawImage(crop, fitted, crop)), which is a mask, not a pan or a zoom: the picture
+    // never moved and never changed size, only got cut down. The identity case matched,
+    // which is why it looked plausible. A rectangle bigger than the frame could not be
+    // drawn that way at all, so it was first "normalised" back to frame size — turning
+    // the sample project's zoom-out keyframe into no zoom whatever.
+    //
+    // Read bottom-up, a source point is: un-rotated about the rotation centre, moved so
+    // the rectangle centre is the origin, scaled until the rectangle is frame-sized (and
+    // mirrored if a side is negative), then moved to the middle of the frame.
+    const double sx = double(frameW) / absW;
+    const double sy = double(frameH) / absH;
+    p.translate(frameW * 0.5, frameH * 0.5);
+    p.scale(sx * (flipH ? -1.0 : 1.0), sy * (flipV ? -1.0 : 1.0));
+    p.translate(-center);
     p.translate(rotCenter);
-    p.rotate(kf.angleDeg);
+    // Turning the rectangle one way turns what it frames the other way.
+    p.rotate(-kf.angleDeg);
     p.translate(-rotCenter);
 
-    p.translate(center);
-    p.scale(flipH ? -1.0 : 1.0, flipV ? -1.0 : 1.0);
-    p.translate(-center);
-
-    // Draw the crop region from fitted source into the crop rect on layer.
-    // Source crop rect in fitted image = crop rect in project frame (identity mapping).
-    const QRectF crop(center.x() - absW * 0.5, center.y() - absH * 0.5, absW, absH);
-    p.drawImage(crop, fitted, crop);
+    p.drawImage(0, 0, fitted);
     p.end();
 
     if (maskHold && !maskHold->paths.isEmpty()) {

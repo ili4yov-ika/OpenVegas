@@ -122,6 +122,113 @@ TEST_CASE("pan-crop negative width flips horizontally", "[video][pancrop]")
     REQUIRE(qRed(right) > qGreen(right));
 }
 
+namespace {
+
+/** Four coloured quadrants, so a zoom, a pan and a mirror are all visible. */
+QImage quadrantCard(int w, int h)
+{
+    QImage img(w, h, QImage::Format_ARGB32_Premultiplied);
+    for (int y = 0; y < h; ++y) {
+        for (int x = 0; x < w; ++x) {
+            const bool right = x >= w / 2;
+            const bool bottom = y >= h / 2;
+            QRgb c = qRgba(200, 60, 60, 255);          // top-left red
+            if (right && !bottom) {
+                c = qRgba(60, 200, 60, 255);           // top-right green
+            } else if (!right && bottom) {
+                c = qRgba(60, 60, 200, 255);           // bottom-left blue
+            } else if (right && bottom) {
+                c = qRgba(200, 200, 60, 255);          // bottom-right yellow
+            }
+            img.setPixel(x, y, c);
+        }
+    }
+    return img;
+}
+
+} // namespace
+
+TEST_CASE("pan-crop zooms: a smaller rectangle fills the frame", "[video][pancrop]")
+{
+    // The rectangle frames a region of the source and that region is stretched over the
+    // whole output. Drawing it back at its own coordinates instead — which is what this
+    // did — leaves the picture exactly where it was and merely cuts away the rest, so a
+    // "zoom" changed nothing but the edges. The identity case matched either way, which
+    // is why it went unnoticed.
+    const int n = 64;
+    const QImage src = quadrantCard(n, n);
+
+    PanCropKeyframe kf = EventPanCropState::identityKeyframe(n, n);
+    // Frame only the top-left quadrant.
+    kf.width = n / 2.0;
+    kf.height = n / 2.0;
+    kf.xCenter = n / 4.0;
+    kf.yCenter = n / 4.0;
+    kf.rotationXCenter = kf.xCenter;
+    kf.rotationYCenter = kf.yCenter;
+
+    const QImage out = applyPanCrop(src, kf, n, n, n, n, true, nullptr);
+    REQUIRE_FALSE(out.isNull());
+
+    // That quadrant is red, so the whole frame must now be red — corners included.
+    for (const QPoint &pt : {QPoint(2, 2), QPoint(n - 3, 2), QPoint(2, n - 3),
+                             QPoint(n - 3, n - 3), QPoint(n / 2, n / 2)}) {
+        INFO("at " << pt.x() << "," << pt.y());
+        const QRgb c = out.pixel(pt);
+        CHECK(qRed(c) > 150);
+        CHECK(qGreen(c) < 110);
+        CHECK(qBlue(c) < 110);
+    }
+}
+
+TEST_CASE("pan-crop zooms out: a larger rectangle shrinks the picture", "[video][pancrop]")
+{
+    const int n = 64;
+    const QImage src = quadrantCard(n, n);
+
+    PanCropKeyframe kf = EventPanCropState::identityKeyframe(n, n);
+    kf.width = n * 2.0;
+    kf.height = n * 2.0;
+    // Centre stays at the frame centre, so the picture lands in the middle at half size.
+    const QImage out = applyPanCrop(src, kf, n, n, n, n, true, nullptr);
+    REQUIRE_FALSE(out.isNull());
+
+    // Outside the shrunken picture nothing was drawn. A rectangle bigger than the frame
+    // used to be "normalised" back to frame size, which quietly turned zoom-out into no
+    // zoom at all — the sample project has exactly such a keyframe.
+    CHECK(qAlpha(out.pixel(2, 2)) == 0);
+    CHECK(qAlpha(out.pixel(n - 3, n - 3)) == 0);
+    // The middle still carries the picture, and the quadrant boundary is still centred.
+    CHECK(qAlpha(out.pixel(n / 2 - 6, n / 2 - 6)) > 200);
+    const QRgb tl = out.pixel(n / 2 - 6, n / 2 - 6);
+    const QRgb br = out.pixel(n / 2 + 6, n / 2 + 6);
+    CHECK(qRed(tl) > qBlue(tl));          // top-left of the picture is red
+    CHECK(qRed(br) > 150);                // bottom-right is yellow
+    CHECK(qGreen(br) > 150);
+}
+
+TEST_CASE("pan-crop pans: moving the rectangle moves what is seen", "[video][pancrop]")
+{
+    const int n = 64;
+    const QImage src = quadrantCard(n, n);
+
+    PanCropKeyframe kf = EventPanCropState::identityKeyframe(n, n);
+    // Same size as the frame, shifted a quarter-frame to the right: the right half of the
+    // source moves into the middle, and the left quarter of the output falls off the
+    // source and stays empty.
+    kf.xCenter = n * 0.75;
+    kf.rotationXCenter = kf.xCenter;
+
+    const QImage out = applyPanCrop(src, kf, n, n, n, n, true, nullptr);
+    REQUIRE_FALSE(out.isNull());
+
+    // Middle of the output now shows what was at three-quarters across: green on top.
+    const QRgb mid = out.pixel(n / 2, n / 4);
+    CHECK(qGreen(mid) > qRed(mid));
+    // Beyond the right edge of the source there is nothing.
+    CHECK(qAlpha(out.pixel(n - 2, n / 2)) == 0);
+}
+
 TEST_CASE("track motion identity covers full frame", "[video][motion]")
 {
     const QImage layer = makeSolid(32, 18, qRgba(200, 50, 50, 255));

@@ -1190,10 +1190,14 @@ void MainWindow::setupMasterBus()
     auto *fader = new QSlider(Qt::Vertical, this);
     fader->setObjectName(QStringLiteral("masterFader"));
     fader->setRange(0, 100);
-    fader->setValue(32);
+    // 70 is unity on this scale, the same mapping the mixing console uses. The slider used
+    // to open at 32, which reads as roughly −33 dB — it looked wrong even before it was
+    // connected to anything.
+    fader->setValue(dbToFaderPos(m_project.masterVolumeDb()));
     fader->setFixedWidth(16);
     fader->setToolTip(tr("Master volume"));
     faderCol->addWidget(fader, 1);
+    m_masterFader = fader;
     auto *lock = new QToolButton(this);
     lock->setObjectName(QStringLiteral("masterLock"));
     lock->setIcon(IconFactory::iconFromSvgBody(IconFactory::svgLockFader(), 12));
@@ -1201,8 +1205,32 @@ void MainWindow::setupMasterBus()
     lock->setToolTip(tr("Lock Fader"));
     lock->setFixedSize(16, 16);
     lock->setAutoRaise(true);
+    lock->setCheckable(true);
     lock->setFocusPolicy(Qt::NoFocus);
     faderCol->addWidget(lock, 0, Qt::AlignHCenter);
+    m_masterLockBtn = lock;
+
+    // Dragging pushes the new gain into the live mix on every step; the undo entry is
+    // recorded once on release, so a drag is one edit rather than a hundred.
+    connect(fader, &QSlider::valueChanged, this, [this](int pos) {
+        m_project.setMasterVolumeDb(faderPosToDb(pos));
+        if (m_audioEngine) {
+            m_audioEngine->syncMixerLive();
+        }
+        if (m_mixingConsole) {
+            m_mixingConsole->refreshFromProject();
+        }
+    });
+    connect(fader, &QSlider::sliderPressed, this, [this]() { beginDocumentEdit(); });
+    connect(fader, &QSlider::sliderReleased, this,
+            [this]() { commitDocumentEdit(tr("Master Volume")); });
+    // Lock is Vegas's guard against nudging the master by accident: the fader stops
+    // taking input, and nothing about the gain itself changes.
+    connect(lock, &QToolButton::toggled, this, [this](bool on) {
+        if (m_masterFader) {
+            m_masterFader->setEnabled(!on);
+        }
+    });
     body->addLayout(faderCol);
 
     auto *metersWrap = new QVBoxLayout();
@@ -2817,6 +2845,9 @@ void MainWindow::onMixingConsole()
             if (m_timeline) {
                 m_timeline->update();
             }
+            // The console's master strip edits the same gain as the fader on the main
+            // window, so one has to follow the other or they disagree on screen.
+            syncMasterFaderFromProject();
             refreshStatusBar();
         });
         connect(m_mixingConsole, &MixingConsoleWindow::documentEditBegan, this,
@@ -4552,6 +4583,19 @@ void MainWindow::refreshTimeline()
     if (m_mixingConsole) {
         m_mixingConsole->refreshFromProject();
     }
+    syncMasterFaderFromProject();
+}
+
+void MainWindow::syncMasterFaderFromProject()
+{
+    if (!m_masterFader) {
+        return;
+    }
+    // The mixing console edits the same gain, and so does opening a project. Signals are
+    // blocked so following the model does not read as the user moving the fader, which
+    // would push the value straight back and start an edit.
+    const QSignalBlocker block(m_masterFader);
+    m_masterFader->setValue(dbToFaderPos(m_project.masterVolumeDb()));
 }
 
 void MainWindow::refreshTimecodeLabels()

@@ -208,28 +208,22 @@ TransitionPluginInfo makeCascade3D()
 {
     // Layout confirmed from the project: two ints then two doubles, the same opening
     // shape as 3D Blinds but without the extra-spins field.
+    //
+    // The third field is the plug-in's **Twist**, not a stagger. The name came from
+    // 3D Blinds, where a field in that position really is Stagger; VEGAS's own preset
+    // package calls this one Twist, and its presets store it under that name — so with
+    // the wrong key the shipped values would not have reached the renderer at all.
     QVector<TransitionParamInfo> params = {
         {QStringLiteral("divisions"), QStringLiteral("Divisions"), 1.0, 16.0, 0, {}},
         {QStringLiteral("direction"), QStringLiteral("Direction"), 0.0, 3.0, 0,
          {QStringLiteral("Left to Right"), QStringLiteral("Right to Left"),
           QStringLiteral("Top to Bottom"), QStringLiteral("Bottom to Top")}},
-        {QStringLiteral("stagger"), QStringLiteral("Stagger"), 0.0, 1.0, 4, {}},
+        {QStringLiteral("twist"), QStringLiteral("Twist"), 0.0, 1.0, 4, {}},
         {QStringLiteral("specularLight"), QStringLiteral("Specular light"), 0.0, 1.0, 4, {}},
-    };
-    auto p = [](const QString &n, int div, int dir, double stagger, double light) {
-        TransitionPresetInfo i;
-        i.name = n;
-        i.params = QVariantMap{{QStringLiteral("divisions"), div},
-                               {QStringLiteral("direction"), dir},
-                               {QStringLiteral("stagger"), stagger},
-                               {QStringLiteral("specularLight"), light}};
-        return i;
     };
     return makeStubGroup(transitionCascade3dId(), QStringLiteral("3D Cascade"),
                          QStringLiteral("DXT, 32-bit floating point"), params,
-                         {p(QStringLiteral("Curtain"), 10, 2, 0.4, 1.0),
-                          p(QStringLiteral("Left to Right"), 10, 0, 0.0, 1.0),
-                          p(QStringLiteral("Top to Bottom"), 5, 2, 0.0, 1.0)});
+                         stockPresets(QStringLiteral("3dcascade")));
 }
 
 TransitionPluginInfo makeShuffle3D()
@@ -238,31 +232,30 @@ TransitionPluginInfo makeShuffle3D()
     QVector<TransitionParamInfo> params = {
         {QStringLiteral("specularLight"), QStringLiteral("Specular light"), 0.0, 1.0, 4, {}},
     };
-    auto p = [](const QString &n, double light) {
-        TransitionPresetInfo i;
-        i.name = n;
-        i.params = QVariantMap{{QStringLiteral("specularLight"), light}};
-        return i;
-    };
     return makeStubGroup(transitionShuffle3dId(), QStringLiteral("3D Shuffle"),
                          QStringLiteral("DXT, 32-bit floating point"), params,
-                         {p(QStringLiteral("Bright Light"), 1.0),
-                          p(QStringLiteral("Low Light"), 0.2)});
+                         stockPresets(QStringLiteral("3dshuffle")));
 }
 
 TransitionPluginInfo makeFlyInOut3D()
 {
-    // Four doubles whose meaning the sample does not pin down, so no sliders are offered
-    // rather than five made-up labels.
-    auto p = [](const QString &n) {
-        TransitionPresetInfo i;
-        i.name = n;
-        return i;
+    // These were written off as "four doubles whose meaning the sample does not pin
+    // down". They were never a mystery: VEGAS's preset package names all eight, and its
+    // two shipped presets carry values for them.
+    QVector<TransitionParamInfo> params = {
+        {QStringLiteral("farXPosition"), QStringLiteral("Far X position"), -10.0, 10.0, 4, {}},
+        {QStringLiteral("farYPosition"), QStringLiteral("Far Y position"), -10.0, 10.0, 4, {}},
+        {QStringLiteral("farZPosition"), QStringLiteral("Far Z position"), -10.0, 10.0, 4, {}},
+        {QStringLiteral("xRotations"), QStringLiteral("X rotations"), -10.0, 10.0, 4, {}},
+        {QStringLiteral("yRotations"), QStringLiteral("Y rotations"), -10.0, 10.0, 4, {}},
+        {QStringLiteral("zRotations"), QStringLiteral("Z rotations"), -10.0, 10.0, 4, {}},
+        {QStringLiteral("specularLight"), QStringLiteral("Specular light"), 0.0, 1.0, 4, {}},
+        {QStringLiteral("direction"), QStringLiteral("Direction"), 0.0, 1.0, 0,
+         {QStringLiteral("In"), QStringLiteral("Out")}},
     };
     return makeStubGroup(transitionFlyInOut3dId(), QStringLiteral("3D Fly In/Out"),
-                         QStringLiteral("DXT, 32-bit floating point"), {},
-                         {p(QStringLiteral("Default")), p(QStringLiteral("Spin Away")),
-                          p(QStringLiteral("Tumble In"))});
+                         QStringLiteral("DXT, 32-bit floating point"), params,
+                         stockPresets(QStringLiteral("3dflyinout")));
 }
 
 TransitionPluginInfo makeGradientWipe()
@@ -290,17 +283,20 @@ TransitionPluginInfo makeGradientWipe()
 
 TransitionPluginInfo makePortals()
 {
-    // Same story: the preset names a height map, not a set of numbers.
-    auto p = [](const QString &n) {
-        TransitionPresetInfo i;
-        i.name = n;
-        return i;
+    // Likewise: the preset package names every field, so the "the preset names a height
+    // map, not a set of numbers" note was wrong — it names both.
+    QVector<TransitionParamInfo> params = {
+        {QStringLiteral("randomPatternSeed"), QStringLiteral("Random pattern seed"), 0.0,
+         9999.0, 0, {}},
+        {QStringLiteral("squares"), QStringLiteral("Squares"), 1.0, 64.0, 0, {}},
+        {QStringLiteral("maxTransparency"), QStringLiteral("Max transparency"), 0.0, 1.0, 4, {}},
+        {QStringLiteral("maxOffset"), QStringLiteral("Max offset"), 0.0, 1.0, 4, {}},
+        {QStringLiteral("maxScale"), QStringLiteral("Max scale"), 0.0, 4.0, 4, {}},
     };
+    params += borderParams(QStringLiteral("borderFeather"), QStringLiteral("Border feather"));
     return makeStubGroup(transitionPortalsId(), QStringLiteral("Portals"),
-                         QStringLiteral("DXT, 32-bit floating point"), {},
-                         {p(QStringLiteral("Jigsaw Puzzle")), p(QStringLiteral("Mondrian")),
-                          p(QStringLiteral("Plaid")), p(QStringLiteral("White Wash")),
-                          p(QStringLiteral("Windowed Fade"))});
+                         QStringLiteral("DXT, 32-bit floating point"), params,
+                         stockPresets(QStringLiteral("portals")));
 }
 
 /**
