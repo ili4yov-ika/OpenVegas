@@ -1495,12 +1495,23 @@ void VegReader::parseTrackMotion(const QByteArray &data, VegOpenResult *result)
                 kf.height = 1.0;
             }
             kf.smoothness = qFromLittleEndian<double>(r + 96);
-            // Stored on disk as turns (1.0 == one full 360° revolution, indistinguishable from
-            // no rotation), not radians — convert to radians here so the rest of the app (which
-            // treats TrackMotionKeyframe::rotationZ/orientationZ as radians throughout, see
-            // TrackMotionDialog's kRadToDeg/kDegToRad) doesn't need special-casing.
-            kf.rotationZ = qFromLittleEndian<double>(r + 144) * 2.0 * M_PI;
-            kf.orientationZ = qFromLittleEndian<double>(r + 168) * 2.0 * M_PI;
+            // Rotation is a **cosine and sine pair**, not an angle: +144 and +168 square to
+            // one in every record of the sample (0.7942² + 0.6077² = 1.000), and an
+            // untouched keyframe holds exactly (1, 0).
+            //
+            // Reading +144 as "turns" and scaling it by 2π — which is what this did —
+            // gave every unrotated keyframe a full 360° revolution, and turned the sine
+            // into an orientation the project never had. The recovered angles are 0°,
+            // 37.42° and −31.31°, and the two fields being a unit pair is what proves the
+            // reading rather than the numbers merely looking plausible.
+            const double rotCos = qFromLittleEndian<double>(r + 144);
+            const double rotSin = qFromLittleEndian<double>(r + 168);
+            kf.rotationZ = std::atan2(rotSin, rotCos);
+            // Orientation has its own control in VEGAS's window, but nothing in this
+            // record moves with it — +136 holds 1.0 throughout, which is what a cosine of
+            // zero looks like. Left at the identity default rather than invented from the
+            // rotation's sine, which is where the old reading got its values.
+            kf.orientationZ = 0.0;
             const double typeCode = qFromLittleEndian<double>(r + 104);
             // Vegas stores type loosely; 1.0 ≈ Linear in our sample
             if (typeCode > 1.5) {

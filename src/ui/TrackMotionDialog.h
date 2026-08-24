@@ -22,6 +22,11 @@ public:
 
     void setTrack(Track *track, int frameW, int frameH, double durationSec, double playheadSec = 0.0);
 
+signals:
+    /** A value changed: the preview and the timeline should catch up while the window
+     *  stays open, which is the whole point of it not being modal. */
+    void motionChanged();
+
 private:
     void buildUi();
     QWidget *buildToolbar();

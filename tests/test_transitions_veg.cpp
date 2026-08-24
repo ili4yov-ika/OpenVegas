@@ -620,3 +620,61 @@ TEST_CASE("A file that is not a container walks to nothing rather than guessing"
     CHECK(vegRiffChunks(QByteArray(200, '\0')).isEmpty());
     CHECK(vegRiffChunks(QByteArray("riff but not really, no size field here")).isEmpty());
 }
+
+TEST_CASE("Track Motion keyframes come back from a real project", "[io][veg][motion]")
+{
+    const QString root = SamplePaths::vegProjectDir();
+    if (root.isEmpty()) {
+        SKIP("SAMPLES/veg_project not available");
+    }
+    const QString veg =
+        QDir(root).filePath(QStringLiteral("project_big--buck-bunny_track-motion.veg"));
+    if (!QFile::exists(veg)) {
+        SKIP("track motion sample missing");
+    }
+
+    QString error;
+    const VegOpenResult res = VegReader::open(veg, &error);
+    REQUIRE(error.isEmpty());
+    REQUIRE(res.hasTrackMotion);
+    REQUIRE(res.trackMotion.motionKeyframes.size() == 8);
+
+    const auto &kfs = res.trackMotion.motionKeyframes;
+
+    // Rotation is stored as a cosine and sine pair, not as an angle. Reading the cosine
+    // as "turns" and scaling it by 2π gave every untouched keyframe a full revolution —
+    // harmless to the renderer, since 2π is 0, but the window then read 360.00 where
+    // VEGAS shows 0.00, and the sine became an orientation the project never had.
+    for (int i : {0, 1, 5, 6, 7}) {
+        INFO("keyframe " << i);
+        CHECK(kfs[i].rotationZ == Catch::Approx(0.0).margin(1e-9));
+    }
+    CHECK(kfs[2].rotationZ == Catch::Approx(0.6531).margin(1e-3)); //  37.42°
+    CHECK(kfs[3].rotationZ == Catch::Approx(-0.5465).margin(1e-3)); // −31.31°
+    CHECK(kfs[4].rotationZ == Catch::Approx(kfs[3].rotationZ).margin(1e-9));
+
+    // Nothing in the record moves with Orientation, so it stays at the identity rather
+    // than borrowing the rotation's sine.
+    for (const TrackMotionKeyframe &k : kfs) {
+        CHECK(k.orientationZ == Catch::Approx(0.0).margin(1e-9));
+    }
+
+    // Position, size and timing round out the record; the last keyframe shrinks the frame.
+    CHECK(kfs.first().timeSec == Catch::Approx(0.0));
+    CHECK(kfs.first().positionX == Catch::Approx(0.0).margin(1e-6));
+    CHECK(kfs.first().width == Catch::Approx(16.0 / 9.0).margin(1e-3));
+    CHECK(kfs.last().timeSec == Catch::Approx(85.4).margin(0.05));
+    CHECK(kfs.last().width == Catch::Approx(0.561).margin(1e-3));
+    CHECK(kfs.last().height == Catch::Approx(0.3156).margin(1e-3));
+
+    // And the import puts them on the video track rather than dropping them.
+    ProjectModel model;
+    REQUIRE(model.applyVegImport(res, veg));
+    bool found = false;
+    for (const Track &t : model.tracks()) {
+        if (t.kind == TrackKind::Video && t.motion.motionKeyframes.size() == 8) {
+            found = true;
+        }
+    }
+    CHECK(found);
+}

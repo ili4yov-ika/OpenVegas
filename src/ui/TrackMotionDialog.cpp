@@ -424,7 +424,10 @@ TrackMotionDialog::TrackMotionDialog(QWidget *parent)
 {
     setObjectName(QStringLiteral("pcWindow"));
     setWindowTitle(tr("Track Motion"));
-    setWindowFlags(windowFlags() | Qt::WindowMinMaxButtonsHint);
+    // A real top-level window, not a modal sheet: VEGAS leaves this open while you scrub
+    // and edit behind it, and a modal one froze the preview so a change could not be seen.
+    setWindowFlags(Qt::Window | Qt::WindowMinMaxButtonsHint | Qt::WindowCloseButtonHint);
+    setModal(false);
     resize(1000, 700);
     setMinimumSize(640, 480);
     buildUi();
@@ -1023,6 +1026,7 @@ void TrackMotionDialog::syncSelectedFromUi()
     if (m_canvas) {
         m_canvas->setView(viewFromKf(*kf, motion(), m_frameW, m_frameH), m_frameW, m_frameH);
     }
+    emit motionChanged();
 }
 
 } // namespace openvegas

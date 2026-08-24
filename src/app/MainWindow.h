@@ -35,6 +35,7 @@ class TimelineView;
 class TrimmerWindow;
 class MixingConsoleWindow;
 class VideoEventFxDialogExact;
+class TrackMotionDialog;
 class TitlesTextEditorDialog;
 class TransitionPropertiesDialog;
 class VideoTrackFxDialog;
@@ -248,6 +249,7 @@ private:
     TrimmerWindow *m_trimmer = nullptr;
     MixingConsoleWindow *m_mixingConsole = nullptr;
     VideoEventFxDialogExact *m_videoEventFx = nullptr;
+    TrackMotionDialog *m_trackMotion = nullptr;
     TitlesTextEditorDialog *m_titlesTextEditor = nullptr;
     TransitionPropertiesDialog *m_transitionProps = nullptr;
     VideoTrackFxDialog *m_videoTrackFx = nullptr;

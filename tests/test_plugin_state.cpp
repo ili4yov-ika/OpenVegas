@@ -150,19 +150,26 @@ TEST_CASE("Opening the FX sample .veg puts Sepia + Soft Contrast on the video tr
     REQUIRE(foundVideoTrack);
 }
 
-TEST_CASE("VegReader converts Track Motion rotationZ from turns to radians",
+TEST_CASE("VegReader reads Track Motion rotation from its cosine and sine",
           "[plugins][state][veg][video-fx]")
 {
-    // Regression guard: the on-disk value (1.0) is a whole-turn count (1.0 == 360°, visually
-    // identical to no rotation at all — which is what real Vegas Pro's preview shows for this
-    // sample), not radians as TrackMotionKeyframe::rotationZ is documented and used everywhere
-    // else in the app (TrackMotionDialog's kRadToDeg/kDegToRad, TrackMotionApply's rotate()).
-    // Before the fix this parsed as 1.0 rad (~57°), spinning the preview visibly.
+    // The on-disk 1.0 at +144 is not a turn count and not an angle: it is the **cosine**
+    // of the rotation, with the sine at +168. Across the eight keyframes of
+    // project_big--buck-bunny_track-motion.veg the two square to one in every record
+    // (0.7942² + 0.6077² = 1.000), and an untouched keyframe holds exactly (1, 0).
+    //
+    // This test used to assert 2π here, from reading the cosine as turns and scaling it.
+    // Its own comment conceded that 2π is "visually identical to no rotation at all",
+    // which was the tell: the field was never an angle. An unrotated keyframe now reads
+    // as the zero it is, which is also what VEGAS's own window shows.
     const VegOpenResult veg = openFxSampleVeg();
     REQUIRE(veg.hasTrackMotion);
     REQUIRE(veg.trackMotion.motionKeyframes.size() == 1);
-    const double rotationZ = veg.trackMotion.motionKeyframes.first().rotationZ;
-    REQUIRE(rotationZ == Catch::Approx(2.0 * M_PI).epsilon(1e-6));
+    const TrackMotionKeyframe &kf = veg.trackMotion.motionKeyframes.first();
+    REQUIRE(kf.rotationZ == Catch::Approx(0.0).margin(1e-9));
+    // Nothing in the record moves with Orientation, so it stays at the identity instead of
+    // being invented from the rotation's sine, which is where its old value came from.
+    REQUIRE(kf.orientationZ == Catch::Approx(0.0).margin(1e-9));
 }
 
 TEST_CASE("VegReader recovers VEGAS Titles & Text generator instances",

@@ -4290,7 +4290,6 @@ void MainWindow::onTrackMotion(int trackIndex)
     if (track.kind != TrackKind::Video) {
         return;
     }
-    beginDocumentEdit();
     double dur = 10.0;
     for (const TrackEvent &ev : track.events) {
         dur = std::max(dur, ev.startSec + ev.lengthSec);
@@ -4299,14 +4298,35 @@ void MainWindow::onTrackMotion(int trackIndex)
                               ? double(m_project.frameWidth()) / double(m_project.frameHeight())
                               : (16.0 / 9.0);
     track.motion.ensureDefault(aspect);
-    TrackMotionDialog dlg(this);
-    dlg.setTrack(&track, m_project.frameWidth(), m_project.frameHeight(), dur,
-                 m_project.playheadSec());
-    dlg.exec();
-    commitDocumentEdit(tr("Track Motion"));
-    if (m_timeline) {
-        m_timeline->update();
+
+    // Non-modal, like the Event FX windows: in VEGAS you leave Track Motion open and keep
+    // scrubbing and editing the timeline behind it. Running it with exec() also meant the
+    // preview never moved while it was up, so the effect of a change could not be seen.
+    if (!m_trackMotion) {
+        m_trackMotion = new TrackMotionDialog(this);
+        connect(m_trackMotion, &QDialog::finished, this, [this](int) {
+            commitDocumentEdit(tr("Track Motion"));
+            if (m_timeline) {
+                m_timeline->update();
+            }
+        });
+        connect(m_trackMotion, &TrackMotionDialog::motionChanged, this, [this]() {
+            refreshPreviewFrame(m_project.playheadSec());
+            if (m_timeline) {
+                m_timeline->update();
+            }
+        });
+    } else if (m_trackMotion->isVisible()) {
+        // Switching to another track closes off the previous track's edit as its own.
+        commitDocumentEdit(tr("Track Motion"));
     }
+
+    beginDocumentEdit();
+    m_trackMotion->setTrack(&track, m_project.frameWidth(), m_project.frameHeight(), dur,
+                            m_project.playheadSec());
+    m_trackMotion->show();
+    m_trackMotion->raise();
+    m_trackMotion->activateWindow();
 }
 
 void MainWindow::onSelectAll()
