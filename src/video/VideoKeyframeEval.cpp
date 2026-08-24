@@ -232,7 +232,19 @@ bool maskAt(const EventPanCropState &state, double localTimeSec, MaskKeyframe *o
     if (!out) {
         return false;
     }
-    const auto &kfs = state.maskKeyframes;
+    // A keyframe with no contours carries no shape — VEGAS writes one at the head of the
+    // list whether or not a mask starts there. It is not "mask off": its own render of
+    // project_big--buck-bunny_pan-crop_mask.veg shows the first real shape already in
+    // place three seconds in, well before the keyframe that holds it. Treating the empty
+    // one as a shape left the clip unmasked until then, which is the one frame out of six
+    // that did not match its render.
+    QVector<MaskKeyframe> kfs;
+    kfs.reserve(state.maskKeyframes.size());
+    for (const MaskKeyframe &k : state.maskKeyframes) {
+        if (!k.paths.isEmpty()) {
+            kfs.push_back(k);
+        }
+    }
     if (kfs.isEmpty()) {
         return false;
     }

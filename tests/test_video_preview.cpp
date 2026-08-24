@@ -140,6 +140,31 @@ TEST_CASE("mask keyframes morph, and only a changed contour holds", "[video][kf]
     EventPanCropState none;
     MaskKeyframe unused;
     CHECK_FALSE(maskAt(none, 0.0, &unused));
+
+    // A keyframe with no contours carries no shape and is skipped. VEGAS writes one at
+    // the head of the list, and its own render of the sample project already shows the
+    // first real shape well before the keyframe holding it — so an empty head is not
+    // "mask off". Treating it as a shape left the clip unmasked until the next keyframe,
+    // and that was the one frame in six that did not match the reference render.
+    EventPanCropState lead;
+    lead.maskEnabled = true;
+    MaskKeyframe empty;
+    empty.timeSec = 0.0;
+    MaskKeyframe shaped;
+    shaped.timeSec = 5.0;
+    shaped.paths = {square(100, 100, 10)};
+    lead.maskKeyframes = {empty, shaped};
+
+    MaskKeyframe early;
+    REQUIRE(maskAt(lead, 1.0, &early));
+    REQUIRE(early.paths.size() == 1);
+    CHECK(early.paths[0].anchors[0].x == Catch::Approx(90.0));
+
+    // And a list that holds nothing but empty keyframes really is no mask.
+    EventPanCropState blank;
+    blank.maskEnabled = true;
+    blank.maskKeyframes = {empty};
+    CHECK_FALSE(maskAt(blank, 1.0, &unused));
 }
 
 TEST_CASE("evaluateTrackMotion interpolates position", "[video][kf]")
