@@ -215,9 +215,10 @@ TransitionPluginInfo makeCascade3D()
     // the wrong key the shipped values would not have reached the renderer at all.
     QVector<TransitionParamInfo> params = {
         {QStringLiteral("divisions"), QStringLiteral("Divisions"), 1.0, 16.0, 0, {}},
+        // 0 and 1 are what the shipped presets use and name; 2 and 3 are their reverses.
         {QStringLiteral("direction"), QStringLiteral("Direction"), 0.0, 3.0, 0,
-         {QStringLiteral("Left to Right"), QStringLiteral("Right to Left"),
-          QStringLiteral("Top to Bottom"), QStringLiteral("Bottom to Top")}},
+         {QStringLiteral("Left to Right"), QStringLiteral("Top to Bottom"),
+          QStringLiteral("Right to Left"), QStringLiteral("Bottom to Top")}},
         {QStringLiteral("twist"), QStringLiteral("Twist"), 0.0, 1.0, 4, {}},
         {QStringLiteral("specularLight"), QStringLiteral("Specular light"), 0.0, 1.0, 4, {}},
     };
@@ -962,6 +963,11 @@ const QVector<QPair<QString, QString>> &renderedOfxGroups()
         {QStringLiteral("spiral"), transitionSpiralId()},
         {QStringLiteral("dissolve"), transitionDissolveId()},
         {QStringLiteral("crosseffect"), transitionCrossEffectId()},
+        {QStringLiteral("3dblinds"), transition3dBlindsId()},
+        {QStringLiteral("3dcascade"), transitionCascade3dId()},
+        {QStringLiteral("3dshuffle"), transitionShuffle3dId()},
+        {QStringLiteral("3dflyinout"), transitionFlyInOut3dId()},
+        {QStringLiteral("portals"), transitionPortalsId()},
     };
     return groups;
 }
@@ -2317,6 +2323,286 @@ QImage renderCrossEffect(const QImage &from, const QImage &to, double progress,
     return crossDissolve(a, b, progress, size);
 }
 
+// ----------------------------------------------------------------------- 3D Cascade
+
+/**
+ * 3D Cascade: the frame is cut into strips that fall away one after another.
+ *
+ * Same strip machinery as 3D Blinds, with two differences the presets make plain: there
+ * is no extra-spins field, and the third control is **Twist**, which leans each strip
+ * further than the one before it. "Curtain" is ten strips with a twist of 0.4; the two
+ * plain ones set it to zero and differ only in how the strips are laid out.
+ */
+QImage renderCascade3D(const QImage &from, const QImage &to, double progress,
+                       const TransitionInstance &t, const QSize &size)
+{
+    QImage out(size, QImage::Format_ARGB32_Premultiplied);
+    out.fill(Qt::transparent);
+
+    const QImage a = toArgb(from, size);
+    const QImage b = toArgb(to, size);
+    const int divisions =
+        std::clamp(int(std::lround(transitionParamValue(t, QStringLiteral("divisions")))), 1, 16);
+    const double twist = std::clamp(transitionParamValue(t, QStringLiteral("twist")), 0.0, 1.0);
+    const double specular = transitionParamValue(t, QStringLiteral("specularLight"));
+    const int direction =
+        std::clamp(int(std::lround(transitionParamValue(t, QStringLiteral("direction")))), 0, 3);
+
+    // Cascade numbers its directions differently from 3D Blinds, and its presets say so:
+    // "Left to Right" stores 0 and "Top to Bottom" stores 1, where Blinds puts Top to
+    // Bottom at 2. Borrowing the Blinds order laid both of them out the same way.
+    const bool horizontalSplit = direction == 0 || direction == 2;
+    const bool reverse = direction == 2 || direction == 3;
+
+    QPainter p(&out);
+    p.setRenderHint(QPainter::SmoothPixmapTransform, true);
+
+    // The incoming clip is already there; the strips of the outgoing one fall off it.
+    if (!b.isNull()) {
+        p.drawImage(0, 0, b);
+    }
+
+    const double total = horizontalSplit ? size.width() : size.height();
+    for (int i = 0; i < divisions; ++i) {
+        const double lo = total * i / divisions;
+        const double hi = total * (i + 1) / divisions;
+        const QRectF strip = horizontalSplit ? QRectF(lo, 0, hi - lo, size.height())
+                                             : QRectF(0, lo, size.width(), hi - lo);
+
+        // A cascade is a stagger by definition: each strip waits for the one before it.
+        const double lp = stripProgress(progress, i, divisions, 0.85, reverse);
+        // Twist leans the later strips further, so the fall fans out instead of being
+        // the same move repeated.
+        const double lean = twist * double(reverse ? divisions - 1 - i : i) / std::max(1, divisions - 1);
+        const double angle = lp * (M_PI * 0.5) * (1.0 + lean);
+        const double cosA = std::cos(angle);
+        if (cosA <= 0.001 || a.isNull()) {
+            continue; // this strip has turned edge-on and gone
+        }
+        const double sinA = std::sin(angle);
+        drawStrip(p, a, strip, cosA, horizontalSplit, specular * sinA * sinA * 0.55);
+    }
+    p.end();
+    return out;
+}
+
+// ----------------------------------------------------------------------- 3D Shuffle
+
+/**
+ * 3D Shuffle: the two clips are shuffled past one another like cards.
+ *
+ * The only control VEGAS exposes is Specular light, and its two presets are that setting
+ * at full and at a fifth — so the motion is fixed and the light is all that varies.
+ */
+QImage renderShuffle3D(const QImage &from, const QImage &to, double progress,
+                       const TransitionInstance &t, const QSize &size)
+{
+    const double specular = transitionParamValue(t, QStringLiteral("specularLight"));
+    const QImage a = toArgb(from, size);
+    const QImage b = toArgb(to, size);
+
+    QImage out(size, QImage::Format_ARGB32_Premultiplied);
+    out.fill(Qt::transparent);
+    QPainter p(&out);
+    p.setRenderHint(QPainter::SmoothPixmapTransform, true);
+
+    const double w = size.width();
+    const double h = size.height();
+    // Both cards swing out to the side and back, the incoming one arriving over the top
+    // of the outgoing one halfway through — which is what a shuffle looks like.
+    const double swing = std::sin(progress * M_PI);
+    const auto card = [&](const QImage &img, double slide, double lift) {
+        if (img.isNull()) {
+            return;
+        }
+        const double scale = 1.0 - 0.18 * lift;
+        const double cx = w * (0.5 + slide);
+        const QRectF target(cx - w * scale * 0.5, h * (0.5 - scale * 0.5) + h * 0.04 * lift,
+                            w * scale, h * scale);
+        p.drawImage(target, img, QRectF(0, 0, w, h));
+        if (specular > 0.001 && lift > 0.001) {
+            p.save();
+            p.setCompositionMode(QPainter::CompositionMode_Plus);
+            p.fillRect(target, QColor(255, 255, 255,
+                                      int(std::clamp(specular * lift, 0.0, 1.0) * 90.0)));
+            p.restore();
+        }
+    };
+
+    if (progress < 0.5) {
+        card(b, -0.35 * (1.0 - progress * 2.0), swing);
+        card(a, 0.35 * swing, swing);
+    } else {
+        card(a, 0.35 * swing, swing);
+        card(b, -0.35 * (1.0 - progress) * 2.0 * 0.35, swing);
+    }
+    p.end();
+    return out;
+}
+
+// -------------------------------------------------------------------- 3D Fly In/Out
+
+/**
+ * 3D Fly In/Out: one clip flies in from a point in space, or away to it, turning as it
+ * goes.
+ *
+ * Every field is named by the preset package and both shipped presets fill them in:
+ * "Tumble In" comes from far off (Z 8) with eight turns about X, "Spin Away" leaves to a
+ * nearer point with fewer. There is no perspective renderer here, so Z is taken as
+ * distance — how small the clip starts or ends — and the three rotation counts drive a
+ * turn about the frame's centre with the X and Y ones squashing it as they pass edge-on.
+ */
+QImage renderFlyInOut3D(const QImage &from, const QImage &to, double progress,
+                        const TransitionInstance &t, const QSize &size)
+{
+    const auto num = [&](const char *key) {
+        return transitionParamValue(t, QString::fromLatin1(key));
+    };
+    const double farX = num("farXPosition");
+    const double farY = num("farYPosition");
+    const double farZ = std::max(1.0, num("farZPosition"));
+    const double rotX = num("xRotations");
+    const double rotY = num("yRotations");
+    const double rotZ = num("zRotations");
+    const double specular = num("specularLight");
+    const bool out = int(std::lround(num("direction"))) == 1;
+
+    const QImage a = toArgb(from, size);
+    const QImage b = toArgb(to, size);
+    QImage result(size, QImage::Format_ARGB32_Premultiplied);
+    result.fill(Qt::transparent);
+
+    QPainter p(&result);
+    p.setRenderHint(QPainter::SmoothPixmapTransform, true);
+    const double w = size.width();
+    const double h = size.height();
+
+    // The clip that stays is the backdrop; the other one travels.
+    const QImage &still = out ? b : a;
+    const QImage &moving = out ? a : b;
+    if (!still.isNull()) {
+        p.drawImage(0, 0, still);
+    }
+    if (moving.isNull()) {
+        p.end();
+        return result;
+    }
+
+    // u runs 0 at the far point to 1 at the frame, whichever way round the move goes.
+    const double u = out ? (1.0 - progress) : progress;
+    const double dist = 1.0 / farZ;                       // size at the far point
+    const double scale = dist + (1.0 - dist) * u;         // …growing to full frame
+    const double cx = w * (0.5 + farX * (1.0 - u));
+    const double cy = h * (0.5 + farY * (1.0 - u));
+
+    // Turning: X and Y rotations squash the clip as it passes edge-on, Z spins it.
+    const double ax = rotX * 2.0 * M_PI * (1.0 - u);
+    const double ay = rotY * 2.0 * M_PI * (1.0 - u);
+    const double az = rotZ * 360.0 * (1.0 - u);
+    const double sx = std::max(0.02, std::abs(std::cos(ay)));
+    const double sy = std::max(0.02, std::abs(std::cos(ax)));
+
+    // At the far end the clip has to be gone, or the transition never finishes. A near
+    // far-point does not shrink it away on its own — "Spin Away" sits at Z 2.54, so a
+    // third of the picture was still on screen at progress 1 — so it fades over the last
+    // stretch of the flight as well as shrinking.
+    p.setOpacity(smoothStep(0.0, 0.15, u));
+    p.translate(cx, cy);
+    p.rotate(az);
+    p.scale(scale * sx, scale * sy);
+    p.drawImage(QRectF(-w * 0.5, -h * 0.5, w, h), moving, QRectF(0, 0, w, h));
+    if (specular > 0.001) {
+        // Brightest as a face turns away, gone when it faces front — the same reading the
+        // blinds use for their own specular term.
+        const double glint = std::max(std::sin(ax) * std::sin(ax), std::sin(ay) * std::sin(ay));
+        p.save();
+        p.setCompositionMode(QPainter::CompositionMode_Plus);
+        p.fillRect(QRectF(-w * 0.5, -h * 0.5, w, h),
+                   QColor(255, 255, 255, int(std::clamp(specular * glint, 0.0, 1.0) * 110.0)));
+        p.restore();
+    }
+    p.end();
+    return result;
+}
+
+// -------------------------------------------------------------------------- Portals
+
+/**
+ * Portals: a grid of squares opens onto the incoming clip, each in its own time.
+ *
+ * Squares says how many across, and Random pattern seed which order they go in — the two
+ * presets differ mostly there and in how far each square drifts (Max offset), how much it
+ * shrinks (Max scale) and how transparent it gets (Max transparency) on its way out.
+ */
+QImage renderPortals(const QImage &from, const QImage &to, double progress,
+                     const TransitionInstance &t, const QSize &size)
+{
+    const int squares =
+        std::clamp(int(std::lround(transitionParamValue(t, QStringLiteral("squares")))), 1, 64);
+    const int seed = int(std::lround(transitionParamValue(t, QStringLiteral("randomPatternSeed"))));
+    const double maxTransparency =
+        std::clamp(transitionParamValue(t, QStringLiteral("maxTransparency")), 0.0, 1.0);
+    const double maxOffset = std::clamp(transitionParamValue(t, QStringLiteral("maxOffset")), 0.0, 2.0);
+    const double maxScale = std::clamp(transitionParamValue(t, QStringLiteral("maxScale")), 0.0, 2.0);
+    const EdgeStyle style = edgeStyleOf(t, "borderFeather");
+
+    const QImage a = toArgb(from, size);
+    const QImage b = toArgb(to, size);
+    QImage out(size, QImage::Format_ARGB32_Premultiplied);
+    out.fill(Qt::transparent);
+
+    QPainter p(&out);
+    p.setRenderHint(QPainter::SmoothPixmapTransform, true);
+    if (!b.isNull()) {
+        p.drawImage(0, 0, b);
+    }
+    if (a.isNull()) {
+        p.end();
+        return out;
+    }
+
+    const double w = size.width();
+    const double h = size.height();
+    const int rows = std::max(1, int(std::lround(squares * h / std::max(1.0, w))));
+    const double cellW = w / squares;
+    const double cellH = h / rows;
+
+    // A stable order from the seed: the same project always opens its squares the same
+    // way, which a call to a global generator would not give.
+    const auto hashed = [seed](int i) {
+        quint32 x = quint32(i) * 2654435761u + quint32(seed) * 40503u;
+        x ^= x >> 15;
+        x *= 2246822519u;
+        x ^= x >> 13;
+        return double(x % 10000u) / 10000.0;
+    };
+
+    const double band = 0.45; // how much of the run one square takes
+    for (int ry = 0; ry < rows; ++ry) {
+        for (int rx = 0; rx < squares; ++rx) {
+            const double start = hashed(ry * squares + rx) * (1.0 - band);
+            const double lp = std::clamp((progress - start) / band, 0.0, 1.0);
+            if (lp >= 1.0) {
+                continue; // this square has gone
+            }
+            const QRectF cell(rx * cellW, ry * cellH, cellW, cellH);
+            const double scale = 1.0 - maxScale * lp;
+            const double drift = maxOffset * lp * cellW;
+            const double ang = hashed(ry * squares + rx + 7919) * 2.0 * M_PI;
+            QRectF dest(0, 0, cell.width() * scale, cell.height() * scale);
+            dest.moveCenter(cell.center()
+                            + QPointF(std::cos(ang) * drift, std::sin(ang) * drift));
+
+            p.setOpacity(1.0 - maxTransparency * lp);
+            p.drawImage(dest, a, cell);
+            p.setOpacity(1.0);
+            strokeMovingEdge(p, dest, style, progress, std::min(cellW, cellH));
+        }
+    }
+    p.end();
+    return out;
+}
+
 QImage renderTransition(const QImage &from, const QImage &to, double progress,
                         const TransitionInstance &t)
 {
@@ -2375,6 +2661,18 @@ QImage renderTransition(const QImage &from, const QImage &to, double progress,
     }
     if (t.pluginId == transitionCrossEffectId()) {
         return renderCrossEffect(from, to, p, t, size);
+    }
+    if (t.pluginId == transitionCascade3dId()) {
+        return renderCascade3D(from, to, p, t, size);
+    }
+    if (t.pluginId == transitionShuffle3dId()) {
+        return renderShuffle3D(from, to, p, t, size);
+    }
+    if (t.pluginId == transitionFlyInOut3dId()) {
+        return renderFlyInOut3D(from, to, p, t, size);
+    }
+    if (t.pluginId == transitionPortalsId()) {
+        return renderPortals(from, to, p, t, size);
     }
     return crossDissolve(from, to, p, size);
 }
