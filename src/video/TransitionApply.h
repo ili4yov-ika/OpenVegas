@@ -75,6 +75,22 @@ inline QString transitionStarWipeId()
 {
     return QStringLiteral("builtin:Transition:StarWipe");
 }
+inline QString transitionSwapId()
+{
+    return QStringLiteral("builtin:Transition:Swap");
+}
+inline QString transitionSpiralId()
+{
+    return QStringLiteral("builtin:Transition:Spiral");
+}
+inline QString transitionDissolveId()
+{
+    return QStringLiteral("builtin:Transition:Dissolve");
+}
+inline QString transitionCrossEffectId()
+{
+    return QStringLiteral("builtin:Transition:CrossEffect");
+}
 
 /**
  * The one table saying which "{Svfx:…:key}" groups have a renderer, and under what id.

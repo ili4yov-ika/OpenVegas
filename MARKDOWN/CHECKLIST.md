@@ -12,7 +12,8 @@
 - [ ] Переходы: превью и наборы пресетов
   - [x] Панель Transitions строится из общего каталога, а не из своего списка (Star Wipe показывал «Variant A/B» вместо 18 пресетов, Venetian Blinds отсутствовал)
   - [x] Star Wipe реализован — 18 штатных пресетов рисуются различимо
-  - [ ] Рендереры остальных групп: Cross Effect, Dissolve, Page Loop/Peel/Roll, Spiral, Swap, Warp Flow, Gradient Wipe, 3D Cascade/Shuffle/Fly In-Out, Portals
+  - [x] Реализованы: Swap, Spiral, Dissolve (23 пресета, 10 типов), Cross Effect (Zoom/Pixelate/Blur × A/B/оба)
+  - [ ] Остались: Page Loop/Peel/Roll (3D-загиб страницы), Warp Flow (оптический поток), Gradient Wipe (нужны градиентные карты, в пакете пресетов их нет), 3D Cascade/Shuffle/Fly In-Out, Portals
   - [ ] gl-transitions: исполнение GLSL
 - [ ] Видеоплагины из Vegas Pro (OFX) — **пока НЕ работают**: хост грузит и рендерит настоящие `.ofx`, но параметры из `.veg` не декодируются, и эффект из проекта идёт на нулевых дефолтах. Собственные подмены отключены (`OPENVEGAS_EMULATED_VIDEO_FX = 0`), **новые не писать**. Следующий шаг — декодер OFX-блоба параметров. Разбор: [`PLAN_OFX_VIDEO_PLUGINS.md`](PLAN_OFX_VIDEO_PLUGINS.md)
   - [x] Хост: `DescribeInContext` → `Render` для реальных бандлов VEGAS

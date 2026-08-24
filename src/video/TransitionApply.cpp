@@ -644,6 +644,119 @@ TransitionPluginInfo makeStarWipe()
     return info;
 }
 
+TransitionPluginInfo makeSwap()
+{
+    TransitionPluginInfo info;
+    info.id = transitionSwapId();
+    info.name = QStringLiteral("Swap");
+    info.format = QStringLiteral("OFX");
+    info.description = QStringLiteral("VEGAS Swap");
+    info.params = {
+        {QStringLiteral("direction"), QStringLiteral("Direction"), 0.0, 3.0, 0,
+         {QStringLiteral("Up"), QStringLiteral("Down"), QStringLiteral("Left"),
+          QStringLiteral("Right")}},
+    };
+    info.params += borderParams(QStringLiteral("borderFeather"),
+                                QStringLiteral("Border feather"));
+    info.presets = stockPresets(QStringLiteral("swap"));
+    return info;
+}
+
+TransitionPluginInfo makeSpiral()
+{
+    TransitionPluginInfo info;
+    info.id = transitionSpiralId();
+    info.name = QStringLiteral("Spiral");
+    info.format = QStringLiteral("OFX");
+    info.description = QStringLiteral("VEGAS Spiral");
+    info.params = {
+        {QStringLiteral("turns"), QStringLiteral("Turns"), 0.1, 8.0, 2, {}},
+        {QStringLiteral("zoom"), QStringLiteral("Zoom"), 1.0, 200.0, 1, {}},
+        {QStringLiteral("orientation"), QStringLiteral("Orientation"), 0.0, 3.0, 0,
+         {QStringLiteral("Left"), QStringLiteral("Up"), QStringLiteral("Right"),
+          QStringLiteral("Down")}},
+        {QStringLiteral("motion"), QStringLiteral("Motion"), 0.0, 1.0, 0,
+         {QStringLiteral("Clockwise"), QStringLiteral("Counter clockwise")}},
+        {QStringLiteral("direction"), QStringLiteral("Direction"), 0.0, 1.0, 0,
+         {QStringLiteral("In"), QStringLiteral("Out")}},
+    };
+    info.params += borderParams(QStringLiteral("borderFeather"),
+                                QStringLiteral("Border feather"));
+    info.presets = stockPresets(QStringLiteral("spiral"));
+    return info;
+}
+
+TransitionPluginInfo makeDissolve()
+{
+    TransitionPluginInfo info;
+    info.id = transitionDissolveId();
+    info.name = QStringLiteral("Dissolve");
+    info.format = QStringLiteral("OFX");
+    info.description = QStringLiteral("VEGAS Dissolve");
+    // Type names come from the preset names: each index is used by presets that say what
+    // it is ("Additive Dissolve" is 0, "Fade Through Black" is 8).
+    info.params = {
+        {QStringLiteral("type"), QStringLiteral("Type"), 0.0, 9.0, 0,
+         {QStringLiteral("Additive"), QStringLiteral("Subtractive"),
+          QStringLiteral("Subtractive crossfade"), QStringLiteral("Color bleed"),
+          QStringLiteral("Color morph"), QStringLiteral("Threshold dissolve"),
+          QStringLiteral("Threshold appear"), QStringLiteral("Fade through grayscale"),
+          QStringLiteral("Fade through color"), QStringLiteral("RGB crossfade")}},
+        {QStringLiteral("colorBleedSpeedRed"), QStringLiteral("Bleed speed red"), 0.0, 1.0, 3, {}},
+        {QStringLiteral("colorBleedSpeedGreen"), QStringLiteral("Bleed speed green"), 0.0, 1.0, 3,
+         {}},
+        {QStringLiteral("colorBleedSpeedBlue"), QStringLiteral("Bleed speed blue"), 0.0, 1.0, 3,
+         {}},
+        {QStringLiteral("colorBleedSpeedAlpha"), QStringLiteral("Bleed speed alpha"), 0.0, 1.0, 3,
+         {}},
+        {QStringLiteral("colorMorphSpeedRed"), QStringLiteral("Morph speed red"), 0.0, 1.0, 3, {}},
+        {QStringLiteral("colorMorphSpeedGreen"), QStringLiteral("Morph speed green"), 0.0, 1.0, 3,
+         {}},
+        {QStringLiteral("colorMorphSpeedBlue"), QStringLiteral("Morph speed blue"), 0.0, 1.0, 3,
+         {}},
+        {QStringLiteral("colorMorphSpeedAlpha"), QStringLiteral("Morph speed alpha"), 0.0, 1.0, 3,
+         {}},
+        {QStringLiteral("fadeThroughColorRed"), QStringLiteral("Fade color red"), 0.0, 1.0, 3, {}},
+        {QStringLiteral("fadeThroughColorGreen"), QStringLiteral("Fade color green"), 0.0, 1.0, 3,
+         {}},
+        {QStringLiteral("fadeThroughColorBlue"), QStringLiteral("Fade color blue"), 0.0, 1.0, 3,
+         {}},
+        {QStringLiteral("fadeThroughColorAlpha"), QStringLiteral("Fade color alpha"), 0.0, 1.0, 3,
+         {}},
+    };
+    info.presets = stockPresets(QStringLiteral("dissolve"));
+    return info;
+}
+
+TransitionPluginInfo makeCrossEffect()
+{
+    TransitionPluginInfo info;
+    info.id = transitionCrossEffectId();
+    info.name = QStringLiteral("Cross Effect");
+    info.format = QStringLiteral("OFX");
+    info.description = QStringLiteral("VEGAS Cross Effect");
+    info.params = {
+        {QStringLiteral("effectType"), QStringLiteral("Effect"), 1.0, 3.0, 0,
+         {QStringLiteral("0"), QStringLiteral("Zoom"), QStringLiteral("Pixelate"),
+          QStringLiteral("Blur")}},
+        {QStringLiteral("applyTo"), QStringLiteral("Apply to"), 0.0, 2.0, 0,
+         {QStringLiteral("Outgoing"), QStringLiteral("Incoming"), QStringLiteral("Both")}},
+        {QStringLiteral("fadeRange"), QStringLiteral("Fade range"), 0.0, 1.0, 3, {}},
+        {QStringLiteral("effectSettingsMaxZoom"), QStringLiteral("Max zoom"), 1.0, 64.0, 2, {}},
+        {QStringLiteral("effectSettingsMaxBlur"), QStringLiteral("Max blur"), 0.0, 8.0, 3, {}},
+        {QStringLiteral("effectSettingsMaxX"), QStringLiteral("Max X"), 0.0, 8.0, 3, {}},
+        {QStringLiteral("effectSettingsMaxY"), QStringLiteral("Max Y"), 0.0, 8.0, 3, {}},
+        {QStringLiteral("effectSettingsSourceX"), QStringLiteral("Source X"), 0.0, 1.0, 4, {}},
+        {QStringLiteral("effectSettingsSourceY"), QStringLiteral("Source Y"), 0.0, 1.0, 4, {}},
+        {QStringLiteral("effectSettingsDestinationX"), QStringLiteral("Destination X"), 0.0, 1.0,
+         4, {}},
+        {QStringLiteral("effectSettingsDestinationY"), QStringLiteral("Destination Y"), 0.0, 1.0,
+         4, {}},
+    };
+    info.presets = stockPresets(QStringLiteral("crosseffect"));
+    return info;
+}
+
 QVector<TransitionPluginInfo> makeOfxStubs()
 {
     QVector<TransitionPluginInfo> out;
@@ -845,6 +958,10 @@ const QVector<QPair<QString, QString>> &renderedOfxGroups()
         {QStringLiteral("split"), transitionSplitId()},
         {QStringLiteral("flash"), transitionFlashId()},
         {QStringLiteral("starwipe"), transitionStarWipeId()},
+        {QStringLiteral("swap"), transitionSwapId()},
+        {QStringLiteral("spiral"), transitionSpiralId()},
+        {QStringLiteral("dissolve"), transitionDissolveId()},
+        {QStringLiteral("crosseffect"), transitionCrossEffectId()},
     };
     return groups;
 }
@@ -882,7 +999,8 @@ const QVector<TransitionPluginInfo> &transitionCatalog()
             makeIris(),       makeClockWipe(),      makeCascade3D(),  makeShuffle3D(),
             makeFlyInOut3D(), makeGradientWipe(),   makePortals(),    makeZoom(),
             makePush(),       makeSlide(),          makeSqueeze(),    makeSplit(),
-            makeFlash(),      makeStarWipe()};
+            makeFlash(),      makeStarWipe(),       makeSwap(),
+            makeSpiral(),     makeDissolve(),       makeCrossEffect()};
         c += makeOfxStubs();
         return c;
     }();
@@ -1844,6 +1962,361 @@ QImage renderStarWipe(const QImage &from, const QImage &to, double progress,
     });
 }
 
+// ----------------------------------------------------------------------------- Swap
+
+/**
+ * Swap: the two clips trade places, one passing in front of the other.
+ *
+ * Direction is numbered as Push's is, and its presets name it the same way: 0 Up, 1 Down,
+ * 2 Left, 3 Right. The outgoing clip travels that way and the incoming one comes back
+ * along the opposite side, so they cross in the middle — which is where the one in front
+ * has to be decided, and VEGAS puts the arriving clip there.
+ */
+QImage renderSwap(const QImage &from, const QImage &to, double progress,
+                  const TransitionInstance &t, const QSize &size)
+{
+    const int dir = int(std::lround(transitionParamValue(t, QStringLiteral("direction"))));
+    const EdgeStyle style = edgeStyleOf(t, "borderFeather");
+
+    double ux = 0.0;
+    double uy = 0.0;
+    switch (dir) {
+    case 0: uy = -1.0; break;
+    case 1: uy = 1.0; break;
+    case 2: ux = -1.0; break;
+    default: ux = 1.0; break;
+    }
+
+    const QImage a = toArgb(from, size);
+    const QImage b = toArgb(to, size);
+    QImage result(size, QImage::Format_ARGB32_Premultiplied);
+    result.fill(Qt::transparent);
+
+    QPainter p(&result);
+    p.setRenderHint(QPainter::SmoothPixmapTransform, true);
+    const double w = size.width();
+    const double h = size.height();
+
+    // Both travel the full frame; the outgoing one shrinks a little on its way past, which
+    // is what makes one read as passing behind the other rather than as a plain slide.
+    const double back = 1.0 - 0.25 * std::sin(progress * 3.14159265358979323846);
+    if (!a.isNull()) {
+        const double cx = w * 0.5 + ux * w * progress;
+        const double cy = h * 0.5 + uy * h * progress;
+        const QRectF target(cx - w * back * 0.5, cy - h * back * 0.5, w * back, h * back);
+        p.drawImage(target, a, QRectF(0, 0, w, h));
+    }
+    if (!b.isNull()) {
+        const QRectF target(-ux * w * (1.0 - progress), -uy * h * (1.0 - progress), w, h);
+        p.drawImage(target, b, QRectF(0, 0, w, h));
+        strokeMovingEdge(p, target, style, progress, std::min(w, h));
+    }
+    p.end();
+    return result;
+}
+
+// --------------------------------------------------------------------------- Spiral
+
+/**
+ * Spiral: the wipe edge winds out of the centre, or into it.
+ *
+ * Turns says how many times round, Zoom how tightly the arm is wound against the radius,
+ * Orientation which side it starts from (0 Left, 1 Up, 2 Right, 3 Down, as the preset
+ * names spell out), Motion which way it turns and Direction whether it opens or closes.
+ */
+QImage renderSpiral(const QImage &from, const QImage &to, double progress,
+                    const TransitionInstance &t, const QSize &size)
+{
+    constexpr double kPi = 3.14159265358979323846;
+    const double turns = std::max(0.1, transitionParamValue(t, QStringLiteral("turns")));
+    const double zoom = std::max(1.0, transitionParamValue(t, QStringLiteral("zoom")));
+    const int orientation =
+        int(std::lround(transitionParamValue(t, QStringLiteral("orientation"))));
+    const bool counter = int(std::lround(transitionParamValue(t, QStringLiteral("motion")))) == 1;
+    const bool out = int(std::lround(transitionParamValue(t, QStringLiteral("direction")))) == 1;
+
+    EdgeStyle style = edgeStyleOf(t, "borderFeather");
+    style.borderStrength = smoothStep(0.0, 0.06, progress) * smoothStep(0.0, 0.06, 1.0 - progress);
+    const double feather = std::max(1e-3, style.feather);
+    const double halfFeather = feather * 0.5;
+
+    // Where the arm starts, as a quarter turn per orientation step.
+    const double phase = orientation * 0.25;
+    // Zoom is a percentage in the presets; at 50 the arm makes about half its winding
+    // against the radius, which is what keeps a single turn readable across the frame.
+    const double radial = turns * (zoom / 100.0);
+
+    return blendByField(from, to, size, style, [=](double x, double y) {
+        const double dx = x - 0.5;
+        const double dy = y - 0.5;
+        const double r = std::min(1.0, std::hypot(dx, dy) / 0.7071);
+        double ang = std::atan2(dy, dx) / (2.0 * kPi); // −0.5…0.5
+        if (counter) {
+            ang = -ang;
+        }
+        // The spiral: angle and radius wound together, then taken modulo one turn so the
+        // arm repeats instead of running away past the edge of the frame.
+        double v = (ang + phase) * turns + r * radial;
+        v -= std::floor(v);
+        const double d = std::clamp((v + r) * 0.5, 0.0, 1.0);
+        const double sweep = -halfFeather + progress * (1.0 + feather);
+        return out ? d - (1.0 - sweep) : sweep - d;
+    });
+}
+
+// -------------------------------------------------------------------------- Dissolve
+
+/**
+ * Dissolve: a family of cross-fades, told apart by Type.
+ *
+ * The preset package names the type indices and the colour to fade through, and its
+ * twenty-three presets pin which index is which by name — Additive is 0, Fade Through
+ * Colour is 8, and so on. What it does not carry is the curve each one uses, so the
+ * behaviours below are the plain reading of their names rather than a recovered formula:
+ * additive brightens through the middle, subtractive darkens, threshold switches pixel by
+ * pixel as the picture's own brightness is passed, and the colour-speed types let each
+ * channel cross at its own rate.
+ */
+QImage renderDissolve(const QImage &from, const QImage &to, double progress,
+                      const TransitionInstance &t, const QSize &size)
+{
+    const int type = int(std::lround(transitionParamValue(t, QStringLiteral("type"))));
+    const auto chan = [&](const char *key) {
+        return std::clamp(transitionParamValue(t, QString::fromLatin1(key)), 0.0, 1.0);
+    };
+    const double fadeR = chan("fadeThroughColorRed");
+    const double fadeG = chan("fadeThroughColorGreen");
+    const double fadeB = chan("fadeThroughColorBlue");
+    const double fadeA = chan("fadeThroughColorAlpha");
+
+    // Speed 1 makes that channel cross in half the time; 0 leaves it at the common rate.
+    const auto rate = [&](const char *bleed, const char *morph) {
+        const double s = type == 4 ? chan(morph) : chan(bleed);
+        return 1.0 + s; // 1 or 2
+    };
+    const double rR = rate("colorBleedSpeedRed", "colorMorphSpeedRed");
+    const double rG = rate("colorBleedSpeedGreen", "colorMorphSpeedGreen");
+    const double rB = rate("colorBleedSpeedBlue", "colorMorphSpeedBlue");
+    // Alpha has its own rate too. On opaque footage it cannot show — which is why
+    // "Color Bleed" and "Color Bleed Fast Alpha" render identically over solid pictures,
+    // in VEGAS as much as here — but ignoring it would lose the setting on footage that
+    // does carry alpha.
+    const double rA = rate("colorBleedSpeedAlpha", "colorMorphSpeedAlpha");
+
+    const QImage a = toArgb(from, size);
+    const QImage b = toArgb(to, size);
+    QImage out(size, QImage::Format_ARGB32_Premultiplied);
+
+    const double p = std::clamp(progress, 0.0, 1.0);
+    const auto sat = [](double v) { return int(std::lround(std::clamp(v, 0.0, 255.0))); };
+    const auto ramp = [](double v, double speed) { return std::clamp(v * speed, 0.0, 1.0); };
+
+    for (int y = 0; y < size.height(); ++y) {
+        const auto *ar = a.isNull() ? nullptr : reinterpret_cast<const QRgb *>(a.constScanLine(y));
+        const auto *br = b.isNull() ? nullptr : reinterpret_cast<const QRgb *>(b.constScanLine(y));
+        auto *orow = reinterpret_cast<QRgb *>(out.scanLine(y));
+        for (int x = 0; x < size.width(); ++x) {
+            const QRgb pa = ar ? ar[x] : qRgba(0, 0, 0, 255);
+            const QRgb pb = br ? br[x] : qRgba(0, 0, 0, 255);
+            double r = 0;
+            double g = 0;
+            double bl = 0;
+            double al = 255;
+
+            switch (type) {
+            case 0: // Additive — bright through the middle
+                if (p < 0.5) {
+                    const double k = p * 2.0;
+                    r = qRed(pa) + qRed(pb) * k;
+                    g = qGreen(pa) + qGreen(pb) * k;
+                    bl = qBlue(pa) + qBlue(pb) * k;
+                } else {
+                    const double k = (1.0 - p) * 2.0;
+                    r = qRed(pa) * k + qRed(pb);
+                    g = qGreen(pa) * k + qGreen(pb);
+                    bl = qBlue(pa) * k + qBlue(pb);
+                }
+                break;
+            case 1: { // Subtractive — the two pictures darken each other as they meet
+                // Not a fade to black: that is what "Fade Through Black" is, and writing
+                // it here made the two presets pixel-identical. This is the subtractive
+                // blend of the pair, strongest in the middle, so what darkens depends on
+                // both pictures rather than on nothing.
+                const double mix = std::sin(p * 3.14159265358979323846);
+                const double cr = qRed(pa) * (1 - p) + qRed(pb) * p;
+                const double cg = qGreen(pa) * (1 - p) + qGreen(pb) * p;
+                const double cb = qBlue(pa) * (1 - p) + qBlue(pb) * p;
+                r = cr + (std::max(0.0, double(qRed(pa) + qRed(pb) - 255)) - cr) * mix;
+                g = cg + (std::max(0.0, double(qGreen(pa) + qGreen(pb) - 255)) - cg) * mix;
+                bl = cb + (std::max(0.0, double(qBlue(pa) + qBlue(pb) - 255)) - cb) * mix;
+                break;
+            }
+            case 2: { // Subtractive crossfade — a cross-fade with the middle pulled down
+                const double dip = 1.0 - 0.6 * std::sin(p * 3.14159265358979323846);
+                r = (qRed(pa) * (1 - p) + qRed(pb) * p) * dip;
+                g = (qGreen(pa) * (1 - p) + qGreen(pb) * p) * dip;
+                bl = (qBlue(pa) * (1 - p) + qBlue(pb) * p) * dip;
+                break;
+            }
+            case 3:   // Colour bleed — each channel crosses at its own rate
+            case 4: { // Colour morph — same, with the channels set off one after another
+                // The stagger delays a channel rather than advancing it. Shifting progress
+                // forward put red at 0.15 before the transition had begun, so the first
+                // frame was not the outgoing picture at all.
+                const double lag = (type == 4) ? 0.15 : 0.0;
+                const auto start = [&](double at, double speed) {
+                    return ramp(std::max(0.0, p - at) / std::max(1e-6, 1.0 - at), speed);
+                };
+                const double tr = start(0.0, rR);
+                const double tg = start(lag, rG);
+                const double tb = start(lag * 2.0, rB);
+                const double ta = start(0.0, rA);
+                r = qRed(pa) * (1 - tr) + qRed(pb) * tr;
+                g = qGreen(pa) * (1 - tg) + qGreen(pb) * tg;
+                bl = qBlue(pa) * (1 - tb) + qBlue(pb) * tb;
+                al = qAlpha(pa) * (1 - ta) + qAlpha(pb) * ta;
+                break;
+            }
+            case 5:   // Threshold dissolve — a pixel switches once its own brightness is passed
+            case 6: { // Threshold appear — the same, taken from the incoming picture
+                const QRgb ref = (type == 5) ? pa : pb;
+                const double luma =
+                    (0.2126 * qRed(ref) + 0.7152 * qGreen(ref) + 0.0722 * qBlue(ref)) / 255.0;
+                const double edge = smoothStep(luma - 0.08, luma + 0.08, p);
+                r = qRed(pa) * (1 - edge) + qRed(pb) * edge;
+                g = qGreen(pa) * (1 - edge) + qGreen(pb) * edge;
+                bl = qBlue(pa) * (1 - edge) + qBlue(pb) * edge;
+                break;
+            }
+            case 7: { // Fade through grayscale
+                const double mix = std::sin(p * 3.14159265358979323846);
+                const double cr = qRed(pa) * (1 - p) + qRed(pb) * p;
+                const double cg = qGreen(pa) * (1 - p) + qGreen(pb) * p;
+                const double cb = qBlue(pa) * (1 - p) + qBlue(pb) * p;
+                const double grey = 0.2126 * cr + 0.7152 * cg + 0.0722 * cb;
+                r = cr * (1 - mix) + grey * mix;
+                g = cg * (1 - mix) + grey * mix;
+                bl = cb * (1 - mix) + grey * mix;
+                break;
+            }
+            case 8: { // Fade through a colour — alpha 0 means fade through nothing at all
+                const double half = p < 0.5 ? p * 2.0 : (1.0 - p) * 2.0;
+                const QRgb src = p < 0.5 ? pa : pb;
+                r = qRed(src) * (1 - half) + fadeR * 255.0 * half * fadeA;
+                g = qGreen(src) * (1 - half) + fadeG * 255.0 * half * fadeA;
+                bl = qBlue(src) * (1 - half) + fadeB * 255.0 * half * fadeA;
+                al = 255.0 * (1.0 - half * (1.0 - fadeA));
+                break;
+            }
+            default: { // 9 — the channels cross one after another
+                const double tr = std::clamp(p * 3.0, 0.0, 1.0);
+                const double tg = std::clamp(p * 3.0 - 1.0, 0.0, 1.0);
+                const double tb = std::clamp(p * 3.0 - 2.0, 0.0, 1.0);
+                r = qRed(pa) * (1 - tr) + qRed(pb) * tr;
+                g = qGreen(pa) * (1 - tg) + qGreen(pb) * tg;
+                bl = qBlue(pa) * (1 - tb) + qBlue(pb) * tb;
+                break;
+            }
+            }
+            orow[x] = qRgba(sat(r), sat(g), sat(bl), sat(al));
+        }
+    }
+    return out;
+}
+
+// ---------------------------------------------------------------------- Cross Effect
+
+/** Blocky pixelation, used by Cross Effect's Pixelate type. */
+QImage pixelate(const QImage &src, int block)
+{
+    if (block < 2 || src.isNull()) {
+        return src;
+    }
+    QImage out = src;
+    for (int y = 0; y < src.height(); y += block) {
+        for (int x = 0; x < src.width(); x += block) {
+            long r = 0;
+            long g = 0;
+            long b = 0;
+            long n = 0;
+            for (int yy = y; yy < std::min(y + block, src.height()); ++yy) {
+                const auto *row = reinterpret_cast<const QRgb *>(src.constScanLine(yy));
+                for (int xx = x; xx < std::min(x + block, src.width()); ++xx) {
+                    r += qRed(row[xx]);
+                    g += qGreen(row[xx]);
+                    b += qBlue(row[xx]);
+                    ++n;
+                }
+            }
+            if (n == 0) {
+                continue;
+            }
+            const QRgb avg = qRgb(int(r / n), int(g / n), int(b / n));
+            for (int yy = y; yy < std::min(y + block, src.height()); ++yy) {
+                auto *row = reinterpret_cast<QRgb *>(out.scanLine(yy));
+                for (int xx = x; xx < std::min(x + block, src.width()); ++xx) {
+                    row[xx] = avg;
+                }
+            }
+        }
+    }
+    return out;
+}
+
+/**
+ * Cross Effect: the two clips cross-fade while an effect swells and dies away.
+ *
+ * Effect type is 1 Zoom, 2 Pixelate, 3 Blur, and "Apply to" is 0 the outgoing clip, 1 the
+ * incoming one, 2 both — which is exactly how the ten presets are named. The strength
+ * peaks in the middle of the transition, so the pair meets at its blurriest, blockiest or
+ * most enlarged and comes out clean.
+ */
+QImage renderCrossEffect(const QImage &from, const QImage &to, double progress,
+                         const TransitionInstance &t, const QSize &size)
+{
+    constexpr double kPi = 3.14159265358979323846;
+    const int effect = int(std::lround(transitionParamValue(t, QStringLiteral("effectType"))));
+    const int applyTo = int(std::lround(transitionParamValue(t, QStringLiteral("applyTo"))));
+    const double maxZoom =
+        std::max(1.0, transitionParamValue(t, QStringLiteral("effectSettingsMaxZoom")));
+
+    const double strength = std::sin(std::clamp(progress, 0.0, 1.0) * kPi);
+    const bool onA = applyTo == 0 || applyTo == 2;
+    const bool onB = applyTo == 1 || applyTo == 2;
+
+    const auto apply = [&](const QImage &src) {
+        if (src.isNull() || strength <= 1e-3) {
+            return src;
+        }
+        switch (effect) {
+        case 2: // Pixelate
+            return pixelate(src, int(std::lround(1.0 + strength * size.width() / 24.0)));
+        case 3: // Blur
+            return boxBlur(src, int(std::lround(strength * size.width() / 24.0)),
+                           int(std::lround(strength * size.height() / 24.0)));
+        default: { // 1 Zoom — grows about the middle, the frame filled by the enlargement
+            // MaxZoom runs to 64 in the presets, which is far past anything readable as a
+            // picture; the visible part of that range is taken rather than all of it.
+            const double scale = 1.0 + strength * std::min(3.0, std::log2(maxZoom) / 2.0);
+            QImage grown(size, QImage::Format_ARGB32_Premultiplied);
+            grown.fill(Qt::transparent);
+            QPainter gp(&grown);
+            gp.setRenderHint(QPainter::SmoothPixmapTransform, true);
+            const double w = size.width() * scale;
+            const double h = size.height() * scale;
+            gp.drawImage(QRectF((size.width() - w) * 0.5, (size.height() - h) * 0.5, w, h), src,
+                         QRectF(0, 0, size.width(), size.height()));
+            gp.end();
+            return grown;
+        }
+        }
+    };
+
+    const QImage a = onA ? apply(toArgb(from, size)) : toArgb(from, size);
+    const QImage b = onB ? apply(toArgb(to, size)) : toArgb(to, size);
+    return crossDissolve(a, b, progress, size);
+}
+
 QImage renderTransition(const QImage &from, const QImage &to, double progress,
                         const TransitionInstance &t)
 {
@@ -1890,6 +2363,18 @@ QImage renderTransition(const QImage &from, const QImage &to, double progress,
     }
     if (t.pluginId == transitionStarWipeId()) {
         return renderStarWipe(from, to, p, t, size);
+    }
+    if (t.pluginId == transitionSwapId()) {
+        return renderSwap(from, to, p, t, size);
+    }
+    if (t.pluginId == transitionSpiralId()) {
+        return renderSpiral(from, to, p, t, size);
+    }
+    if (t.pluginId == transitionDissolveId()) {
+        return renderDissolve(from, to, p, t, size);
+    }
+    if (t.pluginId == transitionCrossEffectId()) {
+        return renderCrossEffect(from, to, p, t, size);
     }
     return crossDissolve(from, to, p, size);
 }
