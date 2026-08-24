@@ -1,3 +1,4 @@
+#include "io/ProjectFile.h"
 #include "io/ProjectInterchange.h"
 #include "io/SamplePaths.h"
 #include "io/VegReader.h"
@@ -7,6 +8,7 @@
 
 #include <QDir>
 #include <QFile>
+#include <QFileInfo>
 #include <QTemporaryDir>
 
 #include <catch2/catch_approx.hpp>
@@ -559,4 +561,131 @@ TEST_CASE("Interchange formats carry a transition's fade but not its identity",
     REQUIRE(backT.isValid());
     CHECK(backT.presetName == QStringLiteral("Spin"));
     CHECK(transitionParamValue(backT, QStringLiteral("divisions")) == Catch::Approx(1.0));
+}
+
+TEST_CASE("A project round-trips through a single .ovp file", "[io][project-file]")
+{
+    ProjectModel model;
+    model.loadEmptyProject();
+    model.setFrameSize(1280, 720);
+    model.setFrameRate(25.0);
+    model.setTempoBpm(140.0);
+    model.setMasterVolumeDb(-3.5);
+
+    const int vt = model.addTrack(TrackKind::Video);
+    Track &track = model.tracks()[vt];
+    track.name = QStringLiteral("Cam A");
+    TrackEvent ev;
+    ev.id = 41;
+    ev.name = QStringLiteral("shot.mp4");
+    ev.startSec = 2.5;
+    ev.lengthSec = 4.0;
+    ev.opacity = 0.75;
+    ev.panCrop.positionKeyframes.push_back(EventPanCropState::identityKeyframe(1280, 720));
+    ev.panCrop.positionKeyframes[0].xCenter = 500.0;
+    track.events.push_back(ev);
+
+    QTemporaryDir tmp;
+    REQUIRE(tmp.isValid());
+    const QString path = QDir(tmp.path()).filePath(QStringLiteral("round.ovp"));
+
+    QString error;
+    REQUIRE(ProjectFile::saveOvp(model, path, &error));
+    INFO(error.toStdString());
+    REQUIRE(QFileInfo::exists(path));
+
+    ProjectModel back;
+    REQUIRE(ProjectFile::loadOvp(path, &back, &error));
+    CHECK(back.frameWidth() == 1280);
+    CHECK(back.frameHeight() == 720);
+    CHECK(back.frameRate() == Catch::Approx(25.0));
+    CHECK(back.tempoBpm() == Catch::Approx(140.0));
+
+    bool found = false;
+    for (const Track &t : back.tracks()) {
+        for (const TrackEvent &e : t.events) {
+            if (e.name != QStringLiteral("shot.mp4")) {
+                continue;
+            }
+            found = true;
+            CHECK(e.startSec == Catch::Approx(2.5));
+            CHECK(e.lengthSec == Catch::Approx(4.0));
+            CHECK(e.opacity == Catch::Approx(0.75));
+            REQUIRE(e.panCrop.positionKeyframes.size() == 1);
+            CHECK(e.panCrop.positionKeyframes[0].xCenter == Catch::Approx(500.0));
+        }
+    }
+    CHECK(found);
+}
+
+TEST_CASE("A project round-trips through a .ozp zip, media included", "[io][project-file]")
+{
+    QTemporaryDir tmp;
+    REQUIRE(tmp.isValid());
+
+    // A stand-in for footage: what matters is that the bytes come back out of the zip.
+    const QString mediaPath = QDir(tmp.path()).filePath(QStringLiteral("clip.bin"));
+    const QByteArray payload = QByteArray("OpenVegas media payload", 23);
+    {
+        QFile f(mediaPath);
+        REQUIRE(f.open(QIODevice::WriteOnly));
+        f.write(payload);
+    }
+
+    ProjectModel model;
+    model.loadEmptyProject();
+    model.setFrameSize(1920, 1080);
+    MediaItem item;
+    item.path = mediaPath;
+    item.displayName = QStringLiteral("clip.bin");
+    item.kind = QStringLiteral("video");
+    model.mediaPool().push_back(item);
+
+    const QString zipPath = QDir(tmp.path()).filePath(QStringLiteral("round.ozp"));
+    QString error;
+    REQUIRE(ProjectFile::saveOzp(model, zipPath, /*includeMedia=*/true, &error));
+    INFO(error.toStdString());
+
+    // It has to be a real zip, not merely a file we can read back ourselves.
+    CHECK(ProjectFile::looksLikeZip(zipPath));
+
+    ProjectModel back;
+    REQUIRE(ProjectFile::loadOzp(zipPath, &back, &error));
+    CHECK(back.frameWidth() == 1920);
+
+    // The media travelled inside and was unpacked beside the archive, so the path the
+    // model holds points at something that exists — a path is all the model has.
+    REQUIRE_FALSE(back.mediaPool().isEmpty());
+    const QString resolved = back.mediaPool().first().path;
+    INFO(resolved.toStdString());
+    REQUIRE(QFileInfo::exists(resolved));
+    QFile out(resolved);
+    REQUIRE(out.open(QIODevice::ReadOnly));
+    CHECK(out.readAll() == payload);
+}
+
+TEST_CASE("Both single-file formats go through the one serializer", "[io][project-file]")
+{
+    // The point of the refactor: the archive folder and the single file describe the same
+    // project, because they call the same builder. If a field is added to one it cannot
+    // go missing from the other.
+    ProjectModel model;
+    model.loadEmptyProject();
+    model.setFrameSize(720, 576);
+    model.setTempoBpm(99.0);
+
+    QTemporaryDir tmp;
+    REQUIRE(tmp.isValid());
+    const QString dir = QDir(tmp.path()).filePath(QStringLiteral("folder"));
+    const QString ovp = QDir(tmp.path()).filePath(QStringLiteral("one.ovp"));
+
+    QString error;
+    REQUIRE(ProjectInterchange::exportProjectArchive(model, dir, false, &error));
+    REQUIRE(ProjectFile::saveOvp(model, ovp, &error));
+
+    QFile a(QDir(dir).filePath(QStringLiteral("project.json")));
+    QFile b(ovp);
+    REQUIRE(a.open(QIODevice::ReadOnly));
+    REQUIRE(b.open(QIODevice::ReadOnly));
+    CHECK(a.readAll() == b.readAll());
 }

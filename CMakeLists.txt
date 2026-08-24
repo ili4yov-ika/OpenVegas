@@ -80,6 +80,7 @@ endif()
     src/io/VegReader.cpp
     src/io/VegRiff.cpp
     src/io/ProjectInterchange.cpp
+    src/io/ProjectFile.cpp
     src/io/SamplePaths.cpp
     src/io/MediaMime.cpp
     src/io/MediaThumbCache.cpp
@@ -510,6 +511,7 @@ if(OPENVGAS_BUILD_TESTS)
         src/io/MediaFilmstripCache.cpp
         src/io/MediaThumbCache.cpp
         src/io/ProjectInterchange.cpp
+        src/io/ProjectFile.cpp
         src/io/SamplePaths.cpp
         src/io/VegReader.cpp
         src/io/VegRiff.cpp

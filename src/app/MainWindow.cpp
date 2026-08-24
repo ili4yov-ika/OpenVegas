@@ -44,6 +44,7 @@
 #include "video/VideoFrameCache.h"
 #include "video/TitlesTextApply.h"
 #include "io/VegReader.h"
+#include "io/ProjectFile.h"
 #include "io/ProjectInterchange.h"
 #include "io/SamplePaths.h"
 #include "io/MediaMime.h"
@@ -2885,7 +2886,8 @@ void MainWindow::onOpenProject()
     }
     const QString path = QFileDialog::getOpenFileName(
         this, tr("Open Project"), startDir,
-        tr("Vegas Project (*.veg);;OpenVegas Project Archive (project.json);;All files (*.*)"));
+        tr("OpenVegas Project (*.ovp *.ozp);;Vegas Project (*.veg);;"
+           "OpenVegas Project Archive (project.json);;All files (*.*)"));
     if (path.isEmpty()) {
         return;
     }
@@ -2899,6 +2901,31 @@ void MainWindow::openProjectPath(const QString &path)
     // MARKDOWN/PROJECT_ARCHIVE_FORMAT.md); "Open" lets you pick either the folder itself
     // or the project.json manifest inside it.
     const QFileInfo fi(path);
+
+    // Single-file projects first: they are files, and the folder checks below would take a
+    // file path for a folder that simply holds no project.json.
+    const QString suffix = fi.suffix().toLower();
+    if (suffix == ProjectFile::singleFileSuffix() || suffix == ProjectFile::zipSuffix()
+        || (fi.isFile() && ProjectFile::looksLikeZip(path))) {
+        QString fileError;
+        const bool zipped =
+            suffix == ProjectFile::zipSuffix() || ProjectFile::looksLikeZip(path);
+        const bool ok = zipped ? ProjectFile::loadOzp(path, &m_project, &fileError)
+                               : ProjectFile::loadOvp(path, &m_project, &fileError);
+        if (!ok) {
+            QMessageBox::warning(this, tr("Open Project"), fileError);
+            return;
+        }
+        m_currentProjectFile = path;
+        m_currentArchivePath.clear();
+        clearUndoHistory();
+        applyProjectToUi();
+        rememberRecentFile(path);
+        setWindowTitle(tr("%1 - OpenVegas").arg(m_project.projectTitle()));
+        statusBar()->showMessage(tr("Opened: %1").arg(path), 5000);
+        return;
+    }
+
     const QString archiveDir =
         fi.fileName().compare(QStringLiteral("project.json"), Qt::CaseInsensitive) == 0
             ? fi.absolutePath()
@@ -3348,12 +3375,22 @@ void MainWindow::captureFxStateForSave()
 
 void MainWindow::onSaveProject()
 {
+    captureFxStateForSave();
+    QString error;
+    // A project opened or saved as a single file goes back to that file; a folder archive
+    // still saves as a folder, so an existing habit is not taken away.
+    if (!m_currentProjectFile.isEmpty()) {
+        if (!saveProjectToPath(m_currentProjectFile, &error)) {
+            QMessageBox::warning(this, tr("Save Project"), error);
+            return;
+        }
+        statusBar()->showMessage(tr("Saved: %1").arg(m_currentProjectFile), 5000);
+        return;
+    }
     if (m_currentArchivePath.isEmpty()) {
         onSaveProjectAs();
         return;
     }
-    captureFxStateForSave();
-    QString error;
     if (!ProjectInterchange::exportProjectArchive(m_project, m_currentArchivePath,
                                                   /*copyMedia=*/false, &error)) {
         QMessageBox::warning(this, tr("Save Project"), error);
@@ -3364,41 +3401,48 @@ void MainWindow::onSaveProject()
 
 void MainWindow::onSaveProjectAs()
 {
-    // The native format is a folder (project.json + media_list.txt, not a single file —
-    // see MARKDOWN/PROJECT_ARCHIVE_FORMAT.md), so "Save As" is a destination folder plus a
-    // name, the same two-step shape onExportProjectArchive() already uses.
+    // Saving used to mean picking a destination folder and then typing a name, because the
+    // only native format was a folder. A project you cannot double-click, mail, or keep in
+    // one place beside the footage is awkward for everyday work, so this is a plain file
+    // dialog now; the folder form stays available under Export.
     QSettings settings(QStringLiteral("OpenVegas"), QStringLiteral("OpenVegas"));
     QString startDir = settings.value(QStringLiteral("paths/lastSaveDir")).toString();
     if (startDir.isEmpty() || !QDir(startDir).exists()) {
         startDir = QFileInfo(m_project.projectPath()).absolutePath();
     }
-    const QString dir =
-        QFileDialog::getExistingDirectory(this, tr("Save Project — choose destination folder"), startDir);
-    if (dir.isEmpty()) {
-        return;
-    }
-    settings.setValue(QStringLiteral("paths/lastSaveDir"), dir);
-
-    bool ok = false;
     const QString defaultName =
         m_project.projectTitle().isEmpty() ? QStringLiteral("Untitled") : m_project.projectTitle();
-    const QString name = QInputDialog::getText(this, tr("Save Project"), tr("Project folder name:"),
-                                               QLineEdit::Normal, defaultName, &ok);
-    if (!ok || name.trimmed().isEmpty()) {
+    const QString suggested = QDir(startDir).filePath(defaultName + QStringLiteral(".ovp"));
+
+    const QString path = QFileDialog::getSaveFileName(
+        this, tr("Save Project"), suggested,
+        tr("OpenVegas Project (*.ovp);;OpenVegas Zip Archive (*.ozp)"));
+    if (path.isEmpty()) {
         return;
     }
-    const QString archiveDir = QDir(dir).filePath(name.trimmed());
+    settings.setValue(QStringLiteral("paths/lastSaveDir"), QFileInfo(path).absolutePath());
 
     captureFxStateForSave();
     QString error;
-    if (!ProjectInterchange::exportProjectArchive(m_project, archiveDir, /*copyMedia=*/false,
-                                                  &error)) {
+    if (!saveProjectToPath(path, &error)) {
         QMessageBox::warning(this, tr("Save Project"), error);
         return;
     }
-    m_currentArchivePath = archiveDir;
+    m_currentProjectFile = path;
+    m_currentArchivePath.clear();
     setWindowTitle(tr("%1 - OpenVegas").arg(m_project.projectTitle()));
-    statusBar()->showMessage(tr("Saved: %1").arg(archiveDir), 5000);
+    statusBar()->showMessage(tr("Saved: %1").arg(path), 5000);
+}
+
+bool MainWindow::saveProjectToPath(const QString &path, QString *error)
+{
+    // The suffix picks the format. A zip carries the media inside it, which is what makes
+    // it the one to hand to someone else; the plain file only points at where the media
+    // lives, so it stays small and stays valid only while that media does.
+    if (QFileInfo(path).suffix().compare(ProjectFile::zipSuffix(), Qt::CaseInsensitive) == 0) {
+        return ProjectFile::saveOzp(m_project, path, /*includeMedia=*/true, error);
+    }
+    return ProjectFile::saveOvp(m_project, path, error);
 }
 
 void MainWindow::onExportPremiere()

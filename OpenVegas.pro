@@ -83,6 +83,7 @@ HEADERS += \
     src/model/SnapshotCommand.h \
     src/io/VegReader.h \
     src/io/ProjectInterchange.h \
+    src/io/ProjectFile.h \
     src/io/SamplePaths.h \
     src/io/MediaMime.h \
     src/io/MediaThumbCache.h \
@@ -172,6 +173,7 @@ SOURCES += \
     src/model/SnapshotCommand.cpp \
     src/io/VegReader.cpp \
     src/io/ProjectInterchange.cpp \
+    src/io/ProjectFile.cpp \
     src/io/SamplePaths.cpp \
     src/io/MediaMime.cpp \
     src/io/MediaThumbCache.cpp \

@@ -1695,17 +1695,20 @@ QVector<FxSlot> fxChainFromJson(const QJsonArray &arr)
 
 } // namespace
 
-bool ProjectInterchange::exportProjectArchive(const ProjectModel &model, const QString &dirPath,
-                                              bool copyMedia, QString *error)
+/**
+ * The project as JSON, and the lines the archive folder lists its media in.
+ *
+ * One serializer for every OpenVegas format. A single file and an archive folder describe
+ * the same project, so neither can drift from the other when a field is added — which is
+ * what a second, hand-written writer for the single-file case would invite.
+ *
+ * `dirPath` and `copyMedia` only matter to the folder form, which copies media beside the
+ * project and records where it went; a single file passes neither.
+ */
+QJsonObject ProjectInterchange::projectToJson(const ProjectModel &model,
+                                              QStringList *mediaLinesOut, const QString &dirPath,
+                                              bool copyMedia)
 {
-    QDir dir(dirPath);
-    if (!dir.exists() && !QDir().mkpath(dirPath)) {
-        if (error) {
-            *error = QStringLiteral("Cannot create archive folder: %1").arg(dirPath);
-        }
-        return false;
-    }
-
     QJsonObject root;
     root.insert(QStringLiteral("format"), QStringLiteral("OpenVegasArchive"));
     // v2: full TrackEvent/Track/FxSlot round-trip (fxChain, media path, mediaKind, pan/crop
@@ -1816,6 +1819,26 @@ bool ProjectInterchange::exportProjectArchive(const ProjectModel &model, const Q
     }
     root.insert(QStringLiteral("tracks"), tracksArr);
 
+    if (mediaLinesOut) {
+        *mediaLinesOut = mediaLines;
+    }
+    return root;
+}
+
+bool ProjectInterchange::exportProjectArchive(const ProjectModel &model, const QString &dirPath,
+                                              bool copyMedia, QString *error)
+{
+    QDir dir(dirPath);
+    if (!dir.exists() && !QDir().mkpath(dirPath)) {
+        if (error) {
+            *error = QStringLiteral("Cannot create archive folder: %1").arg(dirPath);
+        }
+        return false;
+    }
+
+    QStringList mediaLines;
+    const QJsonObject root = projectToJson(model, &mediaLines, dirPath, copyMedia);
+
     QFile jsonFile(QDir(dirPath).filePath(QStringLiteral("project.json")));
     if (!jsonFile.open(QIODevice::WriteOnly | QIODevice::Text)) {
         if (error) {
@@ -1877,13 +1900,31 @@ bool ProjectInterchange::importProjectArchive(const QString &dirPath, ProjectMod
         }
         return false;
     }
-    const QJsonObject root = doc.object();
-    if (root.value(QStringLiteral("format")).toString() != QLatin1String("OpenVegasArchive")) {
+    return projectFromJson(doc.object(), dirPath, model, error);
+}
+
+/**
+ * Fill `model` from a project JSON object.
+ *
+ * `baseDir` resolves the media a folder archive copied beside itself; a single-file
+ * project carries no copies and passes nothing.
+ */
+bool ProjectInterchange::projectFromJson(const QJsonObject &root, const QString &baseDir,
+                                         ProjectModel *model, QString *error)
+{
+    if (!model) {
         if (error) {
-            *error = QStringLiteral("Not an OpenVegas project archive");
+            *error = QStringLiteral("No project model to populate");
         }
         return false;
     }
+    if (root.value(QStringLiteral("format")).toString() != QLatin1String("OpenVegasArchive")) {
+        if (error) {
+            *error = QStringLiteral("Not an OpenVegas project");
+        }
+        return false;
+    }
+    const QString dirPath = baseDir;
 
     model->loadEmptyProject();
     model->setFrameRate(root.value(QStringLiteral("frameRate")).toDouble(29.97));

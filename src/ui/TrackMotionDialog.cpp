@@ -3,6 +3,9 @@
 #include <QAbstractSpinBox>
 #include <QCheckBox>
 #include <QComboBox>
+#include <QSettings>
+#include <QMessageBox>
+#include <QInputDialog>
 #include <QDoubleSpinBox>
 #include <QFrame>
 #include <QHBoxLayout>
@@ -517,8 +520,15 @@ void TrackMotionDialog::buildUi()
     m_preset->setMinimumWidth(200);
     presetLay->addWidget(pl);
     presetLay->addWidget(m_preset, 1);
-    presetLay->addWidget(makeIcoBtn(preset, QStringLiteral("💾"), tr("Save Preset")));
-    presetLay->addWidget(makeIcoBtn(preset, QStringLiteral("✕"), tr("Delete Preset")));
+    auto *savePreset = makeIcoBtn(preset, QStringLiteral("💾"), tr("Save Preset"));
+    auto *delPreset = makeIcoBtn(preset, QStringLiteral("✕"), tr("Delete Preset"));
+    presetLay->addWidget(savePreset);
+    presetLay->addWidget(delPreset);
+    connect(savePreset, &QPushButton::clicked, this, &TrackMotionDialog::saveCurrentPreset);
+    connect(delPreset, &QPushButton::clicked, this, &TrackMotionDialog::deleteCurrentPreset);
+    connect(m_preset, &QComboBox::currentTextChanged, this,
+            [this](const QString &name) { applyPreset(name); });
+    reloadPresets();
     root->addWidget(preset);
 
     root->addWidget(buildToolbar());
@@ -981,6 +991,134 @@ void TrackMotionDialog::syncUiFromSelected()
     if (m_tc) {
         m_tc->setText(formatTc(m_playheadSec));
     }
+}
+
+namespace {
+
+/** Where named Track Motion presets live between sessions. */
+const char kPresetGroup[] = "trackMotion/presets";
+
+/** One keyframe's settings as a flat map — what a preset stores. */
+QVariantMap motionToMap(const TrackMotionKeyframe &kf, const TrackMotionState &st)
+{
+    QVariantMap m;
+    m[QStringLiteral("positionX")] = kf.positionX;
+    m[QStringLiteral("positionY")] = kf.positionY;
+    m[QStringLiteral("width")] = kf.width;
+    m[QStringLiteral("height")] = kf.height;
+    m[QStringLiteral("rotationZ")] = kf.rotationZ;
+    m[QStringLiteral("orientationZ")] = kf.orientationZ;
+    m[QStringLiteral("smoothness")] = kf.smoothness;
+    m[QStringLiteral("type")] = int(kf.type);
+    m[QStringLiteral("shadowEnabled")] = st.shadowEnabled;
+    m[QStringLiteral("glowEnabled")] = st.glowEnabled;
+    return m;
+}
+
+void mapToMotion(const QVariantMap &m, TrackMotionKeyframe *kf, TrackMotionState *st)
+{
+    if (!kf || !st) {
+        return;
+    }
+    const auto num = [&m](const char *key, double fallback) {
+        const QVariant v = m.value(QString::fromLatin1(key));
+        return v.isValid() ? v.toDouble() : fallback;
+    };
+    kf->positionX = num("positionX", kf->positionX);
+    kf->positionY = num("positionY", kf->positionY);
+    kf->width = num("width", kf->width);
+    kf->height = num("height", kf->height);
+    kf->rotationZ = num("rotationZ", kf->rotationZ);
+    kf->orientationZ = num("orientationZ", kf->orientationZ);
+    kf->smoothness = num("smoothness", kf->smoothness);
+    if (m.contains(QStringLiteral("type"))) {
+        kf->type = VideoKeyframeType(m.value(QStringLiteral("type")).toInt());
+    }
+    if (m.contains(QStringLiteral("shadowEnabled"))) {
+        st->shadowEnabled = m.value(QStringLiteral("shadowEnabled")).toBool();
+    }
+    if (m.contains(QStringLiteral("glowEnabled"))) {
+        st->glowEnabled = m.value(QStringLiteral("glowEnabled")).toBool();
+    }
+}
+
+} // namespace
+
+void TrackMotionDialog::reloadPresets(const QString &select)
+{
+    if (!m_preset) {
+        return;
+    }
+    const QSignalBlocker block(m_preset);
+    m_preset->clear();
+    m_preset->addItem(tr("(Untitled)"));
+    QSettings s(QStringLiteral("OpenVegas"), QStringLiteral("OpenVegas"));
+    s.beginGroup(QString::fromLatin1(kPresetGroup));
+    QStringList names = s.childKeys();
+    s.endGroup();
+    names.sort(Qt::CaseInsensitive);
+    m_preset->addItems(names);
+    const int at = select.isEmpty() ? 0 : m_preset->findText(select);
+    m_preset->setCurrentIndex(at >= 0 ? at : 0);
+}
+
+void TrackMotionDialog::applyPreset(const QString &name)
+{
+    TrackMotionKeyframe *kf = selectedMotion();
+    if (!kf || name.isEmpty() || name == tr("(Untitled)")) {
+        return;
+    }
+    QSettings s(QStringLiteral("OpenVegas"), QStringLiteral("OpenVegas"));
+    s.beginGroup(QString::fromLatin1(kPresetGroup));
+    const QVariantMap m = s.value(name).toMap();
+    s.endGroup();
+    if (m.isEmpty()) {
+        return;
+    }
+    mapToMotion(m, kf, &motion());
+    syncUiFromSelected();
+    emit motionChanged();
+}
+
+void TrackMotionDialog::saveCurrentPreset()
+{
+    const TrackMotionKeyframe *kf = selectedMotion();
+    if (!kf) {
+        return;
+    }
+    const QString suggested =
+        m_preset && m_preset->currentIndex() > 0 ? m_preset->currentText() : QString();
+    bool ok = false;
+    const QString name =
+        QInputDialog::getText(this, tr("Save Preset"), tr("Preset name:"), QLineEdit::Normal,
+                              suggested, &ok)
+            .trimmed();
+    if (!ok || name.isEmpty() || name == tr("(Untitled)")) {
+        return;
+    }
+    QSettings s(QStringLiteral("OpenVegas"), QStringLiteral("OpenVegas"));
+    s.beginGroup(QString::fromLatin1(kPresetGroup));
+    s.setValue(name, motionToMap(*kf, motion()));
+    s.endGroup();
+    reloadPresets(name);
+}
+
+void TrackMotionDialog::deleteCurrentPreset()
+{
+    if (!m_preset || m_preset->currentIndex() <= 0) {
+        return; // "(Untitled)" is the live state, not a stored preset
+    }
+    const QString name = m_preset->currentText();
+    if (QMessageBox::question(this, tr("Delete Preset"),
+                              tr("Delete the preset \"%1\"?").arg(name))
+        != QMessageBox::Yes) {
+        return;
+    }
+    QSettings s(QStringLiteral("OpenVegas"), QStringLiteral("OpenVegas"));
+    s.beginGroup(QString::fromLatin1(kPresetGroup));
+    s.remove(name);
+    s.endGroup();
+    reloadPresets();
 }
 
 void TrackMotionDialog::syncSelectedFromUi()

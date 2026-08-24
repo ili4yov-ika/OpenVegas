@@ -32,6 +32,11 @@ private:
     QWidget *buildToolbar();
     QWidget *buildPropsPanel();
     QWidget *buildKeyframePanel();
+    /** Named presets live in QSettings; "(Untitled)" is the live state, not a preset. */
+    void reloadPresets(const QString &select = QString());
+    void applyPreset(const QString &name);
+    void saveCurrentPreset();
+    void deleteCurrentPreset();
     void syncUiFromSelected();
     void syncSelectedFromUi();
     void refreshTitle();

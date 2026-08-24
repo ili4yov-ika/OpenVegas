@@ -180,6 +180,8 @@ private:
      * this the user can change a setting, hit Save, and get the old values back on reload.
      */
     void captureFxStateForSave();
+    /** Write the project to `path`; the suffix chooses .ovp or .ozp. */
+    bool saveProjectToPath(const QString &path, QString *error);
     void refreshStatusBar();
     void ensureAudioFxDialog();
     void addToolbarSep(QLayout *layout);
@@ -237,6 +239,8 @@ private:
      * the .veg a project was opened from (a different, read-only concern).
      */
     QString m_currentArchivePath;
+    /** Single-file project (.ovp/.ozp) this session is saving to, when there is one. */
+    QString m_currentProjectFile;
     PluginScanner m_pluginScanner;
     QUndoStack *m_undoStack = nullptr;
     QAction *m_undoAction = nullptr;

@@ -97,6 +97,20 @@ public:
     /** Inverse of exportProjectArchive() — populates *model in place (like a fresh open). */
     static bool importProjectArchive(const QString &dirPath, ProjectModel *model,
                                      QString *error = nullptr);
+    /**
+     * The project as JSON — the one serializer every OpenVegas format goes through, so a
+     * single file and an archive folder can never describe the project differently.
+     * `dirPath`/`copyMedia` matter only to the folder form.
+     */
+    static QJsonObject projectToJson(const ProjectModel &model,
+                                     QStringList *mediaLinesOut = nullptr,
+                                     const QString &dirPath = QString(),
+                                     bool copyMedia = false);
+
+    /** Inverse of projectToJson(); `baseDir` resolves archived media, empty when there is none. */
+    static bool projectFromJson(const QJsonObject &root, const QString &baseDir,
+                                ProjectModel *model, QString *error = nullptr);
+
     /** True if dirPath/project.json exists and declares format "OpenVegasArchive". */
     static bool isProjectArchive(const QString &dirPath);
 
