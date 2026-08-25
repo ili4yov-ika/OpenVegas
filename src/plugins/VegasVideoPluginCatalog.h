@@ -77,6 +77,20 @@ class VegasVideoPluginCatalog {
 public:
     static QStringList defaultOfxRoots();
 
+    /**
+     * Pin discovery to these roots, ignoring the machine's installs and settings.
+     *
+     * Without this a lookup by name or effect id quietly re-discovers from every root the
+     * scanner knows, so a caller that discovered from one tree can still be handed a
+     * plug-in from another. That is not hypothetical: a VEGAS Pro 18 path in Preferences
+     * was enough to make the test suite load a different generation of `Vfx1.ofx` than the
+     * one it had discovered, and that build faults during render.
+     *
+     * An empty list restores the normal search. Setting it invalidates the cache.
+     */
+    static void setDiscoveryRoots(const QStringList &roots);
+    static QStringList discoveryRoots();
+
     /** Full catalog from installed/sample Vegas OFX trees (cached). */
     static QVector<VegasVideoPluginEntry> discover(const QStringList &roots = {});
 

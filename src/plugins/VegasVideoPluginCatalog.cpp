@@ -14,6 +14,8 @@ namespace {
 
 QVector<VegasVideoPluginEntry> g_cache;
 bool g_cacheValid = false;
+/** When set, discovery ignores the machine entirely; see setDiscoveryRoots(). */
+QStringList g_pinnedRoots;
 
 bool isLocaleResourceXml(const QString &fileName)
 {
@@ -425,9 +427,23 @@ FxSlot slotFromEntry(const VegasVideoPluginEntry &e)
 
 QStringList VegasVideoPluginCatalog::defaultOfxRoots()
 {
+    if (!g_pinnedRoots.isEmpty()) {
+        return g_pinnedRoots;
+    }
     // Delegates to the same install-path guesses + Preferences-configured path
     // used everywhere else in the app (PluginScanner is the source of truth).
     return PluginScanner().candidateRoots();
+}
+
+void VegasVideoPluginCatalog::setDiscoveryRoots(const QStringList &roots)
+{
+    g_pinnedRoots = roots;
+    invalidateCache();
+}
+
+QStringList VegasVideoPluginCatalog::discoveryRoots()
+{
+    return g_pinnedRoots;
 }
 
 QVector<VegasVideoPluginEntry> VegasVideoPluginCatalog::discoverUsingScanner(

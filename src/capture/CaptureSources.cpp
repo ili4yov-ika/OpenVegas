@@ -2,16 +2,176 @@
 
 #include "io/FFmpegEncoder.h"
 
+#include <QFileInfo>
 #include <QGuiApplication>
 #include <QProcess>
-#include <QRegularExpression>
 #include <QRect>
+#include <QRegularExpression>
 #include <QScreen>
+
+#include <cmath>
+#include <iterator>
+
+#ifdef Q_OS_WIN
+#include <windows.h>
+// After windows.h, which dwmapi.h needs.
+#include <dwmapi.h>
+#endif
 
 namespace openvegas {
 
+#ifdef Q_OS_WIN
+
+namespace {
+
+/** Facts the OS holds about one window, in the shape the rules want them. */
+WindowFacts factsFor(HWND hwnd)
+{
+    WindowFacts f;
+
+    wchar_t title[512] = {0};
+    GetWindowTextW(hwnd, title, int(std::size(title)));
+    f.title = QString::fromWCharArray(title).trimmed();
+
+    DWORD pid = 0;
+    GetWindowThreadProcessId(hwnd, &pid);
+    if (pid != 0) {
+        HANDLE proc = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, FALSE, pid);
+        if (proc) {
+            wchar_t path[MAX_PATH] = {0};
+            DWORD len = DWORD(std::size(path));
+            if (QueryFullProcessImageNameW(proc, 0, path, &len)) {
+                f.exeName = QFileInfo(QString::fromWCharArray(path, int(len))).fileName();
+            }
+            CloseHandle(proc);
+        }
+    }
+
+    f.visible = IsWindowVisible(hwnd);
+    f.minimized = IsIconic(hwnd);
+
+    // A UWP app that is "running" but not on screen is cloaked rather than hidden: it
+    // passes IsWindowVisible and captures as a black rectangle.
+    DWORD cloaked = 0;
+    f.cloaked = SUCCEEDED(DwmGetWindowAttribute(hwnd, DWMWA_CLOAKED, &cloaked, sizeof(cloaked)))
+                && cloaked != 0;
+
+    const auto styles = DWORD(GetWindowLongPtrW(hwnd, GWL_STYLE));
+    const auto exStyles = DWORD(GetWindowLongPtrW(hwnd, GWL_EXSTYLE));
+    f.toolWindow = (exStyles & WS_EX_TOOLWINDOW) != 0;
+    f.child = (styles & WS_CHILD) != 0;
+
+    RECT client = {0, 0, 0, 0};
+    GetClientRect(hwnd, &client);
+    f.clientSize = QSize(int(client.right - client.left), int(client.bottom - client.top));
+    return f;
+}
+
+BOOL CALLBACK collectWindow(HWND hwnd, LPARAM param)
+{
+    auto *out = reinterpret_cast<QVector<CaptureSource> *>(param);
+    const WindowFacts f = factsFor(hwnd);
+    if (!CaptureSources::shouldOfferWindow(f)) {
+        return TRUE;
+    }
+    CaptureSource s;
+    s.kind = CaptureSource::Kind::Window;
+    // The handle, not the title: titles change while a take is running (a document is
+    // saved, a tab switches) and two windows can share one. gdigrab takes either.
+    s.id = QString::number(reinterpret_cast<quintptr>(hwnd));
+    s.name = f.exeName.isEmpty() ? f.title
+                                 : QStringLiteral("[%1]: %2").arg(f.exeName, f.title);
+    s.nativeSize = f.clientSize;
+    s.frameRate = 30.0;
+    out->push_back(s);
+    return TRUE;
+}
+
+BOOL CALLBACK collectMonitor(HMONITOR handle, HDC, LPRECT rect, LPARAM param)
+{
+    auto *out = reinterpret_cast<QVector<CaptureSource> *>(param);
+    if (!rect) {
+        return TRUE;
+    }
+    MONITORINFOEXW info = {};
+    info.cbSize = sizeof(info);
+    const bool haveInfo = GetMonitorInfoW(handle, &info);
+
+    CaptureSource s;
+    s.kind = CaptureSource::Kind::Screen;
+    s.id = QString::number(out->size());
+    s.name = QObject::tr("Display %1").arg(out->size() + 1);
+    if (haveInfo && (info.dwFlags & MONITORINFOF_PRIMARY)) {
+        s.name = QObject::tr("Display %1 (primary)").arg(out->size() + 1);
+    }
+    // These rectangles are already the physical pixels a grabber is told to cut out, so
+    // nothing has to be scaled and monitors at different DPI settings need no special
+    // case — which is exactly what Qt's logical geometry could not give.
+    s.origin = QPoint(int(rect->left), int(rect->top));
+    s.nativeSize = QSize(int(rect->right - rect->left), int(rect->bottom - rect->top));
+    s.frameRate = 60.0;
+    out->push_back(s);
+    return TRUE;
+}
+
+/** Refresh rate of the monitor at `origin`, from Qt, which knows it and Win32 does not. */
+double refreshRateAt(const QPoint &origin)
+{
+    if (!QGuiApplication::instance()) {
+        return 60.0; // no GUI application (a test binary): Qt has no screens to ask
+    }
+    for (QScreen *sc : QGuiApplication::screens()) {
+        if (!sc) {
+            continue;
+        }
+        const double dpr = sc->devicePixelRatio();
+        const QPoint physical(int(std::lround(sc->geometry().x() * dpr)),
+                              int(std::lround(sc->geometry().y() * dpr)));
+        if (physical == origin && sc->refreshRate() > 1.0) {
+            return sc->refreshRate();
+        }
+    }
+    return 60.0;
+}
+
+} // namespace
+
+#endif // Q_OS_WIN
+
+QVector<CaptureSource> CaptureSources::windows()
+{
+#ifdef Q_OS_WIN
+    QVector<CaptureSource> out;
+    EnumWindows(collectWindow, reinterpret_cast<LPARAM>(&out));
+    return out;
+#else
+    // No window grabber is wired up off Windows; saying so with an empty list is better
+    // than offering windows that cannot be recorded.
+    return {};
+#endif
+}
+
 QVector<CaptureSource> CaptureSources::screens()
 {
+#ifdef Q_OS_WIN
+    // Win32 hands back the physical rectangles directly, which is what the grabber wants.
+    // Qt only has logical geometry, and converting it needs each monitor's own scaling —
+    // exact for one display, guesswork the moment two are scaled differently.
+    //
+    // Physical is the right space because ffmpeg's manifest declares `PerMonitorV2`, so it
+    // sees the same unvirtualised desktop this process does. Were it DPI-unaware, Windows
+    // would hand it the scaled desktop instead and every offset here would be off by the
+    // scaling factor — invisible on a 100% display and half a screen out on a 200% one.
+    QVector<CaptureSource> fromOs;
+    EnumDisplayMonitors(nullptr, nullptr, collectMonitor, reinterpret_cast<LPARAM>(&fromOs));
+    for (CaptureSource &s : fromOs) {
+        s.frameRate = refreshRateAt(s.origin); // Win32 does not report it; Qt does
+    }
+    if (!fromOs.isEmpty()) {
+        return fromOs;
+    }
+    // Nothing enumerated at all: fall through to Qt rather than offer no screens.
+#endif
     QVector<CaptureSource> out;
     const QList<QScreen *> list = QGuiApplication::screens();
     for (int i = 0; i < list.size(); ++i) {
@@ -31,10 +191,6 @@ QVector<CaptureSource> CaptureSources::screens()
         const double dpr = sc->devicePixelRatio();
         s.nativeSize = QSize(int(std::lround(logical.width() * dpr)),
                              int(std::lround(logical.height() * dpr)));
-        // The grabber is told a region of the whole desktop, so the monitor's origin has
-        // to travel with its size. Scaling by this screen's own ratio is exact for one
-        // display and for uniformly scaled ones; with monitors at different scalings the
-        // virtual desktop's own arithmetic is what decides, and Qt does not expose it.
         s.origin = QPoint(int(std::lround(logical.x() * dpr)),
                           int(std::lround(logical.y() * dpr)));
         s.frameRate = sc->refreshRate() > 1.0 ? sc->refreshRate() : 60.0;
@@ -135,9 +291,49 @@ QVector<CaptureSource> CaptureSources::devices()
 #endif
 }
 
+bool CaptureSources::shouldOfferWindow(const WindowFacts &facts)
+{
+    // OBS's list, arrived at over years of bug reports rather than from first principles
+    // (libobs/util/windows/window-helpers.c). Worth taking whole: every one of these
+    // exclusions is a window that looks capturable and is not.
+    if (!facts.visible || facts.minimized || facts.cloaked) {
+        return false;
+    }
+    if (facts.toolWindow || facts.child) {
+        return false;
+    }
+    if (facts.clientSize.width() <= 0 || facts.clientSize.height() <= 0) {
+        return false;
+    }
+    // Windows' own invisible plumbing: these have real windows with real titles and
+    // nothing behind them.
+    static const QStringList internal = {
+        QStringLiteral("applicationframehost.exe"), QStringLiteral("shellexperiencehost.exe"),
+        QStringLiteral("systemsettings.exe"),       QStringLiteral("winstore.app.exe"),
+        QStringLiteral("searchui.exe"),             QStringLiteral("lockapp.exe"),
+        QStringLiteral("searchapp.exe"),            QStringLiteral("video.ui.exe"),
+        QStringLiteral("peopleexperiencehost.exe"), QStringLiteral("textinputhost.exe"),
+    };
+    const QString exe = facts.exeName.toLower();
+    if (internal.contains(exe) || exe.startsWith(QStringLiteral("windowsinternal"))) {
+        // ApplicationFrameHost owns the frame of every UWP app; the app's own window is a
+        // child of it. OBS digs that child out and captures it with Windows Graphics
+        // Capture. GDI cannot: those windows are composited, and a GDI grab of one comes
+        // back black. Better not to offer what would record nothing.
+        return false;
+    }
+    // The desktop itself is an explorer.exe window with no title; the taskbar is another.
+    if (exe == QLatin1String("explorer.exe") && facts.title.isEmpty()) {
+        return false;
+    }
+    // Nothing to show the user, and nothing to tell them apart by.
+    return !facts.title.isEmpty();
+}
+
 QVector<CaptureSource> CaptureSources::all()
 {
     QVector<CaptureSource> out = screens();
+    out += windows();
     out += devices();
     return out;
 }

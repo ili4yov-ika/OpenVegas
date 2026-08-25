@@ -304,7 +304,9 @@ endif()
 if(WIN32)
     # oleaut32/strmiids: DirectShow hosting of the Sound Forge Shared Plug-Ins
     # (OleCreatePropertyFrame for the native dialogs comes from oleaut32).
-    target_link_libraries(OpenVegas PRIVATE ole32 oleaut32 shell32 uuid strmiids user32 gdi32 winmm)
+    # dwmapi: a cloaked window (a UWP app that is open but not on screen) passes
+    # IsWindowVisible and records as a black rectangle; DwmGetWindowAttribute is what tells them apart.
+    target_link_libraries(OpenVegas PRIVATE ole32 oleaut32 shell32 uuid strmiids user32 gdi32 winmm dwmapi)
     # Native EXE icon (Explorer / taskbar). Path relative to this .rc file.
     target_sources(OpenVegas PRIVATE resources/openvegas.rc)
 endif()
@@ -585,7 +587,7 @@ if(OPENVGAS_BUILD_TESTS)
     endif()
     if(WIN32)
         target_link_libraries(openvegas_media_tests PRIVATE
-            ole32 oleaut32 shell32 uuid strmiids user32 gdi32)
+            ole32 oleaut32 shell32 uuid strmiids user32 gdi32 dwmapi)
     endif()
     add_test(NAME openvegas_media_tests COMMAND openvegas_media_tests)
 

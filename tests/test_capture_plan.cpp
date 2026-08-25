@@ -392,3 +392,84 @@ TEST_CASE("A second monitor is recorded as a region of the desktop, not the whol
     CHECK(indexOf(first, QStringLiteral("-offset_x")) < 0);
     CHECK(valueAfter(first, QStringLiteral("-video_size")) == QStringLiteral("2560x1440"));
 }
+
+TEST_CASE("Windows that look capturable but are not stay out of the picker", "[capture]")
+{
+    WindowFacts ok;
+    ok.exeName = QStringLiteral("opera.exe");
+    ok.title = QStringLiteral("A page - Opera");
+    ok.clientSize = QSize(1280, 800);
+    CHECK(CaptureSources::shouldOfferWindow(ok));
+
+    // Each of these has a real window with a real title behind it and records as nothing
+    // useful. The list is OBS's, arrived at from bug reports rather than from theory.
+    auto without = [&](auto &&mutate) {
+        WindowFacts f = ok;
+        mutate(f);
+        return CaptureSources::shouldOfferWindow(f);
+    };
+    CHECK_FALSE(without([](WindowFacts &f) { f.visible = false; }));
+    CHECK_FALSE(without([](WindowFacts &f) { f.minimized = true; }));
+    // Cloaked is the one that catches people out: a UWP app that is open but not on
+    // screen passes IsWindowVisible and records as a black rectangle.
+    CHECK_FALSE(without([](WindowFacts &f) { f.cloaked = true; }));
+    CHECK_FALSE(without([](WindowFacts &f) { f.toolWindow = true; }));
+    CHECK_FALSE(without([](WindowFacts &f) { f.child = true; }));
+    CHECK_FALSE(without([](WindowFacts &f) { f.clientSize = QSize(0, 0); }));
+    CHECK_FALSE(without([](WindowFacts &f) { f.title.clear(); }));
+
+    // The desktop and the taskbar are explorer.exe windows with no caption; a File
+    // Explorer window is the same exe and must survive.
+    WindowFacts desktop;
+    desktop.exeName = QStringLiteral("explorer.exe");
+    desktop.clientSize = QSize(3840, 1440);
+    CHECK_FALSE(CaptureSources::shouldOfferWindow(desktop));
+    desktop.title = QStringLiteral("Downloads");
+    CHECK(CaptureSources::shouldOfferWindow(desktop));
+
+    // Windows' own plumbing, which owns titled windows with nothing behind them.
+    WindowFacts host = ok;
+    host.exeName = QStringLiteral("ApplicationFrameHost.exe"); // matched case-insensitively
+    CHECK_FALSE(CaptureSources::shouldOfferWindow(host));
+    host.exeName = QStringLiteral("WindowsInternal.ComposableShell.Experiences.TextInput.exe");
+    CHECK_FALSE(CaptureSources::shouldOfferWindow(host));
+}
+
+TEST_CASE("A window is recorded by handle, not by its caption", "[capture]")
+{
+    CapturePlan plan;
+    CaptureSource win;
+    win.kind = CaptureSource::Kind::Window;
+    win.id = QStringLiteral("14026606");
+    win.name = QStringLiteral("[Code.exe]: CHECKLIST.md - OpenVegas");
+    win.nativeSize = QSize(2560, 1438);
+    win.frameRate = 30.0;
+    plan.sources = {win};
+
+    const QStringList args = CaptureRecorder::argumentsFor(
+        plan, plan.outputs().first(), QStringLiteral("C:/takes/w.mkv"));
+#ifdef Q_OS_WIN
+    // A caption changes while a take is running — a document is saved, a tab is switched —
+    // and two windows can carry the same one. The handle does not move.
+    CHECK(valueAfter(args, QStringLiteral("-i")) == QStringLiteral("hwnd=14026606"));
+#else
+    // No window grabber is wired up elsewhere; an empty list is the caller's cue to say so
+    // rather than to run something that will fail.
+    CHECK(args.isEmpty());
+#endif
+}
+
+TEST_CASE("Enumerating windows returns usable sources or none", "[capture]")
+{
+    // Whatever is on screen while this runs, every source it hands back has to be openable:
+    // an id to pass the grabber, a name to show, and a size worth recording.
+    for (const CaptureSource &s : CaptureSources::windows()) {
+        INFO(s.name.toStdString());
+        CHECK(s.kind == CaptureSource::Kind::Window);
+        CHECK_FALSE(s.id.isEmpty());
+        CHECK_FALSE(s.name.isEmpty());
+        CHECK(s.nativeSize.width() > 0);
+        CHECK(s.nativeSize.height() > 0);
+    }
+}
+

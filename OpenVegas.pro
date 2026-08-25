@@ -229,7 +229,7 @@ RESOURCES += \
     resources/resources.qrc
 
 win32:RC_ICONS = resources/icons/logo.ico
-win32:LIBS += -lole32 -lshell32 -luuid -luser32 -lgdi32 -lwinmm
+win32:LIBS += -lole32 -lshell32 -luuid -luser32 -lgdi32 -lwinmm -ldwmapi
 
 # Warning levels. For MSVC do not append /W4 on top of Qt mkspec /W3 (D9025).
 win32-msvc {

@@ -75,7 +75,9 @@ QStringList CaptureRecorder::argumentsFor(const CapturePlan &plan, const Capture
             args << QStringLiteral("-framerate")
                  << QString::number(output.frameRate, 'g', 6);
         }
-        args << QStringLiteral("-i") << QStringLiteral("title=%1").arg(src.name);
+        // By handle, not by title: a title changes while a take is running (a document is
+        // saved, a tab is switched) and two windows can carry the same one.
+        args << QStringLiteral("-i") << QStringLiteral("hwnd=%1").arg(src.id);
 #else
         return {}; // no window grabber wired up off Windows yet
 #endif

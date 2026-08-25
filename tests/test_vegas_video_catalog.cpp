@@ -27,20 +27,29 @@ void ensureQtApp(int &argc, char **argv)
     }
 }
 
+/**
+ * The VEGAS Pro 22 tree these tests are written against.
+ *
+ * Pinning it is the point: a lookup by name or effect id otherwise re-discovers from every
+ * root the scanner knows, so whatever VEGAS the person running the tests happens to have
+ * installed can supply the plug-in instead. A VEGAS Pro 18 path left in Preferences was
+ * enough to swap in a 2021 build of Vfx1.ofx that faults during render — an unchanged test
+ * binary went from green to a segmentation fault with no code change anywhere.
+ */
 QString samplesVegasRoot()
 {
     const QString rel = QStringLiteral("SAMPLES/VEGAS-PRO-22-PROGRAM-FILES");
     const QDir cwd(QDir::currentPath());
     const QString fromCwd = cwd.absoluteFilePath(rel);
-    if (QDir(fromCwd).exists()) {
-        return fromCwd;
-    }
     const QString fromRepo = QDir(QCoreApplication::applicationDirPath())
                                  .absoluteFilePath(QStringLiteral("../../") + rel);
-    if (QDir(fromRepo).exists()) {
-        return fromRepo;
+    const QString found = QDir(fromCwd).exists()      ? fromCwd
+                          : QDir(fromRepo).exists()   ? fromRepo
+                                                      : SamplePaths::resolveProjectPath(rel);
+    if (!found.isEmpty()) {
+        VegasVideoPluginCatalog::setDiscoveryRoots({QDir(found).absolutePath()});
     }
-    return SamplePaths::resolveProjectPath(rel);
+    return found;
 }
 
 } // namespace
