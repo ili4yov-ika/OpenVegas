@@ -1,5 +1,6 @@
 #include "video/TransitionApply.h"
 
+#include "video/TransitionPluginHook.h"
 #include "video/TransitionPresetData.h"
 
 #include <QHash>
@@ -2914,6 +2915,22 @@ QImage renderPageLoop(const QImage &from, const QImage &to, double progress,
                             "paperOpacity", true);
 }
 
+/** The VEGAS group key behind a catalog id — "pagepeel" for Page Peel — or empty. */
+QString ofxGroupKeyFor(const QString &pluginId)
+{
+    for (const auto &pair : renderedOfxGroups()) {
+        if (pair.second == pluginId) {
+            return pair.first;
+        }
+    }
+    // A group with no renderer of its own still has a plug-in; its id carries the key.
+    const QString stubPrefix = QStringLiteral("builtin:Transition:ofx:");
+    if (pluginId.startsWith(stubPrefix)) {
+        return pluginId.mid(stubPrefix.size());
+    }
+    return {};
+}
+
 QImage renderTransition(const QImage &from, const QImage &to, double progress,
                         const TransitionInstance &t)
 {
@@ -2922,6 +2939,20 @@ QImage renderTransition(const QImage &from, const QImage &to, double progress,
         return QImage();
     }
     const double p = std::clamp(progress, 0.0, 1.0);
+
+    // VEGAS's own plug-in first, when one is reachable: everything below is geometry read
+    // off the parameter names, and the plug-in is the thing itself. Falls through to that
+    // geometry when there is no host, no plug-in for this group, or the render fails —
+    // a transition still has to produce a picture.
+    if (hasTransitionPluginProvider()) {
+        const QString key = ofxGroupKeyFor(t.pluginId);
+        QImage viaPlugin;
+        if (!key.isEmpty()
+            && transitionPluginRender(key, from, to, p, t.params, &viaPlugin)
+            && !viaPlugin.isNull()) {
+            return viaPlugin;
+        }
+    }
     if (t.pluginId == transition3dBlindsId()) {
         return renderBlinds(from, to, p, t, size);
     }

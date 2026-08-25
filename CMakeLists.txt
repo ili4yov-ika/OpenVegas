@@ -102,6 +102,7 @@ endif()
     src/plugins/PluginScanner.cpp
     src/plugins/PluginDiscovery.cpp
     src/plugins/OfxHost.cpp
+    src/plugins/OfxTransitionSource.cpp
     src/plugins/OfxTrace.cpp
     src/plugins/OfxPluginPaths.cpp
     src/plugins/BuiltinAudioCatalog.cpp
@@ -128,6 +129,7 @@ endif()
     src/video/TitlesTextApply.cpp
     src/video/MediaGeneratorApply.cpp
     src/video/TransitionApply.cpp
+    src/video/TransitionPluginHook.cpp
     src/video/VideoCompositor.cpp
     src/video/TransitionPresetData.cpp
     src/video/NestedFrameHook.cpp
@@ -484,6 +486,7 @@ if(OPENVGAS_BUILD_TESTS)
         src/io/MediaProbe.cpp
         src/io/SamplePaths.cpp
         src/plugins/OfxHost.cpp
+        src/plugins/OfxTransitionSource.cpp
         src/plugins/OfxTrace.cpp
         src/plugins/OfxPluginPaths.cpp
         src/plugins/PluginScanner.cpp
@@ -495,6 +498,7 @@ if(OPENVGAS_BUILD_TESTS)
         src/video/TitlesTextApply.cpp
         src/video/TransitionPresetData.cpp
         src/video/TransitionApply.cpp
+        src/video/TransitionPluginHook.cpp
         src/video/MediaGeneratorApply.cpp
         src/video/VideoCompositor.cpp
         src/video/NestedFrameHook.cpp
@@ -571,6 +575,7 @@ if(OPENVGAS_BUILD_TESTS)
         src/plugins/VegasVideoPluginCatalog.cpp
         src/plugins/PluginScanner.cpp
         src/plugins/OfxHost.cpp
+        src/plugins/OfxTransitionSource.cpp
         src/plugins/OfxTrace.cpp
         src/plugins/OfxPluginPaths.cpp
         src/plugins/AudioPluginScanner.cpp
@@ -584,6 +589,7 @@ if(OPENVGAS_BUILD_TESTS)
         src/video/TitlesTextApply.cpp
         src/video/TransitionPresetData.cpp
         src/video/TransitionApply.cpp
+        src/video/TransitionPluginHook.cpp
         src/video/MediaGeneratorApply.cpp
         src/video/NestedFrameHook.cpp
         src/video/NestedProjectSource.cpp

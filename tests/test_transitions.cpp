@@ -3,6 +3,8 @@
 
 #include "io/SamplePaths.h"
 #include "plugins/OfxHost.h"
+#include "plugins/OfxTransitionSource.h"
+#include "video/TransitionPluginHook.h"
 #include "video/TransitionApply.h"
 #include "video/TransitionPresetData.h"
 
@@ -10,6 +12,7 @@
 #include <QGuiApplication>
 #include <QImage>
 #include <QPainter>
+#include <QDir>
 #include <QFileInfo>
 #include <QHash>
 #include <QSet>
@@ -893,4 +896,103 @@ TEST_CASE("A VEGAS transition renders through the host with both of its clips",
     CHECK(share(late, qRgb(30, 70, 220)) > share(early, qRgb(30, 70, 220)));
 
     OfxHost::instance().destroyInstance(id);
+}
+
+TEST_CASE("With VEGAS installed, a transition is drawn by its own plug-in",
+          "[video][transitions][ofx]")
+{
+    ensureQtGuiApp();
+    const QString root =
+        SamplePaths::resolveProjectPath(QStringLiteral("SAMPLES/VEGAS-PRO-22-PROGRAM-FILES"));
+    if (!QDir(root).exists()) {
+        SKIP("SAMPLES/VEGAS-PRO-22-PROGRAM-FILES not available");
+    }
+
+    const QSize size(128, 96);
+    QImage from(size, QImage::Format_ARGB32_Premultiplied);
+    from.fill(QColor(230, 60, 40));
+    QImage to(size, QImage::Format_ARGB32_Premultiplied);
+    to.fill(QColor(30, 70, 220));
+
+    const TransitionInstance t =
+        makeTransitionInstance(transitionPagePeelId(), QStringLiteral("Top-Left, Medium Fold"));
+    REQUIRE(t.isValid());
+
+    OfxTransitionSource::uninstall();
+    REQUIRE_FALSE(hasTransitionPluginProvider());
+    const QImage ours = renderTransition(from, to, 0.5, t).convertToFormat(QImage::Format_ARGB32);
+
+    // Pinned to the samples tree on purpose: a machine can carry several VEGAS
+    // versions, and which one answers must not decide what this test measures.
+    OfxTransitionSource::install({root});
+    REQUIRE(hasTransitionPluginProvider());
+    const QImage viaPlugin =
+        renderTransition(from, to, 0.5, t).convertToFormat(QImage::Format_ARGB32);
+    OfxTransitionSource::uninstall();
+
+    REQUIRE(ours.size() == size);
+    REQUIRE(viaPlugin.size() == size);
+
+    // The plug-in draws a real three-dimensional curl where ours folds a flat mirrored
+    // flap, so the two pictures cannot be the same. If the hook were not reaching the
+    // plug-in at all, the fallback would return the identical frame both times and this
+    // test would be the only thing to notice.
+    int diff = 0;
+    for (int y = 0; y < size.height(); ++y) {
+        const auto *r1 = reinterpret_cast<const QRgb *>(ours.constScanLine(y));
+        const auto *r2 = reinterpret_cast<const QRgb *>(viaPlugin.constScanLine(y));
+        for (int x = 0; x < size.width(); ++x) {
+            if (r1[x] != r2[x]) {
+                ++diff;
+            }
+        }
+    }
+    CHECK(diff > (size.width() * size.height()) / 20);
+
+    // Whichever drew it, both clips have to be in the frame halfway through.
+    auto share = [&](const QImage &img, QRgb want) {
+        int hits = 0;
+        for (int y = 0; y < img.height(); ++y) {
+            const auto *row = reinterpret_cast<const QRgb *>(img.constScanLine(y));
+            for (int x = 0; x < img.width(); ++x) {
+                if (qAbs(qRed(row[x]) - qRed(want)) + qAbs(qGreen(row[x]) - qGreen(want))
+                        + qAbs(qBlue(row[x]) - qBlue(want))
+                    < 60) {
+                    ++hits;
+                }
+            }
+        }
+        return double(hits) / double(img.width() * img.height());
+    };
+    CHECK(share(viaPlugin, qRgb(230, 60, 40)) > 0.05);
+    CHECK(share(viaPlugin, qRgb(30, 70, 220)) > 0.05);
+}
+
+TEST_CASE("Without a provider the built-in geometry still draws every group",
+          "[video][transitions]")
+{
+    // The fallback is the point of the hook: a machine with no VEGAS installed must still
+    // get a picture out of every transition, not an empty frame.
+    OfxTransitionSource::uninstall();
+    REQUIRE_FALSE(hasTransitionPluginProvider());
+
+    const QSize size(64, 48);
+    QImage from(size, QImage::Format_ARGB32_Premultiplied);
+    from.fill(QColor(200, 40, 40));
+    QImage to(size, QImage::Format_ARGB32_Premultiplied);
+    to.fill(QColor(40, 200, 40));
+
+    for (const auto &group : renderedOfxGroups()) {
+        const TransitionPluginInfo *info = transitionPluginById(group.second);
+        REQUIRE(info);
+        REQUIRE_FALSE(info->presets.isEmpty());
+        TransitionInstance t;
+        t.pluginId = info->id;
+        t.presetName = info->presets.first().name;
+        t.params = info->presets.first().params;
+        const QImage img = renderTransition(from, to, 0.5, t);
+        INFO(info->name.toStdString());
+        REQUIRE_FALSE(img.isNull());
+        CHECK(img.size() == size);
+    }
 }

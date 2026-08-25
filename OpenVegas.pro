@@ -106,6 +106,7 @@ HEADERS += \
     src/plugins/PluginScanner.h \
     src/plugins/PluginDiscovery.h \
     src/plugins/OfxHost.h \
+    src/plugins/OfxTransitionSource.h \
     src/plugins/OfxTrace.h \
     src/plugins/OfxPluginPaths.h \
     src/plugins/OfxVegasExtensions.h \
@@ -131,6 +132,9 @@ HEADERS += \
     src/video/ColorCorrectorApply.h \
     src/video/TitlesTextApply.h \
     src/video/MediaGeneratorApply.h \
+    src/video/TransitionApply.h \
+    src/video/TransitionPresetData.h \
+    src/video/TransitionPluginHook.h \
     src/video/VideoCompositor.h
 
 SOURCES += \
@@ -204,6 +208,7 @@ SOURCES += \
     src/plugins/PluginScanner.cpp \
     src/plugins/PluginDiscovery.cpp \
     src/plugins/OfxHost.cpp \
+    src/plugins/OfxTransitionSource.cpp \
     src/plugins/OfxTrace.cpp \
     src/plugins/OfxPluginPaths.cpp \
     src/plugins/BuiltinAudioCatalog.cpp \
@@ -227,6 +232,9 @@ SOURCES += \
     src/video/ColorCorrectorApply.cpp \
     src/video/TitlesTextApply.cpp \
     src/video/MediaGeneratorApply.cpp \
+    src/video/TransitionApply.cpp \
+    src/video/TransitionPresetData.cpp \
+    src/video/TransitionPluginHook.cpp \
     src/video/VideoCompositor.cpp
 
 RESOURCES += \

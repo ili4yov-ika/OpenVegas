@@ -1,6 +1,7 @@
 #include "app/MainWindow.h"
 #include "ui/FirstRunDialog.h"
 #include "ui/Theme.h"
+#include "plugins/OfxTransitionSource.h"
 #include "video/NestedProjectSource.h"
 #include "io/SamplePaths.h"
 
@@ -26,6 +27,12 @@ int main(int argc, char *argv[])
     // reach it through a hook rather than a direct call, so drawing thumbnails does not
     // drag project loading in with it.
     openvegas::NestedProjectSource::installAsFrameProvider();
+
+    // Draws transitions with VEGAS's own plug-ins where they are installed. The
+    // built-in renderers are geometry read off the parameter names; the plug-in is the
+    // thing itself. With no VEGAS bundle around this installs nothing and they keep
+    // drawing, so a machine without VEGAS still has every transition.
+    openvegas::OfxTransitionSource::install();
 
     openvegas::MainWindow window;
     window.setWindowIcon(appIcon);
