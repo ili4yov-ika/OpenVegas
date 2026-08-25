@@ -205,6 +205,19 @@ struct VegMarkerInfo {
     int number = 0;
 };
 
+/**
+ * One strip of the Vegas mixing console, as the project stores it.
+ *
+ * Identified by counting: the chunk appears exactly twice in a project with the default
+ * mixer and eight times in one with extra busses, where the names inside read Preview,
+ * Master, Bus A, Bus B and Input A…D — which is what the console shows for that project.
+ */
+struct VegMixerBus {
+    /** 2 Master, 3 a bus, 4 an assignable FX bus, 7 Preview, 11 an input bus. */
+    quint32 kind = 0;
+    QString name;
+};
+
 struct VegOpenResult {
     VegHeaderInfo header;
     QStringList mediaPaths;
@@ -214,6 +227,8 @@ struct VegOpenResult {
     QStringList trackFxNames;
     /** Video/OFX-style event FX (`{Svfx:…}`, `OFX:…`). */
     QStringList eventFxNames;
+    /** Mixing console busses, in the order the project stores them. */
+    QVector<VegMixerBus> mixerBuses;
     /**
      * Decoded OFX parameters, keyed by the identifier exactly as `eventFxNames` holds it.
      *
@@ -309,6 +324,8 @@ private:
     static void parseTransitions(const QByteArray &data, VegOpenResult *result);
     /** Transitions keyed by a "{Svfx:…}" identifier rather than a GUID. */
     static void parseOfxTransitions(const QByteArray &data, VegOpenResult *result);
+    /** Mixing console busses from the `{220D2BE4-…}` list. */
+    static void parseMixerBuses(const QByteArray &data, VegOpenResult *result);
     static void parseFxStateChunks(const QByteArray &data, VegOpenResult *result);
     /** Recover `<Glint>` / `<Softlight>` XML state — values, keyframe times, preset name. */
     static void parseLegacyVideoFxStates(const QByteArray &data, VegOpenResult *result);

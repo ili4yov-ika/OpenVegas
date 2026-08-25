@@ -1,10 +1,14 @@
 #include "io/SamplePaths.h"
+#include "io/VegReader.h"
+#include "model/ProjectModel.h"
 #include "io/VegRiffWriter.h"
 
 #include <QDir>
 #include <QFile>
 #include <QFileInfo>
 #include <QtEndian>
+
+#include <memory>
 
 #include <catch2/catch_test_macros.hpp>
 
@@ -108,4 +112,77 @@ TEST_CASE("A chunk's size counts its own header", "[veg][riff]")
     VegWriteChunk broken;
     broken.id = QStringLiteral("not-a-guid");
     CHECK(vegRiffWrite(broken).isEmpty());
+}
+
+TEST_CASE("Mixing console busses come out of a project", "[veg][mixer]")
+{
+    const QString dir = SamplePaths::vegProjectDir();
+    if (dir.isEmpty()) {
+        SKIP("SAMPLES/veg_project not available");
+    }
+    auto open = [&](const QString &name) {
+        QString err;
+        return VegReader::open(QDir(dir).filePath(name), &err);
+    };
+
+    // The default console: two strips, and neither is a bus the user added.
+    const VegOpenResult plain = open(QStringLiteral("project_big--buck-bunny.veg"));
+    REQUIRE(plain.mixerBuses.size() == 2);
+    CHECK(plain.mixerBuses[0].name == QStringLiteral("Preview"));
+    CHECK(plain.mixerBuses[0].kind == 7u);
+    CHECK(plain.mixerBuses[1].name == QStringLiteral("Master"));
+    CHECK(plain.mixerBuses[1].kind == 2u);
+
+    // And a project whose console was actually used. This is the evidence the chunk was
+    // identified from: the count and the names match what VEGAS shows for it.
+    const VegOpenResult mixed = open(QStringLiteral("project_big--buck-bunny_mix-console-2.veg"));
+    REQUIRE(mixed.mixerBuses.size() == 8);
+    QStringList names;
+    for (const VegMixerBus &b : mixed.mixerBuses) {
+        names << b.name;
+    }
+    CHECK(names
+          == QStringList{QStringLiteral("Preview"), QStringLiteral("Master"),
+                         QStringLiteral("Bus A"), QStringLiteral("Bus B"),
+                         QStringLiteral("Input A"), QStringLiteral("Input B"),
+                         QStringLiteral("Input C"), QStringLiteral("Input D")});
+
+    // The kind tells the strips apart without reading their names, which matters because a
+    // localised VEGAS would write them in its own language.
+    CHECK(mixed.mixerBuses[2].kind == 3u);  // a bus
+    CHECK(mixed.mixerBuses[3].kind == 3u);
+    CHECK(mixed.mixerBuses[4].kind == 11u); // an input
+    CHECK(mixed.mixerBuses[7].kind == 11u);
+}
+
+TEST_CASE("An imported project keeps the mixer it was saved with", "[veg][mixer]")
+{
+    const QString dir = SamplePaths::vegProjectDir();
+    if (dir.isEmpty()) {
+        SKIP("SAMPLES/veg_project not available");
+    }
+    auto load = [&](const QString &name) {
+        const QString path = QDir(dir).filePath(name);
+        QString err;
+        const VegOpenResult veg = VegReader::open(path, &err);
+        auto model = std::make_unique<ProjectModel>();
+        model->applyVegImport(veg, path);
+        return model;
+    };
+
+    // A project whose console was left alone adds nothing: Preview and Master exist in
+    // every project and the model already keeps them, so recreating them would show two
+    // of each.
+    const auto plain = load(QStringLiteral("project_big--buck-bunny.veg"));
+    CHECK(plain->mixerBuses().isEmpty());
+    CHECK(plain->mixerInputBuses().isEmpty());
+
+    // A project whose console was used comes back with it.
+    const auto mixed = load(QStringLiteral("project_big--buck-bunny_mix-console-2.veg"));
+    REQUIRE(mixed->mixerBuses().size() == 2);
+    CHECK(mixed->mixerBuses()[0].name == QStringLiteral("Bus A"));
+    CHECK(mixed->mixerBuses()[1].name == QStringLiteral("Bus B"));
+    REQUIRE(mixed->mixerInputBuses().size() == 4);
+    CHECK(mixed->mixerInputBuses()[0].name == QStringLiteral("Input A"));
+    CHECK(mixed->mixerInputBuses()[3].name == QStringLiteral("Input D"));
 }

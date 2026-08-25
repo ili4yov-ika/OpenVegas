@@ -1079,6 +1079,7 @@ VegOpenResult VegReader::open(const QString &path, QString *error)
     // byte offset, so the event list has to exist first.
     parseTransitions(data, &result);
     parseOfxTransitions(data, &result);
+    parseMixerBuses(data, &result);
     parseFxStateChunks(data, &result);
     parseLegacyVideoFxStates(data, &result);
     assignEventNames(&result);
@@ -2269,6 +2270,66 @@ void VegReader::parseVideoTitlesText(const QByteArray &data, VegOpenResult *resu
         fallbackStart = t.startSec + t.lengthSec;
 
         result->titlesAndText.push_back(t);
+    }
+}
+
+void VegReader::parseMixerBuses(const QByteArray &data, VegOpenResult *result)
+{
+    if (!result) {
+        return;
+    }
+    // {72B8749D-14AB-4588-94A9-39343AEEF7CC}, one chunk per strip, inside the
+    // {220D2BE4-…} list. See MARKDOWN/VEG_CONTAINER_FORMAT.md.
+    static const QString kBusId = QStringLiteral("9d74b872ab14884594a939343aeef7cc");
+    const QVector<VegChunk> chunks = vegRiffChunks(data);
+    if (chunks.isEmpty()) {
+        return; // not a container; there is no scanning fallback for this one
+    }
+
+    const uchar *base = reinterpret_cast<const uchar *>(data.constData());
+    for (const VegChunk &c : chunks) {
+        if (c.isList || c.id != kBusId || c.end - c.payload < 0x100) {
+            continue;
+        }
+        VegMixerBus bus;
+        bus.kind = qFromLittleEndian<quint32>(base + c.payload + 0x0c);
+
+        // The name is not length-prefixed anywhere we can point to: the record carries a
+        // run of null-terminated UTF-16 strings starting around 0xD0, and which of them is
+        // the name depends on the kind — Master puts its output device first. The last
+        // readable string in that window is the name in every sample, and the window keeps
+        // the search away from the plug-in state further down, which is full of bytes that
+        // decode as text and are not.
+        const int from = c.payload + 0xC0;
+        const int to = std::min(c.end, from + 320);
+        QString last;
+        int i = from;
+        while (i + 2 <= to) {
+            QString text;
+            int j = i;
+            bool clean = true;
+            while (j + 2 <= to) {
+                const ushort ch = ushort(base[j]) | (ushort(base[j + 1]) << 8);
+                if (ch == 0) {
+                    break;
+                }
+                if (ch < 0x20 || ch > 0x7E) {
+                    clean = false;
+                    break;
+                }
+                text.append(QChar(ch));
+                j += 2;
+            }
+            if (clean && text.size() >= 3 && text.size() <= 64) {
+                last = text;
+            }
+            i = (j > i) ? j + 2 : i + 2;
+        }
+        if (last.isEmpty()) {
+            continue;
+        }
+        bus.name = last;
+        result->mixerBuses.push_back(bus);
     }
 }
 

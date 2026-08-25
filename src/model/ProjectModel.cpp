@@ -1708,6 +1708,25 @@ bool ProjectModel::applyVegImport(const VegOpenResult &veg, const QString &opene
                 m_tracks[ti].events.push_back(te);
             }
 
+            // Mixing console strips the project actually had. Preview and Master are not
+            // recreated: they exist in every project and the model keeps them implicitly,
+            // so adding them would show two of each.
+            for (const VegMixerBus &b : veg.mixerBuses) {
+                if (b.kind == 3u) {
+                    const int at = addMixerBus();
+                    if (at >= 0 && at < m_mixerBuses.size() && !b.name.isEmpty()) {
+                        m_mixerBuses[at].name = b.name;
+                    }
+                } else if (b.kind == 11u) {
+                    const int at = addMixerInputBus();
+                    if (at >= 0 && at < m_mixerInputBuses.size() && !b.name.isEmpty()) {
+                        m_mixerInputBuses[at].name = b.name;
+                    }
+                } else if (b.kind == 4u) {
+                    addAssignableFxBus({});
+                }
+            }
+
             // Apply VEGAS track FX names from binary strings onto audio tracks
             if (!veg.trackFxNames.isEmpty()) {
                 QVector<FxSlot> mapped;
