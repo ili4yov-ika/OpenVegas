@@ -86,6 +86,7 @@ HEADERS += \
     src/model/ProjectSnapshot.h \
     src/model/SnapshotCommand.h \
     src/io/VegReader.h \
+    src/io/VegOfxParams.h \
     src/io/ProjectInterchange.h \
     src/io/ProjectFile.h \
     src/capture/CaptureSource.h \
@@ -192,6 +193,7 @@ SOURCES += \
     src/model/ProjectSnapshot.cpp \
     src/model/SnapshotCommand.cpp \
     src/io/VegReader.cpp \
+    src/io/VegOfxParams.cpp \
     src/io/ProjectInterchange.cpp \
     src/io/ProjectFile.cpp \
     src/capture/CapturePlan.cpp \

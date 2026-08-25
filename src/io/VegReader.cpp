@@ -530,7 +530,15 @@ void VegReader::recoverVideoEventFxNames(const QByteArray &data, VegOpenResult *
                     continue;
                 }
             }
-            pushUnique(pos - raw.size() * 2, raw);
+            const int idPos = pos - raw.size() * 2;
+            // The identifier is followed by the effect's stored parameters. Decoded here,
+            // where the position is already known, rather than searched for again later.
+            VegOfxEffect decoded;
+            if (!result->ofxParams.contains(raw)
+                && vegOfxDecodeEffect(data, idPos, &decoded) && !decoded.params.isEmpty()) {
+                result->ofxParams.insert(raw, decoded);
+            }
+            pushUnique(idPos, raw);
         }
     };
     scanPrefixed(svfxPrefix);

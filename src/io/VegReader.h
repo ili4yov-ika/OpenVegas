@@ -1,9 +1,11 @@
 #pragma once
 
+#include "io/VegOfxParams.h"
 #include "model/ProjectModel.h"
 
 #include <QByteArray>
 #include <QColor>
+#include <QHash>
 #include <QMap>
 #include <QString>
 #include <QStringList>
@@ -212,6 +214,14 @@ struct VegOpenResult {
     QStringList trackFxNames;
     /** Video/OFX-style event FX (`{Svfx:…}`, `OFX:…`). */
     QStringList eventFxNames;
+    /**
+     * Decoded OFX parameters, keyed by the identifier exactly as `eventFxNames` holds it.
+     *
+     * Without these an effect out of a project reached its plug-in with an empty parameter
+     * map, so the plug-in used its own defaults — zero radius for Chroma Blur — and
+     * rendered as very nearly nothing. The chain looked right and did nothing.
+     */
+    QHash<QString, VegOfxEffect> ofxParams;
     /**
      * Video Track FX chain (`{Svfx:…}`), e.g. Sepia + VelvetMatter Soft Contrast
      * (the latter has no `{Svfx:…}` string of its own — only `<Softlight>` XML —

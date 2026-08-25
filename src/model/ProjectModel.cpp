@@ -56,6 +56,21 @@ FxSlot fxSlotFromVegWithState(const QString &raw, const VegOpenResult &veg)
         }
         slot.state = packFxParams(params);
     }
+    // Real OFX effects keep their parameters in a binary block after the identifier.
+    // Without them the chain named the effect and the plug-in rendered with its own
+    // defaults — zero radius for Chroma Blur — so the effect was present and invisible.
+    const auto ofx = veg.ofxParams.constFind(raw);
+    if (ofx != veg.ofxParams.constEnd() && !ofx.value().params.isEmpty()) {
+        QVariantMap params = unpackFxParams(slot.state);
+        const QVariantMap decoded = vegOfxParamMap(ofx.value());
+        for (auto pit = decoded.constBegin(); pit != decoded.constEnd(); ++pit) {
+            params.insert(pit.key(), pit.value());
+        }
+        if (!ofx.value().presetName.isEmpty()) {
+            params.insert(fxVegasPresetStateKey(), ofx.value().presetName);
+        }
+        slot.state = packFxParams(params);
+    }
     if (slot.format == PluginFormat::Ofx) {
         slot = VegasVideoPluginCatalog::resolveVegImportSlot(slot);
     }

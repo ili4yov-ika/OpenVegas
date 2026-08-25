@@ -7,6 +7,7 @@
 #include "model/ProjectModel.h"
 #include "plugins/AudioPluginTypes.h"
 #include "plugins/OfxHost.h"
+#include "plugins/VegasVideoPluginCatalog.h"
 #include "video/TitlesTextApply.h"
 
 #include <QDir>
@@ -534,4 +535,96 @@ TEST_CASE("Opened project carries the real Glint values and its keyframe lanes",
     }
     REQUIRE(hasMaster);
     REQUIRE(hasHue);
+}
+
+TEST_CASE("An effect out of a project renders with the settings the project stored",
+          "[video-fx][ofx][vegas-video]")
+{
+    // Pinned to the samples tree: without it the catalog resolves Chroma Blur against
+    // whatever VEGAS this machine has configured — here a 2018 install whose plug-in
+    // refuses to render — and the test measures the machine instead of the code.
+    const QString vegasRoot =
+        SamplePaths::resolveProjectPath(QStringLiteral("SAMPLES/VEGAS-PRO-22-PROGRAM-FILES"));
+    if (!QDir(vegasRoot).exists()) {
+        SKIP("SAMPLES/VEGAS-PRO-22-PROGRAM-FILES not available");
+    }
+    VegasVideoPluginCatalog::setDiscoveryRoots({vegasRoot});
+
+    QString project;
+    const VegOpenResult veg = openFxSampleVeg(&project);
+    REQUIRE_FALSE(veg.eventFxNames.isEmpty());
+
+    ProjectModel model;
+    REQUIRE(model.applyVegImport(veg, project));
+
+    // Find the Chroma Blur the project puts on its event.
+    FxSlot blur;
+    for (const Track &t : model.tracks()) {
+        for (const TrackEvent &ev : t.events) {
+            for (const FxSlot &slot : ev.fxChain) {
+                if (slot.displayName.compare(QLatin1String("Chroma Blur"), Qt::CaseInsensitive)
+                    == 0) {
+                    blur = slot;
+                }
+            }
+        }
+    }
+    REQUIRE_FALSE(blur.displayName.isEmpty());
+
+    // The settings have to survive the trip from the file into the slot. Until the
+    // parameter block was decoded this map was empty, the plug-in took its own defaults —
+    // a radius of zero — and the effect rendered as very nearly nothing while looking
+    // present in every list.
+    const QVariantMap params = unpackFxParams(blur.state);
+    CHECK(params.value(QStringLiteral("HorizontalPixels")).toDouble() > 1.0);
+    CHECK(params.value(QStringLiteral("VerticalPixels")).toDouble() > 1.0);
+
+    // And it has to reach the picture. Detail is what a blur destroys, so a checkerboard
+    // measures it: the same frame through the same plug-in with no parameters barely
+    // changes, and with the project's own it visibly softens.
+    QImage source(480, 360, QImage::Format_ARGB32);
+    for (int y = 0; y < source.height(); ++y) {
+        auto *row = reinterpret_cast<QRgb *>(source.scanLine(y));
+        for (int x = 0; x < source.width(); ++x) {
+            const bool on = ((x / 12) + (y / 12)) % 2 == 0;
+            // Strongly coloured squares of similar brightness: this is a *chroma* blur,
+            // so a near-neutral checkerboard gives it almost nothing to do — which is how
+            // an earlier version of this measurement made a working effect look inert.
+            row[x] = on ? qRgb(220, 40, 40) : qRgb(40, 200, 60);
+        }
+    }
+    // How much edge is left. A blur takes detail away, so this falls as the radius grows —
+    // a more direct reading than distance from the original, which a checkerboard saturates.
+    auto detail = [](const QImage &img) {
+        double sum = 0.0;
+        for (int y = 0; y < img.height(); ++y) {
+            const auto *row = reinterpret_cast<const QRgb *>(img.constScanLine(y));
+            for (int x = 1; x < img.width(); ++x) {
+                sum += std::abs(qRed(row[x]) - qRed(row[x - 1]));
+            }
+        }
+        return sum / (img.width() * img.height());
+    };
+
+    // Defaults first, on purpose. An instance keeps whatever parameters were last written
+    // into it, and an empty map overwrites nothing — so a "no parameters" render that runs
+    // second quietly reuses the values from the first and the two come out identical. That
+    // is not the plug-in ignoring the settings; it is the measurement being wrong.
+    FxSlot bare = blur;
+    bare.state.clear();
+    QImage withDefaults = source.copy();
+    OfxHost::instance().processSlot(bare, &withDefaults, 0.0);
+
+    QImage withProject = source.copy();
+    OfxHost::instance().processSlot(blur, &withProject, 0.0);
+
+    const double detailWithProject = detail(withProject);
+    const double detailWithDefaults = detail(withDefaults);
+    INFO("detail left: project " << detailWithProject << ", defaults " << detailWithDefaults);
+
+    // The project asks for a three-to-four pixel blur, so its frame has to be visibly
+    // softer than the one the plug-in's own defaults produce. Before the parameter block
+    // was decoded these two were the same picture.
+    CHECK(detailWithProject < detailWithDefaults * 0.8);
+    CHECK(detailWithProject > 0.0);
 }
