@@ -1,10 +1,16 @@
 #include "capture/CapturePlan.h"
 #include "capture/CapturePreview.h"
+#include "ui/GlobalHotkey.h"
 #include "capture/CaptureRecorder.h"
 #include "capture/CaptureSources.h"
 #include "ui/CaptureTrayIcon.h"
 
+#include <QKeySequence>
 #include <QSet>
+
+#ifdef Q_OS_WIN
+#include <windows.h>
+#endif
 
 #include <catch2/catch_approx.hpp>
 #include <catch2/catch_test_macros.hpp>
@@ -638,4 +644,31 @@ TEST_CASE("An audio input has no preview to offer", "[capture]")
     // Not an error and not an empty picture — the window says so in words instead.
     const CaptureSource m = mic(QStringLiteral("Headset"), 48000, 2, 16);
     CHECK(CapturePreview::argumentsFor(m, QSize(240, 135)).isEmpty());
+}
+
+TEST_CASE("A system-wide combination decodes to what the OS wants", "[capture]")
+{
+    unsigned mods = 0;
+    unsigned vk = 0;
+
+#ifdef Q_OS_WIN
+    REQUIRE(GlobalHotkey::decode(QKeySequence(Qt::AltModifier | Qt::Key_F8), &mods, &vk));
+    CHECK((mods & MOD_ALT) != 0);
+    CHECK((mods & MOD_CONTROL) == 0);
+    CHECK(vk == unsigned(VK_F8));
+
+    // Auto-repeat off, always: a held key repeats as fast as the keyboard does, and a
+    // start/stop toggle would flicker on and off for as long as it is down.
+    CHECK((mods & MOD_NOREPEAT) != 0);
+
+    REQUIRE(GlobalHotkey::decode(
+        QKeySequence(Qt::ControlModifier | Qt::ShiftModifier | Qt::Key_R), &mods, &vk));
+    CHECK((mods & MOD_CONTROL) != 0);
+    CHECK((mods & MOD_SHIFT) != 0);
+    CHECK(vk == unsigned('R'));
+#endif
+
+    // A sequence of chords is not something an OS-level key can be.
+    CHECK_FALSE(GlobalHotkey::decode(QKeySequence(QStringLiteral("Ctrl+K, Ctrl+R")), &mods, &vk));
+    CHECK_FALSE(GlobalHotkey::decode(QKeySequence(), &mods, &vk));
 }

@@ -36,6 +36,7 @@ endif()
     src/ui/WelcomeDialog.cpp
     src/ui/FirstRunDialog.cpp
     src/ui/CaptureTrayIcon.cpp
+    src/ui/GlobalHotkey.cpp
     src/ui/CaptureWindow.cpp
     src/ui/ProjectPropertiesDialog.cpp
     src/ui/MatchMediaVideoSettingsDialog.cpp
@@ -342,6 +343,7 @@ add_executable(OpenVegasCapture
     src/capture/CaptureRecorder.cpp
     src/ui/CaptureWindow.cpp
     src/ui/CaptureTrayIcon.cpp
+    src/ui/GlobalHotkey.cpp
     src/io/FfmpegLocator.cpp
 )
 target_include_directories(OpenVegasCapture PRIVATE ${CMAKE_SOURCE_DIR}/src)
@@ -568,6 +570,7 @@ if(OPENVGAS_BUILD_TESTS)
         src/capture/CaptureSources.cpp
         src/capture/CaptureRecorder.cpp
         src/ui/CaptureTrayIcon.cpp
+        src/ui/GlobalHotkey.cpp
         src/io/SamplePaths.cpp
         src/io/VegReader.cpp
         src/io/VegRiff.cpp

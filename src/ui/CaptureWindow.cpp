@@ -12,6 +12,7 @@
 #include <QHBoxLayout>
 #include <QHeaderView>
 #include <QLabel>
+#include <QKeySequence>
 #include <QLineEdit>
 #include <QPixmap>
 #include <QMessageBox>
@@ -25,6 +26,7 @@
 namespace openvegas {
 
 namespace {
+
 
 constexpr int kIndexRole = Qt::UserRole + 1;
 
@@ -223,6 +225,13 @@ CaptureWindow::CaptureWindow(QWidget *parent)
             &CaptureWindow::toggleRecording);
     m_tray->show();
 
+    // Alt+F8 anywhere: the whole point of a recorder is that it is used from inside the
+    // thing being recorded, so start and stop must not require finding this window first.
+    // It works minimised, in the tray, and while another application has focus.
+    if (m_hotkey.setShortcut(QKeySequence(Qt::AltModifier | Qt::Key_F8))) {
+        connect(&m_hotkey, &GlobalHotkey::activated, this, &CaptureWindow::toggleRecording);
+    }
+
     refreshSources();
 }
 
@@ -340,6 +349,12 @@ void CaptureWindow::updateSummary()
         m_recordBtn->setEnabled(false);
         return;
     }
+    // Said once the plan is usable, because that is when it becomes worth knowing.
+    const QString hotkeyNote =
+        m_hotkey.isRegistered()
+            ? tr("  ·  %1 starts and stops from anywhere")
+                  .arg(m_hotkey.shortcut().toString(QKeySequence::NativeText))
+            : tr("  ·  Alt+F8 is taken by another program");
     const QString why = m_plan.validate();
     if (!why.isEmpty()) {
         m_summary->setText(why);
@@ -365,7 +380,7 @@ void CaptureWindow::updateSummary()
                      .arg(m_plan.bitDepth());
     }
     parts << tr("%n file(s), one per source", "", int(m_plan.outputs().size()));
-    m_summary->setText(parts.join(QStringLiteral(" · ")));
+    m_summary->setText(parts.join(QStringLiteral(" · ")) + hotkeyNote);
     m_recordBtn->setEnabled(true);
 }
 

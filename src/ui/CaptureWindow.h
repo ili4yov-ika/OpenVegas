@@ -4,6 +4,7 @@
 #include "capture/CapturePreview.h"
 #include "capture/CaptureRecorder.h"
 #include "ui/CaptureTrayIcon.h"
+#include "ui/GlobalHotkey.h"
 
 #include <QDialog>
 #include <QVector>
@@ -69,6 +70,8 @@ private:
     CapturePlan m_plan;
     CaptureRecorder m_recorder;
     CapturePreview m_previewGrab;
+    /** Alt+F8 wherever the user is, so a take can start with the window out of the way. */
+    GlobalHotkey m_hotkey;
     QTimer *m_previewTick = nullptr;
     /**
      * Source id whose preview failed, so the timer stops asking it every few seconds.

@@ -41,6 +41,7 @@ HEADERS += \
     src/ui/WelcomeDialog.h \
     src/ui/FirstRunDialog.h \
     src/ui/CaptureTrayIcon.h \
+    src/ui/GlobalHotkey.h \
     src/ui/CaptureWindow.h \
     src/ui/ProjectPropertiesDialog.h \
     src/ui/MatchMediaVideoSettingsDialog.h \
@@ -148,6 +149,7 @@ SOURCES += \
     src/ui/WelcomeDialog.cpp \
     src/ui/FirstRunDialog.cpp \
     src/ui/CaptureTrayIcon.cpp \
+    src/ui/GlobalHotkey.cpp \
     src/ui/CaptureWindow.cpp \
     src/ui/ProjectPropertiesDialog.cpp \
     src/ui/MatchMediaVideoSettingsDialog.cpp \
