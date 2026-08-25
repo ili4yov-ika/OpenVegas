@@ -7,9 +7,11 @@
 
 #include <QFont>
 #include <QPainter>
+#include <QPainterPath>
 
 #include <algorithm>
 #include <cmath>
+#include <limits>
 
 namespace openvegas {
 namespace {
@@ -280,6 +282,70 @@ TransitionPluginInfo makeGradientWipe()
          p(QStringLiteral("Nebulous")), p(QStringLiteral("Paint Splatter")),
          p(QStringLiteral("Puzzle Pieces")), p(QStringLiteral("Soft Noise")),
          p(QStringLiteral("Turbulent Noise"))});
+}
+
+/** The light the curl catches — the same three fields in all three page groups. */
+QVector<TransitionParamInfo> pageLightParams()
+{
+    return {
+        {QStringLiteral("lightColorRed"), QStringLiteral("Light color red"), 0.0, 1.0, 4, {}},
+        {QStringLiteral("lightColorGreen"), QStringLiteral("Light color green"), 0.0, 1.0, 4, {}},
+        {QStringLiteral("lightColorBlue"), QStringLiteral("Light color blue"), 0.0, 1.0, 4, {}},
+    };
+}
+
+TransitionPluginInfo makePagePeel()
+{
+    // Every field is named by the preset package; the angle names the corner being lifted
+    // (30 Bottom-Right, 150 Bottom-Left, 210 Top-Left, 330 Top-Right), which is how the
+    // shipped preset names read once the angle is taken in screen coordinates.
+    QVector<TransitionParamInfo> params = {
+        {QStringLiteral("peelAngle"), QStringLiteral("Peel angle"), 0.0, 360.0, 2, {}},
+        {QStringLiteral("foldRadius"), QStringLiteral("Fold radius"), 0.0, 1.0, 4, {}},
+        {QStringLiteral("slideAmount"), QStringLiteral("Slide amount"), 0.0, 1.0, 4, {}},
+        {QStringLiteral("peelOpacity"), QStringLiteral("Peel opacity"), 0.0, 1.0, 4, {}},
+        {QStringLiteral("perspective"), QStringLiteral("Perspective"), 0.0, 1.0, 4, {}},
+    };
+    params += pageLightParams();
+    TransitionPluginInfo info = makeStubGroup(transitionPagePeelId(), QStringLiteral("Page Peel"),
+                                              QStringLiteral("DXT, 32-bit floating point"), params,
+                                              stockPresets(QStringLiteral("pagepeel")));
+    info.description = QStringLiteral("VEGAS Page Peel");
+    return info;
+}
+
+TransitionPluginInfo makePageRoll()
+{
+    QVector<TransitionParamInfo> params = {
+        {QStringLiteral("rollAngle"), QStringLiteral("Roll angle"), 0.0, 360.0, 2, {}},
+        {QStringLiteral("foldRadius"), QStringLiteral("Fold radius"), 0.0, 1.0, 4, {}},
+        {QStringLiteral("slideAmount"), QStringLiteral("Slide amount"), 0.0, 1.0, 4, {}},
+        {QStringLiteral("rollOpacity"), QStringLiteral("Roll opacity"), 0.0, 1.0, 4, {}},
+        {QStringLiteral("perspective"), QStringLiteral("Perspective"), 0.0, 1.0, 4, {}},
+    };
+    params += pageLightParams();
+    TransitionPluginInfo info = makeStubGroup(transitionPageRollId(), QStringLiteral("Page Roll"),
+                                              QStringLiteral("DXT, 32-bit floating point"), params,
+                                              stockPresets(QStringLiteral("pageroll")));
+    info.description = QStringLiteral("VEGAS Page Roll");
+    return info;
+}
+
+TransitionPluginInfo makePageLoop()
+{
+    QVector<TransitionParamInfo> params = {
+        {QStringLiteral("paperAngle"), QStringLiteral("Paper angle"), 0.0, 360.0, 2, {}},
+        {QStringLiteral("paperOpacity"), QStringLiteral("Paper opacity"), 0.0, 1.0, 4, {}},
+        {QStringLiteral("loopRadius"), QStringLiteral("Loop radius"), 0.0, 1.0, 4, {}},
+        {QStringLiteral("loopPosition"), QStringLiteral("Loop position"), 0.0, 1.0, 4, {}},
+        {QStringLiteral("perspective"), QStringLiteral("Perspective"), 0.0, 1.0, 4, {}},
+    };
+    params += pageLightParams();
+    TransitionPluginInfo info = makeStubGroup(transitionPageLoopId(), QStringLiteral("Page Loop"),
+                                              QStringLiteral("DXT, 32-bit floating point"), params,
+                                              stockPresets(QStringLiteral("pageloop")));
+    info.description = QStringLiteral("VEGAS Page Loop");
+    return info;
 }
 
 TransitionPluginInfo makePortals()
@@ -968,6 +1034,9 @@ const QVector<QPair<QString, QString>> &renderedOfxGroups()
         {QStringLiteral("3dshuffle"), transitionShuffle3dId()},
         {QStringLiteral("3dflyinout"), transitionFlyInOut3dId()},
         {QStringLiteral("portals"), transitionPortalsId()},
+        {QStringLiteral("pagepeel"), transitionPagePeelId()},
+        {QStringLiteral("pageroll"), transitionPageRollId()},
+        {QStringLiteral("pageloop"), transitionPageLoopId()},
     };
     return groups;
 }
@@ -1004,6 +1073,7 @@ const QVector<TransitionPluginInfo> &transitionCatalog()
             makeBlinds(),     makeVenetianBlinds(), makeLinearWipe(), makeBarnDoor(),
             makeIris(),       makeClockWipe(),      makeCascade3D(),  makeShuffle3D(),
             makeFlyInOut3D(), makeGradientWipe(),   makePortals(),    makeZoom(),
+            makePagePeel(),   makePageRoll(),       makePageLoop(),
             makePush(),       makeSlide(),          makeSqueeze(),    makeSplit(),
             makeFlash(),      makeStarWipe(),       makeSwap(),
             makeSpiral(),     makeDissolve(),       makeCrossEffect()};
@@ -2603,6 +2673,247 @@ QImage renderPortals(const QImage &from, const QImage &to, double progress,
     return out;
 }
 
+// ---------------------------------------------------------------- Page Peel / Roll / Loop
+
+/**
+ * The geometry the three page groups share.
+ *
+ * All of them lift the outgoing clip off the frame along one axis. The angle names the
+ * corner being lifted — the preset names say so outright, and they line up with screen
+ * coordinates (y down): 30° is Bottom-Right, 150° Bottom-Left, 210° Top-Left, 330°
+ * Top-Right, 180° Left, 270° Top. So the direction is simply (cos, sin) with y down, and
+ * the fold is the line perpendicular to it, sweeping from that corner to the far one.
+ */
+struct PageAxis {
+    QPointF dir;      ///< unit vector towards the corner being lifted
+    double atCorner;  ///< projection of the lifted corner onto dir
+    double atFar;     ///< projection of the far corner
+    double span;      ///< distance the fold travels
+};
+
+PageAxis pageAxisFor(double angleDeg, const QSizeF &size)
+{
+    PageAxis a;
+    const double rad = angleDeg * M_PI / 180.0;
+    a.dir = QPointF(std::cos(rad), std::sin(rad));
+    const QPointF corners[4] = {QPointF(0, 0), QPointF(size.width(), 0),
+                                QPointF(size.width(), size.height()), QPointF(0, size.height())};
+    a.atCorner = -std::numeric_limits<double>::max();
+    a.atFar = std::numeric_limits<double>::max();
+    for (const QPointF &c : corners) {
+        const double u = c.x() * a.dir.x() + c.y() * a.dir.y();
+        a.atCorner = std::max(a.atCorner, u);
+        a.atFar = std::min(a.atFar, u);
+    }
+    a.span = a.atCorner - a.atFar;
+    return a;
+}
+
+/** The half-plane `u <= at` as a polygon big enough to cover the frame from any angle. */
+QPolygonF pageHalfPlane(const PageAxis &axis, double at, const QSizeF &size)
+{
+    const double reach = size.width() + size.height();
+    const QPointF n = axis.dir;
+    const QPointF t(-n.y(), n.x()); // along the fold
+    const QPointF onLine(n.x() * at, n.y() * at);
+    QPolygonF poly;
+    poly << onLine + t * reach << onLine - t * reach << onLine - t * reach - n * reach
+         << onLine + t * reach - n * reach;
+    return poly;
+}
+
+/** Places an image mirrored about the fold, so the lifted part folds back over itself. */
+QTransform pageFoldTransform(const PageAxis &axis, double at)
+{
+    // Reflect about the line u = at: p' = p - 2 (u - at) n.
+    const double nx = axis.dir.x();
+    const double ny = axis.dir.y();
+    return QTransform(1.0 - 2.0 * nx * nx, -2.0 * nx * ny,
+                      -2.0 * nx * ny, 1.0 - 2.0 * ny * ny,
+                      2.0 * at * nx, 2.0 * at * ny);
+}
+
+/** Shading across the curl: dark in the crease, catching the light as it turns over. */
+QLinearGradient pageCurlShade(const PageAxis &axis, double at, double width,
+                              const QColor &light)
+{
+    const QPointF n = axis.dir;
+    QLinearGradient g(QPointF(n.x() * (at - width), n.y() * (at - width)),
+                      QPointF(n.x() * (at + width), n.y() * (at + width)));
+    QColor lit = light;
+    lit.setAlphaF(0.55);
+    g.setColorAt(0.0, QColor(0, 0, 0, 0));
+    g.setColorAt(0.35, QColor(0, 0, 0, 115));
+    g.setColorAt(0.62, lit);
+    g.setColorAt(1.0, QColor(0, 0, 0, 0));
+    return g;
+}
+
+/**
+ * One page transition, told apart by how much of the lifted part is still facing us.
+ *
+ * Peel folds the page back on itself, so nearly all of it stays visible as a mirrored
+ * flap. Roll winds it onto a cylinder, so only the first half-turn — pi times the radius —
+ * of the lifted length ever faces us and the rest is wound out of sight; that is what
+ * makes a tight radius read as a tube rather than a fold. Loop is Roll with the cylinder
+ * drawn as a visible ring at a point along the fold. How much of the flap survives is the
+ * whole difference between the three, so they share one function and differ by two
+ * arguments.
+ */
+QImage renderPageFamily(const QImage &from, const QImage &to, double progress,
+                        const TransitionInstance &t, const QSize &size,
+                        const char *angleKey, const char *radiusKey, const char *opacityKey,
+                        bool ringed)
+{
+    const auto num = [&](const char *key) {
+        return transitionParamValue(t, QString::fromLatin1(key));
+    };
+    const double angle = num(angleKey);
+    const double radius = std::max(0.0, num(radiusKey));
+    const double opacity = std::clamp(num(opacityKey), 0.0, 1.0);
+    const double perspective = std::clamp(num("perspective"), 0.0, 1.0);
+    const double slide = ringed ? 0.0 : std::clamp(num("slideAmount"), 0.0, 1.0);
+    const double ringPos = ringed ? std::clamp(num("loopPosition"), 0.0, 1.0) : 0.0;
+    const QColor light = QColor::fromRgbF(std::clamp(num("lightColorRed"), 0.0, 1.0),
+                                          std::clamp(num("lightColorGreen"), 0.0, 1.0),
+                                          std::clamp(num("lightColorBlue"), 0.0, 1.0));
+
+    const QImage a = toArgb(from, size);
+    const QImage b = toArgb(to, size);
+    QImage result(size, QImage::Format_ARGB32_Premultiplied);
+    result.fill(Qt::transparent);
+
+    QPainter p(&result);
+    p.setRenderHint(QPainter::SmoothPixmapTransform, true);
+    p.setRenderHint(QPainter::Antialiasing, true);
+    if (!b.isNull()) {
+        p.drawImage(0, 0, b); // what the page uncovers
+    }
+    if (a.isNull()) {
+        p.end();
+        return result;
+    }
+
+    const QSizeF fs(size.width(), size.height());
+    const PageAxis axis = pageAxisFor(angle, fs);
+    const double diag = std::hypot(fs.width(), fs.height());
+    const double curl = radius * diag * 0.5;
+    // The fold runs past the far corner by the curl, or the last sliver of page would
+    // still be standing at progress 1.
+    const double at = axis.atCorner - progress * (axis.span + curl * 2.0);
+
+    // The part still lying flat.
+    p.save();
+    {
+        QPainterPath flat;
+        flat.addPolygon(pageHalfPlane(axis, at, fs));
+        p.setClipPath(flat);
+    }
+    if (slide > 0.001) {
+        // Sliding takes the whole sheet with it instead of hinging it at the fold.
+        const double travel = slide * progress * diag * 0.35;
+        p.translate(axis.dir.x() * travel, axis.dir.y() * travel);
+    }
+    p.drawImage(0, 0, a);
+    p.restore();
+
+    const double lifted = std::max(0.0, axis.atCorner - at);
+    const double windable = M_PI * curl;
+    const bool winds = ringed || radius < 0.25;
+    const double visible = winds ? std::min(lifted, windable) : lifted;
+
+    if (visible > 0.5 && opacity > 0.001) {
+        p.save();
+        QPainterPath flap;
+        flap.addPolygon(pageHalfPlane(axis, at, fs));
+        QPainterPath keep;
+        keep.addPolygon(pageHalfPlane(axis, at - visible, fs));
+        p.setClipPath(flap.subtracted(keep));
+        p.setOpacity(0.25 + 0.75 * opacity);
+        QTransform m = pageFoldTransform(axis, at);
+        if (perspective > 0.001) {
+            // The far end of the flap leans away, so it comes back a little smaller.
+            const QPointF pivot(fs.width() * 0.5, fs.height() * 0.5);
+            m = QTransform().translate(pivot.x(), pivot.y())
+                    .scale(1.0 - 0.18 * perspective, 1.0 - 0.18 * perspective)
+                    .translate(-pivot.x(), -pivot.y())
+                * m;
+        }
+        p.setTransform(m, true);
+        p.drawImage(0, 0, a);
+        p.restore();
+    }
+
+    // The crease itself, drawn whether or not the flap survived: on a tight roll it is
+    // most of what there is to see.
+    if (lifted > 0.5 && curl > 0.5) {
+        p.save();
+        p.setClipRect(QRectF(QPointF(0, 0), fs));
+        QPainterPath band;
+        band.addPolygon(pageHalfPlane(axis, at + curl, fs));
+        QPainterPath inner;
+        inner.addPolygon(pageHalfPlane(axis, at - curl, fs));
+        p.fillPath(band.subtracted(inner), pageCurlShade(axis, at, std::max(2.0, curl), light));
+        p.restore();
+    }
+
+    // Loop: the page curls right round, so the curl is a tube lying along the whole fold
+    // rather than a crease. Loop position slides that tube along the peel axis — ahead of
+    // the fold or behind it — and a preset with radius 0 ("Top-Left, Opaque, No Loop")
+    // draws no tube at all, which is exactly what its name promises.
+    //
+    // Approximate: without a reference render of the real plug-in this is the reading the
+    // parameter names support, not a measured match. See MARKDOWN/CHECKLIST.md.
+    if (ringed && curl > 1.0 && lifted > 0.5) {
+        const QPointF n = axis.dir;
+        const double centre = at + (ringPos * 2.0 - 1.0) * curl;
+        p.save();
+        p.setClipRect(QRectF(QPointF(0, 0), fs));
+        QPainterPath band;
+        band.addPolygon(pageHalfPlane(axis, centre + curl, fs));
+        QPainterPath inner;
+        inner.addPolygon(pageHalfPlane(axis, centre - curl, fs));
+
+        // Round shading across the tube: dark where it turns away on both sides, bright
+        // along the top. A flat gradient would read as a painted stripe instead.
+        QLinearGradient tube(QPointF(n.x() * (centre - curl), n.y() * (centre - curl)),
+                             QPointF(n.x() * (centre + curl), n.y() * (centre + curl)));
+        QColor lit = light;
+        lit.setAlphaF(std::clamp(0.7 * (0.35 + 0.65 * opacity), 0.0, 1.0));
+        tube.setColorAt(0.0, QColor(0, 0, 0, 0));
+        tube.setColorAt(0.18, QColor(0, 0, 0, 105));
+        tube.setColorAt(0.5, lit);
+        tube.setColorAt(0.82, QColor(0, 0, 0, 105));
+        tube.setColorAt(1.0, QColor(0, 0, 0, 0));
+        p.fillPath(band.subtracted(inner), tube);
+        p.restore();
+    }
+
+    p.end();
+    return result;
+}
+
+QImage renderPagePeel(const QImage &from, const QImage &to, double progress,
+                      const TransitionInstance &t, const QSize &size)
+{
+    return renderPageFamily(from, to, progress, t, size, "peelAngle", "foldRadius",
+                            "peelOpacity", false);
+}
+
+QImage renderPageRoll(const QImage &from, const QImage &to, double progress,
+                      const TransitionInstance &t, const QSize &size)
+{
+    return renderPageFamily(from, to, progress, t, size, "rollAngle", "foldRadius",
+                            "rollOpacity", false);
+}
+
+QImage renderPageLoop(const QImage &from, const QImage &to, double progress,
+                      const TransitionInstance &t, const QSize &size)
+{
+    return renderPageFamily(from, to, progress, t, size, "paperAngle", "loopRadius",
+                            "paperOpacity", true);
+}
+
 QImage renderTransition(const QImage &from, const QImage &to, double progress,
                         const TransitionInstance &t)
 {
@@ -2673,6 +2984,15 @@ QImage renderTransition(const QImage &from, const QImage &to, double progress,
     }
     if (t.pluginId == transitionPortalsId()) {
         return renderPortals(from, to, p, t, size);
+    }
+    if (t.pluginId == transitionPagePeelId()) {
+        return renderPagePeel(from, to, p, t, size);
+    }
+    if (t.pluginId == transitionPageRollId()) {
+        return renderPageRoll(from, to, p, t, size);
+    }
+    if (t.pluginId == transitionPageLoopId()) {
+        return renderPageLoop(from, to, p, t, size);
     }
     return crossDissolve(from, to, p, size);
 }

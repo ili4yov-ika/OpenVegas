@@ -604,3 +604,148 @@ TEST_CASE("Every group VEGAS ships presets for takes them from the package",
         }
     }
 }
+
+TEST_CASE("A page lifts from the corner its preset is named after", "[video][transitions]")
+{
+    const QSize size(80, 80);
+    QImage a(size, QImage::Format_ARGB32_Premultiplied);
+    a.fill(QColor(0, 0, 0));
+    QImage b(size, QImage::Format_ARGB32_Premultiplied);
+    b.fill(QColor(0, 255, 0));
+
+    // Green means the page has lifted here and the incoming clip shows through.
+    auto uncovered = [&](const QString &id, const QString &preset, int x, int y) {
+        const TransitionInstance t = makeTransitionInstance(id, preset);
+        REQUIRE(t.isValid());
+        return qGreen(renderTransition(a, b, 0.3, t).pixel(x, y)) > 150;
+    };
+
+    // The angle is in screen coordinates, y down, and points at the corner being lifted:
+    // 210 Top-Left, 30 Bottom-Right, 270 Top, 180 Left. Read any other way — the usual
+    // maths convention with y up — every one of these presets peels from the opposite
+    // corner to the one it is named after.
+    CHECK(uncovered(transitionPagePeelId(), QStringLiteral("Top-Left, Medium Fold"), 4, 4));
+    CHECK_FALSE(
+        uncovered(transitionPagePeelId(), QStringLiteral("Top-Left, Medium Fold"), 76, 76));
+
+    CHECK(uncovered(transitionPagePeelId(), QStringLiteral("Bottom-Right, Medium Fold"), 76, 76));
+    CHECK_FALSE(uncovered(transitionPagePeelId(), QStringLiteral("Bottom-Right, Medium Fold"), 4, 4));
+
+    CHECK(uncovered(transitionPageRollId(), QStringLiteral("Bottom-Left, Medium Curl"), 4, 76));
+    CHECK_FALSE(uncovered(transitionPageRollId(), QStringLiteral("Bottom-Left, Medium Curl"), 76, 4));
+
+    // An edge rather than a corner: Top lifts the whole top edge at once, so both top
+    // corners go together and neither bottom one moves.
+    CHECK(uncovered(transitionPageLoopId(), QStringLiteral("Top, Large Loop, Red Light"), 4, 4));
+    CHECK(uncovered(transitionPageLoopId(), QStringLiteral("Top, Large Loop, Red Light"), 76, 4));
+    CHECK_FALSE(
+        uncovered(transitionPageLoopId(), QStringLiteral("Top, Large Loop, Red Light"), 40, 76));
+}
+
+TEST_CASE("Peel, roll and loop are three different things at the same angle",
+          "[video][transitions]")
+{
+    const QSize size(96, 96);
+    QImage a(size, QImage::Format_ARGB32_Premultiplied);
+    for (int y = 0; y < size.height(); ++y) {
+        auto *row = reinterpret_cast<QRgb *>(a.scanLine(y));
+        for (int x = 0; x < size.width(); ++x) {
+            row[x] = qRgb(255 * x / (size.width() - 1), 255 * y / (size.height() - 1), 30);
+        }
+    }
+    QImage b(size, QImage::Format_ARGB32_Premultiplied);
+    b.fill(QColor(20, 20, 220));
+
+    auto frame = [&](const QString &id, const QString &preset) {
+        const TransitionInstance t = makeTransitionInstance(id, preset);
+        REQUIRE(t.isValid());
+        return renderTransition(a, b, 0.45, t);
+    };
+    auto differing = [&](const QImage &l, const QImage &r) {
+        int diff = 0;
+        for (int y = 0; y < l.height(); ++y) {
+            const auto *r1 = reinterpret_cast<const QRgb *>(l.constScanLine(y));
+            const auto *r2 = reinterpret_cast<const QRgb *>(r.constScanLine(y));
+            for (int x = 0; x < l.width(); ++x) {
+                if (r1[x] != r2[x]) {
+                    ++diff;
+                }
+            }
+        }
+        return diff;
+    };
+
+    // All three lift from the top-left at the same moment, so what separates them is only
+    // what the lifted part does: a peel folds back flat and stays visible, a roll winds
+    // all but its first half-turn out of sight, a loop shows the cylinder as a ring.
+    const QImage peel = frame(transitionPagePeelId(), QStringLiteral("Top-Left, Medium Fold"));
+    const QImage roll = frame(transitionPageRollId(), QStringLiteral("Top-Left, Medium Curl"));
+    const QImage loop = frame(transitionPageLoopId(), QStringLiteral("Top-Left, Medium Loop"));
+    const int pixels = size.width() * size.height();
+    CHECK(differing(peel, roll) > pixels / 50);
+    CHECK(differing(peel, loop) > pixels / 50);
+    CHECK(differing(roll, loop) > pixels / 50);
+}
+
+TEST_CASE("A loop preset that says No Loop draws none", "[video][transitions]")
+{
+    const QSize size(96, 96);
+    QImage a(size, QImage::Format_ARGB32_Premultiplied);
+    a.fill(QColor(220, 220, 220));
+    QImage b(size, QImage::Format_ARGB32_Premultiplied);
+    b.fill(QColor(10, 10, 10));
+
+    auto frame = [&](const QString &preset) {
+        const TransitionInstance t = makeTransitionInstance(transitionPageLoopId(), preset);
+        REQUIRE(t.isValid());
+        return renderTransition(a, b, 0.4, t);
+    };
+
+    // Both lift from the top-left and are fully opaque; the only difference the preset
+    // names is the loop, and "Top-Left, Opaque, No Loop" sets its radius to zero. If the
+    // ring were drawn regardless, these two would be the same picture.
+    const QImage none = frame(QStringLiteral("Top-Left, Opaque, No Loop"));
+    const QImage medium = frame(QStringLiteral("Top-Left, Medium Loop"));
+    int diff = 0;
+    for (int y = 0; y < size.height(); ++y) {
+        const auto *r1 = reinterpret_cast<const QRgb *>(none.constScanLine(y));
+        const auto *r2 = reinterpret_cast<const QRgb *>(medium.constScanLine(y));
+        for (int x = 0; x < size.width(); ++x) {
+            if (r1[x] != r2[x]) {
+                ++diff;
+            }
+        }
+    }
+    CHECK(diff > (size.width() * size.height()) / 50);
+}
+
+TEST_CASE("A page transition finishes: nothing of the old clip is left standing",
+          "[video][transitions]")
+{
+    const QSize size(64, 64);
+    QImage a(size, QImage::Format_ARGB32_Premultiplied);
+    a.fill(QColor(255, 0, 0));
+    QImage b(size, QImage::Format_ARGB32_Premultiplied);
+    b.fill(QColor(0, 0, 255));
+
+    // The fold has to run past the far corner by the curl's own width, or the last sliver
+    // of page is still on screen when the transition is over.
+    for (const QString &id :
+         {transitionPagePeelId(), transitionPageRollId(), transitionPageLoopId()}) {
+        const TransitionPluginInfo *info = transitionPluginById(id);
+        REQUIRE(info);
+        for (const TransitionPresetInfo &preset : info->presets) {
+            TransitionInstance t;
+            t.pluginId = id;
+            t.presetName = preset.name;
+            t.params = preset.params;
+            const QImage end = renderTransition(a, b, 1.0, t);
+            INFO(info->name.toStdString() << " / " << preset.name.toStdString());
+            for (int y = 0; y < size.height(); y += 8) {
+                for (int x = 0; x < size.width(); x += 8) {
+                    CHECK(qRed(end.pixel(x, y)) < 60);
+                }
+            }
+        }
+    }
+}

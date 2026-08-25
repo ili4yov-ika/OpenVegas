@@ -126,6 +126,18 @@ inline QString transitionPortalsId()
 {
     return QStringLiteral("builtin:Transition:Portals");
 }
+inline QString transitionPagePeelId()
+{
+    return QStringLiteral("builtin:Transition:PagePeel");
+}
+inline QString transitionPageRollId()
+{
+    return QStringLiteral("builtin:Transition:PageRoll");
+}
+inline QString transitionPageLoopId()
+{
+    return QStringLiteral("builtin:Transition:PageLoop");
+}
 
 /**
  * Catalog id for a transition VEGAS stores as "{Svfx:…:key}". `key` is the tail of that
