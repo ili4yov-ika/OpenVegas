@@ -38,6 +38,14 @@ public:
 
 signals:
     void transitionChanged(int eventId, bool fadeIn, const TransitionInstance &t);
+    /**
+     * The transition should be taken off this fade.
+     *
+     * The fade itself stays: a crossfade without a transition is a plain dissolve, which is
+     * what was there before one was dropped on it. Removing the fade too would delete an
+     * edit the user did not ask about.
+     */
+    void transitionRemoved(int eventId, bool fadeIn);
 
 private:
     void rebuildParamRows();
@@ -55,6 +63,7 @@ private:
     QComboBox *m_presetCombo = nullptr;
     QWidget *m_paramsHost = nullptr;
     QPushButton *m_animateBtn = nullptr;
+    QPushButton *m_removeBtn = nullptr;
     QWidget *m_animatePane = nullptr;
 
     QHash<QString, QSlider *> m_sliders;

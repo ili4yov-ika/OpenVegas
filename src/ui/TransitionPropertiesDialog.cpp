@@ -1,5 +1,6 @@
 #include "ui/TransitionPropertiesDialog.h"
 
+#include "ui/IconFactory.h"
 #include "ui/KeyframeLaneWidgets.h"
 
 #include <QComboBox>
@@ -72,9 +73,16 @@ TransitionPropertiesDialog::TransitionPropertiesDialog(QWidget *parent)
     m_animateBtn = new QPushButton(tr("Animate"), this);
     m_animateBtn->setCheckable(true);
     m_animateBtn->setFixedWidth(90);
+    // Where a transition is taken off: the settings are the one place it is certainly
+    // being looked at, and until now the only way to undo dropping one was Ctrl+Z.
+    m_removeBtn = new QPushButton(tr("Remove Transition"), this);
+    m_removeBtn->setIcon(IconFactory::iconFromSvgBody(IconFactory::svgRemove()));
+    m_removeBtn->setToolTip(tr("Take the transition off this fade, leaving a plain crossfade"));
+
     auto *animRow = new QHBoxLayout();
     animRow->addWidget(m_animateBtn);
     animRow->addStretch(1);
+    animRow->addWidget(m_removeBtn);
     root->addLayout(animRow);
 
     // Keyframe strip: shown by the Animate toggle, exactly like the real window. Only the
@@ -96,6 +104,15 @@ TransitionPropertiesDialog::TransitionPropertiesDialog(QWidget *parent)
     root->addWidget(m_animatePane);
     root->addStretch(1);
 
+    connect(m_removeBtn, &QPushButton::clicked, this, [this]() {
+        if (m_eventId < 0) {
+            return;
+        }
+        emit transitionRemoved(m_eventId, m_fadeIn);
+        // Nothing left to configure, so the window goes with it rather than sitting there
+        // showing the settings of something that is no longer on the timeline.
+        close();
+    });
     connect(m_animateBtn, &QPushButton::toggled, this, [this](bool on) {
         m_animatePane->setVisible(on);
         adjustSize();

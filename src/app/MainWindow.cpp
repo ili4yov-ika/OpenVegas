@@ -4206,6 +4206,22 @@ void MainWindow::openTransitionProperties(int eventId, bool fadeIn)
                         m_timeline->update();
                     }
                 });
+        connect(m_transitionProps, &TransitionPropertiesDialog::transitionRemoved, this,
+                [this](int id, bool isFadeIn) {
+                    TrackEvent *target = m_project.findEvent(id);
+                    if (!target) {
+                        return;
+                    }
+                    // Only the transition goes; the fade stays and reverts to a plain
+                    // crossfade, which is what the edit was before one was dropped on it.
+                    (isFadeIn ? target->transitionIn : target->transitionOut) =
+                        TransitionInstance();
+                    refreshPreviewFrame(m_project.playheadSec());
+                    if (m_timeline) {
+                        m_timeline->update();
+                    }
+                    commitDocumentEdit(tr("Remove Transition"));
+                });
         connect(m_transitionProps, &QDialog::finished, this, [this](int) {
             commitDocumentEdit(tr("Transition Properties"));
         });
