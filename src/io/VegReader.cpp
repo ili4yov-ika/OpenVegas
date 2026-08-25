@@ -1080,6 +1080,7 @@ VegOpenResult VegReader::open(const QString &path, QString *error)
     parseTransitions(data, &result);
     parseOfxTransitions(data, &result);
     parseMixerBuses(data, &result);
+    parseMediaPool(data, &result);
     parseFxStateChunks(data, &result);
     parseLegacyVideoFxStates(data, &result);
     assignEventNames(&result);
@@ -2330,6 +2331,70 @@ void VegReader::parseMixerBuses(const QByteArray &data, VegOpenResult *result)
         }
         bus.name = last;
         result->mixerBuses.push_back(bus);
+    }
+}
+
+void VegReader::parseMediaPool(const QByteArray &data, VegOpenResult *result)
+{
+    if (!result) {
+        return;
+    }
+    // {B28F2D5D-230F-11D2-86AF-00C04F8EDB8A} inside the {B28F2D5B-…} list, one per entry.
+    // See MARKDOWN/VEG_CONTAINER_FORMAT.md.
+    static const QString kEntryId = QStringLiteral("5d2d8fb20f23d21186af00c04f8edb8a");
+    const QVector<VegChunk> chunks = vegRiffChunks(data);
+    if (chunks.isEmpty()) {
+        return;
+    }
+    const uchar *base = reinterpret_cast<const uchar *>(data.constData());
+
+    for (const VegChunk &c : chunks) {
+        if (c.isList || c.id != kEntryId) {
+            continue;
+        }
+        // Readable UTF-16 runs in order. The entry holds more than text and its layout is
+        // not decoded, so the strings are picked out by what they say rather than by where
+        // they sit — a path has a separator in it, a generator names itself "{Svfx:…}".
+        QStringList strings;
+        int i = c.payload;
+        while (i + 2 <= c.end) {
+            QString text;
+            int j = i;
+            bool clean = true;
+            while (j + 2 <= c.end) {
+                const ushort ch = ushort(base[j]) | (ushort(base[j + 1]) << 8);
+                if (ch == 0) {
+                    break;
+                }
+                if (ch < 0x20 || ch > 0x2000) {
+                    clean = false;
+                    break;
+                }
+                text.append(QChar(ch));
+                j += 2;
+            }
+            if (clean && text.size() >= 3) {
+                strings << text;
+            }
+            i = (j > i) ? j + 2 : i + 2;
+        }
+
+        VegPoolMedia media;
+        for (const QString &s : strings) {
+            if (s.startsWith(QLatin1String("{Svfx:"), Qt::CaseInsensitive)) {
+                media.generatorId = s;
+            } else if (media.path.isEmpty()
+                       && (s.contains(QLatin1Char('\\')) || s.contains(QLatin1Char('/')))) {
+                media.path = s;
+            } else if (media.displayName.isEmpty() && !s.contains(QLatin1Char('\\'))
+                       && !s.startsWith(QLatin1String("META:"))) {
+                media.displayName = s;
+            }
+        }
+        if (media.path.isEmpty() && media.generatorId.isEmpty()) {
+            continue; // nothing recognisable; better to omit than to invent an entry
+        }
+        result->mediaPool.push_back(media);
     }
 }
 

@@ -212,6 +212,28 @@ struct VegMarkerInfo {
  * mixer and eight times in one with extra busses, where the names inside read Preview,
  * Master, Bus A, Bus B and Input A…D — which is what the console shows for that project.
  */
+/**
+ * One entry of the project's media pool.
+ *
+ * Identified by counting again: the chunk appears once per media file, twice in the project
+ * that uses two videos, and fifty-six times in the one built out of Titles & Text — where
+ * every generator is its own piece of media, exactly as VEGAS's own Project Media window
+ * shows it.
+ */
+struct VegPoolMedia {
+    /**
+     * Path on disk, or the pseudo-path VEGAS writes for generated media:
+     * `META:\Video Generator\{Svfx:com.vegascreativesoftware:titlesandtext}`.
+     */
+    QString path;
+    /** Generator identifier for generated media, empty for a file. */
+    QString generatorId;
+    /** What the media pool shows — "VEGAS Titles & Text" — when the project says. */
+    QString displayName;
+
+    bool isGenerated() const { return !generatorId.isEmpty(); }
+};
+
 struct VegMixerBus {
     /** 2 Master, 3 a bus, 4 an assignable FX bus, 7 Preview, 11 an input bus. */
     quint32 kind = 0;
@@ -229,6 +251,13 @@ struct VegOpenResult {
     QStringList eventFxNames;
     /** Mixing console busses, in the order the project stores them. */
     QVector<VegMixerBus> mixerBuses;
+    /**
+     * Media pool as the project stores it, in order.
+     *
+     * Structural, unlike `mediaPaths`, which is recovered by scanning the whole file for
+     * things that look like paths. Generated media have no path to scan for at all.
+     */
+    QVector<VegPoolMedia> mediaPool;
     /**
      * Decoded OFX parameters, keyed by the identifier exactly as `eventFxNames` holds it.
      *
@@ -326,6 +355,8 @@ private:
     static void parseOfxTransitions(const QByteArray &data, VegOpenResult *result);
     /** Mixing console busses from the `{220D2BE4-…}` list. */
     static void parseMixerBuses(const QByteArray &data, VegOpenResult *result);
+    /** Media pool entries from the `{B28F2D5B-…}` list. */
+    static void parseMediaPool(const QByteArray &data, VegOpenResult *result);
     static void parseFxStateChunks(const QByteArray &data, VegOpenResult *result);
     /** Recover `<Glint>` / `<Softlight>` XML state — values, keyframe times, preset name. */
     static void parseLegacyVideoFxStates(const QByteArray &data, VegOpenResult *result);

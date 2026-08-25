@@ -186,3 +186,43 @@ TEST_CASE("An imported project keeps the mixer it was saved with", "[veg][mixer]
     CHECK(mixed->mixerInputBuses()[0].name == QStringLiteral("Input A"));
     CHECK(mixed->mixerInputBuses()[3].name == QStringLiteral("Input D"));
 }
+
+TEST_CASE("The media pool comes out of a project, generators included", "[veg][media]")
+{
+    const QString dir = SamplePaths::vegProjectDir();
+    if (dir.isEmpty()) {
+        SKIP("SAMPLES/veg_project not available");
+    }
+    auto open = [&](const QString &name) {
+        QString err;
+        return VegReader::open(QDir(dir).filePath(name), &err);
+    };
+
+    // One video, one entry.
+    const VegOpenResult one = open(QStringLiteral("project_big--buck-bunny_pan-crop.veg"));
+    REQUIRE(one.mediaPool.size() == 1);
+    CHECK(one.mediaPool[0].path.contains(QStringLiteral("big-buck-bunny")));
+    CHECK_FALSE(one.mediaPool[0].isGenerated());
+
+    // Two videos, two entries, in the order the project stores them.
+    const VegOpenResult two = open(QStringLiteral("project_big--buck-bunny+other-video.veg"));
+    REQUIRE(two.mediaPool.size() == 2);
+    CHECK(two.mediaPool[0].path.endsWith(QStringLiteral("Kdenlive.mp4")));
+    CHECK(two.mediaPool[1].path.contains(QStringLiteral("big-buck-bunny")));
+
+    // And the reason this is worth having: generated media has no file to scan for. Every
+    // Titles & Text event is its own piece of media, which is why this project carries 56
+    // entries against its one video.
+    const VegOpenResult titles = open(QStringLiteral("project_big--buck-bunny_titles-and-text.veg"));
+    REQUIRE(titles.mediaPool.size() > 50);
+    int generated = 0;
+    for (const VegPoolMedia &m : titles.mediaPool) {
+        if (m.isGenerated()) {
+            ++generated;
+            CHECK(m.generatorId.contains(QStringLiteral("titlesandtext"), Qt::CaseInsensitive));
+            CHECK(m.path.startsWith(QStringLiteral("META:")));
+        }
+    }
+    CHECK(generated == titles.mediaPool.size() - 1); // everything but the video
+    CHECK(titles.mediaPool[0].isGenerated() == false);
+}
