@@ -996,3 +996,50 @@ TEST_CASE("Without a provider the built-in geometry still draws every group",
         CHECK(img.size() == size);
     }
 }
+
+TEST_CASE("The groups VEGAS ships are drawn by VEGAS, the rest by us",
+          "[video][transitions][ofx]")
+{
+    ensureQtGuiApp();
+    const QString root =
+        SamplePaths::resolveProjectPath(QStringLiteral("SAMPLES/VEGAS-PRO-22-PROGRAM-FILES"));
+    if (!QDir(root).exists()) {
+        SKIP("SAMPLES/VEGAS-PRO-22-PROGRAM-FILES not available");
+    }
+
+    const QSize size(96, 72);
+    QImage from(size, QImage::Format_ARGB32_Premultiplied);
+    from.fill(QColor(240, 80, 40));
+    QImage to(size, QImage::Format_ARGB32_Premultiplied);
+    to.fill(QColor(40, 90, 230));
+
+    auto drawnByPlugin = [&](const QString &pluginId, const QString &preset) {
+        TransitionInstance t = makeTransitionInstance(pluginId, preset);
+        REQUIRE(t.isValid());
+        OfxTransitionSource::uninstall();
+        const QImage ours =
+            renderTransition(from, to, 0.5, t).convertToFormat(QImage::Format_ARGB32);
+        OfxTransitionSource::install({root});
+        const QImage viaPlugin =
+            renderTransition(from, to, 0.5, t).convertToFormat(QImage::Format_ARGB32);
+        OfxTransitionSource::uninstall();
+        return ours != viaPlugin;
+    };
+
+    // Vfx1 carries eighteen of the groups — every wipe and slide family, the page ones,
+    // and the effect-like ones. Those are drawn by VEGAS itself now.
+    CHECK(drawnByPlugin(transitionIrisId(), QStringLiteral("Circle In")));
+    CHECK(drawnByPlugin(transitionPagePeelId(), QStringLiteral("Top-Left, Medium Fold")));
+
+    // The rest are not in this bundle at all: no com.vegascreativesoftware:gradientwipe,
+    // warpflow, portals, venetianblinds or any of the 3D groups. Our own geometry keeps
+    // drawing them, which is what the fallback is for — and why removing it because
+    // "VEGAS does it now" would put holes in the dock.
+    TransitionInstance gradient;
+    gradient.pluginId = transitionOfxId(QStringLiteral("gradientwipe"));
+    OfxTransitionSource::install({root});
+    const QImage stillDrawn = renderTransition(from, to, 0.5, gradient);
+    OfxTransitionSource::uninstall();
+    REQUIRE_FALSE(stillDrawn.isNull());
+    CHECK(stillDrawn.size() == size);
+}
