@@ -36,6 +36,29 @@
 /** Host COM IUnknown; VEGAS-only, pointer. Absent here — we are not a COM host. */
 #define kOfxPropHostIUnknown "OfxPropHostIUnknown"
 
+/**
+ * Host field read by VEGAS Pro 18's fork of the support library, dropped by VEGAS Pro 22.
+ *
+ * It is read while the host description is built, in the run of ordinary capability fields
+ * between `OfxPropName` and `OfxPropVersion`, and reading it throws when it is absent — so
+ * an 18-era bundle answers `kOfxActionLoad` with kOfxStatErrMissingHostFeature in a host
+ * that does not carry it. Deliberately not supplied: what the value means is not known, the
+ * name reads like an authorisation token, and VEGAS Pro 22 — the version this project
+ * targets — asks for nothing of the sort. Named here so the trace log can say what an old
+ * bundle asked for, and so the refusal is recognisable rather than mysterious.
+ */
+#define kOfxPropVegasSpikeKey "OfxPropVegasSpikeKey"
+
+/**
+ * Pixel order of a clip's images. String, one of the two values below.
+ *
+ * Asked for on every clip before the images are fetched. VEGAS Pro 22's bundles carry on
+ * without it — this host answers RGBA, which is what its buffers are.
+ */
+#define kOfxImageEffectPropPixelOrder "OfxImageEffectPropPixelOrder"
+#define kOfxImagePixelOrderRGBA "OfxImagePixelOrderRGBA"
+#define kOfxImagePixelOrderBGRA "OfxImagePixelOrderBGRA"
+
 // --- Effect / instance properties -----------------------------------------
 
 /** Where in the VEGAS object model the effect sits. String, one of the values below. */

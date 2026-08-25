@@ -742,6 +742,10 @@ void seedClipInstanceProps(PropSet *ps, double width, double height)
 {
     setInt(ps, kOfxImageClipPropConnected, 0, 1);
     setString(ps, kOfxImageEffectPropComponents, 0, kOfxImageComponentRGBA);
+    // A VEGAS extension, asked for on every clip right before the images are fetched.
+    // Our buffers really are RGBA, so this only writes down what the components property
+    // already implies — but leaving it out made every render start with a failed lookup.
+    setString(ps, kOfxImageEffectPropPixelOrder, 0, kOfxImagePixelOrderRGBA);
     setString(ps, kOfxImageEffectPropPixelDepth, 0, kOfxBitDepthByte);
     setString(ps, kOfxImageEffectPropPreMultiplication, 0, kOfxImageUnPreMultiplied);
     setString(ps, kOfxImageClipPropUnmappedComponents, 0, kOfxImageComponentRGBA);
@@ -2364,6 +2368,11 @@ QVector<OfxEffectSummary> OfxHost::enumerateEffects(const QString &binaryPath)
 
     try {
         const int n = getNum();
+        // Set once the binary has refused this host. Its support library counts loads and
+        // does the real work only on the first, so after a refusal the rest of the file
+        // answers kOfxStatOK with nothing initialised behind it — asking those to describe
+        // walks into the same uninitialised state. See `Impl::failedBinaries`.
+        bool binaryRefusedHost = false;
         for (int i = 0; i < n; ++i) {
             OfxPlugin *plug = getPlugin(i);
             if (!plug || !plug->pluginIdentifier || !plug->setHost || !plug->mainEntry) {
@@ -2376,7 +2385,15 @@ QVector<OfxEffectSummary> OfxHost::enumerateEffects(const QString &binaryPath)
             // Describe is the only way to learn the label; a plug-in that refuses still
             // gets listed under its identifier rather than being dropped.
             plug->setHost(&g_hostC);
-            if (statusOk(plug->mainEntry(kOfxActionLoad, nullptr, nullptr, nullptr))) {
+            if (!binaryRefusedHost
+                && !statusOk(plug->mainEntry(kOfxActionLoad, nullptr, nullptr, nullptr))) {
+                binaryRefusedHost = true;
+                OPENVEGAS_OFX_TRACE(
+                    QStringLiteral("enumerateEffects: \"%1\" refused this host; the rest of the "
+                                   "file is listed by identifier only")
+                        .arg(binaryPath));
+            }
+            if (!binaryRefusedHost) {
                 EffectRec descFx;
                 setString(&descFx.props, kOfxPropType, 0, kOfxTypeImageEffect);
                 setString(&descFx.props, kOfxPropName, 0, plug->pluginIdentifier);
@@ -2500,6 +2517,22 @@ struct OfxHost::Impl {
      * and thrown away sixty times a second behind an emulated fallback.
      */
     QHash<QString, QString> failedModules;
+    /**
+     * Binaries that turned out to be unusable as a whole, with the reason.
+     *
+     * Separate from `failedModules`, which is keyed per effect. The OFX C++ support
+     * library runs its load once per *binary* and counts the calls, so once it has
+     * refused the host for one effect — throwing HostInadequate out of
+     * `kOfxActionLoad`, which reaches us as kOfxStatErrMissingHostFeature — every other
+     * effect in the same file is told "already loaded" and answers kOfxStatOK without
+     * ever having fetched a suite. The file also stays mapped in the process, because
+     * QLibrary keeps it. The next effect out of it then describes cleanly and faults
+     * inside render, against globals that were never initialised.
+     *
+     * Recorded against the path so the whole file is skipped from then on and the caller
+     * falls through to another bundle that does accept us.
+     */
+    QHash<QString, QString> failedBinaries;
     QHash<int, std::shared_ptr<EffectRec>> instances;
     QHash<QString, int> instanceKeyToId; // path|slot -> id
     int nextId = 1;
@@ -2532,6 +2565,13 @@ struct OfxHost::Impl {
             }
             return {};
         }
+        const auto badBinary = failedBinaries.constFind(path);
+        if (badBinary != failedBinaries.cend()) {
+            if (errorOut) {
+                *errorOut = *badBinary;
+            }
+            return {};
+        }
         /** Remember why this module is unusable so the next frame does not retry it. */
         auto fail = [&](const QString &reason) -> std::shared_ptr<ModuleRec> {
             failedModules.insert(modKey, reason);
@@ -2540,11 +2580,16 @@ struct OfxHost::Impl {
             }
             return {};
         };
+        /** The same, for a reason that condemns the whole file — see `failedBinaries`. */
+        auto failBinary = [&](const QString &reason) -> std::shared_ptr<ModuleRec> {
+            failedBinaries.insert(path, reason);
+            return fail(reason);
+        };
         if (!checkArchLoadable(path, errorOut)) {
-            return fail(errorOut && !errorOut->isEmpty()
-                            ? *errorOut
-                            : QStringLiteral("OFX plug-in \"%1\" is built for another platform")
-                                  .arg(path));
+            return failBinary(errorOut && !errorOut->isEmpty()
+                                  ? *errorOut
+                                  : QStringLiteral("OFX plug-in \"%1\" is built for another platform")
+                                        .arg(path));
         }
 
         auto mod = std::make_shared<ModuleRec>();
@@ -2553,8 +2598,8 @@ struct OfxHost::Impl {
         mod->lib = std::make_unique<QLibrary>(path);
         ScopedOfxDllDirectory dllDirGuard(ofxInstallRootForBinary(path));
         if (!mod->lib->load()) {
-            return fail(QStringLiteral("Failed to load OFX \"%1\": %2")
-                            .arg(path, mod->lib->errorString()));
+            return failBinary(QStringLiteral("Failed to load OFX \"%1\": %2")
+                                  .arg(path, mod->lib->errorString()));
         }
 
         using GetNumFn = int (*)();
@@ -2563,14 +2608,19 @@ struct OfxHost::Impl {
         auto getPlugin = reinterpret_cast<GetPluginFn>(mod->lib->resolve("OfxGetPlugin"));
         if (!getNum || !getPlugin) {
             mod->lib->unload();
-            return fail(QStringLiteral(
-                            "OFX entry points OfxGetNumberOfPlugins / OfxGetPlugin not found in \"%1\"")
-                            .arg(path));
+            return failBinary(
+                QStringLiteral(
+                    "OFX entry points OfxGetNumberOfPlugins / OfxGetPlugin not found in \"%1\"")
+                    .arg(path));
         }
 
         try {
             const int n = getNum();
-            if (n <= 0 || plugIdx >= n) {
+            if (n <= 0) {
+                return failBinary(
+                    QStringLiteral("OFX binary \"%1\" declares no plug-ins").arg(path));
+            }
+            if (plugIdx >= n) {
                 return fail(QStringLiteral("OFX plugin index %1 out of range (%2) in \"%3\"")
                                 .arg(plugIdx)
                                 .arg(n)
@@ -2604,7 +2654,11 @@ struct OfxHost::Impl {
             OfxStatus st = plug->mainEntry(kOfxActionLoad, nullptr, nullptr, nullptr);
             OPENVEGAS_OFX_TRACE(QStringLiteral("Load -> status %1").arg(st));
             if (!statusOk(st)) {
-                return fail(
+                // Condemns the file, not just this effect. The support library's load is
+                // per-binary and counted, so after a refusal every other effect in the
+                // same file reports kOfxStatOK with none of its suites fetched — and then
+                // faults in render. See `failedBinaries`.
+                return failBinary(
                     QStringLiteral("OFX Load failed (status %1) for \"%2\"").arg(st).arg(path));
             }
             mod->plugin = plug;
@@ -3007,6 +3061,7 @@ bool OfxHost::processFrame(int instanceId, QImage *rgba, double timeSec, const Q
             setInt(ps, kOfxImagePropRegionOfDefinition, 2, img->width());
             setInt(ps, kOfxImagePropRegionOfDefinition, 3, img->height());
             setString(ps, kOfxImageEffectPropComponents, 0, kOfxImageComponentRGBA);
+            setString(ps, kOfxImageEffectPropPixelOrder, 0, kOfxImagePixelOrderRGBA);
             setString(ps, kOfxImageEffectPropPixelDepth, 0, kOfxBitDepthByte);
             setString(ps, kOfxImageEffectPropPreMultiplication, 0, kOfxImageUnPreMultiplied);
             setDouble(ps, kOfxImagePropPixelAspectRatio, 0, 1.0);
@@ -3218,6 +3273,30 @@ bool OfxHost::processEmulated(QImage *rgba, const QString &displayName, const QV
     return false;
 }
 
+int OfxHost::instantiateFromAlternate(const QString &effectId)
+{
+    const QString wanted = effectId.toLower();
+    for (const QString &binary : VegasVideoPluginCatalog::alternateBinaries(effectId)) {
+        // effectIndexMap only reads the identifiers, so a binary that declares nothing
+        // useful costs a LoadLibrary and no plug-in action at all.
+        const int idx = effectIndexMap(binary).value(wanted, -1);
+        if (idx < 0) {
+            continue;
+        }
+        OfxPluginDesc alt = describe(binary);
+        alt.path = binary;
+        alt.pluginIndex = idx;
+        alt.effectId = effectId;
+        const int id = createInstance(alt, nullptr);
+        if (id > 0) {
+            OPENVEGAS_OFX_TRACE(QStringLiteral("\"%1\" taken from \"%2\" instead").arg(effectId,
+                                                                                       binary));
+            return id;
+        }
+    }
+    return 0;
+}
+
 bool OfxHost::processSlot(FxSlot &slot, QImage *rgba, double timeSec)
 {
     if (!rgba || rgba->isNull() || slot.bypass) {
@@ -3250,6 +3329,13 @@ bool OfxHost::processSlot(FxSlot &slot, QImage *rgba, double timeSec)
             desc.effectId = parts.effectId;
             QString err;
             id = createInstance(desc, &err);
+            if (id <= 0 && !parts.effectId.isEmpty()) {
+                // The binary the catalog picked is not usable — most often an older VEGAS
+                // that refuses this host outright. Which install wins the catalog search is
+                // decided by the Preferences path, and that says nothing about whether it
+                // runs, so try the others that declare the same effect before giving up.
+                id = instantiateFromAlternate(parts.effectId);
+            }
             if (id > 0) {
                 QMutexLocker lock2(&m_->mutex);
                 m_->instanceKeyToId.insert(key, id);

@@ -198,6 +198,17 @@ public:
     QVector<OfxParamInfo> paramsForSlot(FxSlot slot);
 
 private:
+    /**
+     * Instantiate `effectId` from some install other than the one the catalog chose.
+     *
+     * Which binary the catalog returns is decided by search order — the Preferences path
+     * first — and order says nothing about whether that build will run: an older VEGAS's
+     * `Vfx1.ofx` refuses this host at `kOfxActionLoad` and then declares dozens of effects
+     * that are unreachable through it. Returns 0 when nothing else on the machine declares
+     * the effect, or when none of the others load either.
+     */
+    int instantiateFromAlternate(const QString &effectId);
+
     OfxHost();
     ~OfxHost();
     OfxHost(const OfxHost &) = delete;

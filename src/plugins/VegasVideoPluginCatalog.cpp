@@ -14,6 +14,15 @@ namespace {
 
 QVector<VegasVideoPluginEntry> g_cache;
 bool g_cacheValid = false;
+/**
+ * effectId (lower case) -> the other binaries that declare it, in search order.
+ *
+ * `discover()` keeps one entry per effect, the first root winning, which is what a catalog
+ * should show. The ones it drops are still worth remembering: a machine can carry two
+ * generations of `Vfx1.ofx`, and the one that wins the search is not necessarily the one
+ * that will run. See `alternateBinaries()`.
+ */
+QHash<QString, QStringList> g_alternates;
 /** When set, discovery ignores the machine entirely; see setDiscoveryRoots(). */
 QStringList g_pinnedRoots;
 
@@ -478,6 +487,7 @@ QVector<VegasVideoPluginEntry> VegasVideoPluginCatalog::discover(const QStringLi
     const QStringList roots = rootsIn.isEmpty() ? defaultOfxRoots() : rootsIn;
     QVector<VegasVideoPluginEntry> merged;
     QSet<QString> seenIds;
+    QHash<QString, QStringList> alternates;
 
     for (const QString &root : roots) {
         QDir ofxDir(QDir(root).filePath(QStringLiteral("OFX Video Plug-Ins")));
@@ -499,6 +509,10 @@ QVector<VegasVideoPluginEntry> VegasVideoPluginCatalog::discover(const QStringLi
             for (const VegasVideoPluginEntry &e : batch) {
                 const QString key = e.effectId.toLower();
                 if (seenIds.contains(key)) {
+                    if (e.hasBinary && !e.binaryPath.isEmpty()
+                        && !alternates[key].contains(e.binaryPath)) {
+                        alternates[key] << e.binaryPath;
+                    }
                     continue;
                 }
                 seenIds.insert(key);
@@ -513,6 +527,7 @@ QVector<VegasVideoPluginEntry> VegasVideoPluginCatalog::discover(const QStringLi
     resolvePluginIndices(&merged);
     if (rootsIn.isEmpty()) {
         g_cache = merged;
+        g_alternates = alternates;
         g_cacheValid = true;
     }
     return merged;
@@ -558,6 +573,16 @@ const VegasVideoPluginEntry *VegasVideoPluginCatalog::findByEffectId(const QStri
         }
     }
     return nullptr;
+}
+
+QStringList VegasVideoPluginCatalog::alternateBinaries(const QString &effectId)
+{
+    const QString key = effectId.trimmed().toLower();
+    if (key.isEmpty()) {
+        return {};
+    }
+    discover();
+    return g_alternates.value(key);
 }
 
 const VegasVideoPluginEntry *VegasVideoPluginCatalog::findByVegasLabel(const QString &label)
@@ -739,6 +764,7 @@ void VegasVideoPluginCatalog::invalidateCache()
 {
     g_cacheValid = false;
     g_cache.clear();
+    g_alternates.clear();
 }
 
 FxSlot videoFxSlotFromName(const QString &rawName)

@@ -298,6 +298,82 @@ VEGAS собирает свои бандлы против форка OFX C++ sup
 приложение; честный `NULL` лучше. По трассировке Chroma Blur все они опциональны: плагин
 запрашивает их на `Load` и работает дальше без них.
 
+### Отказ на `Load` отравляет весь бинарник (2026-08-26)
+
+Найдено по падению, которое воспроизвёл пользователь: открыть
+`SAMPLES/veg_project/project_big--buck-bunny_4x3-preview-reverse-fades-fx.veg` и подвинуть
+курсор — SIGSEGV **внутри чужого кода**, в `Vfx1.ofx` из VEGAS Pro 18, на первом же кадре с
+Chroma Blur. Стек: `MainWindow::refreshPreviewFrame` → `VideoCompositor::compose` →
+`applyVideoFxChain` → `OfxHost::processSlot` → `processFrame` →
+`mainEntry(kOfxImageEffectActionRender)` → и дальше без символов.
+
+Трассировка (`OPENVEGAS_OFX_TRACE`) показала последовательность, которую иначе не увидеть.
+За 35 секунд до падения, на превью переходов:
+
+```
+=== …/VEGAS Pro 18.0/…/Vfx1.ofx [#71 com.vegascreativesoftware:zoom] ===
+Load begin
+  …
+  getString host[OfxPropVegasSpikeKey][0] = <missing> -> 3
+Load -> status 4                     ← kOfxStatErrMissingHostFeature
+=== …/SAMPLES/VEGAS-PRO-22-…/Vfx1.ofx [#71 com.vegascreativesoftware:zoom] ===
+Load -> status 0                     ← откат сработал, переход отрисован
+```
+
+и потом, уже на эффекте из проекта:
+
+```
+=== …/VEGAS Pro 18.0/…/Vfx1.ofx [#13 com.vegascreativesoftware:chromablur] ===
+Load begin
+Load -> status 0                     ← ни одного fetchSuite: «уже загружено»
+Describe -> status 0
+DescribeInContext(Filter) -> status 0, 2 clip(s), 3 param(s)
+Render begin (t=81.9466, 792x594)
+                                     ← SIGSEGV
+```
+
+**Механика.** `kOfxActionLoad` в support library — операция на **весь бинарник**, а не на
+плагин, и она считает вызовы: настоящая работа делается на первом, дальше возвращается
+`kOfxStatOK`. Первый вызов у VEGAS 18 бросил `HostInadequate` (см. ниже) — но счётчик уже
+увеличился. Поэтому **любой следующий** эффект из того же файла получает `kOfxStatOK`, ни
+одного suite при этом не получив, спокойно описывается — и падает в рендере на
+неинициализированных глобалах. Сам файл при этом остаётся в процессе: `QLibrary` не
+выгружает библиотеку в деструкторе.
+
+У нас неудачная загрузка запоминалась **по эффекту** (`path#effectId`), а не по файлу.
+Отказ на `zoom` не мешал попробовать `chromablur` из того же `Vfx1.ofx` — и это ровно тот
+путь, по которому пришло падение.
+
+**Почему VEGAS 18 отказывается.** Её форк support library читает при построении описания
+хоста свойство `OfxPropVegasSpikeKey` — в общем ряду обычных полей, между `OfxPropName` и
+`OfxPropVersion` (строки рядом по смещению `0x11006A8`: `Tried to create host description
+when we already have one.`, `OfxPropName`, `OfxPropVegasSpikeKey`, `OfxPropVersion`,
+`OfxImageEffectHostPropIsBackground`, …). Чтение бросает, если свойства нет. В `Vfx1.ofx`
+из VEGAS Pro 22 этой строки **нет вовсе** — поле убрали. Значение и смысл неизвестны, имя
+читается как авторизационный токен, а цель проекта — VEGAS Pro 22; поэтому свойство
+намеренно **не выдаётся**, только записано по имени в `OfxVegasExtensions.h`, чтобы отказ
+старого бандла был узнаваем.
+
+**Исправлено тремя вещами:**
+
+1. `Impl::failedBinaries` — отказ на `kOfxActionLoad` (и всё, что относится к файлу
+   целиком: не та архитектура, нет точек входа, ноль плагинов) записывается **по пути**, и
+   весь файл дальше пропускается. То же в `enumerateEffects()`: после первого отказа
+   остальные плагины файла перечисляются по идентификатору, без `Load`/`Describe`.
+2. `VegasVideoPluginCatalog::alternateBinaries()` + `OfxHost::instantiateFromAlternate()` —
+   каталог теперь помнит **все** бинарники, объявляющие эффект, а не только победивший в
+   поиске. Порядок поиска задаёт путь из Preferences и ничего не говорит о работоспособности:
+   на этой машине `plugins/ofxPath` указывал на VEGAS Pro 18, и он затенял VEGAS 22 из
+   `SAMPLES`. Если выбранный бандл не создаёт инстанс — берётся следующий, объявляющий тот
+   же `effectId`.
+3. `OfxImageEffectPropPixelOrder` (VEGAS-расширение, значения `OfxImagePixelOrderRGBA` /
+   `…BGRA`, восстановлены из бинарника) теперь объявляется на клипах и изображениях. Плагин
+   спрашивал его перед каждым `clipGetImage` и получал промах; наши буферы и правда RGBA.
+
+**Проверка.** Тот же сценарий под gdb после исправления: падения нет, приложение закрылось
+штатно, в трассе `"com.vegascreativesoftware:chromablur" taken from "…SAMPLES/VEGAS-PRO-22-…"
+instead` и то же для `sepia`, **153 рендера — все со статусом 0**.
+
 ---
 
 ## Кроссплатформенность

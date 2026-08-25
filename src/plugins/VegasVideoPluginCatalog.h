@@ -106,6 +106,19 @@ public:
     static const VegasVideoPluginEntry *findByEffectId(const QString &effectId);
     static const VegasVideoPluginEntry *findByVegasLabel(const QString &label);
 
+    /**
+     * The other binaries that declare `effectId`, in search order after the one
+     * `findByEffectId()` returns.
+     *
+     * The catalog shows one entry per effect, and the winner is decided by search order —
+     * the Preferences path first. Order is not the same as usable: a machine can carry two
+     * generations of `Vfx1.ofx`, and an older one can refuse this host outright at
+     * `kOfxActionLoad`, at which point every effect it declares is unreachable through it.
+     * This is what lets a caller move on to the next install instead of giving up on the
+     * effect.
+     */
+    static QStringList alternateBinaries(const QString &effectId);
+
     /** Build canonical OFX pluginId: ofx:<path>#<index>#<effectId> or ofx-id:<effectId>. */
     static QString formatPluginId(const VegasVideoPluginEntry &entry);
 
