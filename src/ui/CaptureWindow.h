@@ -2,6 +2,7 @@
 
 #include "capture/CapturePlan.h"
 #include "capture/CaptureRecorder.h"
+#include "ui/CaptureTrayIcon.h"
 
 #include <QDialog>
 #include <QVector>
@@ -58,6 +59,7 @@ private:
     QPushButton *m_recordBtn = nullptr;
     QPushButton *m_rescanBtn = nullptr;
 
+    CaptureTrayIcon *m_tray = nullptr;
     QVector<CaptureSource> m_available;
     CapturePlan m_plan;
     CaptureRecorder m_recorder;

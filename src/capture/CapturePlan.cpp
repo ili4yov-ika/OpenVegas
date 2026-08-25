@@ -72,7 +72,11 @@ QSize CapturePlan::resolution() const
 double CapturePlan::frameRate() const
 {
     const int ref = resolvedReference();
-    return ref >= 0 ? sources[ref].frameRate : 0.0;
+    if (ref < 0) {
+        return 0.0;
+    }
+    const double native = sources[ref].frameRate;
+    return maxFrameRate > 0.0 ? std::min(native, maxFrameRate) : native;
 }
 
 int CapturePlan::sampleRate() const

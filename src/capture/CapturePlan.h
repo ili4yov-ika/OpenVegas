@@ -45,6 +45,17 @@ public:
 
     CaptureFit fit = CaptureFit::Letterbox;
 
+    /**
+     * Ceiling on the take's frame rate.
+     *
+     * A monitor reports the rate it refreshes at, and a 165 Hz one would otherwise be
+     * recorded at 165 fps — an enormous file of a screen that changes a few times a second,
+     * and a rate the encoder cannot keep up with anyway, so it drops frames instead. Sixty
+     * is what a screen recording is watched at. Raise it deliberately, or set it to 0 to
+     * follow the source whatever it says.
+     */
+    double maxFrameRate = 60.0;
+
     /** Base name for the take's files; each output appends its own source name. */
     QString takeName = QStringLiteral("Take");
 

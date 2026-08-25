@@ -1,6 +1,7 @@
 #include "capture/CapturePlan.h"
 #include "capture/CaptureRecorder.h"
 #include "capture/CaptureSources.h"
+#include "ui/CaptureTrayIcon.h"
 
 #include <QSet>
 
@@ -473,3 +474,92 @@ TEST_CASE("Enumerating windows returns usable sources or none", "[capture]")
     }
 }
 
+TEST_CASE("The tray icon says at a glance whether a take is running", "[capture]")
+{
+    for (int size : {16, 24, 32, 48}) {
+        INFO("size " << size);
+        const QImage idle = CaptureTrayIcon::image(size, false);
+        const QImage rec = CaptureTrayIcon::image(size, true);
+        REQUIRE(idle.size() == QSize(size, size));
+        REQUIRE(rec.size() == QSize(size, size));
+        CHECK(idle != rec);
+
+        // Nothing red on the idle icon, so red means recording rather than "look closer".
+        // The camera glyph is deliberately drawn without the record lamp for this reason.
+        auto reddish = [](const QImage &img, int x, int y) {
+            const QColor c = img.pixelColor(x, y);
+            return c.alpha() > 128 && c.red() > 140 && c.red() > c.green() * 2
+                   && c.red() > c.blue() * 2;
+        };
+        int idleRed = 0;
+        int recRed = 0;
+        int recRedOutsideCorner = 0;
+        for (int y = 0; y < size; ++y) {
+            for (int x = 0; x < size; ++x) {
+                if (reddish(idle, x, y)) {
+                    ++idleRed;
+                }
+                if (reddish(rec, x, y)) {
+                    ++recRed;
+                    // The dot sits low and right, the way OBS marks it; anything red in
+                    // the other three quadrants would be the glyph bleeding into the badge.
+                    if (x < size / 2 || y < size / 2) {
+                        ++recRedOutsideCorner;
+                    }
+                }
+            }
+        }
+        CHECK(idleRed == 0);
+        // Big enough to notice in a tray at 16 pixels, which is the size that matters.
+        CHECK(recRed > (size * size) / 20);
+        CHECK(recRedOutsideCorner == 0);
+    }
+}
+
+TEST_CASE("Both tray states are drawn, not scaled from one bitmap", "[capture]")
+{
+    // A 16-pixel icon scaled down from 48 is a smudge, and the tray asks for whichever
+    // size the desktop uses. Drawing each size means the small one keeps its shape: the
+    // glyph has to reach the edges at every size rather than shrink into the middle.
+    for (int size : {16, 32}) {
+        const QImage img = CaptureTrayIcon::image(size, true);
+        int minX = size;
+        int maxX = 0;
+        for (int y = 0; y < size; ++y) {
+            for (int x = 0; x < size; ++x) {
+                if (img.pixelColor(x, y).alpha() > 32) {
+                    minX = qMin(minX, x);
+                    maxX = qMax(maxX, x);
+                }
+            }
+        }
+        INFO("size " << size << " spans " << minX << ".." << maxX);
+        CHECK(minX <= size / 8);
+        CHECK(maxX >= size - 1 - size / 8);
+    }
+}
+
+
+TEST_CASE("A high-refresh monitor is not recorded at its refresh rate", "[capture]")
+{
+    CapturePlan plan;
+    plan.sources = {screen(QStringLiteral("Display 1"), 2560, 1440, 165.0)};
+
+    // A screen changes a few times a second; recording it 165 times would make an enormous
+    // file of mostly identical frames, and the encoder would drop them anyway rather than
+    // keep up. Sixty is what a screen recording is watched at.
+    CHECK(plan.frameRate() == Catch::Approx(60.0));
+    CHECK(plan.outputs().first().frameRate == Catch::Approx(60.0));
+    CHECK(CaptureRecorder::argumentsFor(plan, plan.outputs().first(),
+                                        QStringLiteral("C:/t/s.mkv"))
+              .contains(QStringLiteral("60")));
+
+    // A slower source is left alone: the ceiling is a ceiling, not a target.
+    plan.sources = {screen(QStringLiteral("Display 2"), 1920, 1080, 30.0)};
+    CHECK(plan.frameRate() == Catch::Approx(30.0));
+
+    // And it can be lifted for someone who does want every frame of a 165 Hz panel.
+    plan.sources = {screen(QStringLiteral("Display 1"), 2560, 1440, 165.0)};
+    plan.maxFrameRate = 0.0;
+    CHECK(plan.frameRate() == Catch::Approx(165.0));
+}

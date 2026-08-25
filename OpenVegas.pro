@@ -40,6 +40,7 @@ HEADERS += \
     src/ui/IconFactory.h \
     src/ui/WelcomeDialog.h \
     src/ui/FirstRunDialog.h \
+    src/ui/CaptureTrayIcon.h \
     src/ui/CaptureWindow.h \
     src/ui/ProjectPropertiesDialog.h \
     src/ui/MatchMediaVideoSettingsDialog.h \
@@ -95,6 +96,7 @@ HEADERS += \
     src/io/MediaThumbCache.h \
     src/io/MediaWaveformCache.h \
     src/io/MediaFilmstripCache.h \
+    src/io/FfmpegLocator.h \
     src/io/MediaProbe.h \
     src/io/CdAudioReader.h \
     src/io/RenderTemplateCatalog.h \
@@ -139,6 +141,7 @@ SOURCES += \
     src/ui/IconFactory.cpp \
     src/ui/WelcomeDialog.cpp \
     src/ui/FirstRunDialog.cpp \
+    src/ui/CaptureTrayIcon.cpp \
     src/ui/CaptureWindow.cpp \
     src/ui/ProjectPropertiesDialog.cpp \
     src/ui/MatchMediaVideoSettingsDialog.cpp \
@@ -191,6 +194,7 @@ SOURCES += \
     src/io/MediaThumbCache.cpp \
     src/io/MediaWaveformCache.cpp \
     src/io/MediaFilmstripCache.cpp \
+    src/io/FfmpegLocator.cpp \
     src/io/MediaProbe.cpp \
     src/io/CdAudioReader.cpp \
     src/io/RenderTemplateCatalog.cpp \

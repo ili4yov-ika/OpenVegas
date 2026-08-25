@@ -1,6 +1,6 @@
 #include "io/FFmpegEncoder.h"
 #include "io/FFmpegStreamDecoder.h"
-#include "io/MediaFilmstripCache.h"
+#include "io/FfmpegLocator.h"
 
 #include <QCoreApplication>
 #include <QEventLoop>
@@ -41,7 +41,7 @@ QStringList audioCodecArgs(const QString &formatName, const RenderTemplate &tpl,
 
 QString FFmpegEncoder::findFfmpeg()
 {
-    return MediaFilmstripCache::findFfmpeg();
+    return FfmpegLocator::find();
 }
 
 FFmpegEncodeResult FFmpegEncoder::run(const QStringList &args, const FFmpegCancelFn &shouldContinue)

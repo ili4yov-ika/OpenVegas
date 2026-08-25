@@ -35,6 +35,7 @@ endif()
     src/ui/IconFactory.cpp
     src/ui/WelcomeDialog.cpp
     src/ui/FirstRunDialog.cpp
+    src/ui/CaptureTrayIcon.cpp
     src/ui/CaptureWindow.cpp
     src/ui/ProjectPropertiesDialog.cpp
     src/ui/MatchMediaVideoSettingsDialog.cpp
@@ -91,6 +92,7 @@ endif()
     src/io/MediaThumbCache.cpp
     src/io/MediaWaveformCache.cpp
     src/io/MediaFilmstripCache.cpp
+    src/io/FfmpegLocator.cpp
     src/io/MediaProbe.cpp
     src/io/CdAudioReader.cpp
     src/io/RenderTemplateCatalog.cpp
@@ -320,6 +322,35 @@ else()
     target_compile_options(OpenVegas PRIVATE -Wall -Wextra -Wpedantic)
 endif()
 
+# ---------------------------------------------------------------------------
+# OpenVegas Capture — the recorder as its own program.
+#
+# A screen recorder is wanted before the editor is open, and should not go down with it.
+# It costs almost nothing here: src/capture/ never depended on the editor, so this is the
+# same window with a different main() and a handful of files, not a second build of the app.
+# ---------------------------------------------------------------------------
+add_executable(OpenVegasCapture
+    src/capture/main_capture.cpp
+    src/capture/CapturePlan.cpp
+    src/capture/CaptureSources.cpp
+    src/capture/CaptureRecorder.cpp
+    src/ui/CaptureWindow.cpp
+    src/ui/CaptureTrayIcon.cpp
+    src/io/FfmpegLocator.cpp
+)
+target_include_directories(OpenVegasCapture PRIVATE ${CMAKE_SOURCE_DIR}/src)
+target_link_libraries(OpenVegasCapture PRIVATE Qt6::Core Qt6::Gui Qt6::Widgets)
+set_target_properties(OpenVegasCapture PROPERTIES WIN32_EXECUTABLE ON)
+if(WIN32)
+    # dwmapi: telling a cloaked window from a visible one during enumeration.
+    target_link_libraries(OpenVegasCapture PRIVATE user32 gdi32 dwmapi)
+endif()
+if(MSVC)
+    target_compile_options(OpenVegasCapture PRIVATE /W4 /permissive-)
+else()
+    target_compile_options(OpenVegasCapture PRIVATE -Wall -Wextra -Wpedantic)
+endif()
+
 # Optional local staging of Vegas trees (never into source tree / git)
 if(OPENVGAS_COPY_VEGAS_RUNTIME)
     set(_vegas_src "${CMAKE_SOURCE_DIR}/SAMPLES/VEGAS-PRO-22-PROGRAM-FILES")
@@ -470,6 +501,7 @@ if(OPENVGAS_BUILD_TESTS)
         src/video/VideoFrameCache.cpp
         src/io/FFmpegStreamDecoder.cpp
         src/io/MediaFilmstripCache.cpp
+        src/io/FfmpegLocator.cpp
         src/io/MediaThumbCache.cpp
     )
     target_include_directories(openvegas_video_tests PRIVATE
@@ -518,12 +550,14 @@ if(OPENVGAS_BUILD_TESTS)
         src/io/FFmpegEncoder.cpp
         src/io/FFmpegStreamDecoder.cpp
         src/io/MediaFilmstripCache.cpp
+        src/io/FfmpegLocator.cpp
         src/io/MediaThumbCache.cpp
         src/io/ProjectInterchange.cpp
         src/io/ProjectFile.cpp
         src/capture/CapturePlan.cpp
         src/capture/CaptureSources.cpp
         src/capture/CaptureRecorder.cpp
+        src/ui/CaptureTrayIcon.cpp
         src/io/SamplePaths.cpp
         src/io/VegReader.cpp
         src/io/VegRiff.cpp
@@ -560,6 +594,7 @@ if(OPENVGAS_BUILD_TESTS)
         src/video/ColorCorrectorApply.cpp
         src/io/FFmpegStreamDecoder.cpp
         src/io/MediaFilmstripCache.cpp
+        src/io/FfmpegLocator.cpp
         src/io/RenderTemplateCatalog.cpp
     )
     target_include_directories(openvegas_media_tests PRIVATE

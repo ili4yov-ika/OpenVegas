@@ -150,10 +150,25 @@ CaptureWindow::CaptureWindow(QWidget *parent)
     m_tick->setInterval(500);
     connect(m_tick, &QTimer::timeout, this, [this]() {
         const qint64 secs = (QDateTime::currentMSecsSinceEpoch() - m_startedMs) / 1000;
-        m_elapsed->setText(QStringLiteral("%1:%2")
-                               .arg(secs / 60, 2, 10, QChar(u'0'))
-                               .arg(secs % 60, 2, 10, QChar(u'0')));
+        const QString clock = QStringLiteral("%1:%2")
+                                  .arg(secs / 60, 2, 10, QChar(u'0'))
+                                  .arg(secs % 60, 2, 10, QChar(u'0'));
+        m_elapsed->setText(clock);
+        m_tray->setStatusText(clock);
     });
+
+    // A recorder is used with its own window out of the way, so the tray is where the
+    // state lives while a take runs — and the only way to stop one without putting this
+    // window back over whatever is being recorded.
+    m_tray = new CaptureTrayIcon(this);
+    connect(m_tray, &CaptureTrayIcon::showWindowRequested, this, [this]() {
+        show();
+        raise();
+        activateWindow();
+    });
+    connect(m_tray, &CaptureTrayIcon::toggleRecordingRequested, this,
+            &CaptureWindow::toggleRecording);
+    m_tray->show();
 
     refreshSources();
 }
@@ -278,6 +293,7 @@ void CaptureWindow::chooseFolder()
 
 void CaptureWindow::setRecordingUi(bool recording)
 {
+    m_tray->setRecording(recording);
     m_recordBtn->setText(recording ? tr("Stop Recording") : tr("Start Recording"));
     m_tree->setEnabled(!recording);
     m_reference->setEnabled(!recording);
@@ -295,6 +311,7 @@ void CaptureWindow::closeEvent(QCloseEvent *event)
     if (m_recorder.isRecording()) {
         toggleRecording();
     }
+    m_tray->hide();
     QDialog::closeEvent(event);
 }
 

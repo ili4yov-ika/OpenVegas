@@ -1,6 +1,6 @@
 #include "capture/CaptureRecorder.h"
 
-#include "io/FFmpegEncoder.h"
+#include "io/FfmpegLocator.h"
 
 #include <QDir>
 #include <QFileInfo>
@@ -184,7 +184,7 @@ bool CaptureRecorder::start(const CapturePlan &plan, const QString &folder, QStr
         }
         return false;
     }
-    const QString ffmpeg = FFmpegEncoder::findFfmpeg();
+    const QString ffmpeg = FfmpegLocator::find();
     if (ffmpeg.isEmpty()) {
         if (error) {
             *error = tr("ffmpeg was not found; capture needs it.");

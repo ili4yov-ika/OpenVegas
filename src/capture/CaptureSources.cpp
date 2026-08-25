@@ -1,6 +1,6 @@
 #include "capture/CaptureSources.h"
 
-#include "io/FFmpegEncoder.h"
+#include "io/FfmpegLocator.h"
 
 #include <QFileInfo>
 #include <QGuiApplication>
@@ -269,7 +269,7 @@ QVector<CaptureSource> CaptureSources::parseDshowListing(const QString &stderrTe
 
 QVector<CaptureSource> CaptureSources::devices()
 {
-    const QString ffmpeg = FFmpegEncoder::findFfmpeg();
+    const QString ffmpeg = FfmpegLocator::find();
     if (ffmpeg.isEmpty()) {
         return {}; // no ffmpeg is not an error: screen capture still works
     }
@@ -285,7 +285,11 @@ QVector<CaptureSource> CaptureSources::devices()
     }
     // Listing devices always "fails" — ffmpeg has nothing to open — so the exit code says
     // nothing and the output is what matters.
-    return parseDshowListing(QString::fromLocal8Bit(proc.readAllStandardError()));
+    // UTF-8, not the local codepage: ffmpeg writes device names as UTF-8 on Windows too,
+    // and decoding them as CP1251 turned every non-ASCII microphone into mojibake —
+    // "Микрофон (Realtek(R) Audio)" came out as "РњРёРєСЂРѕС„РѕРЅ", which is also the name
+    // that would then be handed back to ffmpeg to open.
+    return parseDshowListing(QString::fromUtf8(proc.readAllStandardError()));
 #else
     return {};
 #endif
