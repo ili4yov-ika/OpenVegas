@@ -76,6 +76,8 @@ public slots:
     void onBounceAudioMixdown();
     void onExtractAudioFromCd();
     void onPreferences();
+    /** Re-read plug-in folders from settings (after first-run setup). */
+    void rescanPlugins();
     void onCustomizeKeyboard();
     void onPluginChooser();
     /** Open Video Event FX dialog for a video/still event (FX button / menu). */

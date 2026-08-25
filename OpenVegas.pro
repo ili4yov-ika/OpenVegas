@@ -39,6 +39,7 @@ HEADERS += \
     src/ui/MenuBuilder.h \
     src/ui/IconFactory.h \
     src/ui/WelcomeDialog.h \
+    src/ui/FirstRunDialog.h \
     src/ui/ProjectPropertiesDialog.h \
     src/ui/MatchMediaVideoSettingsDialog.h \
     src/ui/MissingFileDialog.h \
@@ -96,6 +97,7 @@ HEADERS += \
     src/io/FFmpegStreamDecoder.h \
     src/media/MediaEngine.h \
     src/plugins/PluginScanner.h \
+    src/plugins/PluginDiscovery.h \
     src/plugins/OfxHost.h \
     src/plugins/OfxTrace.h \
     src/plugins/OfxPluginPaths.h \
@@ -131,6 +133,7 @@ SOURCES += \
     src/ui/MenuBuilder.cpp \
     src/ui/IconFactory.cpp \
     src/ui/WelcomeDialog.cpp \
+    src/ui/FirstRunDialog.cpp \
     src/ui/ProjectPropertiesDialog.cpp \
     src/ui/MatchMediaVideoSettingsDialog.cpp \
     src/ui/MissingFileDialog.cpp \
@@ -186,6 +189,7 @@ SOURCES += \
     src/io/FFmpegStreamDecoder.cpp \
     src/media/MediaEngine.cpp \
     src/plugins/PluginScanner.cpp \
+    src/plugins/PluginDiscovery.cpp \
     src/plugins/OfxHost.cpp \
     src/plugins/OfxTrace.cpp \
     src/plugins/OfxPluginPaths.cpp \

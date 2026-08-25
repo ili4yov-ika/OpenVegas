@@ -34,6 +34,7 @@ endif()
     src/ui/MenuBuilder.cpp
     src/ui/IconFactory.cpp
     src/ui/WelcomeDialog.cpp
+    src/ui/FirstRunDialog.cpp
     src/ui/ProjectPropertiesDialog.cpp
     src/ui/MatchMediaVideoSettingsDialog.cpp
     src/ui/MediaPropertiesDialog.cpp
@@ -93,6 +94,7 @@ endif()
     src/io/FFmpegStreamDecoder.cpp
     src/media/MediaEngine.cpp
     src/plugins/PluginScanner.cpp
+    src/plugins/PluginDiscovery.cpp
     src/plugins/OfxHost.cpp
     src/plugins/OfxTrace.cpp
     src/plugins/OfxPluginPaths.cpp
@@ -528,6 +530,7 @@ if(OPENVGAS_BUILD_TESTS)
         src/plugins/OfxTrace.cpp
         src/plugins/OfxPluginPaths.cpp
         src/plugins/AudioPluginScanner.cpp
+        src/plugins/PluginDiscovery.cpp
         src/audio/Vst3Host.cpp
         src/audio/SoundForgeDsHost.cpp
         src/audio/AudioDecodeCache.cpp

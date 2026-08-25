@@ -3755,6 +3755,18 @@ void MainWindow::onPreferences()
     }
 }
 
+void MainWindow::rescanPlugins()
+{
+    // First-run setup writes the same settings Preferences does, so picking them up is
+    // the same two lines — read back rather than passed in, so the two paths cannot
+    // disagree about where the values live.
+    QSettings settings(QStringLiteral("OpenVegas"), QStringLiteral("OpenVegas"));
+    m_pluginScanner.setPreferredPath(settings.value(QStringLiteral("plugins/ofxPath")).toString());
+    m_pluginScanner.setVegasProPath(
+        settings.value(QStringLiteral("plugins/vegasProPath")).toString());
+    AudioPluginRegistry::instance().refresh();
+}
+
 void MainWindow::onCustomizeKeyboard()
 {
     CustomizeKeyboardDialog dlg(this);

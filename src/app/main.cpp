@@ -1,4 +1,5 @@
 #include "app/MainWindow.h"
+#include "ui/FirstRunDialog.h"
 #include "ui/Theme.h"
 #include "video/NestedProjectSource.h"
 #include "io/SamplePaths.h"
@@ -34,6 +35,16 @@ int main(int argc, char *argv[])
     if (argc >= 2) {
         openPath = openvegas::SamplePaths::resolveProjectPath(QString::fromLocal8Bit(argv[1]));
     }
+
+    // Setup comes before anything else on a fresh install: which plug-in folders exist
+    // decides what the rest of the session can even offer, and asking after a project is
+    // already open means rescanning behind the user's back. It runs once and marks itself
+    // done; Preferences remains the way to change any of it later.
+    QTimer::singleShot(0, &window, [&window]() {
+        if (openvegas::FirstRunDialog::runIfNeeded(&window)) {
+            window.rescanPlugins();
+        }
+    });
 
     if (!openPath.isEmpty() && QFileInfo::exists(openPath)) {
         QTimer::singleShot(100, &window, [&window, openPath]() { window.openProjectPath(openPath); });
