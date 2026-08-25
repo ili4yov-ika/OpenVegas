@@ -612,7 +612,8 @@ TEST_CASE("Every group VEGAS ships presets for takes them from the package",
     }
 }
 
-TEST_CASE("A page lifts from the corner its preset is named after", "[video][transitions]")
+TEST_CASE("A page uncovers the corner VEGAS uncovers, not the one it is named after",
+          "[video][transitions]")
 {
     const QSize size(80, 80);
     QImage a(size, QImage::Format_ARGB32_Premultiplied);
@@ -624,29 +625,36 @@ TEST_CASE("A page lifts from the corner its preset is named after", "[video][tra
     auto uncovered = [&](const QString &id, const QString &preset, int x, int y) {
         const TransitionInstance t = makeTransitionInstance(id, preset);
         REQUIRE(t.isValid());
-        return qGreen(renderTransition(a, b, 0.3, t).pixel(x, y)) > 150;
+        return qGreen(renderTransition(a, b, 0.4, t).pixel(x, y)) > 150;
     };
 
-    // The angle is in screen coordinates, y down, and points at the corner being lifted:
-    // 210 Top-Left, 30 Bottom-Right, 270 Top, 180 Left. Read any other way — the usual
-    // maths convention with y up — every one of these presets peels from the opposite
-    // corner to the one it is named after.
-    CHECK(uncovered(transitionPagePeelId(), QStringLiteral("Top-Left, Medium Fold"), 4, 4));
+    // The angle is read with y up, the ordinary mathematical convention, so it points at
+    // the corner *opposite* the one the preset is named after: "Top-Left" uncovers the
+    // bottom-left first, "Bottom-Right" the top-right, "Top" the bottom edge.
+    //
+    // Measured, not reasoned. The names invite the opposite reading, and that is what this
+    // file asserted until the plug-in could be hosted and asked: over the sixteen Peel and
+    // Roll presets, the corner VEGAS uncovers first agrees with the convention used here
+    // and disagrees with the other one wherever the angle has a vertical component. Where
+    // it has none ("Left"), the two readings coincide.
+    CHECK(uncovered(transitionPagePeelId(), QStringLiteral("Top-Left, Medium Fold"), 4, 76));
     CHECK_FALSE(
-        uncovered(transitionPagePeelId(), QStringLiteral("Top-Left, Medium Fold"), 76, 76));
+        uncovered(transitionPagePeelId(), QStringLiteral("Top-Left, Medium Fold"), 76, 4));
 
-    CHECK(uncovered(transitionPagePeelId(), QStringLiteral("Bottom-Right, Medium Fold"), 76, 76));
-    CHECK_FALSE(uncovered(transitionPagePeelId(), QStringLiteral("Bottom-Right, Medium Fold"), 4, 4));
-
-    CHECK(uncovered(transitionPageRollId(), QStringLiteral("Bottom-Left, Medium Curl"), 4, 76));
-    CHECK_FALSE(uncovered(transitionPageRollId(), QStringLiteral("Bottom-Left, Medium Curl"), 76, 4));
-
-    // An edge rather than a corner: Top lifts the whole top edge at once, so both top
-    // corners go together and neither bottom one moves.
-    CHECK(uncovered(transitionPageLoopId(), QStringLiteral("Top, Large Loop, Red Light"), 4, 4));
-    CHECK(uncovered(transitionPageLoopId(), QStringLiteral("Top, Large Loop, Red Light"), 76, 4));
+    CHECK(uncovered(transitionPagePeelId(), QStringLiteral("Bottom-Right, Medium Fold"), 76, 4));
     CHECK_FALSE(
-        uncovered(transitionPageLoopId(), QStringLiteral("Top, Large Loop, Red Light"), 40, 76));
+        uncovered(transitionPagePeelId(), QStringLiteral("Bottom-Right, Medium Fold"), 4, 76));
+
+    CHECK(uncovered(transitionPageRollId(), QStringLiteral("Bottom-Left, Medium Curl"), 4, 4));
+    CHECK_FALSE(
+        uncovered(transitionPageRollId(), QStringLiteral("Bottom-Left, Medium Curl"), 76, 76));
+
+    // An edge rather than a corner: "Top" lifts along the whole width at once, so both
+    // bottom corners go together and neither top one moves.
+    CHECK(uncovered(transitionPageLoopId(), QStringLiteral("Top, Large Loop, Red Light"), 4, 76));
+    CHECK(uncovered(transitionPageLoopId(), QStringLiteral("Top, Large Loop, Red Light"), 76, 76));
+    CHECK_FALSE(
+        uncovered(transitionPageLoopId(), QStringLiteral("Top, Large Loop, Red Light"), 40, 4));
 }
 
 TEST_CASE("Peel, roll and loop are three different things at the same angle",

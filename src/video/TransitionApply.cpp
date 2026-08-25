@@ -2696,7 +2696,16 @@ PageAxis pageAxisFor(double angleDeg, const QSizeF &size)
 {
     PageAxis a;
     const double rad = angleDeg * M_PI / 180.0;
-    a.dir = QPointF(std::cos(rad), std::sin(rad));
+    // y up, the ordinary mathematical convention — not screen coordinates.
+    //
+    // This used to negate nothing, on the reading that the angle names the corner being
+    // lifted in screen coordinates because that is what makes the preset names come out
+    // right ("Top-Left" lifting the top-left corner). Measured against the plug-in, it does
+    // not: for every one of the sixteen Peel and Roll presets, the corner of the incoming
+    // clip VEGAS uncovers first is the one this convention gives, and the horizontal half
+    // was never in dispute — only the vertical. The names, then, say where the page is
+    // going rather than which corner comes up. See MARKDOWN/CHECKLIST.md.
+    a.dir = QPointF(std::cos(rad), -std::sin(rad));
     const QPointF corners[4] = {QPointF(0, 0), QPointF(size.width(), 0),
                                 QPointF(size.width(), size.height()), QPointF(0, size.height())};
     a.atCorner = -std::numeric_limits<double>::max();
