@@ -1,6 +1,8 @@
 #include <catch2/catch_approx.hpp>
 #include <catch2/catch_test_macros.hpp>
 
+#include "io/SamplePaths.h"
+#include "plugins/OfxHost.h"
 #include "video/TransitionApply.h"
 #include "video/TransitionPresetData.h"
 
@@ -8,6 +10,8 @@
 #include <QGuiApplication>
 #include <QImage>
 #include <QPainter>
+#include <QFileInfo>
+#include <QHash>
 #include <QSet>
 
 #include <algorithm>
@@ -747,5 +751,61 @@ TEST_CASE("A page transition finishes: nothing of the old clip is left standing"
                 }
             }
         }
+    }
+}
+
+TEST_CASE("VEGAS ships its transitions as OFX effects with two source clips",
+          "[video][transitions][ofx]")
+{
+    ensureQtGuiApp();
+    const QString bin =
+        SamplePaths::resolveProjectPath(QStringLiteral("SAMPLES/VEGAS-PRO-22-PROGRAM-FILES"))
+        + QStringLiteral("/OFX Video Plug-Ins/Vfx1.ofx.bundle/Contents/Win64/Vfx1.ofx");
+    if (!QFileInfo::exists(bin)) {
+        SKIP("SAMPLES/VEGAS-PRO-22-PROGRAM-FILES not available");
+    }
+
+    // The page transitions are effects inside Vfx1 like any other, found by identifier
+    // rather than by a fixed index, which moves between versions.
+    QHash<QString, int> index;
+    for (const OfxEffectSummary &e : OfxHost::enumerateEffects(bin)) {
+        index.insert(e.effectId, e.pluginIndex);
+    }
+    const QString peelId = QStringLiteral("com.vegascreativesoftware:pagepeel");
+    if (!index.contains(peelId)) {
+        SKIP("this Vfx1 build does not carry the page transitions");
+    }
+
+    const QVector<OfxContextReport> reports = OfxHost::describeContexts(bin, index.value(peelId));
+    REQUIRE_FALSE(reports.isEmpty());
+
+    const OfxContextReport *transition = nullptr;
+    for (const OfxContextReport &r : reports) {
+        if (r.context == QLatin1String("OfxImageEffectContextTransition")) {
+            transition = &r;
+        }
+    }
+    REQUIRE(transition);
+
+    // This is what makes hosting the real transitions possible rather than approximating
+    // them: the plug-in describes itself in the transition context, and defines the two
+    // source clips a transition needs. Our own renderer for this group is geometry
+    // derived from parameter names — the plug-in is the thing itself.
+    CHECK(transition->accepted);
+    CHECK(transition->clips.contains(QStringLiteral("SourceFrom")));
+    CHECK(transition->clips.contains(QStringLiteral("SourceTo")));
+    CHECK(transition->clips.contains(QStringLiteral("Output")));
+
+    // And the progress comes from a parameter the plug-in declares itself, named
+    // "Transition" — not from anything the host has to invent.
+    CHECK(transition->params.contains(QStringLiteral("Transition")));
+
+    // The rest of its parameters are the ones the preset package names, in the plug-in's
+    // own capitalisation, with the three light components as a single colour parameter.
+    for (const QString &key : {QStringLiteral("PeelAngle"), QStringLiteral("FoldRadius"),
+                               QStringLiteral("SlideAmount"), QStringLiteral("PeelOpacity"),
+                               QStringLiteral("Perspective"), QStringLiteral("LightColor")}) {
+        INFO(key.toStdString());
+        CHECK(transition->params.contains(key));
     }
 }

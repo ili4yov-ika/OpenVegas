@@ -2152,6 +2152,8 @@ void initHostProps()
     setInt(&g_hostProps, kOfxParamHostPropPageRowColumnCount, 1, 1);
     appendString(&g_hostProps, kOfxImageEffectPropSupportedComponents, kOfxImageComponentRGBA);
     appendString(&g_hostProps, kOfxImageEffectPropSupportedContexts, kOfxImageEffectContextFilter);
+    appendString(&g_hostProps, kOfxImageEffectPropSupportedContexts,
+                 kOfxImageEffectContextTransition);
     appendString(&g_hostProps, kOfxImageEffectPropSupportedContexts, kOfxImageEffectContextGeneral);
     appendString(&g_hostProps, kOfxImageEffectPropSupportedContexts,
                  kOfxImageEffectContextGenerator);
@@ -2281,6 +2283,25 @@ QHash<QString, int> OfxHost::effectIndexMap(const QString &binaryPath)
     return out;
 }
 
+/**
+ * The VEGAS context that goes with an OFX one.
+ *
+ * VEGAS's fork of the OFX support library maps this in-arg to its own enum before the
+ * plug-in sees anything, and treats an absent or unmappable value as fatal — which is why
+ * VEGAS bundles used to stop dead after their first clipDefine(). A transition lives on a
+ * fade, and that is the VEGAS context it belongs to.
+ */
+const char *vegasContextFor(const std::string &ofxContext)
+{
+    if (ofxContext == kOfxImageEffectContextGenerator) {
+        return kOfxImageEffectPropVegasContextGenerator;
+    }
+    if (ofxContext == kOfxImageEffectContextTransition) {
+        return kOfxImageEffectPropVegasContextEventFadeIn;
+    }
+    return kOfxImageEffectPropVegasContextEvent;
+}
+
 QVector<OfxEffectSummary> OfxHost::enumerateEffects(const QString &binaryPath)
 {
     QVector<OfxEffectSummary> out;
@@ -2352,6 +2373,96 @@ QVector<OfxEffectSummary> OfxHost::enumerateEffects(const QString &binaryPath)
     } catch (...) {
         OPENVEGAS_OFX_TRACE(
             QStringLiteral("enumerateEffects: exception in \"%1\"").arg(binaryPath));
+    }
+    lib.unload();
+    return out;
+}
+
+QVector<OfxContextReport> OfxHost::describeContexts(const QString &binaryPath, int pluginIndex)
+{
+    QVector<OfxContextReport> out;
+    if (binaryPath.isEmpty() || !QFileInfo::exists(binaryPath)) {
+        return out;
+    }
+    if (!checkArchLoadable(binaryPath, nullptr)) {
+        return out;
+    }
+    ensureHostC();
+
+    ScopedOfxDllDirectory dllDirGuard(ofxInstallRootForBinary(binaryPath));
+    QLibrary lib(binaryPath);
+    if (!lib.load()) {
+        return out;
+    }
+    using GetNumFn = int (*)();
+    using GetPluginFn = OfxPlugin *(*)(int);
+    auto getNum = reinterpret_cast<GetNumFn>(lib.resolve("OfxGetNumberOfPlugins"));
+    auto getPlugin = reinterpret_cast<GetPluginFn>(lib.resolve("OfxGetPlugin"));
+    if (!getNum || !getPlugin) {
+        lib.unload();
+        return out;
+    }
+
+    try {
+        if (pluginIndex < 0 || pluginIndex >= getNum()) {
+            lib.unload();
+            return out;
+        }
+        OfxPlugin *plug = getPlugin(pluginIndex);
+        if (!plug || !plug->setHost || !plug->mainEntry) {
+            lib.unload();
+            return out;
+        }
+        plug->setHost(&g_hostC);
+        if (!statusOk(plug->mainEntry(kOfxActionLoad, nullptr, nullptr, nullptr))) {
+            lib.unload();
+            return out;
+        }
+
+        EffectRec descFx;
+        setString(&descFx.props, kOfxPropType, 0, kOfxTypeImageEffect);
+        setString(&descFx.props, kOfxPropName, 0, plug->pluginIdentifier);
+        seedEffectDescriptorProps(&descFx.props);
+        if (!statusOk(plug->mainEntry(kOfxActionDescribe,
+                                      reinterpret_cast<OfxImageEffectHandle>(&descFx), nullptr,
+                                      nullptr))) {
+            lib.unload();
+            return out;
+        }
+
+        // Every context this host advertises, asked for one at a time on a descriptor of
+        // its own — the point is to find out what the plug-in will accept, so one context
+        // being refused must not spoil the next.
+        const std::vector<std::string> candidates = {
+            kOfxImageEffectContextFilter, kOfxImageEffectContextTransition,
+            kOfxImageEffectContextGeneral, kOfxImageEffectContextGenerator};
+        for (const std::string &context : candidates) {
+            PropSet inArgs;
+            setString(&inArgs, kOfxImageEffectPropContext, 0, context.c_str());
+            setString(&inArgs, kOfxImageEffectPropVegasContext, 0,
+                      vegasContextFor(context.c_str()));
+            EffectRec ctxFx;
+            ctxFx.props = descFx.props;
+            ctxFx.params = descFx.params;
+            OfxContextReport rep;
+            rep.context = QString::fromStdString(context);
+            rep.status = plug->mainEntry(kOfxImageEffectActionDescribeInContext,
+                                         reinterpret_cast<OfxImageEffectHandle>(&ctxFx),
+                                         reinterpret_cast<OfxPropertySetHandle>(&inArgs), nullptr);
+            rep.accepted = statusOk(rep.status);
+            for (const auto &ckv : ctxFx.clips) {
+                rep.clips << QString::fromStdString(ckv.first);
+            }
+            for (const auto &pkv : ctxFx.params) {
+                rep.params << QString::fromStdString(pkv.first);
+            }
+            rep.clips.sort();
+            rep.params.sort();
+            out.push_back(rep);
+        }
+    } catch (...) {
+        OPENVEGAS_OFX_TRACE(
+            QStringLiteral("describeContexts: exception in \"%1\"").arg(binaryPath));
     }
     lib.unload();
     return out;
@@ -2525,9 +2636,7 @@ struct OfxHost::Impl {
                 // stop dead after their first clipDefine(). Standard OFX plug-ins ignore
                 // the extra property. See plugins/OfxVegasExtensions.h.
                 setString(&inArgs, kOfxImageEffectPropVegasContext, 0,
-                          context == kOfxImageEffectContextGenerator
-                              ? kOfxImageEffectPropVegasContextGenerator
-                              : kOfxImageEffectPropVegasContextEvent);
+                          vegasContextFor(context.c_str()));
                 EffectRec ctxFx;
                 ctxFx.module = mod.get();
                 ctxFx.props = mod->descriptorProps;

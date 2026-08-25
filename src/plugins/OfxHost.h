@@ -76,6 +76,15 @@ struct OfxPluginDesc {
     QString archNote;
 };
 
+/** What DescribeInContext made of one effect in one context. */
+struct OfxContextReport {
+    QString context;   ///< the kOfxImageEffectContext… value asked for
+    bool accepted = false;
+    int status = 0;    ///< the OfxStatus the plug-in returned
+    QStringList clips; ///< clip names it defined, sorted
+    QStringList params;
+};
+
 /** One effect declared inside an .ofx binary, as the binary itself describes it. */
 struct OfxEffectSummary {
     QString effectId;  ///< OfxPlugin::pluginIdentifier
@@ -124,6 +133,20 @@ public:
      * than called per frame. Empty when the binary is missing, foreign-ABI or broken.
      */
     static QVector<OfxEffectSummary> enumerateEffects(const QString &binaryPath);
+
+    /**
+     * What one effect accepts when asked to describe itself in each context.
+     *
+     * Answers a question nothing else could: whether a bundle's effects are filters,
+     * transitions or generators, and what clips and parameters each context gives them.
+     * VEGAS's own bundles leave kOfxImageEffectPropSupportedContexts unset during plain
+     * Describe, so asking one context at a time is the only way to find out.
+     *
+     * Runs Load + Describe + DescribeInContext on a fresh library handle and does not
+     * touch the instance cache, so it is a diagnostic, not a render path.
+     */
+    static QVector<OfxContextReport> describeContexts(const QString &binaryPath,
+                                                      int pluginIndex);
 
     /**
      * Create a process instance (caches by path + plugin index).
