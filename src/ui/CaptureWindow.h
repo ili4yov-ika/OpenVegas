@@ -1,6 +1,7 @@
 #pragma once
 
 #include "capture/CapturePlan.h"
+#include "capture/CapturePreview.h"
 #include "capture/CaptureRecorder.h"
 #include "ui/CaptureTrayIcon.h"
 
@@ -45,6 +46,8 @@ private:
     void rebuildPlan();
     void updateSummary();
     void chooseFolder();
+    /** Ask for a still of whatever source is highlighted, if it has a picture. */
+    void refreshPreview();
     void toggleRecording();
     void setRecordingUi(bool recording);
 
@@ -55,6 +58,8 @@ private:
     QLineEdit *m_takeName = nullptr;
     QLineEdit *m_folder = nullptr;
     QLabel *m_summary = nullptr;
+    QLabel *m_preview = nullptr;
+    QLabel *m_previewNote = nullptr;
     QLabel *m_elapsed = nullptr;
     QPushButton *m_recordBtn = nullptr;
     QPushButton *m_rescanBtn = nullptr;
@@ -63,6 +68,16 @@ private:
     QVector<CaptureSource> m_available;
     CapturePlan m_plan;
     CaptureRecorder m_recorder;
+    CapturePreview m_previewGrab;
+    QTimer *m_previewTick = nullptr;
+    /**
+     * Source id whose preview failed, so the timer stops asking it every few seconds.
+     *
+     * A camera another program is holding fails every time; retrying it on a timer
+     * spawns an ffmpeg a second for as long as the window is open, and each attempt
+     * fights the program that has the device.
+     */
+    QString m_previewFailedFor;
     QTimer *m_tick = nullptr;
     qint64 m_startedMs = 0;
 };

@@ -89,6 +89,8 @@ HEADERS += \
     src/io/ProjectFile.h \
     src/capture/CaptureSource.h \
     src/capture/CapturePlan.h \
+    src/capture/CaptureInput.h \
+    src/capture/CapturePreview.h \
     src/capture/CaptureSources.h \
     src/capture/CaptureRecorder.h \
     src/io/SamplePaths.h \
@@ -191,6 +193,8 @@ SOURCES += \
     src/io/ProjectInterchange.cpp \
     src/io/ProjectFile.cpp \
     src/capture/CapturePlan.cpp \
+    src/capture/CaptureInput.cpp \
+    src/capture/CapturePreview.cpp \
     src/capture/CaptureSources.cpp \
     src/capture/CaptureRecorder.cpp \
     src/io/SamplePaths.cpp \

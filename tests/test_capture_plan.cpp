@@ -1,4 +1,5 @@
 #include "capture/CapturePlan.h"
+#include "capture/CapturePreview.h"
 #include "capture/CaptureRecorder.h"
 #include "capture/CaptureSources.h"
 #include "ui/CaptureTrayIcon.h"
@@ -562,4 +563,79 @@ TEST_CASE("A high-refresh monitor is not recorded at its refresh rate", "[captur
     plan.sources = {screen(QStringLiteral("Display 1"), 2560, 1440, 165.0)};
     plan.maxFrameRate = 0.0;
     CHECK(plan.frameRate() == Catch::Approx(165.0));
+}
+
+TEST_CASE("A preview opens the source exactly the way a take would", "[capture]")
+{
+    CaptureSource second = screen(QStringLiteral("Display 2"), 1920, 1080, 60.0);
+    second.origin = QPoint(1920, 0);
+
+    CapturePlan plan;
+    plan.sources = {second};
+    const QStringList take =
+        CaptureRecorder::argumentsFor(plan, plan.outputs().first(), QStringLiteral("C:/t/s.mkv"));
+    const QStringList preview = CapturePreview::argumentsFor(second, QSize(240, 135));
+    REQUIRE_FALSE(preview.isEmpty());
+
+    // The dangerous drift is the input half: a preview that opened a window by its caption
+    // while the take opened it by handle would show one window and record another, and
+    // nothing would say so until the take was watched. So the same builder makes both.
+    CHECK(valueAfter(preview, QStringLiteral("-i")) == valueAfter(take, QStringLiteral("-i")));
+#ifdef Q_OS_WIN
+    CHECK(valueAfter(preview, QStringLiteral("-offset_x")) == QStringLiteral("1920"));
+#endif
+    CHECK(valueAfter(preview, QStringLiteral("-video_size")) == QStringLiteral("1920x1080"));
+
+    CaptureSource win;
+    win.kind = CaptureSource::Kind::Window;
+    win.id = QStringLiteral("14026606");
+    win.nativeSize = QSize(1280, 720);
+    const QStringList winPreview = CapturePreview::argumentsFor(win, QSize(240, 135));
+#ifdef Q_OS_WIN
+    CHECK(valueAfter(winPreview, QStringLiteral("-i")) == QStringLiteral("hwnd=14026606"));
+#else
+    CHECK(winPreview.isEmpty());
+#endif
+}
+
+TEST_CASE("A preview grabs one frame and no more", "[capture]")
+{
+    const CaptureSource cam = camera(QStringLiteral("Webcam"), 1280, 720, 30.0);
+    const QStringList args = CapturePreview::argumentsFor(cam, QSize(240, 135));
+    REQUIRE_FALSE(args.isEmpty());
+
+    // One frame, not a stream: the preview is a still, and leaving a capture running would
+    // mean a second capture of every source on the list.
+    CHECK(valueAfter(args, QStringLiteral("-frames:v")) == QStringLiteral("1"));
+    // The tail as a whole, because `-f` appears twice — once for the device being opened
+    // and once for the muxer — and looking up the first one finds the wrong of the two.
+    CHECK(args.mid(args.size() - 5)
+          == QStringList{QStringLiteral("-f"), QStringLiteral("image2pipe"),
+                         QStringLiteral("-c:v"), QStringLiteral("png"), QStringLiteral("-")});
+
+    // A camera keeps its own rate: asked for one it does not have, it refuses to open at
+    // all. Only the grabbers whose rate is ours to choose are slowed down.
+    CHECK(valueAfter(args, QStringLiteral("-framerate")).toDouble() == Catch::Approx(30.0));
+
+    // A screen is one of those, and asking it for its full rate would have it capturing a
+    // 165 Hz display 165 times a second to keep a single frame.
+    const QStringList screenArgs =
+        CapturePreview::argumentsFor(screen(QStringLiteral("Display 1"), 2560, 1440, 165.0),
+                                     QSize(240, 135));
+    CHECK(valueAfter(screenArgs, QStringLiteral("-framerate")).toDouble() == Catch::Approx(1.0));
+
+    // Scaled to fit the box it is shown in, keeping its shape. Not with an expression:
+    // filter arguments are comma-separated, so a `min(a,b)` inside one reads as the end of
+    // the filter and ffmpeg refuses the command outright — which is exactly what the first
+    // version of this did, and only running it showed that.
+    const QString vf = valueAfter(args, QStringLiteral("-vf"));
+    CHECK(vf == QStringLiteral("scale=240:135:force_original_aspect_ratio=decrease"));
+    CHECK_FALSE(vf.contains(QLatin1Char(',')));
+}
+
+TEST_CASE("An audio input has no preview to offer", "[capture]")
+{
+    // Not an error and not an empty picture — the window says so in words instead.
+    const CaptureSource m = mic(QStringLiteral("Headset"), 48000, 2, 16);
+    CHECK(CapturePreview::argumentsFor(m, QSize(240, 135)).isEmpty());
 }

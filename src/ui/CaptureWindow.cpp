@@ -8,10 +8,12 @@
 #include <QDir>
 #include <QFileDialog>
 #include <QFormLayout>
+#include <QFrame>
 #include <QHBoxLayout>
 #include <QHeaderView>
 #include <QLabel>
 #include <QLineEdit>
+#include <QPixmap>
 #include <QMessageBox>
 #include <QPushButton>
 #include <QSettings>
@@ -75,7 +77,27 @@ CaptureWindow::CaptureWindow(QWidget *parent)
     m_tree->setHeaderLabels({tr("Source"), tr("Reports")});
     m_tree->header()->setSectionResizeMode(0, QHeaderView::Stretch);
     m_tree->header()->setSectionResizeMode(1, QHeaderView::ResizeToContents);
-    root->addWidget(m_tree, 1);
+
+    // A picture beside the list, because the list alone cannot be picked from: two
+    // monitors called "Display 1" and "Display 2" say nothing about which is which, and a
+    // window's title names the document rather than what is on screen.
+    m_preview = new QLabel(this);
+    m_preview->setObjectName(QStringLiteral("capturePreview"));
+    m_preview->setMinimumSize(220, 124);
+    m_preview->setAlignment(Qt::AlignCenter);
+    m_preview->setFrameShape(QFrame::StyledPanel);
+    m_previewNote = new QLabel(tr("Select a source to preview it."), this);
+    m_previewNote->setWordWrap(true);
+    m_previewNote->setAlignment(Qt::AlignCenter);
+
+    auto *previewCol = new QVBoxLayout();
+    previewCol->addWidget(m_preview, 1);
+    previewCol->addWidget(m_previewNote);
+
+    auto *topRow = new QHBoxLayout();
+    topRow->addWidget(m_tree, 2);
+    topRow->addLayout(previewCol, 1);
+    root->addLayout(topRow, 1);
 
     auto *form = new QFormLayout();
     m_reference = new QComboBox(this);
@@ -134,6 +156,37 @@ CaptureWindow::CaptureWindow(QWidget *parent)
     connect(m_tree, &QTreeWidget::itemChanged, this, [this](QTreeWidgetItem *, int) {
         rebuildPlan();
     });
+    connect(m_tree, &QTreeWidget::currentItemChanged, this,
+            [this](QTreeWidgetItem *, QTreeWidgetItem *) {
+                // A different source is worth a fresh try even if the last one failed.
+                m_previewFailedFor.clear();
+                refreshPreview();
+            });
+
+    connect(&m_previewGrab, &CapturePreview::frameReady, this, [this](const QImage &frame) {
+        m_preview->setPixmap(QPixmap::fromImage(frame));
+        m_previewNote->clear();
+    });
+    connect(&m_previewGrab, &CapturePreview::failed, this, [this](const QString &why) {
+        m_preview->setPixmap(QPixmap());
+        m_previewNote->setText(why);
+        // Remembered so the timer stops asking: a device another program is holding fails
+        // every time, and retrying it every few seconds spawns an ffmpeg each time and
+        // keeps fighting whatever has the device.
+        QTreeWidgetItem *row = m_tree->currentItem();
+        const int at = row ? row->data(0, kIndexRole).toInt() : -1;
+        if (row && !row->data(0, kIndexRole).isNull() && at >= 0 && at < m_available.size()) {
+            m_previewFailedFor = m_available[at].id;
+        }
+    });
+
+    // Still frames rather than a live feed: a running preview would be a second capture of
+    // every source, and some cameras only open once — the take would then find the device
+    // busy with its own preview.
+    m_previewTick = new QTimer(this);
+    m_previewTick->setInterval(2500);
+    connect(m_previewTick, &QTimer::timeout, this, &CaptureWindow::refreshPreview);
+    m_previewTick->start();
     connect(m_reference, &QComboBox::currentIndexChanged, this, [this](int) { rebuildPlan(); });
     connect(m_fit, &QComboBox::currentIndexChanged, this, [this](int) { rebuildPlan(); });
     connect(m_size, &QComboBox::currentIndexChanged, this, [this](int) { rebuildPlan(); });
@@ -180,6 +233,7 @@ void CaptureWindow::refreshSources()
     const QSignalBlocker block(m_tree);
     m_tree->clear();
     QHash<int, QTreeWidgetItem *> groups;
+    QTreeWidgetItem *first = nullptr;
     for (int i = 0; i < m_available.size(); ++i) {
         const CaptureSource &s = m_available[i];
         QTreeWidgetItem *group = groups.value(int(s.kind), nullptr);
@@ -195,8 +249,44 @@ void CaptureWindow::refreshSources()
         auto *row = new QTreeWidgetItem(group, {s.name, describe(s)});
         row->setCheckState(0, Qt::Unchecked);
         row->setData(0, kIndexRole, i);
+        if (!first && s.isVideo()) {
+            first = row;
+        }
     }
+    // The first source with a picture starts highlighted, so the preview pane has
+    // something in it straight away rather than an empty box and an instruction. Set
+    // outright rather than only when nothing is current: a tree makes its first item —
+    // here a group heading — current the moment it is added.
+    if (first) {
+        m_tree->setCurrentItem(first);
+    }
+    m_previewFailedFor.clear();
     rebuildPlan();
+    refreshPreview();
+}
+
+void CaptureWindow::refreshPreview()
+{
+    // Never while recording: the devices are in use, and a grab of a camera mid-take could
+    // take it away from the recorder.
+    if (m_recorder.isRecording() || !isVisible() || m_previewGrab.isBusy()) {
+        return;
+    }
+    QTreeWidgetItem *row = m_tree->currentItem();
+    const int at = row ? row->data(0, kIndexRole).toInt() : -1;
+    if (!row || row->data(0, kIndexRole).isNull() || at < 0 || at >= m_available.size()) {
+        return; // a group header, or nothing chosen yet
+    }
+    const CaptureSource &source = m_available[at];
+    if (source.id == m_previewFailedFor) {
+        return; // already tried and it would not open; the note still says why
+    }
+    if (!source.isVideo()) {
+        m_preview->setPixmap(QPixmap());
+        m_previewNote->setText(tr("%1 is an audio input — nothing to show.").arg(source.name));
+        return;
+    }
+    m_previewGrab.request(source, m_preview->size());
 }
 
 void CaptureWindow::rebuildPlan()
@@ -294,6 +384,14 @@ void CaptureWindow::chooseFolder()
 void CaptureWindow::setRecordingUi(bool recording)
 {
     m_tray->setRecording(recording);
+    if (recording) {
+        m_previewGrab.cancel();
+        m_previewTick->stop();
+        m_previewNote->setText(tr("Recording — preview paused."));
+    } else {
+        m_previewTick->start();
+        refreshPreview();
+    }
     m_recordBtn->setText(recording ? tr("Stop Recording") : tr("Start Recording"));
     m_tree->setEnabled(!recording);
     m_reference->setEnabled(!recording);

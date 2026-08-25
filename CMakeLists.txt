@@ -85,6 +85,8 @@ endif()
     src/io/ProjectInterchange.cpp
     src/io/ProjectFile.cpp
     src/capture/CapturePlan.cpp
+    src/capture/CaptureInput.cpp
+    src/capture/CapturePreview.cpp
     src/capture/CaptureSources.cpp
     src/capture/CaptureRecorder.cpp
     src/io/SamplePaths.cpp
@@ -334,6 +336,8 @@ endif()
 add_executable(OpenVegasCapture
     src/capture/main_capture.cpp
     src/capture/CapturePlan.cpp
+    src/capture/CaptureInput.cpp
+    src/capture/CapturePreview.cpp
     src/capture/CaptureSources.cpp
     src/capture/CaptureRecorder.cpp
     src/ui/CaptureWindow.cpp
@@ -559,6 +563,8 @@ if(OPENVGAS_BUILD_TESTS)
         src/io/ProjectInterchange.cpp
         src/io/ProjectFile.cpp
         src/capture/CapturePlan.cpp
+        src/capture/CaptureInput.cpp
+        src/capture/CapturePreview.cpp
         src/capture/CaptureSources.cpp
         src/capture/CaptureRecorder.cpp
         src/ui/CaptureTrayIcon.cpp

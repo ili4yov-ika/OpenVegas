@@ -1,25 +1,12 @@
 #include "capture/CaptureRecorder.h"
 
+#include "capture/CaptureInput.h"
 #include "io/FfmpegLocator.h"
 
 #include <QDir>
 #include <QFileInfo>
 
 namespace openvegas {
-
-namespace {
-
-/** `-video_size WxH`, the pair of flags ffmpeg wants for a sized input. */
-void appendSize(QStringList *args, const QSize &size)
-{
-    if (!args || !size.isValid() || size.isEmpty()) {
-        return;
-    }
-    args->append(QStringLiteral("-video_size"));
-    args->append(QStringLiteral("%1x%2").arg(size.width()).arg(size.height()));
-}
-
-} // namespace
 
 CaptureRecorder::CaptureRecorder(QObject *parent)
     : QObject(parent)
@@ -38,77 +25,15 @@ QStringList CaptureRecorder::argumentsFor(const CapturePlan &plan, const Capture
     args << QStringLiteral("-hide_banner") << QStringLiteral("-y");
 
     const CaptureSource &src = output.source;
-    switch (src.kind) {
-    case CaptureSource::Kind::Screen: {
-        // A screen grabber takes the whole desktop and is told which part to keep, so a
-        // second monitor is a region rather than a device of its own. Without the offset
-        // and size, picking one monitor records every monitor.
-#ifdef Q_OS_WIN
-        args << QStringLiteral("-f") << QStringLiteral("gdigrab");
-        if (output.frameRate > 0.0) {
-            args << QStringLiteral("-framerate")
-                 << QString::number(output.frameRate, 'g', 6);
-        }
-        if (!src.origin.isNull()) {
-            args << QStringLiteral("-offset_x") << QString::number(src.origin.x())
-                 << QStringLiteral("-offset_y") << QString::number(src.origin.y());
-        }
-        appendSize(&args, src.nativeSize);
-        args << QStringLiteral("-i") << QStringLiteral("desktop");
-#else
-        args << QStringLiteral("-f") << QStringLiteral("x11grab");
-        if (output.frameRate > 0.0) {
-            args << QStringLiteral("-framerate")
-                 << QString::number(output.frameRate, 'g', 6);
-        }
-        appendSize(&args, src.nativeSize);
-        // x11grab carries the offset in the display name rather than in its own flags.
-        args << QStringLiteral("-i")
-             << QStringLiteral(":0.0+%1,%2").arg(src.origin.x()).arg(src.origin.y());
-#endif
-        break;
+    // How the device is opened is shared with the preview, so the two cannot drift apart:
+    // a preview that opened a window by its caption while the take opened it by handle
+    // would show one window and record another.
+    const QStringList input =
+        captureInputArguments(src, src.isVideo() ? output.frameRate : 0.0);
+    if (input.isEmpty()) {
+        return {}; // not openable on this platform; the caller reports rather than runs
     }
-    case CaptureSource::Kind::Window: {
-#ifdef Q_OS_WIN
-        args << QStringLiteral("-f") << QStringLiteral("gdigrab");
-        if (output.frameRate > 0.0) {
-            args << QStringLiteral("-framerate")
-                 << QString::number(output.frameRate, 'g', 6);
-        }
-        // By handle, not by title: a title changes while a take is running (a document is
-        // saved, a tab is switched) and two windows can carry the same one.
-        args << QStringLiteral("-i") << QStringLiteral("hwnd=%1").arg(src.id);
-#else
-        return {}; // no window grabber wired up off Windows yet
-#endif
-        break;
-    }
-    case CaptureSource::Kind::Camera: {
-#ifdef Q_OS_WIN
-        args << QStringLiteral("-f") << QStringLiteral("dshow");
-        appendSize(&args, src.nativeSize);
-        if (src.frameRate > 0.0) {
-            args << QStringLiteral("-framerate") << QString::number(src.frameRate, 'g', 6);
-        }
-        args << QStringLiteral("-i") << QStringLiteral("video=%1").arg(src.id);
-#else
-        args << QStringLiteral("-f") << QStringLiteral("v4l2");
-        appendSize(&args, src.nativeSize);
-        args << QStringLiteral("-i") << src.id;
-#endif
-        break;
-    }
-    case CaptureSource::Kind::Audio: {
-#ifdef Q_OS_WIN
-        args << QStringLiteral("-f") << QStringLiteral("dshow");
-        args << QStringLiteral("-i") << QStringLiteral("audio=%1").arg(src.id);
-#else
-        args << QStringLiteral("-f") << QStringLiteral("pulse") << QStringLiteral("-i")
-             << (src.id.isEmpty() ? QStringLiteral("default") : src.id);
-#endif
-        break;
-    }
-    }
+    args += input;
 
     if (output.source.isVideo()) {
         // Scaling happens here rather than in the source: a capture device asked for a
