@@ -83,6 +83,7 @@ endif()
     src/model/SnapshotCommand.cpp
     src/io/VegReader.cpp
     src/io/VegRiff.cpp
+    src/io/VegRiffWriter.cpp
     src/io/VegOfxParams.cpp
     src/io/ProjectInterchange.cpp
     src/io/ProjectFile.cpp
@@ -560,6 +561,7 @@ if(OPENVGAS_BUILD_TESTS)
         tests/test_media_generator.cpp
         tests/test_veg_no_edl_audit.cpp
         tests/test_veg_ofx_params.cpp
+        tests/test_veg_riff_writer.cpp
         tests/test_transitions_veg.cpp
         tests/test_nested_project_audio.cpp
         src/io/FFmpegEncoder.cpp
@@ -579,6 +581,7 @@ if(OPENVGAS_BUILD_TESTS)
         src/io/SamplePaths.cpp
         src/io/VegReader.cpp
         src/io/VegRiff.cpp
+        src/io/VegRiffWriter.cpp
         src/io/VegOfxParams.cpp
         src/io/MediaMime.cpp
         src/io/MediaProbe.cpp
