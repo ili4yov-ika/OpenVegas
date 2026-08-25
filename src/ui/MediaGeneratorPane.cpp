@@ -19,6 +19,7 @@
 #include <QMimeData>
 #include <QMouseEvent>
 #include <QPainter>
+#include <QPersistentModelIndex>
 #include <QPixmap>
 #include <QPushButton>
 #include <QScrollArea>
@@ -46,6 +47,9 @@ QColor c(int r, int g, int b) { return QColor(r, g, b); }
 constexpr int kDragKindRole = Qt::UserRole + 20;
 constexpr int kDragNameRole = Qt::UserRole + 21;
 constexpr int kDragExtraRole = Qt::UserRole + 22;
+
+/** Width of the leading star glyph in a plug-in row — a press this far in toggles it. */
+constexpr int kStarColumnWidth = 18;
 
 /** Drag-out only list widget: emits a MediaMime synthetic payload (kind/name/extra
  *  from item data) so the timeline can create the matching generator event on drop.
@@ -84,7 +88,7 @@ protected:
     void mousePressEvent(QMouseEvent *event) override
     {
         if (event->button() == Qt::LeftButton) {
-            m_pressItem = itemAt(event->pos());
+            m_pressIndex = indexAt(event->pos());
             m_pressPos = event->pos();
         }
         QListWidget::mousePressEvent(event);
@@ -92,7 +96,7 @@ protected:
 
     void mouseMoveEvent(QMouseEvent *event) override
     {
-        if (!m_pressItem || !(event->buttons() & Qt::LeftButton)) {
+        if (!m_pressIndex.isValid() || !(event->buttons() & Qt::LeftButton)) {
             QListWidget::mouseMoveEvent(event);
             return;
         }
@@ -100,8 +104,11 @@ protected:
             QListWidget::mouseMoveEvent(event);
             return;
         }
-        QListWidgetItem *item = m_pressItem;
-        m_pressItem = nullptr; // one-shot: don't re-arm until the next press
+        QListWidgetItem *item = itemFromIndex(m_pressIndex);
+        m_pressIndex = QPersistentModelIndex(); // one-shot: don't re-arm until the next press
+        if (!item) {
+            return; // the list was rebuilt under the press — nothing left to drag
+        }
         QMimeData *md = mimeData({item});
         if (!md) {
             return;
@@ -118,7 +125,15 @@ protected:
     }
 
 private:
-    QListWidgetItem *m_pressItem = nullptr;
+    /**
+     * The pressed row, as an index rather than a pointer.
+     *
+     * A press can rebuild the list (toggling the favourite star does), which deletes every
+     * item — including the one that was pressed. A stored `QListWidgetItem *` would be left
+     * pointing at freed memory and the next mouse move would read it; a persistent index just
+     * goes invalid.
+     */
+    QPersistentModelIndex m_pressIndex;
     QPoint m_pressPos;
 };
 
@@ -535,29 +550,28 @@ void MediaGeneratorPane::buildUi()
                                     : item->text();
         emit presetActivated(m_plugins[m_currentIndex].name, content, animationKey);
     });
+    // The row's leading character is its favourite star, so a press in that column toggles it,
+    // the way Vegas's own dock does. There is no separate star widget to click, hence the hit
+    // test against the item rect — in viewport coordinates, which is what visualItemRect gives.
     connect(m_pluginList, &QListWidget::itemPressed, this, [this](QListWidgetItem *item) {
-        if (!item) {
+        if (!item || !(QApplication::mouseButtons() & Qt::LeftButton)) {
             return;
         }
-        const QPoint pos = m_pluginList->mapFromGlobal(QCursor::pos());
+        const QPoint pos = m_pluginList->viewport()->mapFromGlobal(QCursor::pos());
         const QRect r = m_pluginList->visualItemRect(item);
-        if (pos.x() - r.left() < 18) {
-            const int idx = item->data(Qt::UserRole).toInt();
-            if (idx >= 0 && idx < m_plugins.size()) {
-                m_plugins[idx].favorite = !m_plugins[idx].favorite;
-                saveFavorites();
-                const bool sel = (idx == m_currentIndex);
-                applySearchAndCategory();
-                if (sel) {
-                    for (int i = 0; i < m_pluginList->count(); ++i) {
-                        if (m_pluginList->item(i)->data(Qt::UserRole).toInt() == idx) {
-                            m_pluginList->setCurrentRow(i);
-                            break;
-                        }
-                    }
-                }
-            }
+        if (pos.x() - r.left() >= kStarColumnWidth) {
+            return;
         }
+        const int idx = item->data(Qt::UserRole).toInt();
+        if (idx < 0 || idx >= m_plugins.size()) {
+            return;
+        }
+        m_plugins[idx].favorite = !m_plugins[idx].favorite;
+        saveFavorites();
+        // Rebuilding drops every item, `item` included, and this runs inside the list's own
+        // mouse-press handling — so it waits until that has finished. applySearchAndCategory()
+        // restores the selection from m_currentIndex, which by then is the row just pressed.
+        QTimer::singleShot(0, this, [this] { applySearchAndCategory(); });
     });
 
     m_hoverTimer = new QTimer(this);

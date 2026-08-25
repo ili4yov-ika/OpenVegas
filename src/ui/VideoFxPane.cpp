@@ -21,6 +21,7 @@
 #include <QLinearGradient>
 #include <QListWidget>
 #include <QPainter>
+#include <QPersistentModelIndex>
 #include <QPixmap>
 #include <QPushButton>
 #include <QRadialGradient>
@@ -43,6 +44,8 @@ QColor c(int r, int g, int b) { return QColor(r, g, b); }
 constexpr int kDragPluginRole = Qt::UserRole + 30;
 /** Preset carried by a draggable tile; empty on a plug-in row. */
 constexpr int kDragPresetRole = Qt::UserRole + 31;
+/** Width of the leading star glyph in a plug-in row — a press this far in toggles it. */
+constexpr int kStarColumnWidth = 18;
 
 /**
  * List that starts a timeline drag instead of an internal item move.
@@ -59,7 +62,7 @@ protected:
     void mousePressEvent(QMouseEvent *event) override
     {
         if (event->button() == Qt::LeftButton) {
-            m_pressItem = itemAt(event->pos());
+            m_pressIndex = indexAt(event->pos());
             m_pressPos = event->pos();
         }
         QListWidget::mousePressEvent(event);
@@ -67,13 +70,16 @@ protected:
 
     void mouseMoveEvent(QMouseEvent *event) override
     {
-        if (!m_pressItem || !(event->buttons() & Qt::LeftButton)
+        if (!m_pressIndex.isValid() || !(event->buttons() & Qt::LeftButton)
             || (event->pos() - m_pressPos).manhattanLength() < QApplication::startDragDistance()) {
             QListWidget::mouseMoveEvent(event);
             return;
         }
-        QListWidgetItem *item = m_pressItem;
-        m_pressItem = nullptr; // one-shot until the next press
+        QListWidgetItem *item = itemFromIndex(m_pressIndex);
+        m_pressIndex = QPersistentModelIndex(); // one-shot until the next press
+        if (!item) {
+            return; // the list was rebuilt under the press — nothing left to drag
+        }
         const QString plugin = item->data(kDragPluginRole).toString();
         if (plugin.isEmpty()) {
             return;
@@ -93,7 +99,15 @@ protected:
     }
 
 private:
-    QListWidgetItem *m_pressItem = nullptr;
+    /**
+     * The pressed row, as an index rather than a pointer.
+     *
+     * A press can rebuild the list (toggling the favourite star does), which deletes every
+     * item — including the one that was pressed. A stored `QListWidgetItem *` would be left
+     * pointing at freed memory and the next mouse move would read it; a persistent index just
+     * goes invalid.
+     */
+    QPersistentModelIndex m_pressIndex;
     QPoint m_pressPos;
 };
 
@@ -385,15 +399,6 @@ void VideoFxPane::buildUi()
                 showPlugin(idx);
             });
 
-    connect(m_pluginList, &QListWidget::itemClicked, this, [](QListWidgetItem *item) {
-        if (!item) {
-            return;
-        }
-        // Click on star area (left ~18px): toggle favorite
-        // Approximate: if item text starts handling via separate mechanism
-        Q_UNUSED(item);
-    });
-
     connect(m_pluginList, &QListWidget::itemDoubleClicked, this, [this](QListWidgetItem *item) {
         if (!item || m_currentIndex < 0) {
             return;
@@ -408,34 +413,28 @@ void VideoFxPane::buildUi()
         emit presetActivated(m_plugins[m_currentIndex].name, item->text());
     });
 
-    // Star toggle via middle-click or context — use itemChanged won't work.
-    // Intercept clicks: custom — use Qt::UserRole+1 and check keyboard modifier Alt,
-    // or provide context menu. Simpler: clicking the leading star character via
-    // custom widget. Use itemPressed + position.
+    // The row's leading character is its favourite star, so a press in that column toggles it,
+    // the way Vegas's own dock does. There is no separate star widget to click, hence the hit
+    // test against the item rect — in viewport coordinates, which is what visualItemRect gives.
     connect(m_pluginList, &QListWidget::itemPressed, this, [this](QListWidgetItem *item) {
-        if (!item) {
+        if (!item || !(QApplication::mouseButtons() & Qt::LeftButton)) {
             return;
         }
-        const QPoint pos = m_pluginList->mapFromGlobal(QCursor::pos());
+        const QPoint pos = m_pluginList->viewport()->mapFromGlobal(QCursor::pos());
         const QRect r = m_pluginList->visualItemRect(item);
-        if (pos.x() - r.left() < 18) {
-            const int idx = item->data(Qt::UserRole).toInt();
-            if (idx >= 0 && idx < m_plugins.size()) {
-                m_plugins[idx].favorite = !m_plugins[idx].favorite;
-                saveFavorites();
-                const bool sel = (idx == m_currentIndex);
-                applySearchAndCategory();
-                if (sel) {
-                    // reselect
-                    for (int i = 0; i < m_pluginList->count(); ++i) {
-                        if (m_pluginList->item(i)->data(Qt::UserRole).toInt() == idx) {
-                            m_pluginList->setCurrentRow(i);
-                            break;
-                        }
-                    }
-                }
-            }
+        if (pos.x() - r.left() >= kStarColumnWidth) {
+            return;
         }
+        const int idx = item->data(Qt::UserRole).toInt();
+        if (idx < 0 || idx >= m_plugins.size()) {
+            return;
+        }
+        m_plugins[idx].favorite = !m_plugins[idx].favorite;
+        saveFavorites();
+        // Rebuilding drops every item, `item` included, and this runs inside the list's own
+        // mouse-press handling — so it waits until that has finished. applySearchAndCategory()
+        // restores the selection from m_currentIndex, which by then is the row just pressed.
+        QTimer::singleShot(0, this, [this] { applySearchAndCategory(); });
     });
 }
 
