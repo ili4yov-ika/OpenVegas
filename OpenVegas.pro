@@ -85,6 +85,9 @@ HEADERS += \
     src/io/VegReader.h \
     src/io/ProjectInterchange.h \
     src/io/ProjectFile.h \
+    src/capture/CaptureSource.h \
+    src/capture/CapturePlan.h \
+    src/capture/CaptureSources.h \
     src/io/SamplePaths.h \
     src/io/MediaMime.h \
     src/io/MediaThumbCache.h \
@@ -177,6 +180,8 @@ SOURCES += \
     src/io/VegReader.cpp \
     src/io/ProjectInterchange.cpp \
     src/io/ProjectFile.cpp \
+    src/capture/CapturePlan.cpp \
+    src/capture/CaptureSources.cpp \
     src/io/SamplePaths.cpp \
     src/io/MediaMime.cpp \
     src/io/MediaThumbCache.cpp \

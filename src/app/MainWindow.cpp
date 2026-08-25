@@ -2886,7 +2886,11 @@ void MainWindow::onOpenProject()
     }
     const QString path = QFileDialog::getOpenFileName(
         this, tr("Open Project"), startDir,
-        tr("OpenVegas Project (*.ovp *.ozp);;Vegas Project (*.veg);;"
+        // Everything openable comes first: a project is usually just "the one I saved",
+        // and making that the default saves picking the right format before finding the
+        // file. The per-format entries stay for narrowing a crowded folder.
+        tr("All projects (*.veg *.ovp *.ozp);;"
+           "OpenVegas Project (*.ovp *.ozp);;Vegas Project (*.veg);;"
            "OpenVegas Project Archive (project.json);;All files (*.*)"));
     if (path.isEmpty()) {
         return;

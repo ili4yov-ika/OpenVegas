@@ -82,6 +82,8 @@ endif()
     src/io/VegRiff.cpp
     src/io/ProjectInterchange.cpp
     src/io/ProjectFile.cpp
+    src/capture/CapturePlan.cpp
+    src/capture/CaptureSources.cpp
     src/io/SamplePaths.cpp
     src/io/MediaMime.cpp
     src/io/MediaThumbCache.cpp
@@ -499,6 +501,7 @@ if(OPENVGAS_BUILD_TESTS)
         tests/test_sound_forge_host.cpp
         tests/test_vst3_host.cpp
         tests/test_project_interchange.cpp
+        tests/test_capture_plan.cpp
         tests/test_plugin_state.cpp
         tests/test_automatic_crossfade.cpp
         tests/test_split.cpp
@@ -514,6 +517,8 @@ if(OPENVGAS_BUILD_TESTS)
         src/io/MediaThumbCache.cpp
         src/io/ProjectInterchange.cpp
         src/io/ProjectFile.cpp
+        src/capture/CapturePlan.cpp
+        src/capture/CaptureSources.cpp
         src/io/SamplePaths.cpp
         src/io/VegReader.cpp
         src/io/VegRiff.cpp
