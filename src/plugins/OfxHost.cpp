@@ -475,6 +475,15 @@ struct EffectRec {
     int height = 0;
     PropSet sourceImageProps;
     PropSet outputImageProps;
+    /**
+     * The incoming clip of a transition, set for the duration of one render.
+     *
+     * A transition has two source clips, and without this both would be bound to the same
+     * image — the plug-in would dissolve a picture into itself and look like it did
+     * nothing. Null for an ordinary filter, which has one source.
+     */
+    const QImage *transitionTo = nullptr;
+    PropSet transitionToImageProps;
 };
 
 PropSet g_hostProps;
@@ -2933,6 +2942,16 @@ bool OfxHost::processFrame(int instanceId, QImage *rgba, double timeSec, const Q
         // source pixel while writing any output pixel, and a blur that reads its own
         // partially written output produces smeared garbage.
         QImage sourceFrame = rgba->copy();
+        // The incoming side of a transition, in the same format and size as the outgoing
+        // one: a plug-in reads both clips over the same render window.
+        QImage toFrame;
+        if (fx->transitionTo && !fx->transitionTo->isNull()) {
+            toFrame = fx->transitionTo->convertToFormat(QImage::Format_RGBA8888);
+            if (toFrame.size() != rgba->size()) {
+                toFrame = toFrame.scaled(rgba->size(), Qt::IgnoreAspectRatio,
+                                         Qt::SmoothTransformation);
+            }
+        }
 
         auto fillImageProps = [&](PropSet *ps, const char *role, QImage *img) {
             ps->props.clear();
@@ -2969,6 +2988,9 @@ bool OfxHost::processFrame(int instanceId, QImage *rgba, double timeSec, const Q
 
         fillImageProps(&fx->sourceImageProps, "source", &sourceFrame);
         fillImageProps(&fx->outputImageProps, "output", rgba);
+        if (!toFrame.isNull()) {
+            fillImageProps(&fx->transitionToImageProps, "sourceTo", &toFrame);
+        }
 
         // The effect instance was created against the project frame size; this render is
         // for the frame actually in hand, so re-publish the real geometry.
@@ -2990,6 +3012,12 @@ bool OfxHost::processFrame(int instanceId, QImage *rgba, double timeSec, const Q
             } else if (ckv.first == kOfxImageEffectOutputClipName
                        || ckv.first == "Output") {
                 ckv.second.activeImage = &fx->outputImageProps;
+            } else if (ckv.first == kOfxImageEffectTransitionSourceToClipName
+                       && !toFrame.isNull()) {
+                // The clip the transition is going to. Everything else — including
+                // SourceFrom — reads the outgoing frame, which is what a filter's single
+                // source is too.
+                ckv.second.activeImage = &fx->transitionToImageProps;
             } else {
                 ckv.second.activeImage = &fx->sourceImageProps;
             }
@@ -3059,6 +3087,65 @@ bool OfxHost::processFrame(int instanceId, QImage *rgba, double timeSec, const Q
         }
         return false;
     }
+}
+
+bool OfxHost::processTransition(int instanceId, const QImage &from, const QImage &to,
+                                QImage *out, double progress, const QVariantMap &params,
+                                QString *errorOut)
+{
+    if (!out) {
+        if (errorOut) {
+            *errorOut = QStringLiteral("OFX processTransition: no output image");
+        }
+        return false;
+    }
+    if (from.isNull() && to.isNull()) {
+        if (errorOut) {
+            *errorOut = QStringLiteral("OFX processTransition: both clips are empty");
+        }
+        return false;
+    }
+
+    // The outgoing clip is the output buffer's starting content, the same arrangement a
+    // filter uses: the plug-in gets it as SourceFrom and writes over the output.
+    const QSize size = !from.isNull() ? from.size() : to.size();
+    *out = (from.isNull() ? to : from).convertToFormat(QImage::Format_RGBA8888);
+    if (out->size() != size) {
+        *out = out->scaled(size, Qt::IgnoreAspectRatio, Qt::SmoothTransformation);
+    }
+
+    QVariantMap withProgress = params;
+    // The plug-in declares this parameter itself; the host only has to fill it in. Both
+    // spellings are set because a plug-in is free to name it either way and setting one
+    // that does not exist is ignored.
+    withProgress.insert(QString::fromLatin1(kOfxImageEffectTransitionParamName),
+                        std::clamp(progress, 0.0, 1.0));
+    withProgress.insert(QStringLiteral("transition"), std::clamp(progress, 0.0, 1.0));
+
+    {
+        QMutexLocker lock(&m_->mutex);
+        auto it = m_->instances.find(instanceId);
+        if (it == m_->instances.end() || !it.value()) {
+            if (errorOut) {
+                *errorOut = QStringLiteral("OFX processTransition: invalid instance");
+            }
+            return false;
+        }
+        it.value()->transitionTo = &to;
+    }
+
+    const bool ok = processFrame(instanceId, out, 0.0, withProgress, errorOut);
+
+    {
+        QMutexLocker lock(&m_->mutex);
+        auto it = m_->instances.find(instanceId);
+        if (it != m_->instances.end() && it.value()) {
+            // Left set, the next ordinary filter render through this instance would bind
+            // a dangling pointer as its second clip.
+            it.value()->transitionTo = nullptr;
+        }
+    }
+    return ok;
 }
 
 bool OfxHost::processEmulated(QImage *rgba, const QString &displayName, const QVariantMap &params)

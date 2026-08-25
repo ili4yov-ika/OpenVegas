@@ -163,6 +163,19 @@ public:
                       QString *errorOut = nullptr);
 
     /**
+     * Render one frame of a transition through a plug-in that declares two source clips.
+     *
+     * `from` is the clip being left, `to` the one being arrived at, and `progress` runs
+     * 0 to 1. The progress is written into the plug-in's own "Transition" parameter — the
+     * transition context declares it, so the host fills it in rather than inventing one.
+     *
+     * Fail-soft like processFrame: false and an explanation, never a substitute picture.
+     */
+    bool processTransition(int instanceId, const QImage &from, const QImage &to, QImage *out,
+                           double progress, const QVariantMap &params,
+                           QString *errorOut = nullptr);
+
+    /**
      * Stand-in video FX by display name (Soften/Blur, Invert, Sepia, Brightness and
      * Contrast, Gain). **Always returns false** unless OPENVEGAS_EMULATED_VIDEO_FX is
      * turned on — see the note at the top of this header.

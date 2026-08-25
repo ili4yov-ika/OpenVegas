@@ -809,3 +809,88 @@ TEST_CASE("VEGAS ships its transitions as OFX effects with two source clips",
         CHECK(transition->params.contains(key));
     }
 }
+
+TEST_CASE("A VEGAS transition renders through the host with both of its clips",
+          "[video][transitions][ofx]")
+{
+    ensureQtGuiApp();
+    const QString bin =
+        SamplePaths::resolveProjectPath(QStringLiteral("SAMPLES/VEGAS-PRO-22-PROGRAM-FILES"))
+        + QStringLiteral("/OFX Video Plug-Ins/Vfx1.ofx.bundle/Contents/Win64/Vfx1.ofx");
+    if (!QFileInfo::exists(bin)) {
+        SKIP("SAMPLES/VEGAS-PRO-22-PROGRAM-FILES not available");
+    }
+    const QString peelId = QStringLiteral("com.vegascreativesoftware:pagepeel");
+    const QHash<QString, int> index = OfxHost::effectIndexMap(bin);
+    if (!index.contains(peelId)) {
+        SKIP("this Vfx1 build does not carry the page transitions");
+    }
+
+    OfxPluginDesc desc;
+    desc.path = bin;
+    desc.effectId = peelId;
+    desc.pluginIndex = index.value(peelId);
+    desc.hasBinary = true;
+    QString error;
+    const int id = OfxHost::instance().createInstance(desc, &error);
+    if (id <= 0) {
+        SKIP(("this build cannot instance the plug-in: " + error).toStdString());
+    }
+
+    const QSize size(128, 96);
+    QImage from(size, QImage::Format_ARGB32_Premultiplied);
+    from.fill(QColor(230, 60, 40));
+    QImage to(size, QImage::Format_ARGB32_Premultiplied);
+    to.fill(QColor(30, 70, 220));
+
+    // The parameters the plug-in declares, in its own capitalisation, with the values the
+    // "Top-Left, Medium Fold" preset ships.
+    const QVariantMap params = {
+        {QStringLiteral("PeelAngle"), 210.0},   {QStringLiteral("FoldRadius"), 0.3},
+        {QStringLiteral("SlideAmount"), 0.0},   {QStringLiteral("PeelOpacity"), 0.75},
+        {QStringLiteral("Perspective"), 0.4},
+    };
+
+    auto render = [&](double progress) {
+        QImage out;
+        QString err;
+        const bool ok = OfxHost::instance().processTransition(id, from, to, &out, progress,
+                                                              params, &err);
+        INFO(err.toStdString());
+        REQUIRE(ok);
+        REQUIRE_FALSE(out.isNull());
+        return out.convertToFormat(QImage::Format_ARGB32);
+    };
+    auto share = [&](const QImage &img, QRgb want) {
+        int hits = 0;
+        for (int y = 0; y < img.height(); ++y) {
+            const auto *row = reinterpret_cast<const QRgb *>(img.constScanLine(y));
+            for (int x = 0; x < img.width(); ++x) {
+                const int dr = qAbs(qRed(row[x]) - qRed(want));
+                const int dg = qAbs(qGreen(row[x]) - qGreen(want));
+                const int db = qAbs(qBlue(row[x]) - qBlue(want));
+                if (dr + dg + db < 60) {
+                    ++hits;
+                }
+            }
+        }
+        return double(hits) / double(img.width() * img.height());
+    };
+
+    const QImage half = render(0.5);
+    // Both clips present at once is what proves the second clip was bound at all: with
+    // SourceTo left pointing at the outgoing frame — which is what every clip but Source
+    // used to get — the plug-in would peel the picture back to reveal itself, and the
+    // incoming colour would never appear.
+    CHECK(share(half, qRgb(230, 60, 40)) > 0.05);
+    CHECK(share(half, qRgb(30, 70, 220)) > 0.05);
+
+    // And it runs the right way round: mostly the outgoing clip early, mostly the
+    // incoming one late.
+    const QImage early = render(0.1);
+    const QImage late = render(0.9);
+    CHECK(share(early, qRgb(230, 60, 40)) > share(late, qRgb(230, 60, 40)));
+    CHECK(share(late, qRgb(30, 70, 220)) > share(early, qRgb(30, 70, 220)));
+
+    OfxHost::instance().destroyInstance(id);
+}
