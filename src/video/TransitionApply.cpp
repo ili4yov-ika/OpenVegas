@@ -2799,9 +2799,14 @@ QImage renderPageFamily(const QImage &from, const QImage &to, double progress,
     const PageAxis axis = pageAxisFor(angle, fs);
     const double diag = std::hypot(fs.width(), fs.height());
     const double curl = radius * diag * 0.5;
-    // The fold runs past the far corner by the curl, or the last sliver of page would
-    // still be standing at progress 1.
-    const double at = axis.atCorner - progress * (axis.span + curl * 2.0);
+    // The fold crosses the frame exactly once: at progress 1 it sits on the far corner and
+    // nothing of the outgoing clip is left. This used to run past that by twice the curl,
+    // on the belief that otherwise a last sliver of page would still be standing — it does
+    // not, and the extra travel was more than half of what the geometry got wrong.
+    // Measured against the plug-in over all 24 presets of the three groups: the share of
+    // the frame each clip occupies is off by 13.1 points of 100 instead of 20.8, and 22 of
+    // the 24 improve. See MARKDOWN/CHECKLIST.md.
+    const double at = axis.atCorner - progress * axis.span;
 
     // The part still lying flat.
     p.save();
@@ -2819,6 +2824,15 @@ QImage renderPageFamily(const QImage &from, const QImage &to, double progress,
     p.restore();
 
     const double lifted = std::max(0.0, axis.atCorner - at);
+    // How thick the crease — or, for Loop, the tube — is right now.
+    //
+    // It sits on the fold, but it cannot be thicker than the page that has gone into it,
+    // nor than the page still left to feed it. Both ends matter: at the start there is
+    // nothing rolled up yet, and at the finish there is no page left, so a lit stripe must
+    // not still be lying across the picture when the transition is over. Removing the
+    // fold's old over-travel exposed that — the extra travel had been carrying the crease
+    // off the frame, which is why the two looked like one thing.
+    const double creaseR = std::min({curl, lifted, std::max(0.0, axis.span - lifted)});
     const double windable = M_PI * curl;
     const bool winds = ringed || radius < 0.25;
     const double visible = winds ? std::min(lifted, windable) : lifted;
@@ -2847,14 +2861,15 @@ QImage renderPageFamily(const QImage &from, const QImage &to, double progress,
 
     // The crease itself, drawn whether or not the flap survived: on a tight roll it is
     // most of what there is to see.
-    if (lifted > 0.5 && curl > 0.5) {
+    if (lifted > 0.5 && creaseR > 0.5) {
         p.save();
         p.setClipRect(QRectF(QPointF(0, 0), fs));
         QPainterPath band;
-        band.addPolygon(pageHalfPlane(axis, at + curl, fs));
+        band.addPolygon(pageHalfPlane(axis, at + creaseR, fs));
         QPainterPath inner;
-        inner.addPolygon(pageHalfPlane(axis, at - curl, fs));
-        p.fillPath(band.subtracted(inner), pageCurlShade(axis, at, std::max(2.0, curl), light));
+        inner.addPolygon(pageHalfPlane(axis, at - creaseR, fs));
+        p.fillPath(band.subtracted(inner),
+                   pageCurlShade(axis, at, std::max(2.0, creaseR), light));
         p.restore();
     }
 
@@ -2863,22 +2878,23 @@ QImage renderPageFamily(const QImage &from, const QImage &to, double progress,
     // the fold or behind it — and a preset with radius 0 ("Top-Left, Opaque, No Loop")
     // draws no tube at all, which is exactly what its name promises.
     //
-    // Approximate: without a reference render of the real plug-in this is the reading the
-    // parameter names support, not a measured match. See MARKDOWN/CHECKLIST.md.
-    if (ringed && curl > 1.0 && lifted > 0.5) {
+    // Measured against the plug-in and still the worst of the three: 27.8 points of clip
+    // share against Peel's 7.9 and Roll's 3.0. The tube is not what is wrong with it —
+    // sweeping its radius changes that figure by less than a point. See MARKDOWN/CHECKLIST.md.
+    if (ringed && creaseR > 1.0 && lifted > 0.5) {
         const QPointF n = axis.dir;
-        const double centre = at + (ringPos * 2.0 - 1.0) * curl;
+        const double centre = at + (ringPos * 2.0 - 1.0) * creaseR;
         p.save();
         p.setClipRect(QRectF(QPointF(0, 0), fs));
         QPainterPath band;
-        band.addPolygon(pageHalfPlane(axis, centre + curl, fs));
+        band.addPolygon(pageHalfPlane(axis, centre + creaseR, fs));
         QPainterPath inner;
-        inner.addPolygon(pageHalfPlane(axis, centre - curl, fs));
+        inner.addPolygon(pageHalfPlane(axis, centre - creaseR, fs));
 
         // Round shading across the tube: dark where it turns away on both sides, bright
         // along the top. A flat gradient would read as a painted stripe instead.
-        QLinearGradient tube(QPointF(n.x() * (centre - curl), n.y() * (centre - curl)),
-                             QPointF(n.x() * (centre + curl), n.y() * (centre + curl)));
+        QLinearGradient tube(QPointF(n.x() * (centre - creaseR), n.y() * (centre - creaseR)),
+                             QPointF(n.x() * (centre + creaseR), n.y() * (centre + creaseR)));
         QColor lit = light;
         lit.setAlphaF(std::clamp(0.7 * (0.35 + 0.65 * opacity), 0.0, 1.0));
         tube.setColorAt(0.0, QColor(0, 0, 0, 0));
