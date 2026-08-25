@@ -6,8 +6,10 @@
 #include "io/SamplePaths.h"
 #include "model/ProjectModel.h"
 #include "plugins/AudioPluginTypes.h"
+#include "plugins/FxParamCurves.h"
 #include "plugins/OfxHost.h"
 #include "plugins/VegasVideoPluginCatalog.h"
+#include "video/ColorCorrectorApply.h"
 #include "video/TitlesTextApply.h"
 
 #include <QDir>
@@ -627,4 +629,114 @@ TEST_CASE("An effect out of a project renders with the settings the project stor
     // was decoded these two were the same picture.
     CHECK(detailWithProject < detailWithDefaults * 0.8);
     CHECK(detailWithProject > 0.0);
+}
+
+TEST_CASE("A curve is read at the time asked for, and held flat past its ends",
+          "[video-fx][ofx]")
+{
+    const QVariantList curve = {0.0, 0.0, 1.0, 10.0, 2.0, 5.0};
+
+    CHECK(fxCurveValueAt(curve, 0.0) == Catch::Approx(0.0));
+    CHECK(fxCurveValueAt(curve, 0.5) == Catch::Approx(5.0));
+    CHECK(fxCurveValueAt(curve, 1.0) == Catch::Approx(10.0));
+    CHECK(fxCurveValueAt(curve, 1.5) == Catch::Approx(7.5));
+    CHECK(fxCurveValueAt(curve, 2.0) == Catch::Approx(5.0));
+
+    // Held, not extrapolated. A curve that kept rising past its last key would take a
+    // parameter somewhere the project never set it to.
+    CHECK(fxCurveValueAt(curve, -3.0) == Catch::Approx(0.0));
+    CHECK(fxCurveValueAt(curve, 99.0) == Catch::Approx(5.0));
+
+    CHECK(fxCurveValueAt({}, 1.0) == Catch::Approx(0.0));
+    CHECK(fxCurveValueAt({4.0, 7.0}, 99.0) == Catch::Approx(7.0));
+}
+
+TEST_CASE("Only the animated parameters carry curves", "[video-fx][ofx]")
+{
+    QVariantMap state;
+    state.insert(QStringLiteral("Radius"), 3.0);
+    state.insert(QStringLiteral("Amount"), 1.0);
+    state.insert(fxVegasPresetStateKey(), QStringLiteral("(Default)"));
+    QVariantMap curves;
+    curves.insert(QStringLiteral("Radius"), QVariantList{0.0, 0.0, 2.0, 20.0});
+    state.insert(fxParamCurvesStateKey(), curves);
+
+    const QVariantMap atStart = fxParamsAtTime(state, 0.0);
+    const QVariantMap atEnd = fxParamsAtTime(state, 2.0);
+
+    CHECK(atStart.value(QStringLiteral("Radius")).toDouble() == Catch::Approx(0.0));
+    CHECK(atEnd.value(QStringLiteral("Radius")).toDouble() == Catch::Approx(20.0));
+    // A parameter with no curve keeps the value the project stored, whatever the time.
+    CHECK(atStart.value(QStringLiteral("Amount")).toDouble() == Catch::Approx(1.0));
+    CHECK(atEnd.value(QStringLiteral("Amount")).toDouble() == Catch::Approx(1.0));
+    // The private entries are ours, not the plug-in's.
+    CHECK_FALSE(atStart.contains(fxParamCurvesStateKey()));
+    CHECK_FALSE(atStart.contains(fxVegasPresetStateKey()));
+}
+
+TEST_CASE("An animated effect from a project changes across the event", "[video-fx][ofx]")
+{
+    const QString vegasRoot =
+        SamplePaths::resolveProjectPath(QStringLiteral("SAMPLES/VEGAS-PRO-22-PROGRAM-FILES"));
+    if (!QDir(vegasRoot).exists()) {
+        SKIP("SAMPLES/VEGAS-PRO-22-PROGRAM-FILES not available");
+    }
+    VegasVideoPluginCatalog::setDiscoveryRoots({vegasRoot});
+
+    QString project;
+    const VegOpenResult veg = openFxSampleVeg(&project);
+    ProjectModel model;
+    REQUIRE(model.applyVegImport(veg, project));
+
+    QVector<FxSlot> chain;
+    for (const Track &t : model.tracks()) {
+        for (const TrackEvent &ev : t.events) {
+            for (const FxSlot &slot : ev.fxChain) {
+                if (slot.displayName.compare(QLatin1String("Chroma Blur"), Qt::CaseInsensitive)
+                    == 0) {
+                    chain = {slot};
+                }
+            }
+        }
+    }
+    REQUIRE(chain.size() == 1);
+
+    // The project animates the blur: 0 at the start, 5.44 a second in, back to 0, then
+    // 2.99, ending at 10. Two frames at the ends of that curve cannot look the same.
+    const QVariantMap state = unpackFxParams(chain.first().state);
+    const QVariantMap curves = state.value(fxParamCurvesStateKey()).toMap();
+    REQUIRE(curves.contains(QStringLiteral("HorizontalPixels")));
+
+    QImage source(480, 360, QImage::Format_ARGB32);
+    for (int y = 0; y < source.height(); ++y) {
+        auto *row = reinterpret_cast<QRgb *>(source.scanLine(y));
+        for (int x = 0; x < source.width(); ++x) {
+            const bool on = ((x / 12) + (y / 12)) % 2 == 0;
+            row[x] = on ? qRgb(220, 40, 40) : qRgb(40, 200, 60);
+        }
+    }
+    auto detail = [](const QImage &img) {
+        double sum = 0.0;
+        for (int y = 0; y < img.height(); ++y) {
+            const auto *row = reinterpret_cast<const QRgb *>(img.constScanLine(y));
+            for (int x = 1; x < img.width(); ++x) {
+                sum += std::abs(qRed(row[x]) - qRed(row[x - 1]));
+            }
+        }
+        return sum / (img.width() * img.height());
+    };
+
+    QImage atStart = source.copy();
+    applyVideoFxChain(&atStart, chain, 0.0);
+    QImage atEnd = source.copy();
+    applyVideoFxChain(&atEnd, chain, 6.35);
+
+    const double startDetail = detail(atStart);
+    const double endDetail = detail(atEnd);
+    INFO("detail at 0s " << startDetail << ", at 6.35s " << endDetail);
+
+    // At the start the radius is zero, so the frame keeps its edges; at the end it is ten
+    // and the colour is smeared. Before the curves were carried through, both frames were
+    // rendered with the single value the project happened to be showing when it was saved.
+    CHECK(endDetail < startDetail * 0.6);
 }

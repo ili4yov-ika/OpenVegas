@@ -8,6 +8,7 @@
 #include "plugins/BuiltinAudioCatalog.h"
 #include "plugins/VegasVideoPluginCatalog.h"
 #include "audio/BuiltinDsp.h"
+#include "plugins/FxParamCurves.h"
 #include "video/MediaGeneratorApply.h"
 #include "video/TitlesTextApply.h"
 
@@ -68,6 +69,13 @@ FxSlot fxSlotFromVegWithState(const QString &raw, const VegOpenResult &veg)
         }
         if (!ofx.value().presetName.isEmpty()) {
             params.insert(fxVegasPresetStateKey(), ofx.value().presetName);
+        }
+        // Animation rides along in the slot rather than in the event's automation lanes:
+        // the chain is applied from places that never see the event, and a curve only some
+        // of them could reach would animate in one window and stand still in the next.
+        const QVariantMap curves = vegOfxCurveMap(ofx.value());
+        if (!curves.isEmpty()) {
+            params.insert(fxParamCurvesStateKey(), curves);
         }
         slot.state = packFxParams(params);
     }

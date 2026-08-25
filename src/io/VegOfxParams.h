@@ -76,10 +76,17 @@ bool vegOfxDecodeEffect(const QByteArray &data, int idPos, VegOfxEffect *out);
 /**
  * Parameter values in the shape `FxSlot::state` carries — name to value.
  *
- * Only the value at save time; the curve is dropped, because nothing downstream animates an
- * OFX parameter yet. Keeping the keyframes in `VegOfxEffect` means that stays a wiring job
- * rather than another parsing one.
+ * Only the value at save time; the animation travels separately, in `vegOfxCurveMap()`,
+ * because a parameter that is not animated should cost nothing per frame.
  */
 QVariantMap vegOfxParamMap(const VegOfxEffect &effect);
+
+/**
+ * Animation curves, as `{parameter: [t0, v0, t1, v1, …]}` with times in seconds.
+ *
+ * Only parameters that actually move: VEGAS writes every parameter into every keyframe, so
+ * a curve of one repeated value is not animation and would only add work per frame.
+ */
+QVariantMap vegOfxCurveMap(const VegOfxEffect &effect);
 
 } // namespace openvegas

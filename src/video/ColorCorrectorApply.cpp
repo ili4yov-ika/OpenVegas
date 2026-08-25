@@ -1,6 +1,7 @@
 #include "video/ColorCorrectorApply.h"
 
 #include "plugins/OfxHost.h"
+#include "plugins/FxParamCurves.h"
 #include "plugins/VegasVideoPluginCatalog.h"
 
 #include <QDataStream>
@@ -228,6 +229,9 @@ void applyVideoFxChain(QImage *img, const QVector<FxSlot> &chain, double timeSec
         if (slot.bypass || isPanCropName(slot.displayName)) {
             continue;
         }
+        // An animated parameter is read off its curve here, so every caller of the chain
+        // animates alike — the preview, a render, an FX dialog's own picture.
+        slot = fxSlotAtTime(slot, timeSec);
         slot = VegasVideoPluginCatalog::resolveVideoFxSlot(slot);
         if (isColorCorrectorName(slot.displayName)) {
             applyColorCorrector(img, colorCorrectorFromSlot(slot));

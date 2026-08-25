@@ -3,6 +3,8 @@
 #include <QVariantList>
 #include <QtEndian>
 
+#include <cmath>
+
 namespace openvegas {
 
 namespace {
@@ -248,6 +250,34 @@ QVariantMap vegOfxParamMap(const VegOfxEffect &effect)
         m.insert(p.name, p.value);
     }
     return m;
+}
+
+QVariantMap vegOfxCurveMap(const VegOfxEffect &effect)
+{
+    QVariantMap out;
+    for (const VegOfxParam &p : effect.params) {
+        if (p.keys.size() < 2) {
+            continue;
+        }
+        bool moves = false;
+        for (const VegOfxKeyframe &k : p.keys) {
+            if (std::abs(k.value - p.keys.first().value) > 1e-9) {
+                moves = true;
+                break;
+            }
+        }
+        if (!moves) {
+            continue; // every parameter is written into every keyframe; this one stands still
+        }
+        QVariantList flat;
+        flat.reserve(p.keys.size() * 2);
+        for (const VegOfxKeyframe &k : p.keys) {
+            flat.push_back(k.timeSec);
+            flat.push_back(k.value);
+        }
+        out.insert(p.name, flat);
+    }
+    return out;
 }
 
 } // namespace openvegas

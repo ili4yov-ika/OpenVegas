@@ -106,6 +106,7 @@ endif()
     src/plugins/PluginScanner.cpp
     src/plugins/PluginDiscovery.cpp
     src/plugins/OfxHost.cpp
+    src/plugins/FxParamCurves.cpp
     src/plugins/OfxTransitionSource.cpp
     src/plugins/OfxTrace.cpp
     src/plugins/OfxPluginPaths.cpp
@@ -455,6 +456,7 @@ if(OPENVGAS_BUILD_TESTS)
         src/plugins/VegasSharedAudioCatalog.cpp
         src/plugins/SoundForgeHost.cpp
         src/plugins/OfxHost.cpp
+        src/plugins/FxParamCurves.cpp
         src/plugins/OfxTrace.cpp
         src/plugins/OfxPluginPaths.cpp
         src/plugins/PluginScanner.cpp
@@ -493,6 +495,7 @@ if(OPENVGAS_BUILD_TESTS)
         src/io/MediaProbe.cpp
         src/io/SamplePaths.cpp
         src/plugins/OfxHost.cpp
+        src/plugins/FxParamCurves.cpp
         src/plugins/OfxTransitionSource.cpp
         src/plugins/OfxTrace.cpp
         src/plugins/OfxPluginPaths.cpp
@@ -587,6 +590,7 @@ if(OPENVGAS_BUILD_TESTS)
         src/plugins/VegasVideoPluginCatalog.cpp
         src/plugins/PluginScanner.cpp
         src/plugins/OfxHost.cpp
+        src/plugins/FxParamCurves.cpp
         src/plugins/OfxTransitionSource.cpp
         src/plugins/OfxTrace.cpp
         src/plugins/OfxPluginPaths.cpp

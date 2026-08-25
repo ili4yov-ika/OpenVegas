@@ -110,6 +110,7 @@ HEADERS += \
     src/plugins/PluginScanner.h \
     src/plugins/PluginDiscovery.h \
     src/plugins/OfxHost.h \
+    src/plugins/FxParamCurves.h \
     src/plugins/OfxTransitionSource.h \
     src/plugins/OfxTrace.h \
     src/plugins/OfxPluginPaths.h \
@@ -216,6 +217,7 @@ SOURCES += \
     src/plugins/PluginScanner.cpp \
     src/plugins/PluginDiscovery.cpp \
     src/plugins/OfxHost.cpp \
+    src/plugins/FxParamCurves.cpp \
     src/plugins/OfxTransitionSource.cpp \
     src/plugins/OfxTrace.cpp \
     src/plugins/OfxPluginPaths.cpp \
