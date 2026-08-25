@@ -118,3 +118,35 @@ TEST_CASE("A record that does not add up is refused rather than guessed at",
     CHECK_FALSE(vegOfxDecodeEffect(data, 64, &ruined));
     CHECK_FALSE(vegOfxDecodeEffect(data, 4, &ruined));
 }
+
+TEST_CASE("The same reading serves a transition record", "[veg][ofx][transitions]")
+{
+    const QByteArray data = readSample(QStringLiteral("project_transitions_othersmores.veg"));
+    if (data.isEmpty()) {
+        SKIP("transitions sample not available");
+    }
+    const int at = findUtf16(data, QStringLiteral("{Svfx:com.vegascreativesoftware:barndoor}"));
+    REQUIRE(at > 0);
+
+    VegOfxEffect effect;
+    REQUIRE(vegOfxDecodeEffect(data, at, &effect));
+    CHECK(effect.presetName == QStringLiteral("(Default)"));
+
+    QVariantMap byName;
+    for (const VegOfxParam &p : effect.params) {
+        byName.insert(p.name, p.value);
+    }
+    // A transition declares its own progress parameter, which is what makes hosting one
+    // possible; the rest are the group's settings.
+    CHECK(byName.contains(QStringLiteral("Transition")));
+    CHECK(byName.contains(QStringLiteral("Direction")));
+
+    // A colour keeps its three components instead of collapsing to one number. The reader
+    // this replaced had no notion of width at all — it derived a count of doubles from the
+    // block size, which happens to agree only while nothing is animated.
+    REQUIRE(byName.contains(QStringLiteral("BorderColor")));
+    CHECK(byName.value(QStringLiteral("BorderColor")).toList().size() == 3);
+
+    // And an integer stays an integer rather than being read as a double's worth of bytes.
+    CHECK(byName.value(QStringLiteral("Orientation")).typeId() == QMetaType::Int);
+}

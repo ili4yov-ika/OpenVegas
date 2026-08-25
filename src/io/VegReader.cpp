@@ -1368,9 +1368,20 @@ void VegReader::parseOfxTransitions(const QByteArray &data, VegOpenResult *resul
         }
 
         QVariantMap params;
+
+        // One reading for both places this record appears. The older loop below cannot see
+        // keyframes: an animated parameter's block is 12 + 52·keys bytes, which it either
+        // skips outright (odd counts) or reads as fourteen or twenty-seven doubles of
+        // nonsense (even ones). Kept as the fallback because it accepts records that carry
+        // no byte counts in front of the identifier, which the shared decoder requires.
+        VegOfxEffect decoded;
+        if (vegOfxDecodeEffect(data, off, &decoded) && !decoded.params.isEmpty()) {
+            params = vegOfxParamMap(decoded);
+        }
+
         int p = afterPreset + 8;
         bool ok = true;
-        for (int i = 0; i < count && ok; ++i) {
+        for (int i = 0; i < count && ok && params.isEmpty(); ++i) {
             if (p + 8 > n) {
                 ok = false;
                 break;
@@ -1405,9 +1416,10 @@ void VegReader::parseOfxTransitions(const QByteArray &data, VegOpenResult *resul
             }
             p = values + valueBytes;
         }
-        if (!ok || params.isEmpty()) {
+        if (params.isEmpty()) {
             continue;
         }
+        Q_UNUSED(ok);
 
         VegTransitionInfo info;
         info.kind = VegTransitionKind::Ofx;
