@@ -1,108 +1,126 @@
-# OFX Blob Decoder for .veg Files
+# Блоб параметров OFX в `.veg`: разобран
 
-## Project Status
+Дата: 2026-08-25. Материал — `SAMPLES/veg_project/project_big--buck-bunny_4x3-preview-reverse-fades-fx.veg`
+(Chroma Blur с анимацией) и `project_transitions_othersmores.veg` (переходы).
+Код: [`src/io/VegOfxParams.*`](../src/io/VegOfxParams.h), применение анимации —
+[`src/plugins/FxParamCurves.*`](../src/plugins/FxParamCurves.h).
 
-We have identified the following files in the project that are relevant to our analysis:
+Этот файл раньше был планом «как будем искать»; теперь он отчёт о том, что найдено.
 
-- `SAMPLES/veg_project/` - Contains multiple `.veg` project files
-- `SAMPLES/VEGAS-PRO-22-PROGRAM-FILES/` - Contains the VEGAS Pro 22 executable (`vegas220.exe`)
+---
 
-## Analysis Approach
+## Зачем это было нужно
 
-### Current Understanding
+Хост грузил и рендерил настоящие `.ofx`, цепочка эффектов из проекта восстанавливалась,
+плагины были видны в каталоге и в окне Event FX — а картинки не давали. Причина одна: слот
+приезжал с **пустой картой параметров**, инстанс брал объявленные плагином дефолты, а у
+Chroma Blur радиус по умолчанию `0`. Плагин отрабатывал честно, просто ему нечего было делать.
 
-Based on the original plan in `PLAN_OFX_VIDEO_PLUGINS.md`, the `.veg` files contain serialized OFX plugin parameters. The key challenge is understanding the binary format of these parameters.
+Ghidra не понадобилась. Значения лежат в файле открыто, и запись **проверяет сама себя** —
+этого хватило, чтобы опознать формат без обращения к коду VEGAS.
 
-### Strategy for Implementation
+## Формат
 
-1. **Examine the structure of .veg files**
-   - Determine how OFX parameters are serialized
-   - Identify binary markers that indicate OFX data blocks
-   - Understand the structure of effect parameters
-
-2. **Locate serialization code in vegas220.exe**
-   - As mentioned in the original report, "Код сериализации параметров искать в том же `vegas220.exe`"
-   - Look for strings like "SetInt32", "SetFloat", "SetString", etc.
-   - Identify the function calls that serialize parameters
-
-3. **Create decoder for OFX blobs**
-   - Parse the binary format
-   - Extract parameter values
-   - Map them to OFX parameter names
-
-## Immediate Next Steps
-
-### 1. Documentation of Current State
-
-The `.veg` files are binary files with what appears to be a complex serialized format containing:
-- Media files (video/audio)
-- Timeline information
-- Effect parameters
-- Project metadata
-
-### 2. Search for Serialization Strings
-
-In `vegas220.exe`, we should search for strings like:
-- `SetInt32`
-- `SetFloat`  
-- `SetString`
-- `SetRGB`
-- `SetRGBA`
-- `SetProperty`
-
-### 3. Analysis Plan
-
-1. **Create a simple hex reader** to examine the beginning of .veg files
-2. **Search for OFX-related strings** in the executable
-3. **Identify parameter serialization functions**
-4. **Document the structure** of serialized parameters
-5. **Develop a basic decoder**
-
-## Technical Details
-
-The format likely follows this pattern:
 ```
-[Header]
-[Media References]
-[Timeline Data]
-[Effect Parameters]
-[Project Metadata]
+u32   idBytes                 88 для "{Svfx:com.vegascreativesoftware:chromablur}\0"
+u32   presetBytes             20 для "(Default)\0"
+char  id[idBytes]             UTF-16LE с терминатором, длина в байтах
+char  preset[presetBytes]
+u32   paramsBytes
+u32   paramCount
+на параметр:
+    u32     valueBytes        всё, что после имени
+    u32     nameBytes
+    char    name[nameBytes]   UTF-16LE
+    <значение>                4 байта у целого, по 8 на компоненту у double/точки/цвета
+    u32     keyCount
+    кейфрейм[keyCount], по 52 байта:
+        double  time          миллисекунды
+        u32     flags         во всех сэмплах 1
+        double  value
+        double  inTime, inValue, outTime, outValue
 ```
 
-Where effect parameters are structured as:
+Обе строковые длины стоят **перед** обеими строками, а не каждая перед своей.
+
+## Как определяется ширина значения
+
+Нигде не записана. Но угадывать не нужно: `keyCount` идёт **сразу за значением** и записан
+независимо от `valueBytes`. Перебор ширин 4, 8, 16, 24, 32 оставляет ровно одну, при которой
+
 ```
-[Parameter Type (4 bytes)] 
-[Parameter Name Length (4 bytes)]
-[Parameter Name (variable)]
-[Parameter Value (variable)]
+valueBytes == ширина + 4 + 52 · keyCount
 ```
 
-## Tools Needed
+и прочитанный по этому смещению `keyCount` совпадает с тем, что следует из размера. Это
+опознание, а не догадка: два числа записаны независимо и обязаны сойтись.
 
-1. **Hex editor** to examine .veg file structure
-2. **Ghidra** to analyze `vegas220.exe` for serialization functions
-3. **Python script** to parse and decode OFX blobs
+Не сошлись — читать отказываемся. Числа, взятые из середины чужой структуры, доедут до
+плагина и отрисуются как что-то намеренное, а это хуже эффекта на дефолтах.
 
-## Expected Outcome
+## Кейфреймы
 
-After completing this analysis:
-1. We will understand the structure of OFX parameter blobs in .veg files
-2. We will have a working decoder that can extract parameter values
-3. We will be able to see effect parameters in .veg files without needing to open VEGAS Pro
-4. This will complete the work outlined in the original plan
+Время — **миллисекунды**: у сэмпла ключи на 0, 1037.001, 2715.1875, 4865.0049, 6354.293 при
+событии длиной около 6,4 с.
 
-## Next Actions
+Ручки Безье — **абсолютные времена**, а не смещения: у ключа на t=0 они на −0,1 и +0,1, у
+ключа на 1037,001 — на 1036,901 и 1037,101. Значение в обеих ручках равно значению ключа,
+то есть между ключами прямая.
 
-1. **Examine one .veg file** with a hex editor to understand its structure
-2. **Search `vegas220.exe`** for OFX serialization strings
-3. **Prepare a Python decoder** for the parameter format
-4. **Document findings** in `docs/OFX_BLOB_DECODER.md`
+Поле `value` перед `keyCount` — не дефолт и не первый ключ, а то, **что VEGAS показывал в
+момент сохранения**: у анимированного параметра это кривая, прочитанная на позиции курсора.
+В сэмпле оно совпадает с четвёртым ключом.
 
-## Current Status
+## Одно чтение на два места
 
-We have:
-- Confirmed the suite string addresses in `vegas220.exe`
-- Documented the approach for the remaining work
-- Prepared the infrastructure for analysis
+Эта же запись встречается у перехода на затухании. Прежний разбор в `parseOfxTransitions`
+имел собственное чтение и про кейфреймы не знал: блок анимированного параметра занимает
+12 + 52·ключей байт, и старое правило `(valueBytes − 4) % 8 == 0`
 
-The next step is to actually implement this analysis using Ghidra to find the serialization code in `vegas220.exe`.
+- при **нечётном** числе ключей не выполнялось → параметр пропускался целиком;
+- при **чётном** выполнялось → параметр читался как 14 или 27 бессмысленных double, которые
+  уехали бы в плагин как многокомпонентное значение.
+
+Теперь сначала работает общий декодер. Старое чтение осталось запасным: оно принимает
+записи без байтовых длин перед идентификатором, которых общий декодер требует.
+
+## Что это дало на экране
+
+Шахматка 480×360 из **насыщенных** цветов (блюр хроматический — на серой мерить нечем),
+метрика — сколько осталось горизонтального перепада в красном канале:
+
+| Что подаётся плагину | Осталось детали |
+|---|---|
+| Дефолты плагина | **13,26** |
+| Параметры из проекта (H=2,99 / V=4,49) | **9,53** |
+| Кривая на t=0 (H=0, V=4,49) | **6,59** |
+| Кривая на t=6,35 (H=10, V=4,49) | **3,29** |
+
+## Анимация: где живёт кривая
+
+Не в дорожках автоматизации события, а в самом слоте (`__paramCurves` в его `state`).
+Цепочку эффектов применяют из мест, которые события не видят — превью-компоновщик, проход
+рендера, собственная картинка в окне FX. Кривая, доступная только части из них, анимировала
+бы в одном окне и стояла в другом.
+
+Кривая заводится только у параметров, которые **действительно** двигаются: VEGAS пишет все
+параметры в каждый кейфрейм, и кривая из одного повторённого значения — не анимация, а
+работа на каждый кадр впустую. За краями значение удерживается, а не экстраполируется.
+
+## Три ошибки, которые были в измерении, а не в коде
+
+Стоят отдельного раздела: из-за них рабочий разбор почти сутки выглядел нерабочим.
+
+1. **Инстанс помнит параметры между рендерами**, а пустая карта ничего не перезаписывает.
+   «Контрольный» прогон без параметров, стоявший **вторым**, тихо переиспользовал значения
+   первого — обе картинки выходили одинаковыми, и это читалось как «параметры не доходят».
+2. **Шахматка была почти серой.** Chroma Blur — *хроматический*: на нейтральной картинке ему
+   нечего делать. Эффект был, мерить его было нечем.
+3. **Каталог резолвил плагин по настройкам машины** и брал установленную VEGAS Pro 18, у
+   которой рендер отказывает. Тест теперь закрепляет корень явно — та же ловушка до этого
+   уронила видеотесты.
+
+## Чего это не решает
+
+Параметры типа string и custom не встречались в сэмплах и в декодере не разобраны.
+Флаг интерполяции (`flags`) везде 1, поэтому что означают другие значения — неизвестно.
