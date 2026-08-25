@@ -1,6 +1,6 @@
 # Аудит интерфейсных пустышек
 
-**Дата:** 2026-08-24 (обновлено после подключения мастер-фейдера)
+**Дата:** 2026-08-25 (обновлено после подключения OpenVegas Capture)
 **Область:** `src/`, `ui/*.ui`
 **Инструмент:** `python tools/audit_ui_stubs.py` (счётчики) / `--json` (машинный вывод для диффа)
 
@@ -31,17 +31,18 @@
 
 | Категория | Кол-во | Где |
 |-----------|-------:|-----|
-| Пункты строки меню, DEAD | 79 | `MenuBuilder.cpp` |
+| Пункты строки меню, DEAD | 78 | `MenuBuilder.cpp` |
 | Пункты строки меню, DISABLED | 13 | `MenuBuilder.cpp` |
 | Пункты прочих меню, DEAD | 14 | Mixing Console, Trimmer, контекстные |
 | Пункты прочих меню, DISABLED | 6 | Explorer, Trimmer, контекстные |
 | Кнопки без обработчика | 16 | MainWindow и диалоги |
-| Кнопки, созданные «на выброс» | 24 | MainWindow (22), ExplorerPane (2) |
-| Поля/ползунки без потребителя | 30 | Project Properties и др. |
+| Кнопки, созданные «на выброс» | 23 | MainWindow (21), ExplorerPane (2) |
+| Поля/ползунки без потребителя | 29 | Project Properties и др. |
 | Осиротевшие `.ui` | 2 | `ProjectPropertiesDialog.ui`, `TrimmerWindow.ui` |
 
-Из 91 просмотренной кнопки **40 не делает ничего** (16 без обработчика + 24 «на выброс»).
-Из 166 полей ввода — **30** без потребителя.
+Из 96 просмотренных кнопок **39 не делает ничего** (16 без обработчика + 23 «на выброс»).
+Из 171 поля ввода — **29** без потребителя. Счётчик кнопок вырос на 5 за счёт нового окна
+Capture, где подключены все.
 
 ---
 
@@ -90,18 +91,21 @@ Lock Fader рядом тоже ожила: блокирует ползунок, 
 
 Кнопка `customize` (строка 517) — без обработчика.
 
-### 1.3 Панель инструментов Media/Preview: 24 кнопки «на выброс»
+### 1.3 Панель инструментов Media/Preview: 23 кнопки «на выброс»
 
 Идиома `layout->addWidget(IconFactory::toolButton(this, tr("…"), …))` создаёт кнопку и
 сразу теряет указатель. Подключиться к ней нельзя ничем: фабрика ставит всем один
 `objectName("iconBtn")`, так что и `findChild` не поможет.
 
-`src/app/MainWindow.cpp` (22): Auto Preview (834), Capture Video (835), Get Media from the
-Web (841), Remove Selected Media (843), Media Properties (844), Start Preview (853), Stop
-Preview (854), Open in Audio Editor (855), Views (857), Search Media (859), Filter Media
-(860), Preview on External Monitor (874), Copy Snapshot to Clipboard (970), Save Snapshot to
-File (971), Record into Track (1404), Trim (1458), Heal (1468), Lock (1469), Enable Snapping
-(1488), Auto Ripple (1496), Lock Envelopes (1497), Video Output Color Grading (1509).
+`src/app/MainWindow.cpp` (21): Auto Preview (836), Get Media from the Web (847), Remove
+Selected Media (849), Media Properties (850), Start Preview (859), Stop Preview (860), Open
+in Audio Editor (861), Views (863), Search Media (865), Filter Media (866), Preview on
+External Monitor (880), Copy Snapshot to Clipboard (976), Save Snapshot to File (977), Record
+into Track (1438), Trim (1492), Heal (1502), Lock (1503), Enable Snapping (1522), Auto Ripple
+(1530), Lock Envelopes (1531), Video Output Color Grading (1543).
+
+«Capture Video» (835) ушла из списка: теперь она держит указатель и открывает окно
+OpenVegas Capture — той же командой, что и `File → Capture…`.
 
 `src/ui/ExplorerPane.cpp` (2): Views (709), Search (710).
 
@@ -144,20 +148,20 @@ File (971), Record into Track (1404), Trim (1458), Heal (1468), Lock (1469), Ena
 | `src/ui/MatchMediaVideoSettingsDialog.cpp:158` | `m_lastImage` | QLineEdit |
 | `src/ui/MediaPropertiesDialog.cpp:120` | `m_timecodeFormatCombo` | QComboBox |
 | `src/ui/MediaPropertiesDialog.cpp:129` | `m_streamCombo` | QComboBox |
-| `src/ui/MixingConsoleWindow.cpp:178` | `c` | QComboBox |
 | `src/ui/TitlesTextKeyframePane.cpp:525` | `m_timecodeEdit` | QLineEdit |
-| `src/ui/TrackMotionDialog.cpp:510` | `m_preset` | QComboBox |
-| `src/ui/TrackMotionDialog.cpp:767` | `cb` | QCheckBox |
-| `src/ui/VideoEventFxDialog.cpp:184` | `s` | QDoubleSpinBox |
+| `src/ui/TrackMotionDialog.cpp:780` | `cb` | QCheckBox |
 | `src/ui/VideoEventFxDialogExact.cpp:1654` | `sel` | QComboBox |
-| `src/ui/AudioEventFxDialog.cpp:128` | `s` | QSlider |
+
+Выбыли из списка с прошлого раза: `m_preset` в Track Motion — теперь читается (пресеты
+сохраняются и применяются); `s` в `VideoEventFxDialog`/`AudioEventFxDialog` — этих контролов
+больше нет в коде; `c` в микшере — см. ниже, это не починка, а слепое пятно инструмента.
 
 ---
 
 ## 4. Строка меню (`src/ui/MenuBuilder.cpp`)
 
 Файл сам помечает свои недоделки хелперами `addStub()` (строка 19) и `addStubDisabled()`
-(строка 30) — поэтому счёт здесь точный: **79 DEAD, 13 DISABLED** из ~136 пунктов.
+(строка 30) — поэтому счёт здесь точный: **78 DEAD, 13 DISABLED** из ~136 пунктов.
 
 | Меню | DEAD | DISABLED | Примеры |
 |------|-----:|---------:|---------|
@@ -169,7 +173,7 @@ File (971), Record into Track (1404), Trim (1458), Heal (1468), Lock (1469), Ena
 | Channels | 5 | 0 | Both, Left Only, Right Only, Combine, Swap |
 | View | 5 | 0 | Show Bus Tracks, Zoom In/Out Time |
 | Insert | 4 | 0 | Audio/Video Bus Track, Empty Event, Text Media… |
-| File | 3 | 0 | Incremental Save, Real-Time Render…, Capture… |
+| File | 2 | 0 | Incremental Save, Real-Time Render… |
 | Ripple / Select / Layouts | по 3 | 0 | Affected Tracks, Select Event Start, Save Layout… |
 | Navigate / Stream / Dock / Scripting / Tools / Audio / Video / Help | по 2 | 0 | Go to Next Marker, Run Script…, Video Scopes, Contents and Index |
 | Toolbars | 1 | 0 | Main Toolbar |
@@ -229,6 +233,13 @@ File (971), Record into Track (1404), Trim (1458), Heal (1468), Lock (1469), Ena
 Для инструмента он неотличим от рабочего — есть `connect`, значит жив. Именно так выглядит
 весь §1.2, и найден он чтением `applyToModel()`, а не проходом. Поэтому при правках диалогов
 с кнопкой Apply проверять надо не наличие `connect`, а то, доходит ли значение до модели.
+
+**Второе слепое пятно — фабрика.** Контрол, возвращённый из фабричной функции, инструмент
+считает живым: связать его *может* вызывающая сторона. Но `makeStripCombo`
+(`MixingConsoleWindow.cpp:176`) вызывается семь раз, и ни один результат не сохраняется —
+все комбобоксы маршрутизации входа/выхода и режима автоматизации в каждой полосе микшера
+мертвы, хотя в §3 их больше нет. Ровно та же уступка, что позволяет не помечать всю
+`IconFactory::toolButton` разом; цена — такие вот пропуски.
 
 Локальные имена ищутся **в своём файле**: раньше поиск шёл по всем сразу, и `closeBtn`,
 подключённый в другом диалоге, поручался за мёртвого однофамильца в `MainWindow`. Так одна

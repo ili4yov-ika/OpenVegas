@@ -97,8 +97,8 @@ void MenuBuilder::build(MainWindow *window, QMenuBar *menuBar)
                               &MainWindow::onExportFcpxml);
         exportMenu->addAction(QObject::tr("EDL Text File (*.txt)…"), window, &MainWindow::onExportEdl);
     }
-    addStub(fileMenu, QObject::tr("Capture…"))
-        ->setIcon(IconFactory::iconFromSvgBody(IconFactory::svgCapture()));
+    fileMenu->addAction(IconFactory::iconFromSvgBody(IconFactory::svgCapture()),
+                        QObject::tr("Capture…"), window, &MainWindow::onCapture);
     fileMenu->addAction(IconFactory::iconFromSvgBody(IconFactory::svgCdExtract()),
                         QObject::tr("Extract Audio from CD…"), window,
                         &MainWindow::onExtractAudioFromCd);

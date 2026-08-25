@@ -20,6 +20,7 @@
 #include "ui/MediaGeneratorPane.h"
 #include "ui/TransitionsPane.h"
 #include "ui/ProjectNotesPane.h"
+#include "ui/CaptureWindow.h"
 #include "ui/MixingConsoleWindow.h"
 #include "ui/ExtractAudioFromCdDialog.h"
 #include "ui/RateSlider.h"
@@ -833,7 +834,11 @@ void MainWindow::setupMediaToolbar()
     layout->addWidget(importBtn);
     addToolbarSep(layout);
     layout->addWidget(IconFactory::toolButton(this, tr("Auto Preview"), IconFactory::svgAutoPreview()));
-    layout->addWidget(IconFactory::toolButton(this, tr("Capture Video"), IconFactory::svgCapture()));
+    {
+        auto *capBtn = IconFactory::toolButton(this, tr("Capture Video"), IconFactory::svgCapture());
+        connect(capBtn, &QToolButton::clicked, this, &MainWindow::onCapture);
+        layout->addWidget(capBtn);
+    }
     {
         auto *cdBtn = IconFactory::toolButton(this, tr("Extract Audio from CD"), IconFactory::svgCdExtract());
         connect(cdBtn, &QToolButton::clicked, this, &MainWindow::onExtractAudioFromCd);
@@ -3747,6 +3752,58 @@ void MainWindow::onExtractAudioFromCd()
     refreshMediaEmptyState();
     statusBar()->showMessage(tr("Extracted %1 track(s) from CD to Project Media").arg(files.size()),
                              6000);
+}
+
+void MainWindow::onCapture()
+{
+    if (!m_capture) {
+        m_capture = new CaptureWindow(this);
+        connect(m_capture, &CaptureWindow::takeRecorded, this, &MainWindow::importCaptureTake);
+    }
+    m_capture->show();
+    m_capture->raise();
+    m_capture->activateWindow();
+}
+
+void MainWindow::importCaptureTake(const QStringList &files)
+{
+    if (files.isEmpty()) {
+        return;
+    }
+    beginDocumentEdit();
+    int placed = 0;
+    for (const QString &path : files) {
+        if (!QFileInfo::exists(path)) {
+            continue; // a source that failed mid-take leaves no file; the rest still land
+        }
+        const QString kind = guessMediaKind(path);
+        const QString name = QFileInfo(path).fileName();
+        MediaItem item;
+        item.path = path;
+        item.displayName = name;
+        item.kind = kind;
+        m_project.mediaPool().push_back(item);
+        addMediaCard(name, kind, tr("Capture · %1").arg(kind), path);
+
+        // Every file gets its own track and all of them start at zero: the sources were
+        // recorded at the same moment, so they are only usable together if they line up.
+        const double len = MediaProbe::lengthForInsert(path, kind);
+        m_project.addMediaAt(name, kind, 0.0, len, kDropCreateNewTracks, path);
+        ++placed;
+    }
+    commitDocumentEdit(tr("Capture"));
+
+    refreshMediaEmptyState();
+    if (m_timeline) {
+        m_timeline->refreshLayout();
+    }
+    const int missing = files.size() - placed;
+    statusBar()->showMessage(missing == 0
+                                 ? tr("Capture: %1 file(s) on new tracks").arg(placed)
+                                 : tr("Capture: %1 file(s) on new tracks, %2 did not record")
+                                       .arg(placed)
+                                       .arg(missing),
+                             8000);
 }
 
 void MainWindow::onPreferences()

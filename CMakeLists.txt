@@ -35,6 +35,7 @@ endif()
     src/ui/IconFactory.cpp
     src/ui/WelcomeDialog.cpp
     src/ui/FirstRunDialog.cpp
+    src/ui/CaptureWindow.cpp
     src/ui/ProjectPropertiesDialog.cpp
     src/ui/MatchMediaVideoSettingsDialog.cpp
     src/ui/MediaPropertiesDialog.cpp
@@ -84,6 +85,7 @@ endif()
     src/io/ProjectFile.cpp
     src/capture/CapturePlan.cpp
     src/capture/CaptureSources.cpp
+    src/capture/CaptureRecorder.cpp
     src/io/SamplePaths.cpp
     src/io/MediaMime.cpp
     src/io/MediaThumbCache.cpp
@@ -519,6 +521,7 @@ if(OPENVGAS_BUILD_TESTS)
         src/io/ProjectFile.cpp
         src/capture/CapturePlan.cpp
         src/capture/CaptureSources.cpp
+        src/capture/CaptureRecorder.cpp
         src/io/SamplePaths.cpp
         src/io/VegReader.cpp
         src/io/VegRiff.cpp

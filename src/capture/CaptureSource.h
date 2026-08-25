@@ -1,5 +1,6 @@
 #pragma once
 
+#include <QPoint>
 #include <QSize>
 #include <QString>
 #include <QVector>
@@ -31,6 +32,14 @@ struct CaptureSource {
 
     // Video sources only.
     QSize nativeSize;
+    /**
+     * Where a screen starts on the virtual desktop, in device pixels.
+     *
+     * Screen grabbers take the whole desktop and are told which part of it to keep, so a
+     * second monitor is a region rather than a device of its own — without this, picking
+     * it records everything.
+     */
+    QPoint origin;
     double frameRate = 0.0;
 
     // Audio sources only.

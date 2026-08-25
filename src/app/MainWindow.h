@@ -33,6 +33,7 @@ namespace openvegas {
 class AudioEngine;
 class TimelineView;
 class TrimmerWindow;
+class CaptureWindow;
 class MixingConsoleWindow;
 class VideoEventFxDialogExact;
 class TrackMotionDialog;
@@ -75,6 +76,10 @@ public slots:
     void onRenderAs();
     void onBounceAudioMixdown();
     void onExtractAudioFromCd();
+    /** File→Capture: open OpenVegas Capture (non-modal, it records the screen). */
+    void onCapture();
+    /** Bring a finished take in: one media item and one new track per file. */
+    void importCaptureTake(const QStringList &files);
     void onPreferences();
     /** Re-read plug-in folders from settings (after first-run setup). */
     void rescanPlugins();
@@ -254,6 +259,7 @@ private:
     bool m_syncingPlayheadFromEngine = false;
     TrimmerWindow *m_trimmer = nullptr;
     MixingConsoleWindow *m_mixingConsole = nullptr;
+    CaptureWindow *m_capture = nullptr;
     VideoEventFxDialogExact *m_videoEventFx = nullptr;
     TrackMotionDialog *m_trackMotion = nullptr;
     TitlesTextEditorDialog *m_titlesTextEditor = nullptr;

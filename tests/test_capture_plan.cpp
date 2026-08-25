@@ -1,4 +1,5 @@
 #include "capture/CapturePlan.h"
+#include "capture/CaptureRecorder.h"
 #include "capture/CaptureSources.h"
 
 #include <QSet>
@@ -231,4 +232,163 @@ TEST_CASE("Nothing at all is not an error", "[capture]")
     CHECK(CaptureSources::parseDshowListing(QString()).isEmpty());
     CHECK(CaptureSources::parseDshowListing(QStringLiteral("Error opening input file dummy.\n"))
               .isEmpty());
+}
+
+namespace {
+
+/** Index of `flag` in the argument list, or -1. */
+int indexOf(const QStringList &args, const QString &flag)
+{
+    return int(args.indexOf(flag));
+}
+
+/** The value that follows `flag`, or an empty string. */
+QString valueAfter(const QStringList &args, const QString &flag)
+{
+    const int at = indexOf(args, flag);
+    return (at >= 0 && at + 1 < args.size()) ? args[at + 1] : QString();
+}
+
+} // namespace
+
+TEST_CASE("A screen is recorded through the platform's screen grabber", "[capture]")
+{
+    CapturePlan plan;
+    plan.sources = {screen(QStringLiteral("Display 1"), 1920, 1080, 60.0)};
+    const CaptureOutput out = plan.outputs().first();
+
+    const QStringList args =
+        CaptureRecorder::argumentsFor(plan, out, QStringLiteral("C:/takes/a.mkv"));
+    REQUIRE_FALSE(args.isEmpty());
+
+    // Overwriting matters: a take is re-recorded until it is right, and stopping to
+    // confirm each time would interrupt the thing being captured.
+    CHECK(args.contains(QStringLiteral("-y")));
+    CHECK(valueAfter(args, QStringLiteral("-framerate")).toDouble() == Catch::Approx(60.0));
+    // The output path is last, which is where ffmpeg expects it.
+    CHECK(args.last().contains(QStringLiteral("a.mkv")));
+    // Recording has to keep up in real time, so the take is written fast rather than small.
+    CHECK(valueAfter(args, QStringLiteral("-preset")) == QStringLiteral("ultrafast"));
+}
+
+TEST_CASE("A camera is opened by the name the listing gave", "[capture]")
+{
+    CapturePlan plan;
+    CaptureSource cam = camera(QStringLiteral("Camera (NVIDIA Broadcast)"), 1920, 1080, 30.0);
+    plan.sources = {cam};
+    const CaptureOutput out = plan.outputs().first();
+    const QStringList args =
+        CaptureRecorder::argumentsFor(plan, out, QStringLiteral("C:/takes/cam.mkv"));
+
+    // The name has to reach ffmpeg exactly as its own listing spelled it, brackets and
+    // all — this is why enumeration asks ffmpeg rather than the OS.
+    const QString input = valueAfter(args, QStringLiteral("-i"));
+    CHECK(input.contains(QStringLiteral("Camera (NVIDIA Broadcast)")));
+}
+
+TEST_CASE("A source that is not the reference is scaled by ffmpeg, not by the device",
+          "[capture]")
+{
+    CapturePlan plan;
+    plan.sources = {screen(QStringLiteral("Monitor"), 3840, 2160, 60.0),
+                    camera(QStringLiteral("Webcam"), 1280, 720, 30.0)};
+    plan.fit = CaptureFit::Letterbox;
+
+    const QVector<CaptureOutput> outs = plan.outputs();
+    const QStringList webcam =
+        CaptureRecorder::argumentsFor(plan, outs[1], QStringLiteral("C:/takes/w.mkv"));
+
+    // Asking a capture device for a size it does not have makes it fail to open, while
+    // ffmpeg will scale anything — so the fitting is a filter, and the device is still
+    // opened at its own size.
+    const QString vf = valueAfter(webcam, QStringLiteral("-vf"));
+    CHECK(vf.contains(QStringLiteral("3840:2160")));
+    CHECK(vf.contains(QStringLiteral("pad")));
+    CHECK(valueAfter(webcam, QStringLiteral("-video_size")) == QStringLiteral("1280x720"));
+
+    // Crop fills instead of padding.
+    plan.fit = CaptureFit::Crop;
+    const QString cropVf = valueAfter(
+        CaptureRecorder::argumentsFor(plan, plan.outputs()[1], QStringLiteral("C:/t/w.mkv")),
+        QStringLiteral("-vf"));
+    CHECK(cropVf.contains(QStringLiteral("crop")));
+
+    // The reference source is already the take's size, so it gets no filter at all.
+    const QStringList monitor =
+        CaptureRecorder::argumentsFor(plan, outs[0], QStringLiteral("C:/takes/m.mkv"));
+    CHECK(indexOf(monitor, QStringLiteral("-vf")) < 0);
+}
+
+TEST_CASE("Native fit leaves every source at its own size", "[capture]")
+{
+    CapturePlan plan;
+    plan.sources = {screen(QStringLiteral("Monitor"), 3840, 2160, 60.0),
+                    camera(QStringLiteral("Webcam"), 1280, 720, 30.0)};
+    plan.fit = CaptureFit::Native;
+
+    for (const CaptureOutput &o : plan.outputs()) {
+        const QStringList args =
+            CaptureRecorder::argumentsFor(plan, o, QStringLiteral("C:/takes/x.mkv"));
+        INFO(o.source.name.toStdString());
+        // Nothing to scale: the output already carries the source's own size, so this is
+        // a no-op rather than a special case in the builder.
+        CHECK(indexOf(args, QStringLiteral("-vf")) < 0);
+    }
+}
+
+TEST_CASE("Audio files all get the take's format", "[capture]")
+{
+    CapturePlan plan;
+    plan.sources = {mic(QStringLiteral("Headset"), 44100, 1, 16),
+                    mic(QStringLiteral("Interface"), 96000, 2, 24)};
+
+    for (const CaptureOutput &o : plan.outputs()) {
+        const QStringList args =
+            CaptureRecorder::argumentsFor(plan, o, QStringLiteral("C:/takes/a.wav"));
+        INFO(o.source.name.toStdString());
+        // Both are written at the best format offered, so they sit together in a project
+        // without anything being resampled afterwards.
+        CHECK(valueAfter(args, QStringLiteral("-ar")) == QStringLiteral("96000"));
+        CHECK(valueAfter(args, QStringLiteral("-ac")) == QStringLiteral("2"));
+        // 24-bit was on offer, so the take keeps it rather than rounding everyone to 16.
+        CHECK(valueAfter(args, QStringLiteral("-c:a")) == QStringLiteral("pcm_s24le"));
+    }
+
+    // With nothing better than 16-bit around, there is no reason to inflate the files.
+    CapturePlan plain;
+    plain.sources = {mic(QStringLiteral("Headset"), 48000, 2, 16)};
+    const QStringList args = CaptureRecorder::argumentsFor(
+        plain, plain.outputs().first(), QStringLiteral("C:/takes/a.wav"));
+    CHECK(valueAfter(args, QStringLiteral("-c:a")) == QStringLiteral("pcm_s16le"));
+}
+
+TEST_CASE("A second monitor is recorded as a region of the desktop, not the whole of it",
+          "[capture]")
+{
+    CapturePlan plan;
+    CaptureSource second = screen(QStringLiteral("Display 2"), 1920, 1080, 60.0);
+    second.origin = QPoint(1920, 0);
+    plan.sources = {second};
+
+    const QStringList args = CaptureRecorder::argumentsFor(
+        plan, plan.outputs().first(), QStringLiteral("C:/takes/s.mkv"));
+
+    // Screen grabbers open the whole desktop; only the offset and size say which monitor
+    // is meant. Without them a two-monitor desktop records both, at double the width.
+    CHECK(valueAfter(args, QStringLiteral("-video_size")) == QStringLiteral("1920x1080"));
+#ifdef Q_OS_WIN
+    CHECK(valueAfter(args, QStringLiteral("-offset_x")) == QStringLiteral("1920"));
+    CHECK(valueAfter(args, QStringLiteral("-offset_y")) == QStringLiteral("0"));
+#else
+    CHECK(valueAfter(args, QStringLiteral("-i")) == QStringLiteral(":0.0+1920,0"));
+#endif
+
+    // The primary monitor starts at the origin, so it needs no offset — and the flag is
+    // left out rather than passed as zero, which is what an unpatched ffmpeg expects.
+    CapturePlan primary;
+    primary.sources = {screen(QStringLiteral("Display 1"), 2560, 1440, 60.0)};
+    const QStringList first = CaptureRecorder::argumentsFor(
+        primary, primary.outputs().first(), QStringLiteral("C:/takes/p.mkv"));
+    CHECK(indexOf(first, QStringLiteral("-offset_x")) < 0);
+    CHECK(valueAfter(first, QStringLiteral("-video_size")) == QStringLiteral("2560x1440"));
 }

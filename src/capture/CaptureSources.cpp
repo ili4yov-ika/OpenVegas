@@ -5,6 +5,7 @@
 #include <QGuiApplication>
 #include <QProcess>
 #include <QRegularExpression>
+#include <QRect>
 #include <QScreen>
 
 namespace openvegas {
@@ -26,10 +27,16 @@ QVector<CaptureSource> CaptureSources::screens()
                                       : sc->name();
         // Device pixels, not logical ones: a scaled display records at its real size, and
         // recording a 4K monitor at its 1080p logical size would quietly lose half of it.
-        const QSize logical = sc->geometry().size();
+        const QRect logical = sc->geometry();
         const double dpr = sc->devicePixelRatio();
         s.nativeSize = QSize(int(std::lround(logical.width() * dpr)),
                              int(std::lround(logical.height() * dpr)));
+        // The grabber is told a region of the whole desktop, so the monitor's origin has
+        // to travel with its size. Scaling by this screen's own ratio is exact for one
+        // display and for uniformly scaled ones; with monitors at different scalings the
+        // virtual desktop's own arithmetic is what decides, and Qt does not expose it.
+        s.origin = QPoint(int(std::lround(logical.x() * dpr)),
+                          int(std::lround(logical.y() * dpr)));
         s.frameRate = sc->refreshRate() > 1.0 ? sc->refreshRate() : 60.0;
         out.push_back(s);
     }

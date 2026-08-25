@@ -40,6 +40,7 @@ HEADERS += \
     src/ui/IconFactory.h \
     src/ui/WelcomeDialog.h \
     src/ui/FirstRunDialog.h \
+    src/ui/CaptureWindow.h \
     src/ui/ProjectPropertiesDialog.h \
     src/ui/MatchMediaVideoSettingsDialog.h \
     src/ui/MissingFileDialog.h \
@@ -88,6 +89,7 @@ HEADERS += \
     src/capture/CaptureSource.h \
     src/capture/CapturePlan.h \
     src/capture/CaptureSources.h \
+    src/capture/CaptureRecorder.h \
     src/io/SamplePaths.h \
     src/io/MediaMime.h \
     src/io/MediaThumbCache.h \
@@ -137,6 +139,7 @@ SOURCES += \
     src/ui/IconFactory.cpp \
     src/ui/WelcomeDialog.cpp \
     src/ui/FirstRunDialog.cpp \
+    src/ui/CaptureWindow.cpp \
     src/ui/ProjectPropertiesDialog.cpp \
     src/ui/MatchMediaVideoSettingsDialog.cpp \
     src/ui/MissingFileDialog.cpp \
@@ -182,6 +185,7 @@ SOURCES += \
     src/io/ProjectFile.cpp \
     src/capture/CapturePlan.cpp \
     src/capture/CaptureSources.cpp \
+    src/capture/CaptureRecorder.cpp \
     src/io/SamplePaths.cpp \
     src/io/MediaMime.cpp \
     src/io/MediaThumbCache.cpp \
