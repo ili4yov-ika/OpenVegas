@@ -1043,3 +1043,85 @@ TEST_CASE("The groups VEGAS ships are drawn by VEGAS, the rest by us",
     REQUIRE_FALSE(stillDrawn.isNull());
     CHECK(stillDrawn.size() == size);
 }
+
+TEST_CASE("The light colour of a hosted transition is a colour, not a shade of grey",
+          "[video][transitions][ofx]")
+{
+    ensureQtGuiApp();
+    const QString root =
+        SamplePaths::resolveProjectPath(QStringLiteral("SAMPLES/VEGAS-PRO-22-PROGRAM-FILES"));
+    if (!QDir(root).exists()) {
+        SKIP("SAMPLES/VEGAS-PRO-22-PROGRAM-FILES not available");
+    }
+
+    const QSize size(128, 96);
+    QImage from(size, QImage::Format_ARGB32_Premultiplied);
+    from.fill(QColor(200, 200, 200));
+    QImage to(size, QImage::Format_ARGB32_Premultiplied);
+    to.fill(QColor(20, 20, 20));
+
+    auto instance = [&](double r, double g, double b) {
+        TransitionInstance t = makeTransitionInstance(transitionPagePeelId(),
+                                                      QStringLiteral("Top-Left, Medium Fold"));
+        REQUIRE(t.isValid());
+        t.params[QStringLiteral("lightColorRed")] = r;
+        t.params[QStringLiteral("lightColorGreen")] = g;
+        t.params[QStringLiteral("lightColorBlue")] = b;
+        return t;
+    };
+    auto render = [&](const TransitionInstance &t, bool withPlugin) {
+        if (withPlugin) {
+            OfxTransitionSource::install({root});
+        } else {
+            OfxTransitionSource::uninstall();
+        }
+        const QImage img =
+            renderTransition(from, to, 0.5, t).convertToFormat(QImage::Format_ARGB32);
+        OfxTransitionSource::uninstall();
+        return img;
+    };
+    auto differs = [](const QImage &l, const QImage &r) {
+        int diff = 0;
+        for (int y = 0; y < l.height(); ++y) {
+            const auto *r1 = reinterpret_cast<const QRgb *>(l.constScanLine(y));
+            const auto *r2 = reinterpret_cast<const QRgb *>(r.constScanLine(y));
+            for (int x = 0; x < l.width(); ++x) {
+                if (r1[x] != r2[x]) {
+                    ++diff;
+                }
+            }
+        }
+        return diff;
+    };
+
+    const TransitionInstance redLight = instance(1.0, 0.0, 0.0);
+    const TransitionInstance blueLight = instance(0.0, 0.0, 1.0);
+    const QImage pluginRed = render(redLight, true);
+    const QImage pluginBlue = render(blueLight, true);
+
+    // First: the plug-in is the one drawing. Our own geometry reads the same three light
+    // keys directly, so without this the test would pass on the fallback and say nothing
+    // at all about what reaches the plug-in — which is exactly how the first version of it
+    // was wrong.
+    REQUIRE(differs(pluginRed, render(redLight, false)) > (size.width() * size.height()) / 20);
+
+    // Then: the colour survives the trip. The preset package stores three numbers and the
+    // plug-in declares one RGB parameter; sent as three separate parameters they each land
+    // on the whole colour in turn, and whichever was written last paints red, green and
+    // blue alike — a red light and a blue one came out as the same grey.
+    CHECK(differs(pluginRed, pluginBlue) > 0);
+
+    long long redLean = 0;
+    long long blueLean = 0;
+    for (int y = 0; y < size.height(); ++y) {
+        const auto *r1 = reinterpret_cast<const QRgb *>(pluginRed.constScanLine(y));
+        const auto *r2 = reinterpret_cast<const QRgb *>(pluginBlue.constScanLine(y));
+        for (int x = 0; x < size.width(); ++x) {
+            redLean += qRed(r1[x]) - qBlue(r1[x]);
+            blueLean += qBlue(r2[x]) - qRed(r2[x]);
+        }
+    }
+    INFO("red lean " << redLean << ", blue lean " << blueLean);
+    CHECK(redLean > 0);
+    CHECK(blueLean > 0);
+}

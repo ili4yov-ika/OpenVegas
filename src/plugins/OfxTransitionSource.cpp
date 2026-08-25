@@ -117,20 +117,50 @@ int instanceFor(const QString &groupKey)
  * capitalised (`PeelAngle`). Both are set — writing a parameter that does not exist is
  * ignored — so neither spelling has to be guessed correctly.
  *
- * The light colour does not carry: the plug-in has one RGB parameter where the package
- * stores `lightColorRed`/`Green`/`Blue` as three numbers, and the host sets parameters as
- * single doubles. Such a transition renders with the plug-in's own default light.
+ * Colours are three keys in the package and one parameter in the plug-in: `lightColorRed`,
+ * `lightColorGreen` and `lightColorBlue` become `LightColor` carrying three components.
+ * Sent as three separate numbers they would each land on the whole colour in turn, and the
+ * last one written would paint red, green and blue alike — every light a shade of grey.
  */
 QVariantMap pluginParams(const QVariantMap &presetParams)
 {
     QVariantMap out;
+    QHash<QString, QVariantList> colours;
+
     for (auto it = presetParams.constBegin(); it != presetParams.constEnd(); ++it) {
+        static const QVector<QPair<QString, int>> channels = {
+            {QStringLiteral("Red"), 0}, {QStringLiteral("Green"), 1}, {QStringLiteral("Blue"), 2}};
+        bool isChannel = false;
+        for (const auto &channel : channels) {
+            if (!it.key().endsWith(channel.first)) {
+                continue;
+            }
+            QString base = it.key().left(it.key().size() - channel.first.size());
+            if (base.isEmpty()) {
+                continue;
+            }
+            base[0] = base[0].toUpper();
+            QVariantList &parts = colours[base];
+            while (parts.size() <= channel.second) {
+                parts.append(0.0);
+            }
+            parts[channel.second] = it.value();
+            isChannel = true;
+            break;
+        }
+        if (isChannel) {
+            continue;
+        }
         out.insert(it.key(), it.value());
         QString capitalised = it.key();
         if (!capitalised.isEmpty()) {
             capitalised[0] = capitalised[0].toUpper();
             out.insert(capitalised, it.value());
         }
+    }
+
+    for (auto it = colours.constBegin(); it != colours.constEnd(); ++it) {
+        out.insert(it.key(), it.value());
     }
     return out;
 }

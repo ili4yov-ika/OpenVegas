@@ -434,6 +434,15 @@ struct ParamRec {
     std::string name;
     std::string type;
     double value = 0.0;
+    /**
+     * Per-component values for a parameter that has more than one.
+     *
+     * Empty means every component takes `value`, which is right for the many parameters
+     * whose components genuinely move together and wrong for the ones that do not: a
+     * colour is three numbers, and giving red's value to green and blue turns every colour
+     * into a shade of grey.
+     */
+    std::vector<double> components;
     PropSet props;
     /** Parametric ("curve") params: curve index -> sorted control points (position, value). */
     std::map<int, std::vector<std::pair<double, double>>> curves;
@@ -1480,11 +1489,16 @@ void writeParamValue(const ParamRec &p, va_list &ap)
         }
         return;
     }
+    // Component `i` of a multi-part parameter: its own value when one was set, otherwise
+    // the flat one, which is right for the many parameters whose parts move together.
+    const auto component = [&p](int i) {
+        return i < int(p.components.size()) ? p.components[size_t(i)] : p.value;
+    };
     if (p.type == kOfxParamTypeDouble2D || p.type == kOfxParamTypeDouble3D) {
         const int n = p.type == kOfxParamTypeDouble2D ? 2 : 3;
         for (int i = 0; i < n; ++i) {
             if (double *out = va_arg(ap, double *)) {
-                *out = p.value; // flat model: one value across components
+                *out = component(i);
             }
         }
         return;
@@ -1493,7 +1507,7 @@ void writeParamValue(const ParamRec &p, va_list &ap)
         const int n = p.type == kOfxParamTypeInteger2D ? 2 : 3;
         for (int i = 0; i < n; ++i) {
             if (int *out = va_arg(ap, int *)) {
-                *out = int(std::lround(p.value));
+                *out = int(std::lround(component(i)));
             }
         }
         return;
@@ -1502,7 +1516,7 @@ void writeParamValue(const ParamRec &p, va_list &ap)
         const int n = p.type == kOfxParamTypeRGB ? 3 : 4;
         for (int i = 0; i < n; ++i) {
             if (double *out = va_arg(ap, double *)) {
-                *out = p.value;
+                *out = component(i);
             }
         }
     }
@@ -2923,7 +2937,20 @@ bool OfxHost::processFrame(int instanceId, QImage *rgba, double timeSec, const Q
                 || fit->second.type == kOfxParamTypeString) {
                 continue;
             }
-            fit->second.value = pit.value().toDouble();
+            // A list carries one value per component — a colour, a position. Anything else
+            // is a single number that every component shares.
+            if (pit.value().typeId() == QMetaType::QVariantList) {
+                const QVariantList parts = pit.value().toList();
+                fit->second.components.clear();
+                fit->second.components.reserve(size_t(parts.size()));
+                for (const QVariant &part : parts) {
+                    fit->second.components.push_back(part.toDouble());
+                }
+                fit->second.value = parts.isEmpty() ? 0.0 : parts.first().toDouble();
+            } else {
+                fit->second.components.clear();
+                fit->second.value = pit.value().toDouble();
+            }
         }
         // Common alias
         if (params.contains(QStringLiteral("gain"))) {
