@@ -293,10 +293,23 @@ VEGAS собирает свои бандлы против форка OFX C++ sup
 `OfxOpenCLProgramSuite`, `OfxDirectXProgramSuite`, `OfxImageEffectOpenGLRenderSuite` —
 `fetchSuite` отвечает `NULL`.
 
-Раскладка их структур не опубликована и не восстановлена. Подсунуть заглушку с угаданной
-раскладкой — значит выдать плагину указатели на функции неверной арности и уронить
-приложение; честный `NULL` лучше. По трассировке Chroma Blur все они опциональны: плагин
-запрашивает их на `Load` и работает дальше без них.
+Для `OfxVegas*` и `OfxHWnd*` раскладка структур не опубликована и не восстановлена. Подсунуть
+заглушку с угаданной раскладкой — значит выдать плагину указатели на функции неверной арности
+и уронить приложение; честный `NULL` лучше. По трассировке Chroma Blur все они опциональны:
+плагин запрашивает их на `Load` и работает дальше без них.
+
+**Поправка от 2026-08-26: для трёх GPU-suite'ов это не так, и не для всех плагинов они
+опциональны.** `OfxImageEffectOpenGLRenderSuiteV1` и `OfxOpenCLProgramSuiteV1` — часть
+стандарта OpenFX, их раскладка лежит в уже подключённом
+[`thirdparty/openfx/include/ofxGPURender.h`](../thirdparty/openfx/include/ofxGPURender.h).
+Не восстановлен только `OfxDirectXProgramSuite` — вот он расширение VEGAS.
+
+И `NULL` на них стоит целому бандлу описания. `MagixCVFx.ofx` запрашивает все три на `Load`,
+получает `NULL` — и восемь из одиннадцати его эффектов на `DescribeInContext` возвращают 0 с
+**нулём клипов и нулём параметров**: motionblur, denoisingnlm, flickerreducer, gltransition,
+lenscorrection, meshwarp, timewarp, warpflowtransition. Описываются ровно три не-GPU-шных —
+motiontracker (16 параметров), shotdetector (12), stabilize (68). Разделение по GPU, а не
+случайное, и это то, что закрывает нам `VEGAS Warp Flow` и `VEGAS GL Transition`.
 
 ### Отказ на `Load` отравляет весь бинарник (2026-08-26)
 

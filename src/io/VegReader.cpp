@@ -1529,11 +1529,21 @@ void VegReader::parseTrackMotion(const QByteArray &data, VegOpenResult *result)
             const double rotCos = qFromLittleEndian<double>(r + 144);
             const double rotSin = qFromLittleEndian<double>(r + 168);
             kf.rotationZ = std::atan2(rotSin, rotCos);
-            // Orientation has its own control in VEGAS's window, but nothing in this
-            // record moves with it — +136 holds 1.0 throughout, which is what a cosine of
-            // zero looks like. Left at the identity default rather than invented from the
-            // rotation's sine, which is where the old reading got its values.
-            kf.orientationZ = 0.0;
+            // Orientation is the *other* angle, stored the same way one slot earlier: the
+            // record carries two cosine/sine pairs eight bytes apart — +136/+160 and
+            // +144/+168 — and only the second one ever moves in the samples. The first is
+            // (1, 0) in all ten keyframes across all 24 projects, which is what an angle
+            // nobody touched looks like; the remaining candidate slot, +152/+176, is (0, 0)
+            // and so is not an angle at all.
+            //
+            // Read only when the pair really is a unit one. No sample sets orientation, so
+            // this cannot be confirmed against a reference — the check is what keeps a
+            // wrong guess from turning some other field into a rotation nobody asked for.
+            const double orientCos = qFromLittleEndian<double>(r + 136);
+            const double orientSin = qFromLittleEndian<double>(r + 160);
+            const double orientLen = orientCos * orientCos + orientSin * orientSin;
+            kf.orientationZ =
+                std::abs(orientLen - 1.0) < 1e-6 ? std::atan2(orientSin, orientCos) : 0.0;
             const double typeCode = qFromLittleEndian<double>(r + 104);
             // Vegas stores type loosely; 1.0 ≈ Linear in our sample
             if (typeCode > 1.5) {
