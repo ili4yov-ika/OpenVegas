@@ -37,6 +37,7 @@
 
 extern "C" {
 #include <ofxCore.h>
+#include <ofxGPURender.h>
 #include <ofxImageEffect.h>
 #include <ofxInteract.h>
 #include <ofxMemory.h>
@@ -1294,6 +1295,51 @@ OfxStatus mtMutexTryLock(const OfxMutexHandle mutex)
     return reinterpret_cast<QMutex *>(mutex)->tryLock() ? kOfxStatOK : kOfxStatFailed;
 }
 
+// ---------------------------------------------------------------------------
+// GPU suites — present, and honest about having no GPU behind them.
+//
+// Unlike the OfxVegas* family these two are part of the OpenFX standard: their
+// layouts come from thirdparty/openfx/include/ofxGPURender.h, so the arity is
+// right and there is nothing to guess. Answering fetchSuite with null for them is
+// not free — MAGIX's bundle asks for all three at load and, when it gets nothing,
+// eight of its eleven effects go on to declare no clips and no parameters at all,
+// VEGAS Warp Flow and VEGAS GL Transition among them.
+//
+// The functions decline: there is no GL context in this build, so loading a clip
+// into a texture cannot be done and says so rather than pretending. What the
+// plug-in does with a suite that exists and refuses is exactly the question these
+// answer — see MARKDOWN/PLAN_OFX_VIDEO_PLUGINS.md.
+// ---------------------------------------------------------------------------
+
+OfxStatus glClipLoadTexture(OfxImageClipHandle, OfxTime, const char *, const OfxRectD *,
+                            OfxPropertySetHandle *textureHandle)
+{
+    if (textureHandle) {
+        *textureHandle = nullptr;
+    }
+    return kOfxStatFailed;
+}
+
+OfxStatus glClipFreeTexture(OfxPropertySetHandle)
+{
+    return kOfxStatOK; // nothing was ever handed out, so there is nothing to release
+}
+
+OfxStatus glFlushResources()
+{
+    return kOfxStatReplyDefault; // no GPU resources are held here
+}
+
+OfxImageEffectOpenGLRenderSuiteV1 g_openGLRenderSuite = {glClipLoadTexture, glClipFreeTexture,
+                                                         glFlushResources};
+
+OfxStatus openCLCompileProgram(const char *, int, void *)
+{
+    return kOfxStatFailed;
+}
+
+OfxOpenCLProgramSuiteV1 g_openCLProgramSuite = {openCLCompileProgram};
+
 OfxMultiThreadSuiteV1 g_multiThreadSuite = {
     mtMultiThread, mtNumCPUs, mtThreadIndex, mtIsSpawnedThread,
     mtMutexCreate, mtMutexDestroy, mtMutexLock, mtMutexUnLock, mtMutexTryLock};
@@ -2101,6 +2147,12 @@ const void *resolveSuite(const char *suiteName, int suiteVersion)
     if (std::strcmp(suiteName, kOfxParametricParameterSuite) == 0 && suiteVersion == 1) {
         return &g_parametricSuite;
     }
+    if (std::strcmp(suiteName, kOfxOpenGLRenderSuite) == 0 && suiteVersion == 1) {
+        return &g_openGLRenderSuite;
+    }
+    if (std::strcmp(suiteName, kOfxOpenCLProgramSuite) == 0 && suiteVersion == 1) {
+        return &g_openCLProgramSuite;
+    }
     // Everything else — including VEGAS's private OfxVegas*Suite family, whose struct
     // layouts are unpublished — is answered honestly with null. Guessing a layout would
     // hand the plug-in function pointers of the wrong arity and crash the app.
@@ -2166,6 +2218,12 @@ void initHostProps()
     setInt(&g_hostProps, "OfxImageEffectPropSetableFielding", 0, 0);
     setInt(&g_hostProps, kOfxImageEffectInstancePropSequentialRender, 0, 1);
     setInt(&g_hostProps, kOfxImageEffectPropRenderQualityDraft, 0, 0);
+    // Whether this host can render through OpenGL. It cannot, and saying so plainly is
+    // not the same as staying silent: the GPU-backed plug-ins ask for this by name, and a
+    // host that leaves it unset is one they cannot reason about. Measured: answering
+    // "true" instead changes nothing about what they declare, so this is correctness for
+    // its own sake rather than a workaround.
+    setString(&g_hostProps, kOfxImageEffectPropOpenGLRenderSupported, 0, "false");
     setInt(&g_hostProps, kOfxParamHostPropSupportsCustomInteract, 0,
            ofxInteractProbeEnabled() ? 1 : 0);
     setInt(&g_hostProps, kOfxParamHostPropSupportsStringAnimation, 0, 0);

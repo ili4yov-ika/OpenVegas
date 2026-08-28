@@ -304,12 +304,42 @@ VEGAS собирает свои бандлы против форка OFX C++ sup
 [`thirdparty/openfx/include/ofxGPURender.h`](../thirdparty/openfx/include/ofxGPURender.h).
 Не восстановлен только `OfxDirectXProgramSuite` — вот он расширение VEGAS.
 
-И `NULL` на них стоит целому бандлу описания. `MagixCVFx.ofx` запрашивает все три на `Load`,
-получает `NULL` — и восемь из одиннадцати его эффектов на `DescribeInContext` возвращают 0 с
-**нулём клипов и нулём параметров**: motionblur, denoisingnlm, flickerreducer, gltransition,
-lenscorrection, meshwarp, timewarp, warpflowtransition. Описываются ровно три не-GPU-шных —
-motiontracker (16 параметров), shotdetector (12), stabilize (68). Разделение по GPU, а не
-случайное, и это то, что закрывает нам `VEGAS Warp Flow` и `VEGAS GL Transition`.
+Раз раскладка известна, оба реализованы честно: правильная арность из заголовка, а функции
+отказывают — GL-контекста в этой сборке нет, и `clipLoadTexture` говорит об этом статусом, а не
+делает вид. Хост заодно отвечает на `kOfxImageEffectPropOpenGLRenderSupported` строкой `false`
+вместо молчания: GPU-плагины спрашивают это свойство по имени.
+
+### Что держит `VEGAS Warp Flow` и `VEGAS GL Transition` — и чего **не** держит (2026-08-26)
+
+Восемь из одиннадцати эффектов `MagixCVFx.ofx` на `DescribeInContext` возвращают 0 с **нулём
+клипов и нулём параметров**: motionblur, denoisingnlm, flickerreducer, gltransition,
+lenscorrection, meshwarp, timewarp, warpflowtransition. Описываются ровно три —
+motiontracker (16 параметров), shotdetector (12), stabilize (68).
+
+**Поправка: первое объяснение было неверным.** Здесь стояло, что причина — `NULL` на три
+GPU-suite'а. Это была догадка по корреляции (раскол шёл ровно по GPU-эффектам), и проверка её
+не подтвердила. Проверено и отвергнуто пять кандидатов:
+
+| гипотеза | проверка | результат |
+|---|---|---|
+| `fetchSuite` отдаёт `NULL` на GPU-suite'ы | реализованы `OfxImageEffectOpenGLRenderSuiteV1` и `OfxOpenCLProgramSuiteV1` | 8 из 11 по-прежнему молчат |
+| хост не объявляет `OpenGLRenderSupported` | выставлено `false` | без изменений |
+| хост объявляет его в `false` | временно выставлено `true` | без изменений |
+| плагин смотрит на имя хоста | `OfxPropName` временно `com.vegascreativesoftware.vegas` (строка есть в бинарнике) | без изменений |
+| нет зависимостей рядом с бандлом | `opencv_*490.dll`, `opencl.dll`, `sharedk.dll` на месте, и `stabilize` через OpenCV описывается | не то |
+| нет оконной платформы для GL | `QT_QPA_PLATFORM=windows` вместо `offscreen` | без изменений |
+
+Где именно обрыв — видно точно. `Describe` у работающего `stabilize` и у молчащего
+`warpflowtransition` **одинаков**: оба ставят только метки и группу. Расходятся они в
+`DescribeInContext`: `stabilize` читает контекст и идёт в `clipDefine`, а `warpflowtransition`
+читает контекст и сразу возвращается — **для всех четырёх контекстов, включая собственный
+Transition**. При этом ни одного `<missing>` в трассировке не остаётся: хост отвечает на всё,
+о чём его спросили.
+
+То есть проверка не на уровне OFX-протокола — плагин смотрит на что-то своё. Следующие
+кандидаты: он сам опрашивает устройство (OpenCL/Vulkan/OSMesa — все эти рантаймы в его таблице
+импорта) либо спрашивает `sharedk.dll` о редакции VEGAS. Разобрать это можно только
+дизассемблером.
 
 ### Отказ на `Load` отравляет весь бинарник (2026-08-26)
 
@@ -513,3 +543,101 @@ build/Windows_MinGW-x64/openvegas_video_tests.exe "[vegas-video]"
 | Бандлы VEGAS на Linux / macOS | Только эмулируемый fallback. Полноценно — только out-of-process мост под Wine; проектируется, в MVP не входит |
 | Изоляция процесса | Сейчас плагины грузятся в процесс приложения: падение плагина = падение OpenVegas. Тот же мост закрыл бы и это |
 | Float-глубина пикселя | Хост объявляет только `kOfxBitDepthByte` |
+
+---
+
+## Полный инвентарь видео- и OFX-плагинов (обновлено 2026-08-27)
+
+Детальный обзор всех плагинов VEGAS Pro 22 в
+[`VEGAS_VIDEO_PLUGINS_INVENTORY.md`](VEGAS_VIDEO_PLUGINS_INVENTORY.md).
+
+### Legacy COM/DXT (`Video Plug-Ins/`) — 0 OFX
+
+| DLL | Размер | Эффекты | Архитектура |
+|-----|--------|---------|-------------|
+| `PluginWrapper.dll` | 183 KB | 0 | COM wrapper |
+| `SfPagePeel.dll` | 528 KB | 9 | COM DXT, `sharedk.dll` |
+| `sftrans1.dll` | 2.5 MB | 20+ | COM DXT + SkynUI, 316 classes |
+| `vfx1.dll` | 1.8 MB | 10 | COM DXT + 3D/spline, 283 classes |
+| `vidpcore.dll` | 6.0 MB | 32 | COM DXT, 53 classes |
+
+### OFX (`OFX Video Plug-Ins/`) — 11 бандлов, ~72 плагина
+
+| Бандл | Бинарник | Размер | Плагины | Тип |
+|-------|---------|--------|---------|-----|
+| Vfx1 | Vfx1.ofx | 10.2 MB | 40+ | Monolithic |
+| MagixCVFx | MagixCVFx.ofx | 5.6 MB | 11 | Monolithic (8 GPU-dependent) |
+| spica_cutout | spica_cutout.ofx | 3.6 MB | 1 | Monolithic, OpenCL (Sony-era) |
+| spica_resizer | spica_resizer.ofx | 3.6 MB | 1 | Monolithic, OpenCL (Sony-era) |
+| MagixAiFx | MagixAiFx.ofx | 1.9 MB | 11 | Monolithic (DL Models) |
+| Stabilize | Stabilize.ofx | 492 KB | 1 | Monolithic |
+| Filters | Filters.ofx | 524 KB | 1 | Monolithic |
+| TitlesAndText | TitlesAndText.ofx | 475 KB | 1 | Monolithic (Generator) |
+| ofx360Stabilizer | ofx360Stabilizer.ofx | 60 KB | 1 | Thin proxy + cpu/ocl.exec |
+| ofxRotation | VegasOfxRotation.ofx | 60 KB | 1 | Thin proxy + cpu/ocl.exec |
+| ofxStitch | VegasOfxStitch.ofx | 221 KB | 1 | Thin proxy + helper DLLs |
+
+### Экспортная ABI OFX-бандлов (подтверждено ghidra + dumpbin, 2026-08-27)
+
+Все 11 бандлов используют **упрощённый OFX ABI без `OfxSetHost`**:
+
+| Экспорт | Сигнатура | Назначение |
+|---------|-----------|------------|
+| `OfxGetNumberOfPlugins` | `int()` | Число плагинов в бандле |
+| `OfxGetPlugin` | `void* (int index)` | Структура `OfxPlugin` по индексу |
+
+Хост (`OfxHost.cpp:2345-2346`) вызывает их через `lib.resolve()` — совпадает.
+`OfxGetPlugin` возвращает `OfxPlugin`:
+`{ apiVersion, pluginVersion, "OfxImageEffectPluginAPI", pluginIdentifier, pluginDescriptor, setHost, mainEntry }`
+(декодировано из `Stabilize.ofx @ 0x180020aa0`).
+
+### Кроссплагинные приватные C++-экспорты (out-of-process rendering)
+
+4 бандла экспортируют классы `sfmemorytoken` — механизм **shared-memory IPC**
+между хостом и out-of-process рендером:
+
+| Класс | Методы | Назначение |
+|-------|--------|------------|
+| `CMappingOfSfMemoryToken` | `GetPointer`, `Close`, `DataSize`, `Pointer`, `Dispose` | Маппинг shared memory в адресное пространство |
+| `COutOfProcessMemoryToken` | `GetMemoryToken` | Импорт токена чужого процесса |
+
+Бандлы с этими экспортами: **Stabilize, Filters, MagixCVFx, Vfx1**.
+`Filters.ofx` дополнительно экспортирует `CScanlineIntersect(Pool)` (сканирующая
+растеризация), `Vfx1.ofx` — `A_Buffer`. Спокойные бандлы (TitlesAndText,
+ofx360Stabilizer, ofxRotation, ofxStitch, spica_*, MagixAiFx) — только OFX ABI.
+
+### Каталог плагинов по plugin identifiers (подтверждено, 2026-08-27)
+
+Всего **107 плагинов**: Vfx1=78, MagixCVFx=11, MagixAiFx=10, и по 1 в
+Stabilize/Filters/TitlesAndText/VegasOfxStitch/spica_cutout/spica_resizer/
+ofx360Stabilizer/VegasOfxRotation. Полный список — в
+[`VEGAS_VIDEO_PLUGINS_INVENTORY.md`](VEGAS_VIDEO_PLUGINS_INVENTORY.md) §2A.
+
+### Vfx1.ofx — приватный VEGAS SDK в экспортах
+
+`Vfx1.ofx` (10 MB) экспортирует не только OFX, но и приватный C++ SDK (~380 имён):
+
+- **UI**: `SfScope_*` / `ScopeInst_*` (осциллограф/векторскоп), `CSfMenuManager`
+  (меню через `HMENU`), `SfWnd_ForwardMsg` / `SfWnd_DisregardFutureMsgs` (оконный wrapper)
+- **Графика**: `CSfDib*` (DIB-операции: autolevels, alpha blend, glow, HSL adjust,
+  radial blur, japеg load), `CSfSurface` (pixel aspect), newsprint-блендеры шаблонные
+- **Математика**: `Vector`/`Bounds`/`Path`/`Mask`/`Anchor`/`Tangent` (безе-пути),
+  `CSfHermiteCubicEval`/`CSfLinearEval` (сглаживание), `CScanlineIntersect(Pool)`
+- **Прочее**: `CSfXML_Document`, `CSfGlyphSet`, `CSfMonitored_CoInitializeEx`
+
+Это статически слинкованная копия сонатских компонентов (CSf = "Creative Studio/sf")
+внутри плагина — не требует отдельных DLL.
+
+### MagixCVFx — компьютерное зрение в экспортах
+
+`MagixCVFx.ofx` экспортирует ядра CV: `opticalFlow`/`opticalFlow8/32`,
+`patchTracker`/`patchTrackerSingle`, `calcHomography`, `calcTransformationParameter`,
+`MotionCompensatedCrossFade8/32`, `MotionCompensatedY32`.
+`MagixAiFx.ofx`: `QueryDirectX`, `runAiTests`, `runAiTestsW`.
+
+### OpenColorIO
+
+- `OpenColorIO_2_0.dll` — 3.84 MB, 943 exports, полный OCIO v2.0 SDK
+- `OpenColorIO/` — 460 MB ACES LUTs (3 конфига: aces_0.7.1, aces_1.2, aces__OLD)
+- `ColorGradingWindow.dll` — 3.17 MB, .NET OFX UI wrapper (34 OFX references)
+- `ColorGradingTools.dll` — 19 KB, .NET UI helper
