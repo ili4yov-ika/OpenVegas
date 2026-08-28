@@ -2,6 +2,7 @@
 
 #include "capture/CaptureSource.h"
 
+#include <QPoint>
 #include <QSize>
 #include <QString>
 #include <QVector>
@@ -28,6 +29,8 @@ struct WindowFacts {
     /** `WS_CHILD`: part of another window, not one of its own. */
     bool child = false;
     QSize clientSize;
+    /** Top-left corner on the virtual desktop; used to file it under a monitor. */
+    QPoint origin;
 };
 
 /**

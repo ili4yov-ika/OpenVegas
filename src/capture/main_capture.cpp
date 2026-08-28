@@ -10,6 +10,7 @@
 // and a different thing done with a finished take, not a second implementation.
 
 #include "ui/CaptureWindow.h"
+#include "ui/Theme.h"
 
 #include <QApplication>
 #include <QDesktopServices>
@@ -24,6 +25,10 @@ int main(int argc, char **argv)
     QCoreApplication::setOrganizationName(QStringLiteral("OpenVegas"));
     QCoreApplication::setApplicationName(QStringLiteral("OpenVegas"));
     QGuiApplication::setApplicationDisplayName(QObject::tr("OpenVegas Capture"));
+    // The editor's own palette. The picker's colours are half-transparent washes over the
+    // window background, and over a light one they come out as pastels that no longer say
+    // which audio input belongs to which camera.
+    openvegas::applyTheme(app);
 
     openvegas::CaptureWindow window;
 

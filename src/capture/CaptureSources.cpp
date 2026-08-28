@@ -64,6 +64,14 @@ WindowFacts factsFor(HWND hwnd)
     RECT client = {0, 0, 0, 0};
     GetClientRect(hwnd, &client);
     f.clientSize = QSize(int(client.right - client.left), int(client.bottom - client.top));
+
+    // Where it sits on the virtual desktop. Not needed to record a window — gdigrab takes
+    // it by handle — but it is how the picker files a window under the monitor it is on,
+    // which is how people remember where a window is on a multi-monitor desktop.
+    RECT frame = {0, 0, 0, 0};
+    if (GetWindowRect(hwnd, &frame)) {
+        f.origin = QPoint(int(frame.left), int(frame.top));
+    }
     return f;
 }
 
@@ -82,6 +90,7 @@ BOOL CALLBACK collectWindow(HWND hwnd, LPARAM param)
     s.name = f.exeName.isEmpty() ? f.title
                                  : QStringLiteral("[%1]: %2").arg(f.exeName, f.title);
     s.nativeSize = f.clientSize;
+    s.origin = f.origin;
     s.frameRate = 30.0;
     out->push_back(s);
     return TRUE;

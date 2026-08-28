@@ -1,8 +1,10 @@
 #include "capture/CapturePlan.h"
+#include "capture/CaptureLivePreview.h"
 #include "capture/CapturePreview.h"
 #include "ui/GlobalHotkey.h"
 #include "capture/CaptureRecorder.h"
 #include "capture/CaptureSources.h"
+#include "ui/CaptureSourceList.h"
 #include "ui/CaptureTrayIcon.h"
 
 #include <QKeySequence>
@@ -671,4 +673,81 @@ TEST_CASE("A system-wide combination decodes to what the OS wants", "[capture]")
     // A sequence of chords is not something an OS-level key can be.
     CHECK_FALSE(GlobalHotkey::decode(QKeySequence(QStringLiteral("Ctrl+K, Ctrl+R")), &mods, &vk));
     CHECK_FALSE(GlobalHotkey::decode(QKeySequence(), &mods, &vk));
+}
+
+TEST_CASE("A live preview streams, and a window streams more slowly than a monitor",
+          "[capture]")
+{
+    // Displays, cameras and capture cards are watched to see what is on them, so they run
+    // fast enough to read as motion. Windows are watched only to confirm which window it
+    // is — and there are far more of them, so that is where the cost would land.
+    CHECK(CaptureLivePreview::frameRateFor(CaptureSource::Kind::Screen) == Catch::Approx(12.0));
+    CHECK(CaptureLivePreview::frameRateFor(CaptureSource::Kind::Camera) == Catch::Approx(12.0));
+    const double windowRate = CaptureLivePreview::frameRateFor(CaptureSource::Kind::Window);
+    CHECK(windowRate > 0.0);
+    CHECK(windowRate < CaptureLivePreview::frameRateFor(CaptureSource::Kind::Screen));
+    // A microphone is not previewed at all.
+    CHECK(CaptureLivePreview::frameRateFor(CaptureSource::Kind::Audio) == Catch::Approx(0.0));
+
+    const QStringList args = CaptureLivePreview::argumentsFor(
+        screen(QStringLiteral("Display 1"), 2560, 1440, 165.0), QSize(96, 56), 12.0);
+    REQUIRE_FALSE(args.isEmpty());
+
+    // The opposite of the still grab: no -frames:v, because this one keeps going.
+    CHECK_FALSE(args.contains(QStringLiteral("-frames:v")));
+    CHECK(args.mid(args.size() - 5)
+          == QStringList{QStringLiteral("-f"), QStringLiteral("image2pipe"),
+                         QStringLiteral("-c:v"), QStringLiteral("png"), QStringLiteral("-")});
+
+    // Slowed at the device, not after it. A 165 Hz display asked for its own rate would
+    // capture 165 frames a second to draw twelve of them into a 96-pixel box.
+    CHECK(valueAfter(args, QStringLiteral("-framerate")).toDouble() == Catch::Approx(12.0));
+    CHECK(valueAfter(args, QStringLiteral("-r")).toDouble() == Catch::Approx(12.0));
+
+    CHECK(valueAfter(args, QStringLiteral("-vf"))
+          == QStringLiteral("scale=96:56:force_original_aspect_ratio=decrease"));
+
+    // Nothing to stream from a microphone, and a rate of zero is not a stream either.
+    CHECK(CaptureLivePreview::argumentsFor(mic(QStringLiteral("Headset"), 48000, 2, 16),
+                                           QSize(96, 56), 12.0)
+              .isEmpty());
+    CHECK(CaptureLivePreview::argumentsFor(
+              screen(QStringLiteral("Display 1"), 2560, 1440, 165.0), QSize(96, 56), 0.0)
+              .isEmpty());
+}
+
+TEST_CASE("Dropping a source card lands it where the insertion line was", "[capture]")
+{
+    // Four rows 60 tall, stacked: 0..59, 60..119, 120..179, 180..239.
+    const QVector<QRect> rows = {QRect(0, 0, 200, 60), QRect(0, 60, 200, 60),
+                                 QRect(0, 120, 200, 60), QRect(0, 180, 200, 60)};
+
+    // Gaps, not rows: four rows have five places a card can land, and the fifth is what
+    // moving something to the end means.
+    CHECK(CaptureSourceList::gapAt(rows, 5) == 0);
+    CHECK(CaptureSourceList::gapAt(rows, 28) == 0);  // upper half of the first row
+    CHECK(CaptureSourceList::gapAt(rows, 31) == 1);  // lower half means "after it"
+    CHECK(CaptureSourceList::gapAt(rows, 95) == 2);
+    CHECK(CaptureSourceList::gapAt(rows, 235) == 4); // past the last row
+    CHECK(CaptureSourceList::gapAt({}, 10) == 0);    // an empty column takes a drop at 0
+
+    // The centre pixel itself counts as "after", which is what makes the halves add up:
+    // a row 60 tall has 30 pixels that land before it and 30 that land after.
+    CHECK(CaptureSourceList::gapAt(rows, 29) == 1);
+
+    // A row moved downwards lands one place short of the gap, because the gap was counted
+    // while it was still in the list. Moved upwards, nothing below it has shifted.
+    CHECK(CaptureSourceList::landingIndex(0, 0) == 0); // dropped back where it was
+    CHECK(CaptureSourceList::landingIndex(0, 1) == 0); // and again — the gap under itself
+    CHECK(CaptureSourceList::landingIndex(0, 2) == 1);
+    CHECK(CaptureSourceList::landingIndex(0, 4) == 3); // first row to last place
+    CHECK(CaptureSourceList::landingIndex(3, 0) == 0); // last row to first place
+    CHECK(CaptureSourceList::landingIndex(3, 2) == 2);
+    CHECK(CaptureSourceList::landingIndex(2, 2) == 2);
+    CHECK(CaptureSourceList::landingIndex(2, 3) == 2);
+
+    // The two together: grab the first row, drop it on the lower half of the third, and it
+    // ends up third — which is the gesture this whole panel exists for.
+    const int gap = CaptureSourceList::gapAt(rows, 155);
+    CHECK(CaptureSourceList::landingIndex(0, gap) == 2);
 }

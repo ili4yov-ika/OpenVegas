@@ -37,6 +37,9 @@ endif()
     src/ui/FirstRunDialog.cpp
     src/ui/CaptureTrayIcon.cpp
     src/ui/GlobalHotkey.cpp
+    src/ui/CaptureSourceCard.cpp
+    src/ui/CaptureSourceList.cpp
+    src/ui/CaptureWindowTree.cpp
     src/ui/CaptureWindow.cpp
     src/ui/ProjectPropertiesDialog.cpp
     src/ui/MatchMediaVideoSettingsDialog.cpp
@@ -90,6 +93,7 @@ endif()
     src/capture/CapturePlan.cpp
     src/capture/CaptureInput.cpp
     src/capture/CapturePreview.cpp
+    src/capture/CaptureLivePreview.cpp
     src/capture/CaptureSources.cpp
     src/capture/CaptureRecorder.cpp
     src/io/SamplePaths.cpp
@@ -342,10 +346,15 @@ add_executable(OpenVegasCapture
     src/capture/CapturePlan.cpp
     src/capture/CaptureInput.cpp
     src/capture/CapturePreview.cpp
+    src/capture/CaptureLivePreview.cpp
     src/capture/CaptureSources.cpp
     src/capture/CaptureRecorder.cpp
+    src/ui/CaptureSourceCard.cpp
+    src/ui/CaptureSourceList.cpp
+    src/ui/CaptureWindowTree.cpp
     src/ui/CaptureWindow.cpp
     src/ui/CaptureTrayIcon.cpp
+    src/ui/Theme.cpp
     src/ui/GlobalHotkey.cpp
     src/io/FfmpegLocator.cpp
 )
@@ -574,8 +583,11 @@ if(OPENVGAS_BUILD_TESTS)
         src/capture/CapturePlan.cpp
         src/capture/CaptureInput.cpp
         src/capture/CapturePreview.cpp
+        src/capture/CaptureLivePreview.cpp
         src/capture/CaptureSources.cpp
         src/capture/CaptureRecorder.cpp
+        src/ui/CaptureSourceCard.cpp
+        src/ui/CaptureSourceList.cpp
         src/ui/CaptureTrayIcon.cpp
         src/ui/GlobalHotkey.cpp
         src/io/SamplePaths.cpp
