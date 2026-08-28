@@ -1,0 +1,1342 @@
+﻿<?xml version="1.0"?>
+<fcpxml version="1.2">
+	<project name="Untitled Project 1">
+		<resources>
+			<format id="r1" name="FFVideoFormat1080p60" frameDuration="100/6000s" width="1920" height="1080" />
+			<projectRef id="r2" name="Untitled Project 1" />
+			<format id="r3" frameDuration="100/6000s" width="3840" height="2160" />
+			<asset id="r4" name="big-buck-bunny_video-60fps-4k-10" projectRef="r2" src="file://localhost/D:/Devs/C++/OpenVegas/SAMPLES/veg_project/final-cut-pro-x/big-buck-bunny_video-60fps-4k-10.mp4" start="0/6000s" hasVideo="1" hasAudio="1" />
+			<effect id="r5" name="Cross Dissolve" uid="FxPlug:4731E73A-8DAC-4113-9A30-AE85B1761265" />
+		</resources>
+		<sequence duration="2423700/6000s" format="r1" tcFormat="NDF" audioLayout="stereo" audioRate="48k">
+			<spine>
+				<clip duration="0s">
+					<spine lane="-1">
+						<audio ref="r4" duration="16600/6000s" start="0/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="8000/6000s" ref="r5" name="Cross Dissolve" duration="17200/6000s" />
+						<audio offset="16600/6000s" ref="r4" duration="22700/6000s" start="33800/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="33100/6000s" ref="r5" name="Cross Dissolve" duration="12300/6000s" />
+						<audio offset="39300/6000s" ref="r4" duration="18000/6000s" start="68800/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="51300/6000s" ref="r5" name="Cross Dissolve" duration="11900/6000s" />
+						<audio offset="57300/6000s" ref="r4" duration="15900/6000s" start="98700/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="67500/6000s" ref="r5" name="Cross Dissolve" duration="11400/6000s" />
+						<audio offset="73200/6000s" ref="r4" duration="17000/6000s" start="126000/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="84700/6000s" ref="r5" name="Cross Dissolve" duration="10900/6000s" />
+						<audio offset="90200/6000s" ref="r4" duration="13400/6000s" start="153900/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="99200/6000s" ref="r5" name="Cross Dissolve" duration="8800/6000s" />
+						<audio offset="103600/6000s" ref="r4" duration="13200/6000s" start="176100/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="112400/6000s" ref="r5" name="Cross Dissolve" duration="8800/6000s" />
+						<audio offset="116800/6000s" ref="r4" duration="14600/6000s" start="198100/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="126400/6000s" ref="r5" name="Cross Dissolve" duration="10000/6000s" />
+						<audio offset="131400/6000s" ref="r4" duration="14200/6000s" start="222700/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="140900/6000s" ref="r5" name="Cross Dissolve" duration="9300/6000s" />
+						<audio offset="145600/6000s" ref="r4" duration="13000/6000s" start="246200/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="154100/6000s" ref="r5" name="Cross Dissolve" duration="9000/6000s" />
+						<audio offset="158600/6000s" ref="r4" duration="15600/6000s" start="268200/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="169200/6000s" ref="r5" name="Cross Dissolve" duration="9900/6000s" />
+						<audio offset="174200/6000s" ref="r4" duration="13200/6000s" start="293700/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="182800/6000s" ref="r5" name="Cross Dissolve" duration="9200/6000s" />
+						<audio offset="187400/6000s" ref="r4" duration="15500/6000s" start="316100/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="198100/6000s" ref="r5" name="Cross Dissolve" duration="9500/6000s" />
+						<audio offset="202900/6000s" ref="r4" duration="14900/6000s" start="341100/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="212700/6000s" ref="r5" name="Cross Dissolve" duration="10200/6000s" />
+						<audio offset="217800/6000s" ref="r4" duration="13400/6000s" start="366200/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="226800/6000s" ref="r5" name="Cross Dissolve" duration="8700/6000s" />
+						<audio offset="231200/6000s" ref="r4" duration="13000/6000s" start="388300/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="239300/6000s" ref="r5" name="Cross Dissolve" duration="9700/6000s" />
+						<audio offset="244200/6000s" ref="r4" duration="14000/6000s" start="411000/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="253400/6000s" ref="r5" name="Cross Dissolve" duration="9600/6000s" />
+						<audio offset="258200/6000s" ref="r4" duration="12800/6000s" start="434600/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="266900/6000s" ref="r5" name="Cross Dissolve" duration="8200/6000s" />
+						<audio offset="271000/6000s" ref="r4" duration="14100/6000s" start="455600/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="280500/6000s" ref="r5" name="Cross Dissolve" duration="9200/6000s" />
+						<audio offset="285100/6000s" ref="r4" duration="14000/6000s" start="478900/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="294200/6000s" ref="r5" name="Cross Dissolve" duration="9700/6000s" />
+						<audio offset="299100/6000s" ref="r4" duration="13900/6000s" start="502600/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="307800/6000s" ref="r5" name="Cross Dissolve" duration="10300/6000s" />
+						<audio offset="313000/6000s" ref="r4" duration="14500/6000s" start="526800/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="322100/6000s" ref="r5" name="Cross Dissolve" duration="10700/6000s" />
+						<audio offset="327500/6000s" ref="r4" duration="15500/6000s" start="552000/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="337700/6000s" ref="r5" name="Cross Dissolve" duration="10500/6000s" />
+						<audio offset="343000/6000s" ref="r4" duration="14400/6000s" start="578000/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="352000/6000s" ref="r5" name="Cross Dissolve" duration="10800/6000s" />
+						<audio offset="357400/6000s" ref="r4" duration="15200/6000s" start="603200/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="367200/6000s" ref="r5" name="Cross Dissolve" duration="10800/6000s" />
+						<audio offset="372600/6000s" ref="r4" duration="15400/6000s" start="629200/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="382500/6000s" ref="r5" name="Cross Dissolve" duration="10900/6000s" />
+						<audio offset="388000/6000s" ref="r4" duration="15200/6000s" start="655500/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="398200/6000s" ref="r5" name="Cross Dissolve" duration="10000/6000s" />
+						<audio offset="403200/6000s" ref="r4" duration="16100/6000s" start="680700/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="413500/6000s" ref="r5" name="Cross Dissolve" duration="11600/6000s" />
+						<audio offset="419300/6000s" ref="r4" duration="16400/6000s" start="708400/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="430000/6000s" ref="r5" name="Cross Dissolve" duration="11400/6000s" />
+						<audio offset="435700/6000s" ref="r4" duration="15600/6000s" start="736200/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="445700/6000s" ref="r5" name="Cross Dissolve" duration="11100/6000s" />
+						<audio offset="451300/6000s" ref="r4" duration="17800/6000s" start="762900/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="464200/6000s" ref="r5" name="Cross Dissolve" duration="9700/6000s" />
+						<audio offset="469100/6000s" ref="r4" duration="16600/6000s" start="790400/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="479700/6000s" ref="r5" name="Cross Dissolve" duration="11900/6000s" />
+						<audio offset="485700/6000s" ref="r4" duration="17100/6000s" start="818900/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="496900/6000s" ref="r5" name="Cross Dissolve" duration="11700/6000s" />
+						<audio offset="502800/6000s" ref="r4" duration="17700/6000s" start="847700/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="513100/6000s" ref="r5" name="Cross Dissolve" duration="14700/6000s" />
+						<audio offset="520500/6000s" ref="r4" duration="19100/6000s" start="880100/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="532200/6000s" ref="r5" name="Cross Dissolve" duration="14800/6000s" />
+						<audio offset="539600/6000s" ref="r4" duration="21500/6000s" start="914000/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="552600/6000s" ref="r5" name="Cross Dissolve" duration="17000/6000s" />
+						<audio offset="561100/6000s" ref="r4" duration="22200/6000s" start="952500/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="575200/6000s" ref="r5" name="Cross Dissolve" duration="16200/6000s" />
+						<audio offset="583300/6000s" ref="r4" duration="22100/6000s" start="990900/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="596100/6000s" ref="r5" name="Cross Dissolve" duration="18500/6000s" />
+						<audio offset="605400/6000s" ref="r4" duration="21900/6000s" start="1031500/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="620400/6000s" ref="r5" name="Cross Dissolve" duration="13700/6000s" />
+						<audio offset="627300/6000s" ref="r4" duration="19300/6000s" start="1067100/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="639300/6000s" ref="r5" name="Cross Dissolve" duration="14600/6000s" />
+						<audio offset="646600/6000s" ref="r4" duration="20200/6000s" start="1101000/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="659500/6000s" ref="r5" name="Cross Dissolve" duration="14500/6000s" />
+						<audio offset="666800/6000s" ref="r4" duration="15600/6000s" start="1135700/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="677600/6000s" ref="r5" name="Cross Dissolve" duration="9600/6000s" />
+						<audio offset="682400/6000s" ref="r4" duration="13500/6000s" start="1160900/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="691500/6000s" ref="r5" name="Cross Dissolve" duration="8800/6000s" />
+						<audio offset="695900/6000s" ref="r4" duration="11200/6000s" start="1183200/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="703200/6000s" ref="r5" name="Cross Dissolve" duration="7800/6000s" />
+						<audio offset="707100/6000s" ref="r4" duration="9600/6000s" start="1202200/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="713700/6000s" ref="r5" name="Cross Dissolve" duration="6000/6000s" />
+						<audio offset="716700/6000s" ref="r4" duration="7900/6000s" start="1217800/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="721900/6000s" ref="r5" name="Cross Dissolve" duration="5400/6000s" />
+						<audio offset="724600/6000s" ref="r4" duration="7900/6000s" start="1231100/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="729900/6000s" ref="r5" name="Cross Dissolve" duration="5200/6000s" />
+						<audio offset="732500/6000s" ref="r4" duration="7700/6000s" start="1244200/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="737000/6000s" ref="r5" name="Cross Dissolve" duration="6300/6000s" />
+						<audio offset="740200/6000s" ref="r4" duration="8200/6000s" start="1258200/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="745700/6000s" ref="r5" name="Cross Dissolve" duration="5400/6000s" />
+						<audio offset="748400/6000s" ref="r4" duration="7900/6000s" start="1271800/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="753300/6000s" ref="r5" name="Cross Dissolve" duration="6000/6000s" />
+						<audio offset="756300/6000s" ref="r4" duration="9000/6000s" start="1285700/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="762100/6000s" ref="r5" name="Cross Dissolve" duration="6400/6000s" />
+						<audio offset="765300/6000s" ref="r4" duration="9400/6000s" start="1301100/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="771100/6000s" ref="r5" name="Cross Dissolve" duration="7100/6000s" />
+						<audio offset="774700/6000s" ref="r4" duration="9700/6000s" start="1317600/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="780200/6000s" ref="r5" name="Cross Dissolve" duration="8400/6000s" />
+						<audio offset="784400/6000s" ref="r4" duration="10300/6000s" start="1335700/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="791000/6000s" ref="r5" name="Cross Dissolve" duration="7400/6000s" />
+						<audio offset="794700/6000s" ref="r4" duration="9200/6000s" start="1353400/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="800400/6000s" ref="r5" name="Cross Dissolve" duration="6900/6000s" />
+						<audio offset="803900/6000s" ref="r4" duration="8400/6000s" start="1369500/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="809300/6000s" ref="r5" name="Cross Dissolve" duration="6000/6000s" />
+						<audio offset="812300/6000s" ref="r4" duration="8500/6000s" start="1383900/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="817900/6000s" ref="r5" name="Cross Dissolve" duration="5700/6000s" />
+						<audio offset="820800/6000s" ref="r4" duration="8100/6000s" start="1398100/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="825700/6000s" ref="r5" name="Cross Dissolve" duration="6400/6000s" />
+						<audio offset="828900/6000s" ref="r4" duration="8300/6000s" start="1412600/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="834200/6000s" ref="r5" name="Cross Dissolve" duration="6000/6000s" />
+						<audio offset="837200/6000s" ref="r4" duration="8400/6000s" start="1426900/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="842600/6000s" ref="r5" name="Cross Dissolve" duration="6000/6000s" />
+						<audio offset="845600/6000s" ref="r4" duration="8200/6000s" start="1441300/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="850800/6000s" ref="r5" name="Cross Dissolve" duration="6000/6000s" />
+						<audio offset="853800/6000s" ref="r4" duration="7500/6000s" start="1455500/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="858300/6000s" ref="r5" name="Cross Dissolve" duration="6000/6000s" />
+						<audio offset="861300/6000s" ref="r4" duration="7900/6000s" start="1469000/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="866200/6000s" ref="r5" name="Cross Dissolve" duration="6000/6000s" />
+						<audio offset="869200/6000s" ref="r4" duration="8500/6000s" start="1482900/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="874200/6000s" ref="r5" name="Cross Dissolve" duration="6900/6000s" />
+						<audio offset="877700/6000s" ref="r4" duration="8200/6000s" start="1498300/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="882900/6000s" ref="r5" name="Cross Dissolve" duration="6000/6000s" />
+						<audio offset="885900/6000s" ref="r4" duration="7900/6000s" start="1512500/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="890600/6000s" ref="r5" name="Cross Dissolve" duration="6300/6000s" />
+						<audio offset="893800/6000s" ref="r4" duration="8100/6000s" start="1526700/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="898900/6000s" ref="r5" name="Cross Dissolve" duration="6000/6000s" />
+						<audio offset="901900/6000s" ref="r4" duration="7200/6000s" start="1540800/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="906400/6000s" ref="r5" name="Cross Dissolve" duration="5400/6000s" />
+						<audio offset="909100/6000s" ref="r4" duration="7100/6000s" start="1553400/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="913200/6000s" ref="r5" name="Cross Dissolve" duration="6000/6000s" />
+						<audio offset="916200/6000s" ref="r4" duration="7700/6000s" start="1566500/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="920800/6000s" ref="r5" name="Cross Dissolve" duration="6100/6000s" />
+						<audio offset="923900/6000s" ref="r4" duration="7400/6000s" start="1580300/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="928300/6000s" ref="r5" name="Cross Dissolve" duration="6000/6000s" />
+						<audio offset="931300/6000s" ref="r4" duration="7700/6000s" start="1593700/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="936000/6000s" ref="r5" name="Cross Dissolve" duration="6000/6000s" />
+						<audio offset="939000/6000s" ref="r4" duration="7800/6000s" start="1607400/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="943800/6000s" ref="r5" name="Cross Dissolve" duration="6000/6000s" />
+						<audio offset="946800/6000s" ref="r4" duration="7800/6000s" start="1621200/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="951600/6000s" ref="r5" name="Cross Dissolve" duration="6000/6000s" />
+						<audio offset="954600/6000s" ref="r4" duration="7600/6000s" start="1635000/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="959200/6000s" ref="r5" name="Cross Dissolve" duration="6000/6000s" />
+						<audio offset="962200/6000s" ref="r4" duration="7700/6000s" start="1648600/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="967000/6000s" ref="r5" name="Cross Dissolve" duration="5700/6000s" />
+						<audio offset="969900/6000s" ref="r4" duration="7800/6000s" start="1662000/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="974300/6000s" ref="r5" name="Cross Dissolve" duration="6700/6000s" />
+						<audio offset="977700/6000s" ref="r4" duration="8200/6000s" start="1676500/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="982400/6000s" ref="r5" name="Cross Dissolve" duration="6900/6000s" />
+						<audio offset="985900/6000s" ref="r4" duration="7800/6000s" start="1691600/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="990700/6000s" ref="r5" name="Cross Dissolve" duration="6000/6000s" />
+						<audio offset="993700/6000s" ref="r4" duration="6900/6000s" start="1705400/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="997900/6000s" ref="r5" name="Cross Dissolve" duration="5400/6000s" />
+						<audio offset="1000600/6000s" ref="r4" duration="6800/6000s" start="1717700/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="1004400/6000s" ref="r5" name="Cross Dissolve" duration="6000/6000s" />
+						<audio offset="1007400/6000s" ref="r4" duration="7500/6000s" start="1730500/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="1011900/6000s" ref="r5" name="Cross Dissolve" duration="6000/6000s" />
+						<audio offset="1014900/6000s" ref="r4" duration="7300/6000s" start="1744000/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="1019200/6000s" ref="r5" name="Cross Dissolve" duration="6000/6000s" />
+						<audio offset="1022200/6000s" ref="r4" duration="7200/6000s" start="1757300/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="1026600/6000s" ref="r5" name="Cross Dissolve" duration="5500/6000s" />
+						<audio offset="1029400/6000s" ref="r4" duration="7200/6000s" start="1770000/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="1033700/6000s" ref="r5" name="Cross Dissolve" duration="5700/6000s" />
+						<audio offset="1036600/6000s" ref="r4" duration="7800/6000s" start="1782900/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="1041600/6000s" ref="r5" name="Cross Dissolve" duration="5600/6000s" />
+						<audio offset="1044400/6000s" ref="r4" duration="7500/6000s" start="1796300/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="1048700/6000s" ref="r5" name="Cross Dissolve" duration="6400/6000s" />
+						<audio offset="1051900/6000s" ref="r4" duration="7700/6000s" start="1810200/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="1056300/6000s" ref="r5" name="Cross Dissolve" duration="6600/6000s" />
+						<audio offset="1059600/6000s" ref="r4" duration="7800/6000s" start="1824500/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="1064200/6000s" ref="r5" name="Cross Dissolve" duration="6400/6000s" />
+						<audio offset="1067400/6000s" ref="r4" duration="8200/6000s" start="1838700/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="1072600/6000s" ref="r5" name="Cross Dissolve" duration="6000/6000s" />
+						<audio offset="1075600/6000s" ref="r4" duration="7500/6000s" start="1852900/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="1080100/6000s" ref="r5" name="Cross Dissolve" duration="6000/6000s" />
+						<audio offset="1083100/6000s" ref="r4" duration="7400/6000s" start="1866400/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="1087700/6000s" ref="r5" name="Cross Dissolve" duration="5600/6000s" />
+						<audio offset="1090500/6000s" ref="r4" duration="7400/6000s" start="1879400/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="1095000/6000s" ref="r5" name="Cross Dissolve" duration="5700/6000s" />
+						<audio offset="1097900/6000s" ref="r4" duration="7400/6000s" start="1892500/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="1102300/6000s" ref="r5" name="Cross Dissolve" duration="6000/6000s" />
+						<audio offset="1105300/6000s" ref="r4" duration="7500/6000s" start="1905900/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="1109800/6000s" ref="r5" name="Cross Dissolve" duration="6000/6000s" />
+						<audio offset="1112800/6000s" ref="r4" duration="7200/6000s" start="1919400/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="1117200/6000s" ref="r5" name="Cross Dissolve" duration="5500/6000s" />
+						<audio offset="1120000/6000s" ref="r4" duration="6400/6000s" start="1932100/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="1124100/6000s" ref="r5" name="Cross Dissolve" duration="4500/6000s" />
+						<audio offset="1126400/6000s" ref="r4" duration="6800/6000s" start="1943000/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="1130200/6000s" ref="r5" name="Cross Dissolve" duration="6000/6000s" />
+						<audio offset="1133200/6000s" ref="r4" duration="8400/6000s" start="1955800/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="1138200/6000s" ref="r5" name="Cross Dissolve" duration="6700/6000s" />
+						<audio offset="1141600/6000s" ref="r4" duration="8200/6000s" start="1970900/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="1146400/6000s" ref="r5" name="Cross Dissolve" duration="6800/6000s" />
+						<audio offset="1149800/6000s" ref="r4" duration="9000/6000s" start="1985900/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="1155100/6000s" ref="r5" name="Cross Dissolve" duration="7400/6000s" />
+						<audio offset="1158800/6000s" ref="r4" duration="8900/6000s" start="2002300/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="1164100/6000s" ref="r5" name="Cross Dissolve" duration="7200/6000s" />
+						<audio offset="1167700/6000s" ref="r4" duration="8600/6000s" start="2018400/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="1173300/6000s" ref="r5" name="Cross Dissolve" duration="6000/6000s" />
+						<audio offset="1176300/6000s" ref="r4" duration="7700/6000s" start="2033000/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="1180800/6000s" ref="r5" name="Cross Dissolve" duration="6400/6000s" />
+						<audio offset="1184000/6000s" ref="r4" duration="8000/6000s" start="2047100/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="1189000/6000s" ref="r5" name="Cross Dissolve" duration="6000/6000s" />
+						<audio offset="1192000/6000s" ref="r4" duration="7400/6000s" start="2061100/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="1196600/6000s" ref="r5" name="Cross Dissolve" duration="5600/6000s" />
+						<audio offset="1199400/6000s" ref="r4" duration="7300/6000s" start="2074100/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="1203500/6000s" ref="r5" name="Cross Dissolve" duration="6300/6000s" />
+						<audio offset="1206700/6000s" ref="r4" duration="8800/6000s" start="2087700/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="1212500/6000s" ref="r5" name="Cross Dissolve" duration="6000/6000s" />
+						<audio offset="1215500/6000s" ref="r4" duration="8100/6000s" start="2102500/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="1220600/6000s" ref="r5" name="Cross Dissolve" duration="6000/6000s" />
+						<audio offset="1223600/6000s" ref="r4" duration="8000/6000s" start="2116600/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="1228600/6000s" ref="r5" name="Cross Dissolve" duration="6000/6000s" />
+						<audio offset="1231600/6000s" ref="r4" duration="7400/6000s" start="2130500/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="1236000/6000s" ref="r5" name="Cross Dissolve" duration="6000/6000s" />
+						<audio offset="1239000/6000s" ref="r4" duration="7500/6000s" start="2144000/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="1243500/6000s" ref="r5" name="Cross Dissolve" duration="6000/6000s" />
+						<audio offset="1246500/6000s" ref="r4" duration="7500/6000s" start="2157500/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="1251000/6000s" ref="r5" name="Cross Dissolve" duration="6000/6000s" />
+						<audio offset="1254000/6000s" ref="r4" duration="8100/6000s" start="2171000/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="1258400/6000s" ref="r5" name="Cross Dissolve" duration="7300/6000s" />
+						<audio offset="1262100/6000s" ref="r4" duration="8800/6000s" start="2186400/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="1267400/6000s" ref="r5" name="Cross Dissolve" duration="6900/6000s" />
+						<audio offset="1270900/6000s" ref="r4" duration="8600/6000s" start="2202100/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="1275800/6000s" ref="r5" name="Cross Dissolve" duration="7300/6000s" />
+						<audio offset="1279500/6000s" ref="r4" duration="8500/6000s" start="2218000/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="1284800/6000s" ref="r5" name="Cross Dissolve" duration="6400/6000s" />
+						<audio offset="1288000/6000s" ref="r4" duration="7800/6000s" start="2232900/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="1292500/6000s" ref="r5" name="Cross Dissolve" duration="6500/6000s" />
+						<audio offset="1295800/6000s" ref="r4" duration="7500/6000s" start="2247200/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="1300500/6000s" ref="r5" name="Cross Dissolve" duration="5600/6000s" />
+						<audio offset="1303300/6000s" ref="r4" duration="7300/6000s" start="2260300/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="1307600/6000s" ref="r5" name="Cross Dissolve" duration="6000/6000s" />
+						<audio offset="1310600/6000s" ref="r4" duration="7600/6000s" start="2273600/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="1315200/6000s" ref="r5" name="Cross Dissolve" duration="6000/6000s" />
+						<audio offset="1318200/6000s" ref="r4" duration="7700/6000s" start="2287200/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="1322600/6000s" ref="r5" name="Cross Dissolve" duration="6600/6000s" />
+						<audio offset="1325900/6000s" ref="r4" duration="7900/6000s" start="2301500/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="1330600/6000s" ref="r5" name="Cross Dissolve" duration="6300/6000s" />
+						<audio offset="1333800/6000s" ref="r4" duration="7600/6000s" start="2315700/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="1338400/6000s" ref="r5" name="Cross Dissolve" duration="6000/6000s" />
+						<audio offset="1341400/6000s" ref="r4" duration="6700/6000s" start="2329300/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="1345800/6000s" ref="r5" name="Cross Dissolve" duration="4600/6000s" />
+						<audio offset="1348100/6000s" ref="r4" duration="6900/6000s" start="2340600/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="1351800/6000s" ref="r5" name="Cross Dissolve" duration="6300/6000s" />
+						<audio offset="1355000/6000s" ref="r4" duration="7900/6000s" start="2353800/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="1359500/6000s" ref="r5" name="Cross Dissolve" duration="6800/6000s" />
+						<audio offset="1362900/6000s" ref="r4" duration="8200/6000s" start="2368500/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="1368100/6000s" ref="r5" name="Cross Dissolve" duration="6000/6000s" />
+						<audio offset="1371100/6000s" ref="r4" duration="6900/6000s" start="2382700/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="1375400/6000s" ref="r5" name="Cross Dissolve" duration="5100/6000s" />
+						<audio offset="1378000/6000s" ref="r4" duration="6700/6000s" start="2394700/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="1382200/6000s" ref="r5" name="Cross Dissolve" duration="5000/6000s" />
+						<audio offset="1384700/6000s" ref="r4" duration="7200/6000s" start="2406400/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="1388900/6000s" ref="r5" name="Cross Dissolve" duration="6000/6000s" />
+						<audio offset="1391900/6000s" ref="r4" duration="7800/6000s" start="2419600/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="1396500/6000s" ref="r5" name="Cross Dissolve" duration="6400/6000s" />
+						<audio offset="1399700/6000s" ref="r4" duration="7600/6000s" start="2433800/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="1404200/6000s" ref="r5" name="Cross Dissolve" duration="6100/6000s" />
+						<audio offset="1407300/6000s" ref="r4" duration="7200/6000s" start="2447500/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="1411500/6000s" ref="r5" name="Cross Dissolve" duration="6000/6000s" />
+						<audio offset="1414500/6000s" ref="r4" duration="7400/6000s" start="2460700/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="1419000/6000s" ref="r5" name="Cross Dissolve" duration="5700/6000s" />
+						<audio offset="1421900/6000s" ref="r4" duration="7200/6000s" start="2473800/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="1426100/6000s" ref="r5" name="Cross Dissolve" duration="6000/6000s" />
+						<audio offset="1429100/6000s" ref="r4" duration="7500/6000s" start="2487000/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="1433800/6000s" ref="r5" name="Cross Dissolve" duration="5600/6000s" />
+						<audio offset="1436600/6000s" ref="r4" duration="7700/6000s" start="2500100/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="1441300/6000s" ref="r5" name="Cross Dissolve" duration="6000/6000s" />
+						<audio offset="1444300/6000s" ref="r4" duration="7800/6000s" start="2513800/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="1448900/6000s" ref="r5" name="Cross Dissolve" duration="6400/6000s" />
+						<audio offset="1452100/6000s" ref="r4" duration="7800/6000s" start="2528000/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="1456900/6000s" ref="r5" name="Cross Dissolve" duration="6000/6000s" />
+						<audio offset="1459900/6000s" ref="r4" duration="7300/6000s" start="2541800/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="1464200/6000s" ref="r5" name="Cross Dissolve" duration="6000/6000s" />
+						<audio offset="1467200/6000s" ref="r4" duration="7200/6000s" start="2555100/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="1471400/6000s" ref="r5" name="Cross Dissolve" duration="6000/6000s" />
+						<audio offset="1474400/6000s" ref="r4" duration="7000/6000s" start="2568300/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="1478900/6000s" ref="r5" name="Cross Dissolve" duration="5000/6000s" />
+						<audio offset="1481400/6000s" ref="r4" duration="6600/6000s" start="2580300/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="1485200/6000s" ref="r5" name="Cross Dissolve" duration="5600/6000s" />
+						<audio offset="1488000/6000s" ref="r4" duration="7300/6000s" start="2592500/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="1492300/6000s" ref="r5" name="Cross Dissolve" duration="6000/6000s" />
+						<audio offset="1495300/6000s" ref="r4" duration="7500/6000s" start="2605800/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="1499800/6000s" ref="r5" name="Cross Dissolve" duration="6000/6000s" />
+						<audio offset="1502800/6000s" ref="r4" duration="7400/6000s" start="2619300/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="1507200/6000s" ref="r5" name="Cross Dissolve" duration="6000/6000s" />
+						<audio offset="1510200/6000s" ref="r4" duration="7900/6000s" start="2632700/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="1514800/6000s" ref="r5" name="Cross Dissolve" duration="6500/6000s" />
+						<audio offset="1518100/6000s" ref="r4" duration="8200/6000s" start="2647100/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="1522700/6000s" ref="r5" name="Cross Dissolve" duration="7100/6000s" />
+						<audio offset="1526300/6000s" ref="r4" duration="8500/6000s" start="2662400/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="1531200/6000s" ref="r5" name="Cross Dissolve" duration="7200/6000s" />
+						<audio offset="1534800/6000s" ref="r4" duration="9100/6000s" start="2678100/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="1540400/6000s" ref="r5" name="Cross Dissolve" duration="7000/6000s" />
+						<audio offset="1543900/6000s" ref="r4" duration="8400/6000s" start="2694200/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="1549100/6000s" ref="r5" name="Cross Dissolve" duration="6300/6000s" />
+						<audio offset="1552300/6000s" ref="r4" duration="8300/6000s" start="2708900/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="1557300/6000s" ref="r5" name="Cross Dissolve" duration="6500/6000s" />
+						<audio offset="1560600/6000s" ref="r4" duration="8200/6000s" start="2723700/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="1565500/6000s" ref="r5" name="Cross Dissolve" duration="6500/6000s" />
+						<audio offset="1568800/6000s" ref="r4" duration="8100/6000s" start="2738400/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="1573400/6000s" ref="r5" name="Cross Dissolve" duration="6900/6000s" />
+						<audio offset="1576900/6000s" ref="r4" duration="8400/6000s" start="2753400/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="1581800/6000s" ref="r5" name="Cross Dissolve" duration="6900/6000s" />
+						<audio offset="1585300/6000s" ref="r4" duration="8000/6000s" start="2768700/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="1590000/6000s" ref="r5" name="Cross Dissolve" duration="6600/6000s" />
+						<audio offset="1593300/6000s" ref="r4" duration="7600/6000s" start="2783300/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="1597700/6000s" ref="r5" name="Cross Dissolve" duration="6400/6000s" />
+						<audio offset="1600900/6000s" ref="r4" duration="8500/6000s" start="2797300/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="1605800/6000s" ref="r5" name="Cross Dissolve" duration="7100/6000s" />
+						<audio offset="1609400/6000s" ref="r4" duration="7500/6000s" start="2812900/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="1613900/6000s" ref="r5" name="Cross Dissolve" duration="6000/6000s" />
+						<audio offset="1616900/6000s" ref="r4" duration="8300/6000s" start="2826400/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="1621900/6000s" ref="r5" name="Cross Dissolve" duration="6600/6000s" />
+						<audio offset="1625200/6000s" ref="r4" duration="8000/6000s" start="2841300/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="1630200/6000s" ref="r5" name="Cross Dissolve" duration="6000/6000s" />
+						<audio offset="1633200/6000s" ref="r4" duration="7700/6000s" start="2855300/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="1637600/6000s" ref="r5" name="Cross Dissolve" duration="6500/6000s" />
+						<audio offset="1640900/6000s" ref="r4" duration="7500/6000s" start="2869500/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="1645400/6000s" ref="r5" name="Cross Dissolve" duration="6000/6000s" />
+						<audio offset="1648400/6000s" ref="r4" duration="7300/6000s" start="2883000/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="1652700/6000s" ref="r5" name="Cross Dissolve" duration="6000/6000s" />
+						<audio offset="1655700/6000s" ref="r4" duration="7900/6000s" start="2896300/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="1660400/6000s" ref="r5" name="Cross Dissolve" duration="6300/6000s" />
+						<audio offset="1663600/6000s" ref="r4" duration="7300/6000s" start="2910500/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="1667900/6000s" ref="r5" name="Cross Dissolve" duration="6000/6000s" />
+						<audio offset="1670900/6000s" ref="r4" duration="7400/6000s" start="2923800/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="1675300/6000s" ref="r5" name="Cross Dissolve" duration="6000/6000s" />
+						<audio offset="1678300/6000s" ref="r4" duration="7600/6000s" start="2937200/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="1682700/6000s" ref="r5" name="Cross Dissolve" duration="6400/6000s" />
+						<audio offset="1685900/6000s" ref="r4" duration="8000/6000s" start="2951200/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="1690400/6000s" ref="r5" name="Cross Dissolve" duration="6900/6000s" />
+						<audio offset="1693900/6000s" ref="r4" duration="7700/6000s" start="2966100/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="1698600/6000s" ref="r5" name="Cross Dissolve" duration="6000/6000s" />
+						<audio offset="1701600/6000s" ref="r4" duration="8100/6000s" start="2979800/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="1706000/6000s" ref="r5" name="Cross Dissolve" duration="7400/6000s" />
+						<audio offset="1709700/6000s" ref="r4" duration="7900/6000s" start="2995300/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="1714600/6000s" ref="r5" name="Cross Dissolve" duration="6000/6000s" />
+						<audio offset="1717600/6000s" ref="r4" duration="7600/6000s" start="3009200/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="1722200/6000s" ref="r5" name="Cross Dissolve" duration="6000/6000s" />
+						<audio offset="1725200/6000s" ref="r4" duration="7700/6000s" start="3022800/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="1729700/6000s" ref="r5" name="Cross Dissolve" duration="6300/6000s" />
+						<audio offset="1732900/6000s" ref="r4" duration="8700/6000s" start="3036800/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="1738600/6000s" ref="r5" name="Cross Dissolve" duration="6000/6000s" />
+						<audio offset="1741600/6000s" ref="r4" duration="7100/6000s" start="48100/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="1745700/6000s" ref="r5" name="Cross Dissolve" duration="6000/6000s" />
+						<audio offset="1748700/6000s" ref="r4" duration="7000/6000s" start="61200/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="1753000/6000s" ref="r5" name="Cross Dissolve" duration="5300/6000s" />
+						<audio offset="1755700/6000s" ref="r4" duration="5800/6000s" start="73500/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="1759300/6000s" ref="r5" name="Cross Dissolve" duration="4300/6000s" />
+						<audio offset="1761500/6000s" ref="r4" duration="4700/6000s" start="83600/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="1764400/6000s" ref="r5" name="Cross Dissolve" duration="3500/6000s" />
+						<audio offset="1766200/6000s" ref="r4" duration="4400/6000s" start="91800/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="1768900/6000s" ref="r5" name="Cross Dissolve" duration="3400/6000s" />
+						<audio offset="1770600/6000s" ref="r4" duration="4200/6000s" start="99600/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="1773000/6000s" ref="r5" name="Cross Dissolve" duration="3600/6000s" />
+						<audio offset="1774800/6000s" ref="r4" duration="4300/6000s" start="107400/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="1777600/6000s" ref="r5" name="Cross Dissolve" duration="3000/6000s" />
+						<audio offset="1779100/6000s" ref="r4" duration="3900/6000s" start="114700/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="1781500/6000s" ref="r5" name="Cross Dissolve" duration="3000/6000s" />
+						<audio offset="1783000/6000s" ref="r4" duration="3700/6000s" start="121600/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="1785100/6000s" ref="r5" name="Cross Dissolve" duration="3100/6000s" />
+						<audio offset="1786700/6000s" ref="r4" duration="3600/6000s" start="128400/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="1788800/6000s" ref="r5" name="Cross Dissolve" duration="3000/6000s" />
+						<audio offset="1790300/6000s" ref="r4" duration="3800/6000s" start="135000/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="1792500/6000s" ref="r5" name="Cross Dissolve" duration="3100/6000s" />
+						<audio offset="1794100/6000s" ref="r4" duration="3900/6000s" start="141900/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="1796400/6000s" ref="r5" name="Cross Dissolve" duration="3100/6000s" />
+						<audio offset="1798000/6000s" ref="r4" duration="4200/6000s" start="148900/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="1800800/6000s" ref="r5" name="Cross Dissolve" duration="2700/6000s" />
+						<audio offset="1802200/6000s" ref="r4" duration="3400/6000s" start="155800/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="1804200/6000s" ref="r5" name="Cross Dissolve" duration="2700/6000s" />
+						<audio offset="1805600/6000s" ref="r4" duration="3500/6000s" start="161900/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="1807600/6000s" ref="r5" name="Cross Dissolve" duration="2900/6000s" />
+						<audio offset="1809100/6000s" ref="r4" duration="3700/6000s" start="168300/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="1811500/6000s" ref="r5" name="Cross Dissolve" duration="2600/6000s" />
+						<audio offset="1812800/6000s" ref="r4" duration="4100/6000s" start="174600/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="1815200/6000s" ref="r5" name="Cross Dissolve" duration="3400/6000s" />
+						<audio offset="1816900/6000s" ref="r4" duration="5100/6000s" start="182100/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="1819800/6000s" ref="r5" name="Cross Dissolve" duration="4400/6000s" />
+						<audio offset="1822000/6000s" ref="r4" duration="5700/6000s" start="191600/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="1825200/6000s" ref="r5" name="Cross Dissolve" duration="4900/6000s" />
+						<audio offset="1827700/6000s" ref="r4" duration="5700/6000s" start="202200/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="1831100/6000s" ref="r5" name="Cross Dissolve" duration="4500/6000s" />
+						<audio offset="1833400/6000s" ref="r4" duration="5200/6000s" start="212400/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="1836300/6000s" ref="r5" name="Cross Dissolve" duration="4500/6000s" />
+						<audio offset="1838600/6000s" ref="r4" duration="5700/6000s" start="222100/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="1842400/6000s" ref="r5" name="Cross Dissolve" duration="3700/6000s" />
+						<audio offset="1844300/6000s" ref="r4" duration="4700/6000s" start="231500/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="1846900/6000s" ref="r5" name="Cross Dissolve" duration="4200/6000s" />
+						<audio offset="1849000/6000s" ref="r4" duration="4800/6000s" start="240400/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="1851800/6000s" ref="r5" name="Cross Dissolve" duration="4000/6000s" />
+						<audio offset="1853800/6000s" ref="r4" duration="4800/6000s" start="249200/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="1856700/6000s" ref="r5" name="Cross Dissolve" duration="3800/6000s" />
+						<audio offset="1858600/6000s" ref="r4" duration="4800/6000s" start="257800/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="1861400/6000s" ref="r5" name="Cross Dissolve" duration="3900/6000s" />
+						<audio offset="1863400/6000s" ref="r4" duration="4300/6000s" start="266500/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="1865900/6000s" ref="r5" name="Cross Dissolve" duration="3600/6000s" />
+						<audio offset="1867700/6000s" ref="r4" duration="4400/6000s" start="274400/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="1870300/6000s" ref="r5" name="Cross Dissolve" duration="3500/6000s" />
+						<audio offset="1872100/6000s" ref="r4" duration="4400/6000s" start="282300/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="1874800/6000s" ref="r5" name="Cross Dissolve" duration="3400/6000s" />
+						<audio offset="1876500/6000s" ref="r4" duration="4500/6000s" start="290100/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="1879300/6000s" ref="r5" name="Cross Dissolve" duration="3400/6000s" />
+						<audio offset="1881000/6000s" ref="r4" duration="4600/6000s" start="298000/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="1883900/6000s" ref="r5" name="Cross Dissolve" duration="3400/6000s" />
+						<audio offset="1885600/6000s" ref="r4" duration="4400/6000s" start="306000/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="1888200/6000s" ref="r5" name="Cross Dissolve" duration="3500/6000s" />
+						<audio offset="1890000/6000s" ref="r4" duration="3900/6000s" start="313900/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="1892300/6000s" ref="r5" name="Cross Dissolve" duration="3200/6000s" />
+						<audio offset="1893900/6000s" ref="r4" duration="4100/6000s" start="321000/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="1896500/6000s" ref="r5" name="Cross Dissolve" duration="3000/6000s" />
+						<audio offset="1898000/6000s" ref="r4" duration="4200/6000s" start="328100/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="1900500/6000s" ref="r5" name="Cross Dissolve" duration="3400/6000s" />
+						<audio offset="1902200/6000s" ref="r4" duration="4200/6000s" start="335700/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="1904800/6000s" ref="r5" name="Cross Dissolve" duration="3200/6000s" />
+						<audio offset="1906400/6000s" ref="r4" duration="4100/6000s" start="343100/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="1909000/6000s" ref="r5" name="Cross Dissolve" duration="3000/6000s" />
+						<audio offset="1910500/6000s" ref="r4" duration="4300/6000s" start="350200/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="1913100/6000s" ref="r5" name="Cross Dissolve" duration="3400/6000s" />
+						<audio offset="1914800/6000s" ref="r4" duration="4400/6000s" start="357900/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="1917500/6000s" ref="r5" name="Cross Dissolve" duration="3300/6000s" />
+						<audio offset="1919200/6000s" ref="r4" duration="4200/6000s" start="365600/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="1921900/6000s" ref="r5" name="Cross Dissolve" duration="3000/6000s" />
+						<audio offset="1923400/6000s" ref="r4" duration="3900/6000s" start="372800/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="1925800/6000s" ref="r5" name="Cross Dissolve" duration="3000/6000s" />
+						<audio offset="1927300/6000s" ref="r4" duration="3400/6000s" start="379700/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="1929400/6000s" ref="r5" name="Cross Dissolve" duration="2600/6000s" />
+						<audio offset="1930700/6000s" ref="r4" duration="3400/6000s" start="385700/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="1932800/6000s" ref="r5" name="Cross Dissolve" duration="2600/6000s" />
+						<audio offset="1934100/6000s" ref="r4" duration="3500/6000s" start="391700/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="1936200/6000s" ref="r5" name="Cross Dissolve" duration="2700/6000s" />
+						<audio offset="1937600/6000s" ref="r4" duration="4000/6000s" start="397900/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="1940000/6000s" ref="r5" name="Cross Dissolve" duration="3100/6000s" />
+						<audio offset="1941600/6000s" ref="r4" duration="3700/6000s" start="405000/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="1944000/6000s" ref="r5" name="Cross Dissolve" duration="2600/6000s" />
+						<audio offset="1945300/6000s" ref="r4" duration="3500/6000s" start="411300/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="1947500/6000s" ref="r5" name="Cross Dissolve" duration="2500/6000s" />
+						<audio offset="1948800/6000s" ref="r4" duration="3400/6000s" start="417300/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="1950900/6000s" ref="r5" name="Cross Dissolve" duration="2600/6000s" />
+						<audio offset="1952200/6000s" ref="r4" duration="3400/6000s" start="423300/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="1954400/6000s" ref="r5" name="Cross Dissolve" duration="2400/6000s" />
+						<audio offset="1955600/6000s" ref="r4" duration="3300/6000s" start="429100/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="1957600/6000s" ref="r5" name="Cross Dissolve" duration="2600/6000s" />
+						<audio offset="1958900/6000s" ref="r4" duration="3300/6000s" start="435000/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="1961000/6000s" ref="r5" name="Cross Dissolve" duration="2400/6000s" />
+						<audio offset="1962200/6000s" ref="r4" duration="3600/6000s" start="440700/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="1964300/6000s" ref="r5" name="Cross Dissolve" duration="3000/6000s" />
+						<audio offset="1965800/6000s" ref="r4" duration="4000/6000s" start="447300/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="1968200/6000s" ref="r5" name="Cross Dissolve" duration="3200/6000s" />
+						<audio offset="1969800/6000s" ref="r4" duration="4000/6000s" start="454500/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="1972100/6000s" ref="r5" name="Cross Dissolve" duration="3300/6000s" />
+						<audio offset="1973800/6000s" ref="r4" duration="3700/6000s" start="461800/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="1976100/6000s" ref="r5" name="Cross Dissolve" duration="2800/6000s" />
+						<audio offset="1977500/6000s" ref="r4" duration="4300/6000s" start="468300/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="1980000/6000s" ref="r5" name="Cross Dissolve" duration="3600/6000s" />
+						<audio offset="1981800/6000s" ref="r4" duration="4500/6000s" start="476200/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="1984400/6000s" ref="r5" name="Cross Dissolve" duration="3700/6000s" />
+						<audio offset="1986300/6000s" ref="r4" duration="4600/6000s" start="484400/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="1989100/6000s" ref="r5" name="Cross Dissolve" duration="3500/6000s" />
+						<audio offset="1990900/6000s" ref="r4" duration="4300/6000s" start="492500/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="1993500/6000s" ref="r5" name="Cross Dissolve" duration="3400/6000s" />
+						<audio offset="1995200/6000s" ref="r4" duration="4300/6000s" start="500200/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="1997900/6000s" ref="r5" name="Cross Dissolve" duration="3200/6000s" />
+						<audio offset="1999500/6000s" ref="r4" duration="4100/6000s" start="507700/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="2002000/6000s" ref="r5" name="Cross Dissolve" duration="3200/6000s" />
+						<audio offset="2003600/6000s" ref="r4" duration="4200/6000s" start="515000/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="2006200/6000s" ref="r5" name="Cross Dissolve" duration="3100/6000s" />
+						<audio offset="2007800/6000s" ref="r4" duration="4000/6000s" start="522300/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="2010200/6000s" ref="r5" name="Cross Dissolve" duration="3200/6000s" />
+						<audio offset="2011800/6000s" ref="r4" duration="4000/6000s" start="529500/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="2014300/6000s" ref="r5" name="Cross Dissolve" duration="3000/6000s" />
+						<audio offset="2015800/6000s" ref="r4" duration="4300/6000s" start="536500/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="2018200/6000s" ref="r5" name="Cross Dissolve" duration="3800/6000s" />
+						<audio offset="2020100/6000s" ref="r4" duration="4600/6000s" start="544600/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="2023000/6000s" ref="r5" name="Cross Dissolve" duration="3400/6000s" />
+						<audio offset="2024700/6000s" ref="r4" duration="4500/6000s" start="552600/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="2027500/6000s" ref="r5" name="Cross Dissolve" duration="3400/6000s" />
+						<audio offset="2029200/6000s" ref="r4" duration="4100/6000s" start="560500/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="2031700/6000s" ref="r5" name="Cross Dissolve" duration="3100/6000s" />
+						<audio offset="2033300/6000s" ref="r4" duration="4200/6000s" start="567700/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="2035900/6000s" ref="r5" name="Cross Dissolve" duration="3200/6000s" />
+						<audio offset="2037500/6000s" ref="r4" duration="4100/6000s" start="575100/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="2039800/6000s" ref="r5" name="Cross Dissolve" duration="3500/6000s" />
+						<audio offset="2041600/6000s" ref="r4" duration="3900/6000s" start="582700/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="2044000/6000s" ref="r5" name="Cross Dissolve" duration="2900/6000s" />
+						<audio offset="2045500/6000s" ref="r4" duration="3800/6000s" start="589500/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="2047500/6000s" ref="r5" name="Cross Dissolve" duration="3500/6000s" />
+						<audio offset="2049300/6000s" ref="r4" duration="4000/6000s" start="596800/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="2051700/6000s" ref="r5" name="Cross Dissolve" duration="3200/6000s" />
+						<audio offset="2053300/6000s" ref="r4" duration="3700/6000s" start="604000/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="2055600/6000s" ref="r5" name="Cross Dissolve" duration="2700/6000s" />
+						<audio offset="2057000/6000s" ref="r4" duration="3400/6000s" start="610400/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="2058900/6000s" ref="r5" name="Cross Dissolve" duration="2900/6000s" />
+						<audio offset="2060400/6000s" ref="r4" duration="3700/6000s" start="616700/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="2062500/6000s" ref="r5" name="Cross Dissolve" duration="3100/6000s" />
+						<audio offset="2064100/6000s" ref="r4" duration="3900/6000s" start="623500/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="2066300/6000s" ref="r5" name="Cross Dissolve" duration="3400/6000s" />
+						<audio offset="2068000/6000s" ref="r4" duration="4000/6000s" start="630800/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="2070500/6000s" ref="r5" name="Cross Dissolve" duration="3000/6000s" />
+						<audio offset="2072000/6000s" ref="r4" duration="3600/6000s" start="637800/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="2074200/6000s" ref="r5" name="Cross Dissolve" duration="2700/6000s" />
+						<audio offset="2075600/6000s" ref="r4" duration="3800/6000s" start="644100/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="2077800/6000s" ref="r5" name="Cross Dissolve" duration="3200/6000s" />
+						<audio offset="2079400/6000s" ref="r4" duration="4100/6000s" start="651100/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="2081900/6000s" ref="r5" name="Cross Dissolve" duration="3200/6000s" />
+						<audio offset="2083500/6000s" ref="r4" duration="4200/6000s" start="658400/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="2085900/6000s" ref="r5" name="Cross Dissolve" duration="3500/6000s" />
+						<audio offset="2087700/6000s" ref="r4" duration="4400/6000s" start="666100/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="2090200/6000s" ref="r5" name="Cross Dissolve" duration="3800/6000s" />
+						<audio offset="2092100/6000s" ref="r4" duration="4900/6000s" start="674300/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="2094900/6000s" ref="r5" name="Cross Dissolve" duration="4100/6000s" />
+						<audio offset="2097000/6000s" ref="r4" duration="4500/6000s" start="683300/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="2099900/6000s" ref="r5" name="Cross Dissolve" duration="3100/6000s" />
+						<audio offset="2101500/6000s" ref="r4" duration="3900/6000s" start="690900/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="2103900/6000s" ref="r5" name="Cross Dissolve" duration="3000/6000s" />
+						<audio offset="2105400/6000s" ref="r4" duration="3900/6000s" start="697800/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="2107700/6000s" ref="r5" name="Cross Dissolve" duration="3100/6000s" />
+						<audio offset="2109300/6000s" ref="r4" duration="4200/6000s" start="704800/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="2111700/6000s" ref="r5" name="Cross Dissolve" duration="3500/6000s" />
+						<audio offset="2113500/6000s" ref="r4" duration="4600/6000s" start="712500/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="2116300/6000s" ref="r5" name="Cross Dissolve" duration="3500/6000s" />
+						<audio offset="2118100/6000s" ref="r4" duration="4300/6000s" start="720600/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="2120800/6000s" ref="r5" name="Cross Dissolve" duration="3200/6000s" />
+						<audio offset="2122400/6000s" ref="r4" duration="3900/6000s" start="728100/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="2124900/6000s" ref="r5" name="Cross Dissolve" duration="2800/6000s" />
+						<audio offset="2126300/6000s" ref="r4" duration="3400/6000s" start="734800/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="2128500/6000s" ref="r5" name="Cross Dissolve" duration="2400/6000s" />
+						<audio offset="2129700/6000s" ref="r4" duration="3600/6000s" start="740600/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="2131900/6000s" ref="r5" name="Cross Dissolve" duration="2800/6000s" />
+						<audio offset="2133300/6000s" ref="r4" duration="4100/6000s" start="747000/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="2135700/6000s" ref="r5" name="Cross Dissolve" duration="3400/6000s" />
+						<audio offset="2137400/6000s" ref="r4" duration="4500/6000s" start="754500/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="2140100/6000s" ref="r5" name="Cross Dissolve" duration="3500/6000s" />
+						<audio offset="2141900/6000s" ref="r4" duration="4400/6000s" start="762500/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="2144400/6000s" ref="r5" name="Cross Dissolve" duration="3700/6000s" />
+						<audio offset="2146300/6000s" ref="r4" duration="4600/6000s" start="770600/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="2148900/6000s" ref="r5" name="Cross Dissolve" duration="3900/6000s" />
+						<audio offset="2150900/6000s" ref="r4" duration="4300/6000s" start="779100/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="2153800/6000s" ref="r5" name="Cross Dissolve" duration="2700/6000s" />
+						<audio offset="2155200/6000s" ref="r4" duration="3600/6000s" start="786100/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="2157500/6000s" ref="r5" name="Cross Dissolve" duration="2600/6000s" />
+						<audio offset="2158800/6000s" ref="r4" duration="4200/6000s" start="792300/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="2161400/6000s" ref="r5" name="Cross Dissolve" duration="3200/6000s" />
+						<audio offset="2163000/6000s" ref="r4" duration="4500/6000s" start="799700/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="2165600/6000s" ref="r5" name="Cross Dissolve" duration="3800/6000s" />
+						<audio offset="2167500/6000s" ref="r4" duration="4800/6000s" start="808000/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="2170500/6000s" ref="r5" name="Cross Dissolve" duration="3500/6000s" />
+						<audio offset="2172300/6000s" ref="r4" duration="4400/6000s" start="816300/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="2174900/6000s" ref="r5" name="Cross Dissolve" duration="3600/6000s" />
+						<audio offset="2176700/6000s" ref="r4" duration="4800/6000s" start="824300/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="2179700/6000s" ref="r5" name="Cross Dissolve" duration="3500/6000s" />
+						<audio offset="2181500/6000s" ref="r4" duration="4600/6000s" start="832600/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="2184300/6000s" ref="r5" name="Cross Dissolve" duration="3500/6000s" />
+						<audio offset="2186100/6000s" ref="r4" duration="4500/6000s" start="840700/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="2188800/6000s" ref="r5" name="Cross Dissolve" duration="3600/6000s" />
+						<audio offset="2190600/6000s" ref="r4" duration="4400/6000s" start="848800/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="2193400/6000s" ref="r5" name="Cross Dissolve" duration="3100/6000s" />
+						<audio offset="2195000/6000s" ref="r4" duration="3900/6000s" start="856300/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="2197400/6000s" ref="r5" name="Cross Dissolve" duration="2900/6000s" />
+						<audio offset="2198900/6000s" ref="r4" duration="4100/6000s" start="863100/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="2201300/6000s" ref="r5" name="Cross Dissolve" duration="3300/6000s" />
+						<audio offset="2203000/6000s" ref="r4" duration="4400/6000s" start="870500/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="2205700/6000s" ref="r5" name="Cross Dissolve" duration="3300/6000s" />
+						<audio offset="2207400/6000s" ref="r4" duration="4300/6000s" start="878200/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="2210000/6000s" ref="r5" name="Cross Dissolve" duration="3400/6000s" />
+						<audio offset="2211700/6000s" ref="r4" duration="4800/6000s" start="885900/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="2214500/6000s" ref="r5" name="Cross Dissolve" duration="4000/6000s" />
+						<audio offset="2216500/6000s" ref="r4" duration="5000/6000s" start="894700/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="2219400/6000s" ref="r5" name="Cross Dissolve" duration="4200/6000s" />
+						<audio offset="2221500/6000s" ref="r4" duration="5700/6000s" start="903900/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="2224700/6000s" ref="r5" name="Cross Dissolve" duration="4900/6000s" />
+						<audio offset="2227200/6000s" ref="r4" duration="5600/6000s" start="914500/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="2230700/6000s" ref="r5" name="Cross Dissolve" duration="4100/6000s" />
+						<audio offset="2232800/6000s" ref="r4" duration="4900/6000s" start="924200/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="2235800/6000s" ref="r5" name="Cross Dissolve" duration="3700/6000s" />
+						<audio offset="2237700/6000s" ref="r4" duration="4800/6000s" start="932800/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="2240500/6000s" ref="r5" name="Cross Dissolve" duration="3900/6000s" />
+						<audio offset="2242500/6000s" ref="r4" duration="5300/6000s" start="941500/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="2245600/6000s" ref="r5" name="Cross Dissolve" duration="4400/6000s" />
+						<audio offset="2247800/6000s" ref="r4" duration="5700/6000s" start="951200/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="2251100/6000s" ref="r5" name="Cross Dissolve" duration="4700/6000s" />
+						<audio offset="2253500/6000s" ref="r4" duration="5000/6000s" start="961600/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="2256600/6000s" ref="r5" name="Cross Dissolve" duration="3800/6000s" />
+						<audio offset="2258500/6000s" ref="r4" duration="5400/6000s" start="970400/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="2261300/6000s" ref="r5" name="Cross Dissolve" duration="5100/6000s" />
+						<audio offset="2263900/6000s" ref="r4" duration="6100/6000s" start="980900/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="2267400/6000s" ref="r5" name="Cross Dissolve" duration="5100/6000s" />
+						<audio offset="2270000/6000s" ref="r4" duration="5500/6000s" start="992100/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="2273500/6000s" ref="r5" name="Cross Dissolve" duration="3900/6000s" />
+						<audio offset="2275500/6000s" ref="r4" duration="4600/6000s" start="1001500/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="2278300/6000s" ref="r5" name="Cross Dissolve" duration="3600/6000s" />
+						<audio offset="2280100/6000s" ref="r4" duration="4700/6000s" start="1009700/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="2282900/6000s" ref="r5" name="Cross Dissolve" duration="3800/6000s" />
+						<audio offset="2284800/6000s" ref="r4" duration="4600/6000s" start="1018200/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="2287600/6000s" ref="r5" name="Cross Dissolve" duration="3600/6000s" />
+						<audio offset="2289400/6000s" ref="r4" duration="4900/6000s" start="1026400/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="2292200/6000s" ref="r5" name="Cross Dissolve" duration="4200/6000s" />
+						<audio offset="2294300/6000s" ref="r4" duration="5000/6000s" start="1035500/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="2297300/6000s" ref="r5" name="Cross Dissolve" duration="3900/6000s" />
+						<audio offset="2299300/6000s" ref="r4" duration="4800/6000s" start="1044400/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="2302200/6000s" ref="r5" name="Cross Dissolve" duration="3700/6000s" />
+						<audio offset="2304100/6000s" ref="r4" duration="4800/6000s" start="1052900/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="2306800/6000s" ref="r5" name="Cross Dissolve" duration="4100/6000s" />
+						<audio offset="2308900/6000s" ref="r4" duration="4800/6000s" start="1061800/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="2311900/6000s" ref="r5" name="Cross Dissolve" duration="3500/6000s" />
+						<audio offset="2313700/6000s" ref="r4" duration="4600/6000s" start="1070100/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="2316500/6000s" ref="r5" name="Cross Dissolve" duration="3500/6000s" />
+						<audio offset="2318300/6000s" ref="r4" duration="4300/6000s" start="1078200/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="2321000/6000s" ref="r5" name="Cross Dissolve" duration="3100/6000s" />
+						<audio offset="2322600/6000s" ref="r4" duration="4000/6000s" start="1085600/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="2325000/6000s" ref="r5" name="Cross Dissolve" duration="3100/6000s" />
+						<audio offset="2326600/6000s" ref="r4" duration="3900/6000s" start="1092700/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="2329000/6000s" ref="r5" name="Cross Dissolve" duration="3000/6000s" />
+						<audio offset="2330500/6000s" ref="r4" duration="4000/6000s" start="1099600/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="2333000/6000s" ref="r5" name="Cross Dissolve" duration="3000/6000s" />
+						<audio offset="2334500/6000s" ref="r4" duration="3900/6000s" start="1106600/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="2337100/6000s" ref="r5" name="Cross Dissolve" duration="2500/6000s" />
+						<audio offset="2338400/6000s" ref="r4" duration="4200/6000s" start="1113000/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="2340800/6000s" ref="r5" name="Cross Dissolve" duration="3600/6000s" />
+						<audio offset="2342600/6000s" ref="r4" duration="4400/6000s" start="1120800/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="2345500/6000s" ref="r5" name="Cross Dissolve" duration="2900/6000s" />
+						<audio offset="2347000/6000s" ref="r4" duration="4100/6000s" start="1128100/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="2349400/6000s" ref="r5" name="Cross Dissolve" duration="3400/6000s" />
+						<audio offset="2351100/6000s" ref="r4" duration="4000/6000s" start="1135600/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="2353700/6000s" ref="r5" name="Cross Dissolve" duration="2800/6000s" />
+						<audio offset="2355100/6000s" ref="r4" duration="4000/6000s" start="1142400/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="2357500/6000s" ref="r5" name="Cross Dissolve" duration="3200/6000s" />
+						<audio offset="2359100/6000s" ref="r4" duration="4400/6000s" start="1149600/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="2361600/6000s" ref="r5" name="Cross Dissolve" duration="3700/6000s" />
+						<audio offset="2363500/6000s" ref="r4" duration="5000/6000s" start="1157700/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="2366400/6000s" ref="r5" name="Cross Dissolve" duration="4200/6000s" />
+						<audio offset="2368500/6000s" ref="r4" duration="5000/6000s" start="1166900/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="2371700/6000s" ref="r5" name="Cross Dissolve" duration="3500/6000s" />
+						<audio offset="2373500/6000s" ref="r4" duration="5600/6000s" start="1175400/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="2376300/6000s" ref="r5" name="Cross Dissolve" duration="5500/6000s" />
+						<audio offset="2379100/6000s" ref="r4" duration="5600/6000s" start="1186500/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="2382900/6000s" ref="r5" name="Cross Dissolve" duration="3500/6000s" />
+						<audio offset="2384700/6000s" ref="r4" duration="4600/6000s" start="1195600/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="2387400/6000s" ref="r5" name="Cross Dissolve" duration="3700/6000s" />
+						<audio offset="2389300/6000s" ref="r4" duration="4800/6000s" start="1203900/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="2392200/6000s" ref="r5" name="Cross Dissolve" duration="3800/6000s" />
+						<audio offset="2394100/6000s" ref="r4" duration="4500/6000s" start="1212500/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="2396800/6000s" ref="r5" name="Cross Dissolve" duration="3600/6000s" />
+						<audio offset="2398600/6000s" ref="r4" duration="4500/6000s" start="1220600/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="2401200/6000s" ref="r5" name="Cross Dissolve" duration="3800/6000s" />
+						<audio offset="2403100/6000s" ref="r4" duration="4600/6000s" start="1228900/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="2405900/6000s" ref="r5" name="Cross Dissolve" duration="3600/6000s" />
+						<audio offset="2407700/6000s" ref="r4" duration="4300/6000s" start="1237100/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="2410400/6000s" ref="r5" name="Cross Dissolve" duration="3100/6000s" />
+						<audio offset="2412000/6000s" ref="r4" duration="4200/6000s" start="1244500/6000s" srcID="1" srcCh="1, 2" />
+						<transition offset="2414400/6000s" ref="r5" name="Cross Dissolve" duration="3600/6000s" />
+						<audio offset="2416200/6000s" ref="r4" duration="7500/6000s" start="1252300/6000s" srcID="1" srcCh="1, 2" />
+					</spine>
+				</clip>
+				<video ref="r4" duration="16600/6000s" start="0/6000s" />
+				<transition offset="8000/6000s" ref="r5" name="Cross Dissolve" duration="17200/6000s" />
+				<video offset="16600/6000s" ref="r4" duration="22700/6000s" start="33800/6000s" />
+				<transition offset="33100/6000s" ref="r5" name="Cross Dissolve" duration="12300/6000s" />
+				<video offset="39300/6000s" ref="r4" duration="18000/6000s" start="68800/6000s" />
+				<transition offset="51300/6000s" ref="r5" name="Cross Dissolve" duration="11900/6000s" />
+				<video offset="57300/6000s" ref="r4" duration="15900/6000s" start="98700/6000s" />
+				<transition offset="67500/6000s" ref="r5" name="Cross Dissolve" duration="11400/6000s" />
+				<video offset="73200/6000s" ref="r4" duration="17000/6000s" start="126000/6000s" />
+				<transition offset="84700/6000s" ref="r5" name="Cross Dissolve" duration="10900/6000s" />
+				<video offset="90200/6000s" ref="r4" duration="13400/6000s" start="153900/6000s" />
+				<transition offset="99200/6000s" ref="r5" name="Cross Dissolve" duration="8800/6000s" />
+				<video offset="103600/6000s" ref="r4" duration="13200/6000s" start="176100/6000s" />
+				<transition offset="112400/6000s" ref="r5" name="Cross Dissolve" duration="8800/6000s" />
+				<video offset="116800/6000s" ref="r4" duration="14600/6000s" start="198100/6000s" />
+				<transition offset="126400/6000s" ref="r5" name="Cross Dissolve" duration="10000/6000s" />
+				<video offset="131400/6000s" ref="r4" duration="14200/6000s" start="222700/6000s" />
+				<transition offset="140900/6000s" ref="r5" name="Cross Dissolve" duration="9300/6000s" />
+				<video offset="145600/6000s" ref="r4" duration="13000/6000s" start="246200/6000s" />
+				<transition offset="154100/6000s" ref="r5" name="Cross Dissolve" duration="9000/6000s" />
+				<video offset="158600/6000s" ref="r4" duration="15600/6000s" start="268200/6000s" />
+				<transition offset="169200/6000s" ref="r5" name="Cross Dissolve" duration="9900/6000s" />
+				<video offset="174200/6000s" ref="r4" duration="13200/6000s" start="293700/6000s" />
+				<transition offset="182800/6000s" ref="r5" name="Cross Dissolve" duration="9200/6000s" />
+				<video offset="187400/6000s" ref="r4" duration="15500/6000s" start="316100/6000s" />
+				<transition offset="198100/6000s" ref="r5" name="Cross Dissolve" duration="9500/6000s" />
+				<video offset="202900/6000s" ref="r4" duration="14900/6000s" start="341100/6000s" />
+				<transition offset="212700/6000s" ref="r5" name="Cross Dissolve" duration="10200/6000s" />
+				<video offset="217800/6000s" ref="r4" duration="13400/6000s" start="366200/6000s" />
+				<transition offset="226800/6000s" ref="r5" name="Cross Dissolve" duration="8700/6000s" />
+				<video offset="231200/6000s" ref="r4" duration="13000/6000s" start="388300/6000s" />
+				<transition offset="239300/6000s" ref="r5" name="Cross Dissolve" duration="9700/6000s" />
+				<video offset="244200/6000s" ref="r4" duration="14000/6000s" start="411000/6000s" />
+				<transition offset="253400/6000s" ref="r5" name="Cross Dissolve" duration="9600/6000s" />
+				<video offset="258200/6000s" ref="r4" duration="12800/6000s" start="434600/6000s" />
+				<transition offset="266900/6000s" ref="r5" name="Cross Dissolve" duration="8200/6000s" />
+				<video offset="271000/6000s" ref="r4" duration="14100/6000s" start="455600/6000s" />
+				<transition offset="280500/6000s" ref="r5" name="Cross Dissolve" duration="9200/6000s" />
+				<video offset="285100/6000s" ref="r4" duration="14000/6000s" start="478900/6000s" />
+				<transition offset="294200/6000s" ref="r5" name="Cross Dissolve" duration="9700/6000s" />
+				<video offset="299100/6000s" ref="r4" duration="13900/6000s" start="502600/6000s" />
+				<transition offset="307800/6000s" ref="r5" name="Cross Dissolve" duration="10300/6000s" />
+				<video offset="313000/6000s" ref="r4" duration="14500/6000s" start="526800/6000s" />
+				<transition offset="322100/6000s" ref="r5" name="Cross Dissolve" duration="10700/6000s" />
+				<video offset="327500/6000s" ref="r4" duration="15500/6000s" start="552000/6000s" />
+				<transition offset="337700/6000s" ref="r5" name="Cross Dissolve" duration="10500/6000s" />
+				<video offset="343000/6000s" ref="r4" duration="14400/6000s" start="578000/6000s" />
+				<transition offset="352000/6000s" ref="r5" name="Cross Dissolve" duration="10800/6000s" />
+				<video offset="357400/6000s" ref="r4" duration="15200/6000s" start="603200/6000s" />
+				<transition offset="367200/6000s" ref="r5" name="Cross Dissolve" duration="10800/6000s" />
+				<video offset="372600/6000s" ref="r4" duration="15400/6000s" start="629200/6000s" />
+				<transition offset="382500/6000s" ref="r5" name="Cross Dissolve" duration="10900/6000s" />
+				<video offset="388000/6000s" ref="r4" duration="15200/6000s" start="655500/6000s" />
+				<transition offset="398200/6000s" ref="r5" name="Cross Dissolve" duration="10000/6000s" />
+				<video offset="403200/6000s" ref="r4" duration="16100/6000s" start="680700/6000s" />
+				<transition offset="413500/6000s" ref="r5" name="Cross Dissolve" duration="11600/6000s" />
+				<video offset="419300/6000s" ref="r4" duration="16400/6000s" start="708400/6000s" />
+				<transition offset="430000/6000s" ref="r5" name="Cross Dissolve" duration="11400/6000s" />
+				<video offset="435700/6000s" ref="r4" duration="15600/6000s" start="736200/6000s" />
+				<transition offset="445700/6000s" ref="r5" name="Cross Dissolve" duration="11100/6000s" />
+				<video offset="451300/6000s" ref="r4" duration="17800/6000s" start="762900/6000s" />
+				<transition offset="464200/6000s" ref="r5" name="Cross Dissolve" duration="9700/6000s" />
+				<video offset="469100/6000s" ref="r4" duration="16600/6000s" start="790400/6000s" />
+				<transition offset="479700/6000s" ref="r5" name="Cross Dissolve" duration="11900/6000s" />
+				<video offset="485700/6000s" ref="r4" duration="17100/6000s" start="818900/6000s" />
+				<transition offset="496900/6000s" ref="r5" name="Cross Dissolve" duration="11700/6000s" />
+				<video offset="502800/6000s" ref="r4" duration="17700/6000s" start="847700/6000s" />
+				<transition offset="513100/6000s" ref="r5" name="Cross Dissolve" duration="14700/6000s" />
+				<video offset="520500/6000s" ref="r4" duration="19100/6000s" start="880100/6000s" />
+				<transition offset="532200/6000s" ref="r5" name="Cross Dissolve" duration="14800/6000s" />
+				<video offset="539600/6000s" ref="r4" duration="21500/6000s" start="914000/6000s" />
+				<transition offset="552600/6000s" ref="r5" name="Cross Dissolve" duration="17000/6000s" />
+				<video offset="561100/6000s" ref="r4" duration="22200/6000s" start="952500/6000s" />
+				<transition offset="575200/6000s" ref="r5" name="Cross Dissolve" duration="16200/6000s" />
+				<video offset="583300/6000s" ref="r4" duration="22100/6000s" start="990900/6000s" />
+				<transition offset="596100/6000s" ref="r5" name="Cross Dissolve" duration="18500/6000s" />
+				<video offset="605400/6000s" ref="r4" duration="21900/6000s" start="1031500/6000s" />
+				<transition offset="620400/6000s" ref="r5" name="Cross Dissolve" duration="13700/6000s" />
+				<video offset="627300/6000s" ref="r4" duration="19300/6000s" start="1067100/6000s" />
+				<transition offset="639300/6000s" ref="r5" name="Cross Dissolve" duration="14600/6000s" />
+				<video offset="646600/6000s" ref="r4" duration="20200/6000s" start="1101000/6000s" />
+				<transition offset="659500/6000s" ref="r5" name="Cross Dissolve" duration="14500/6000s" />
+				<video offset="666800/6000s" ref="r4" duration="15600/6000s" start="1135700/6000s" />
+				<transition offset="677600/6000s" ref="r5" name="Cross Dissolve" duration="9600/6000s" />
+				<video offset="682400/6000s" ref="r4" duration="13500/6000s" start="1160900/6000s" />
+				<transition offset="691500/6000s" ref="r5" name="Cross Dissolve" duration="8800/6000s" />
+				<video offset="695900/6000s" ref="r4" duration="11200/6000s" start="1183200/6000s" />
+				<transition offset="703200/6000s" ref="r5" name="Cross Dissolve" duration="7800/6000s" />
+				<video offset="707100/6000s" ref="r4" duration="9600/6000s" start="1202200/6000s" />
+				<transition offset="713700/6000s" ref="r5" name="Cross Dissolve" duration="6000/6000s" />
+				<video offset="716700/6000s" ref="r4" duration="7900/6000s" start="1217800/6000s" />
+				<transition offset="721900/6000s" ref="r5" name="Cross Dissolve" duration="5400/6000s" />
+				<video offset="724600/6000s" ref="r4" duration="7900/6000s" start="1231100/6000s" />
+				<transition offset="729900/6000s" ref="r5" name="Cross Dissolve" duration="5200/6000s" />
+				<video offset="732500/6000s" ref="r4" duration="7700/6000s" start="1244200/6000s" />
+				<transition offset="737000/6000s" ref="r5" name="Cross Dissolve" duration="6300/6000s" />
+				<video offset="740200/6000s" ref="r4" duration="8200/6000s" start="1258200/6000s" />
+				<transition offset="745700/6000s" ref="r5" name="Cross Dissolve" duration="5400/6000s" />
+				<video offset="748400/6000s" ref="r4" duration="7900/6000s" start="1271800/6000s" />
+				<transition offset="753300/6000s" ref="r5" name="Cross Dissolve" duration="6000/6000s" />
+				<video offset="756300/6000s" ref="r4" duration="9000/6000s" start="1285700/6000s" />
+				<transition offset="762100/6000s" ref="r5" name="Cross Dissolve" duration="6400/6000s" />
+				<video offset="765300/6000s" ref="r4" duration="9400/6000s" start="1301100/6000s" />
+				<transition offset="771100/6000s" ref="r5" name="Cross Dissolve" duration="7100/6000s" />
+				<video offset="774700/6000s" ref="r4" duration="9700/6000s" start="1317600/6000s" />
+				<transition offset="780200/6000s" ref="r5" name="Cross Dissolve" duration="8400/6000s" />
+				<video offset="784400/6000s" ref="r4" duration="10300/6000s" start="1335700/6000s" />
+				<transition offset="791000/6000s" ref="r5" name="Cross Dissolve" duration="7400/6000s" />
+				<video offset="794700/6000s" ref="r4" duration="9200/6000s" start="1353400/6000s" />
+				<transition offset="800400/6000s" ref="r5" name="Cross Dissolve" duration="6900/6000s" />
+				<video offset="803900/6000s" ref="r4" duration="8400/6000s" start="1369500/6000s" />
+				<transition offset="809300/6000s" ref="r5" name="Cross Dissolve" duration="6000/6000s" />
+				<video offset="812300/6000s" ref="r4" duration="8500/6000s" start="1383900/6000s" />
+				<transition offset="817900/6000s" ref="r5" name="Cross Dissolve" duration="5700/6000s" />
+				<video offset="820800/6000s" ref="r4" duration="8100/6000s" start="1398100/6000s" />
+				<transition offset="825700/6000s" ref="r5" name="Cross Dissolve" duration="6400/6000s" />
+				<video offset="828900/6000s" ref="r4" duration="8300/6000s" start="1412600/6000s" />
+				<transition offset="834200/6000s" ref="r5" name="Cross Dissolve" duration="6000/6000s" />
+				<video offset="837200/6000s" ref="r4" duration="8400/6000s" start="1426900/6000s" />
+				<transition offset="842600/6000s" ref="r5" name="Cross Dissolve" duration="6000/6000s" />
+				<video offset="845600/6000s" ref="r4" duration="8200/6000s" start="1441300/6000s" />
+				<transition offset="850800/6000s" ref="r5" name="Cross Dissolve" duration="6000/6000s" />
+				<video offset="853800/6000s" ref="r4" duration="7500/6000s" start="1455500/6000s" />
+				<transition offset="858300/6000s" ref="r5" name="Cross Dissolve" duration="6000/6000s" />
+				<video offset="861300/6000s" ref="r4" duration="7900/6000s" start="1469000/6000s" />
+				<transition offset="866200/6000s" ref="r5" name="Cross Dissolve" duration="6000/6000s" />
+				<video offset="869200/6000s" ref="r4" duration="8500/6000s" start="1482900/6000s" />
+				<transition offset="874200/6000s" ref="r5" name="Cross Dissolve" duration="6900/6000s" />
+				<video offset="877700/6000s" ref="r4" duration="8200/6000s" start="1498300/6000s" />
+				<transition offset="882900/6000s" ref="r5" name="Cross Dissolve" duration="6000/6000s" />
+				<video offset="885900/6000s" ref="r4" duration="7900/6000s" start="1512500/6000s" />
+				<transition offset="890600/6000s" ref="r5" name="Cross Dissolve" duration="6300/6000s" />
+				<video offset="893800/6000s" ref="r4" duration="8100/6000s" start="1526700/6000s" />
+				<transition offset="898900/6000s" ref="r5" name="Cross Dissolve" duration="6000/6000s" />
+				<video offset="901900/6000s" ref="r4" duration="7200/6000s" start="1540800/6000s" />
+				<transition offset="906400/6000s" ref="r5" name="Cross Dissolve" duration="5400/6000s" />
+				<video offset="909100/6000s" ref="r4" duration="7100/6000s" start="1553400/6000s" />
+				<transition offset="913200/6000s" ref="r5" name="Cross Dissolve" duration="6000/6000s" />
+				<video offset="916200/6000s" ref="r4" duration="7700/6000s" start="1566500/6000s" />
+				<transition offset="920800/6000s" ref="r5" name="Cross Dissolve" duration="6100/6000s" />
+				<video offset="923900/6000s" ref="r4" duration="7400/6000s" start="1580300/6000s" />
+				<transition offset="928300/6000s" ref="r5" name="Cross Dissolve" duration="6000/6000s" />
+				<video offset="931300/6000s" ref="r4" duration="7700/6000s" start="1593700/6000s" />
+				<transition offset="936000/6000s" ref="r5" name="Cross Dissolve" duration="6000/6000s" />
+				<video offset="939000/6000s" ref="r4" duration="7800/6000s" start="1607400/6000s" />
+				<transition offset="943800/6000s" ref="r5" name="Cross Dissolve" duration="6000/6000s" />
+				<video offset="946800/6000s" ref="r4" duration="7800/6000s" start="1621200/6000s" />
+				<transition offset="951600/6000s" ref="r5" name="Cross Dissolve" duration="6000/6000s" />
+				<video offset="954600/6000s" ref="r4" duration="7600/6000s" start="1635000/6000s" />
+				<transition offset="959200/6000s" ref="r5" name="Cross Dissolve" duration="6000/6000s" />
+				<video offset="962200/6000s" ref="r4" duration="7700/6000s" start="1648600/6000s" />
+				<transition offset="967000/6000s" ref="r5" name="Cross Dissolve" duration="5700/6000s" />
+				<video offset="969900/6000s" ref="r4" duration="7800/6000s" start="1662000/6000s" />
+				<transition offset="974300/6000s" ref="r5" name="Cross Dissolve" duration="6700/6000s" />
+				<video offset="977700/6000s" ref="r4" duration="8200/6000s" start="1676500/6000s" />
+				<transition offset="982400/6000s" ref="r5" name="Cross Dissolve" duration="6900/6000s" />
+				<video offset="985900/6000s" ref="r4" duration="7800/6000s" start="1691600/6000s" />
+				<transition offset="990700/6000s" ref="r5" name="Cross Dissolve" duration="6000/6000s" />
+				<video offset="993700/6000s" ref="r4" duration="6900/6000s" start="1705400/6000s" />
+				<transition offset="997900/6000s" ref="r5" name="Cross Dissolve" duration="5400/6000s" />
+				<video offset="1000600/6000s" ref="r4" duration="6800/6000s" start="1717700/6000s" />
+				<transition offset="1004400/6000s" ref="r5" name="Cross Dissolve" duration="6000/6000s" />
+				<video offset="1007400/6000s" ref="r4" duration="7500/6000s" start="1730500/6000s" />
+				<transition offset="1011900/6000s" ref="r5" name="Cross Dissolve" duration="6000/6000s" />
+				<video offset="1014900/6000s" ref="r4" duration="7300/6000s" start="1744000/6000s" />
+				<transition offset="1019200/6000s" ref="r5" name="Cross Dissolve" duration="6000/6000s" />
+				<video offset="1022200/6000s" ref="r4" duration="7200/6000s" start="1757300/6000s" />
+				<transition offset="1026600/6000s" ref="r5" name="Cross Dissolve" duration="5500/6000s" />
+				<video offset="1029400/6000s" ref="r4" duration="7200/6000s" start="1770000/6000s" />
+				<transition offset="1033700/6000s" ref="r5" name="Cross Dissolve" duration="5700/6000s" />
+				<video offset="1036600/6000s" ref="r4" duration="7800/6000s" start="1782900/6000s" />
+				<transition offset="1041600/6000s" ref="r5" name="Cross Dissolve" duration="5600/6000s" />
+				<video offset="1044400/6000s" ref="r4" duration="7500/6000s" start="1796300/6000s" />
+				<transition offset="1048700/6000s" ref="r5" name="Cross Dissolve" duration="6400/6000s" />
+				<video offset="1051900/6000s" ref="r4" duration="7700/6000s" start="1810200/6000s" />
+				<transition offset="1056300/6000s" ref="r5" name="Cross Dissolve" duration="6600/6000s" />
+				<video offset="1059600/6000s" ref="r4" duration="7800/6000s" start="1824500/6000s" />
+				<transition offset="1064200/6000s" ref="r5" name="Cross Dissolve" duration="6400/6000s" />
+				<video offset="1067400/6000s" ref="r4" duration="8200/6000s" start="1838700/6000s" />
+				<transition offset="1072600/6000s" ref="r5" name="Cross Dissolve" duration="6000/6000s" />
+				<video offset="1075600/6000s" ref="r4" duration="7500/6000s" start="1852900/6000s" />
+				<transition offset="1080100/6000s" ref="r5" name="Cross Dissolve" duration="6000/6000s" />
+				<video offset="1083100/6000s" ref="r4" duration="7400/6000s" start="1866400/6000s" />
+				<transition offset="1087700/6000s" ref="r5" name="Cross Dissolve" duration="5600/6000s" />
+				<video offset="1090500/6000s" ref="r4" duration="7400/6000s" start="1879400/6000s" />
+				<transition offset="1095000/6000s" ref="r5" name="Cross Dissolve" duration="5700/6000s" />
+				<video offset="1097900/6000s" ref="r4" duration="7400/6000s" start="1892500/6000s" />
+				<transition offset="1102300/6000s" ref="r5" name="Cross Dissolve" duration="6000/6000s" />
+				<video offset="1105300/6000s" ref="r4" duration="7500/6000s" start="1905900/6000s" />
+				<transition offset="1109800/6000s" ref="r5" name="Cross Dissolve" duration="6000/6000s" />
+				<video offset="1112800/6000s" ref="r4" duration="7200/6000s" start="1919400/6000s" />
+				<transition offset="1117200/6000s" ref="r5" name="Cross Dissolve" duration="5500/6000s" />
+				<video offset="1120000/6000s" ref="r4" duration="6400/6000s" start="1932100/6000s" />
+				<transition offset="1124100/6000s" ref="r5" name="Cross Dissolve" duration="4500/6000s" />
+				<video offset="1126400/6000s" ref="r4" duration="6800/6000s" start="1943000/6000s" />
+				<transition offset="1130200/6000s" ref="r5" name="Cross Dissolve" duration="6000/6000s" />
+				<video offset="1133200/6000s" ref="r4" duration="8400/6000s" start="1955800/6000s" />
+				<transition offset="1138200/6000s" ref="r5" name="Cross Dissolve" duration="6700/6000s" />
+				<video offset="1141600/6000s" ref="r4" duration="8200/6000s" start="1970900/6000s" />
+				<transition offset="1146400/6000s" ref="r5" name="Cross Dissolve" duration="6800/6000s" />
+				<video offset="1149800/6000s" ref="r4" duration="9000/6000s" start="1985900/6000s" />
+				<transition offset="1155100/6000s" ref="r5" name="Cross Dissolve" duration="7400/6000s" />
+				<video offset="1158800/6000s" ref="r4" duration="8900/6000s" start="2002300/6000s" />
+				<transition offset="1164100/6000s" ref="r5" name="Cross Dissolve" duration="7200/6000s" />
+				<video offset="1167700/6000s" ref="r4" duration="8600/6000s" start="2018400/6000s" />
+				<transition offset="1173300/6000s" ref="r5" name="Cross Dissolve" duration="6000/6000s" />
+				<video offset="1176300/6000s" ref="r4" duration="7700/6000s" start="2033000/6000s" />
+				<transition offset="1180800/6000s" ref="r5" name="Cross Dissolve" duration="6400/6000s" />
+				<video offset="1184000/6000s" ref="r4" duration="8000/6000s" start="2047100/6000s" />
+				<transition offset="1189000/6000s" ref="r5" name="Cross Dissolve" duration="6000/6000s" />
+				<video offset="1192000/6000s" ref="r4" duration="7400/6000s" start="2061100/6000s" />
+				<transition offset="1196600/6000s" ref="r5" name="Cross Dissolve" duration="5600/6000s" />
+				<video offset="1199400/6000s" ref="r4" duration="7300/6000s" start="2074100/6000s" />
+				<transition offset="1203500/6000s" ref="r5" name="Cross Dissolve" duration="6300/6000s" />
+				<video offset="1206700/6000s" ref="r4" duration="8800/6000s" start="2087700/6000s" />
+				<transition offset="1212500/6000s" ref="r5" name="Cross Dissolve" duration="6000/6000s" />
+				<video offset="1215500/6000s" ref="r4" duration="8100/6000s" start="2102500/6000s" />
+				<transition offset="1220600/6000s" ref="r5" name="Cross Dissolve" duration="6000/6000s" />
+				<video offset="1223600/6000s" ref="r4" duration="8000/6000s" start="2116600/6000s" />
+				<transition offset="1228600/6000s" ref="r5" name="Cross Dissolve" duration="6000/6000s" />
+				<video offset="1231600/6000s" ref="r4" duration="7400/6000s" start="2130500/6000s" />
+				<transition offset="1236000/6000s" ref="r5" name="Cross Dissolve" duration="6000/6000s" />
+				<video offset="1239000/6000s" ref="r4" duration="7500/6000s" start="2144000/6000s" />
+				<transition offset="1243500/6000s" ref="r5" name="Cross Dissolve" duration="6000/6000s" />
+				<video offset="1246500/6000s" ref="r4" duration="7500/6000s" start="2157500/6000s" />
+				<transition offset="1251000/6000s" ref="r5" name="Cross Dissolve" duration="6000/6000s" />
+				<video offset="1254000/6000s" ref="r4" duration="8100/6000s" start="2171000/6000s" />
+				<transition offset="1258400/6000s" ref="r5" name="Cross Dissolve" duration="7300/6000s" />
+				<video offset="1262100/6000s" ref="r4" duration="8800/6000s" start="2186400/6000s" />
+				<transition offset="1267400/6000s" ref="r5" name="Cross Dissolve" duration="6900/6000s" />
+				<video offset="1270900/6000s" ref="r4" duration="8600/6000s" start="2202100/6000s" />
+				<transition offset="1275800/6000s" ref="r5" name="Cross Dissolve" duration="7300/6000s" />
+				<video offset="1279500/6000s" ref="r4" duration="8500/6000s" start="2218000/6000s" />
+				<transition offset="1284800/6000s" ref="r5" name="Cross Dissolve" duration="6400/6000s" />
+				<video offset="1288000/6000s" ref="r4" duration="7800/6000s" start="2232900/6000s" />
+				<transition offset="1292500/6000s" ref="r5" name="Cross Dissolve" duration="6500/6000s" />
+				<video offset="1295800/6000s" ref="r4" duration="7500/6000s" start="2247200/6000s" />
+				<transition offset="1300500/6000s" ref="r5" name="Cross Dissolve" duration="5600/6000s" />
+				<video offset="1303300/6000s" ref="r4" duration="7300/6000s" start="2260300/6000s" />
+				<transition offset="1307600/6000s" ref="r5" name="Cross Dissolve" duration="6000/6000s" />
+				<video offset="1310600/6000s" ref="r4" duration="7600/6000s" start="2273600/6000s" />
+				<transition offset="1315200/6000s" ref="r5" name="Cross Dissolve" duration="6000/6000s" />
+				<video offset="1318200/6000s" ref="r4" duration="7700/6000s" start="2287200/6000s" />
+				<transition offset="1322600/6000s" ref="r5" name="Cross Dissolve" duration="6600/6000s" />
+				<video offset="1325900/6000s" ref="r4" duration="7900/6000s" start="2301500/6000s" />
+				<transition offset="1330600/6000s" ref="r5" name="Cross Dissolve" duration="6300/6000s" />
+				<video offset="1333800/6000s" ref="r4" duration="7600/6000s" start="2315700/6000s" />
+				<transition offset="1338400/6000s" ref="r5" name="Cross Dissolve" duration="6000/6000s" />
+				<video offset="1341400/6000s" ref="r4" duration="6700/6000s" start="2329300/6000s" />
+				<transition offset="1345800/6000s" ref="r5" name="Cross Dissolve" duration="4600/6000s" />
+				<video offset="1348100/6000s" ref="r4" duration="6900/6000s" start="2340600/6000s" />
+				<transition offset="1351800/6000s" ref="r5" name="Cross Dissolve" duration="6300/6000s" />
+				<video offset="1355000/6000s" ref="r4" duration="7900/6000s" start="2353800/6000s" />
+				<transition offset="1359500/6000s" ref="r5" name="Cross Dissolve" duration="6800/6000s" />
+				<video offset="1362900/6000s" ref="r4" duration="8200/6000s" start="2368500/6000s" />
+				<transition offset="1368100/6000s" ref="r5" name="Cross Dissolve" duration="6000/6000s" />
+				<video offset="1371100/6000s" ref="r4" duration="6900/6000s" start="2382700/6000s" />
+				<transition offset="1375400/6000s" ref="r5" name="Cross Dissolve" duration="5100/6000s" />
+				<video offset="1378000/6000s" ref="r4" duration="6700/6000s" start="2394700/6000s" />
+				<transition offset="1382200/6000s" ref="r5" name="Cross Dissolve" duration="5000/6000s" />
+				<video offset="1384700/6000s" ref="r4" duration="7200/6000s" start="2406400/6000s" />
+				<transition offset="1388900/6000s" ref="r5" name="Cross Dissolve" duration="6000/6000s" />
+				<video offset="1391900/6000s" ref="r4" duration="7800/6000s" start="2419600/6000s" />
+				<transition offset="1396500/6000s" ref="r5" name="Cross Dissolve" duration="6400/6000s" />
+				<video offset="1399700/6000s" ref="r4" duration="7600/6000s" start="2433800/6000s" />
+				<transition offset="1404200/6000s" ref="r5" name="Cross Dissolve" duration="6100/6000s" />
+				<video offset="1407300/6000s" ref="r4" duration="7200/6000s" start="2447500/6000s" />
+				<transition offset="1411500/6000s" ref="r5" name="Cross Dissolve" duration="6000/6000s" />
+				<video offset="1414500/6000s" ref="r4" duration="7400/6000s" start="2460700/6000s" />
+				<transition offset="1419000/6000s" ref="r5" name="Cross Dissolve" duration="5700/6000s" />
+				<video offset="1421900/6000s" ref="r4" duration="7200/6000s" start="2473800/6000s" />
+				<transition offset="1426100/6000s" ref="r5" name="Cross Dissolve" duration="6000/6000s" />
+				<video offset="1429100/6000s" ref="r4" duration="7500/6000s" start="2487000/6000s" />
+				<transition offset="1433800/6000s" ref="r5" name="Cross Dissolve" duration="5600/6000s" />
+				<video offset="1436600/6000s" ref="r4" duration="7700/6000s" start="2500100/6000s" />
+				<transition offset="1441300/6000s" ref="r5" name="Cross Dissolve" duration="6000/6000s" />
+				<video offset="1444300/6000s" ref="r4" duration="7800/6000s" start="2513800/6000s" />
+				<transition offset="1448900/6000s" ref="r5" name="Cross Dissolve" duration="6400/6000s" />
+				<video offset="1452100/6000s" ref="r4" duration="7800/6000s" start="2528000/6000s" />
+				<transition offset="1456900/6000s" ref="r5" name="Cross Dissolve" duration="6000/6000s" />
+				<video offset="1459900/6000s" ref="r4" duration="7300/6000s" start="2541800/6000s" />
+				<transition offset="1464200/6000s" ref="r5" name="Cross Dissolve" duration="6000/6000s" />
+				<video offset="1467200/6000s" ref="r4" duration="7200/6000s" start="2555100/6000s" />
+				<transition offset="1471400/6000s" ref="r5" name="Cross Dissolve" duration="6000/6000s" />
+				<video offset="1474400/6000s" ref="r4" duration="7000/6000s" start="2568300/6000s" />
+				<transition offset="1478900/6000s" ref="r5" name="Cross Dissolve" duration="5000/6000s" />
+				<video offset="1481400/6000s" ref="r4" duration="6600/6000s" start="2580300/6000s" />
+				<transition offset="1485200/6000s" ref="r5" name="Cross Dissolve" duration="5600/6000s" />
+				<video offset="1488000/6000s" ref="r4" duration="7300/6000s" start="2592500/6000s" />
+				<transition offset="1492300/6000s" ref="r5" name="Cross Dissolve" duration="6000/6000s" />
+				<video offset="1495300/6000s" ref="r4" duration="7500/6000s" start="2605800/6000s" />
+				<transition offset="1499800/6000s" ref="r5" name="Cross Dissolve" duration="6000/6000s" />
+				<video offset="1502800/6000s" ref="r4" duration="7400/6000s" start="2619300/6000s" />
+				<transition offset="1507200/6000s" ref="r5" name="Cross Dissolve" duration="6000/6000s" />
+				<video offset="1510200/6000s" ref="r4" duration="7900/6000s" start="2632700/6000s" />
+				<transition offset="1514800/6000s" ref="r5" name="Cross Dissolve" duration="6500/6000s" />
+				<video offset="1518100/6000s" ref="r4" duration="8200/6000s" start="2647100/6000s" />
+				<transition offset="1522700/6000s" ref="r5" name="Cross Dissolve" duration="7100/6000s" />
+				<video offset="1526300/6000s" ref="r4" duration="8500/6000s" start="2662400/6000s" />
+				<transition offset="1531200/6000s" ref="r5" name="Cross Dissolve" duration="7200/6000s" />
+				<video offset="1534800/6000s" ref="r4" duration="9100/6000s" start="2678100/6000s" />
+				<transition offset="1540400/6000s" ref="r5" name="Cross Dissolve" duration="7000/6000s" />
+				<video offset="1543900/6000s" ref="r4" duration="8400/6000s" start="2694200/6000s" />
+				<transition offset="1549100/6000s" ref="r5" name="Cross Dissolve" duration="6300/6000s" />
+				<video offset="1552300/6000s" ref="r4" duration="8300/6000s" start="2708900/6000s" />
+				<transition offset="1557300/6000s" ref="r5" name="Cross Dissolve" duration="6500/6000s" />
+				<video offset="1560600/6000s" ref="r4" duration="8200/6000s" start="2723700/6000s" />
+				<transition offset="1565500/6000s" ref="r5" name="Cross Dissolve" duration="6500/6000s" />
+				<video offset="1568800/6000s" ref="r4" duration="8100/6000s" start="2738400/6000s" />
+				<transition offset="1573400/6000s" ref="r5" name="Cross Dissolve" duration="6900/6000s" />
+				<video offset="1576900/6000s" ref="r4" duration="8400/6000s" start="2753400/6000s" />
+				<transition offset="1581800/6000s" ref="r5" name="Cross Dissolve" duration="6900/6000s" />
+				<video offset="1585300/6000s" ref="r4" duration="8000/6000s" start="2768700/6000s" />
+				<transition offset="1590000/6000s" ref="r5" name="Cross Dissolve" duration="6600/6000s" />
+				<video offset="1593300/6000s" ref="r4" duration="7600/6000s" start="2783300/6000s" />
+				<transition offset="1597700/6000s" ref="r5" name="Cross Dissolve" duration="6400/6000s" />
+				<video offset="1600900/6000s" ref="r4" duration="8500/6000s" start="2797300/6000s" />
+				<transition offset="1605800/6000s" ref="r5" name="Cross Dissolve" duration="7100/6000s" />
+				<video offset="1609400/6000s" ref="r4" duration="7500/6000s" start="2812900/6000s" />
+				<transition offset="1613900/6000s" ref="r5" name="Cross Dissolve" duration="6000/6000s" />
+				<video offset="1616900/6000s" ref="r4" duration="8300/6000s" start="2826400/6000s" />
+				<transition offset="1621900/6000s" ref="r5" name="Cross Dissolve" duration="6600/6000s" />
+				<video offset="1625200/6000s" ref="r4" duration="8000/6000s" start="2841300/6000s" />
+				<transition offset="1630200/6000s" ref="r5" name="Cross Dissolve" duration="6000/6000s" />
+				<video offset="1633200/6000s" ref="r4" duration="7700/6000s" start="2855300/6000s" />
+				<transition offset="1637600/6000s" ref="r5" name="Cross Dissolve" duration="6500/6000s" />
+				<video offset="1640900/6000s" ref="r4" duration="7500/6000s" start="2869500/6000s" />
+				<transition offset="1645400/6000s" ref="r5" name="Cross Dissolve" duration="6000/6000s" />
+				<video offset="1648400/6000s" ref="r4" duration="7300/6000s" start="2883000/6000s" />
+				<transition offset="1652700/6000s" ref="r5" name="Cross Dissolve" duration="6000/6000s" />
+				<video offset="1655700/6000s" ref="r4" duration="7900/6000s" start="2896300/6000s" />
+				<transition offset="1660400/6000s" ref="r5" name="Cross Dissolve" duration="6300/6000s" />
+				<video offset="1663600/6000s" ref="r4" duration="7300/6000s" start="2910500/6000s" />
+				<transition offset="1667900/6000s" ref="r5" name="Cross Dissolve" duration="6000/6000s" />
+				<video offset="1670900/6000s" ref="r4" duration="7400/6000s" start="2923800/6000s" />
+				<transition offset="1675300/6000s" ref="r5" name="Cross Dissolve" duration="6000/6000s" />
+				<video offset="1678300/6000s" ref="r4" duration="7600/6000s" start="2937200/6000s" />
+				<transition offset="1682700/6000s" ref="r5" name="Cross Dissolve" duration="6400/6000s" />
+				<video offset="1685900/6000s" ref="r4" duration="8000/6000s" start="2951200/6000s" />
+				<transition offset="1690400/6000s" ref="r5" name="Cross Dissolve" duration="6900/6000s" />
+				<video offset="1693900/6000s" ref="r4" duration="7700/6000s" start="2966100/6000s" />
+				<transition offset="1698600/6000s" ref="r5" name="Cross Dissolve" duration="6000/6000s" />
+				<video offset="1701600/6000s" ref="r4" duration="8100/6000s" start="2979800/6000s" />
+				<transition offset="1706000/6000s" ref="r5" name="Cross Dissolve" duration="7400/6000s" />
+				<video offset="1709700/6000s" ref="r4" duration="7900/6000s" start="2995300/6000s" />
+				<transition offset="1714600/6000s" ref="r5" name="Cross Dissolve" duration="6000/6000s" />
+				<video offset="1717600/6000s" ref="r4" duration="7600/6000s" start="3009200/6000s" />
+				<transition offset="1722200/6000s" ref="r5" name="Cross Dissolve" duration="6000/6000s" />
+				<video offset="1725200/6000s" ref="r4" duration="7700/6000s" start="3022800/6000s" />
+				<transition offset="1729700/6000s" ref="r5" name="Cross Dissolve" duration="6300/6000s" />
+				<video offset="1732900/6000s" ref="r4" duration="8700/6000s" start="3036800/6000s" />
+				<transition offset="1738600/6000s" ref="r5" name="Cross Dissolve" duration="6000/6000s" />
+				<video offset="1741600/6000s" ref="r4" duration="7100/6000s" start="48100/6000s" />
+				<transition offset="1745700/6000s" ref="r5" name="Cross Dissolve" duration="6000/6000s" />
+				<video offset="1748700/6000s" ref="r4" duration="7000/6000s" start="61200/6000s" />
+				<transition offset="1753000/6000s" ref="r5" name="Cross Dissolve" duration="5300/6000s" />
+				<video offset="1755700/6000s" ref="r4" duration="5800/6000s" start="73500/6000s" />
+				<transition offset="1759300/6000s" ref="r5" name="Cross Dissolve" duration="4300/6000s" />
+				<video offset="1761500/6000s" ref="r4" duration="4700/6000s" start="83600/6000s" />
+				<transition offset="1764400/6000s" ref="r5" name="Cross Dissolve" duration="3500/6000s" />
+				<video offset="1766200/6000s" ref="r4" duration="4400/6000s" start="91800/6000s" />
+				<transition offset="1768900/6000s" ref="r5" name="Cross Dissolve" duration="3400/6000s" />
+				<video offset="1770600/6000s" ref="r4" duration="4200/6000s" start="99600/6000s" />
+				<transition offset="1773000/6000s" ref="r5" name="Cross Dissolve" duration="3600/6000s" />
+				<video offset="1774800/6000s" ref="r4" duration="4300/6000s" start="107400/6000s" />
+				<transition offset="1777600/6000s" ref="r5" name="Cross Dissolve" duration="3000/6000s" />
+				<video offset="1779100/6000s" ref="r4" duration="3900/6000s" start="114700/6000s" />
+				<transition offset="1781500/6000s" ref="r5" name="Cross Dissolve" duration="3000/6000s" />
+				<video offset="1783000/6000s" ref="r4" duration="3700/6000s" start="121600/6000s" />
+				<transition offset="1785100/6000s" ref="r5" name="Cross Dissolve" duration="3100/6000s" />
+				<video offset="1786700/6000s" ref="r4" duration="3600/6000s" start="128400/6000s" />
+				<transition offset="1788800/6000s" ref="r5" name="Cross Dissolve" duration="3000/6000s" />
+				<video offset="1790300/6000s" ref="r4" duration="3800/6000s" start="135000/6000s" />
+				<transition offset="1792500/6000s" ref="r5" name="Cross Dissolve" duration="3100/6000s" />
+				<video offset="1794100/6000s" ref="r4" duration="3900/6000s" start="141900/6000s" />
+				<transition offset="1796400/6000s" ref="r5" name="Cross Dissolve" duration="3100/6000s" />
+				<video offset="1798000/6000s" ref="r4" duration="4200/6000s" start="148900/6000s" />
+				<transition offset="1800800/6000s" ref="r5" name="Cross Dissolve" duration="2700/6000s" />
+				<video offset="1802200/6000s" ref="r4" duration="3400/6000s" start="155800/6000s" />
+				<transition offset="1804200/6000s" ref="r5" name="Cross Dissolve" duration="2700/6000s" />
+				<video offset="1805600/6000s" ref="r4" duration="3500/6000s" start="161900/6000s" />
+				<transition offset="1807600/6000s" ref="r5" name="Cross Dissolve" duration="2900/6000s" />
+				<video offset="1809100/6000s" ref="r4" duration="3700/6000s" start="168300/6000s" />
+				<transition offset="1811500/6000s" ref="r5" name="Cross Dissolve" duration="2600/6000s" />
+				<video offset="1812800/6000s" ref="r4" duration="4100/6000s" start="174600/6000s" />
+				<transition offset="1815200/6000s" ref="r5" name="Cross Dissolve" duration="3400/6000s" />
+				<video offset="1816900/6000s" ref="r4" duration="5100/6000s" start="182100/6000s" />
+				<transition offset="1819800/6000s" ref="r5" name="Cross Dissolve" duration="4400/6000s" />
+				<video offset="1822000/6000s" ref="r4" duration="5700/6000s" start="191600/6000s" />
+				<transition offset="1825200/6000s" ref="r5" name="Cross Dissolve" duration="4900/6000s" />
+				<video offset="1827700/6000s" ref="r4" duration="5700/6000s" start="202200/6000s" />
+				<transition offset="1831100/6000s" ref="r5" name="Cross Dissolve" duration="4500/6000s" />
+				<video offset="1833400/6000s" ref="r4" duration="5200/6000s" start="212400/6000s" />
+				<transition offset="1836300/6000s" ref="r5" name="Cross Dissolve" duration="4500/6000s" />
+				<video offset="1838600/6000s" ref="r4" duration="5700/6000s" start="222100/6000s" />
+				<transition offset="1842400/6000s" ref="r5" name="Cross Dissolve" duration="3700/6000s" />
+				<video offset="1844300/6000s" ref="r4" duration="4700/6000s" start="231500/6000s" />
+				<transition offset="1846900/6000s" ref="r5" name="Cross Dissolve" duration="4200/6000s" />
+				<video offset="1849000/6000s" ref="r4" duration="4800/6000s" start="240400/6000s" />
+				<transition offset="1851800/6000s" ref="r5" name="Cross Dissolve" duration="4000/6000s" />
+				<video offset="1853800/6000s" ref="r4" duration="4800/6000s" start="249200/6000s" />
+				<transition offset="1856700/6000s" ref="r5" name="Cross Dissolve" duration="3800/6000s" />
+				<video offset="1858600/6000s" ref="r4" duration="4800/6000s" start="257800/6000s" />
+				<transition offset="1861400/6000s" ref="r5" name="Cross Dissolve" duration="3900/6000s" />
+				<video offset="1863400/6000s" ref="r4" duration="4300/6000s" start="266500/6000s" />
+				<transition offset="1865900/6000s" ref="r5" name="Cross Dissolve" duration="3600/6000s" />
+				<video offset="1867700/6000s" ref="r4" duration="4400/6000s" start="274400/6000s" />
+				<transition offset="1870300/6000s" ref="r5" name="Cross Dissolve" duration="3500/6000s" />
+				<video offset="1872100/6000s" ref="r4" duration="4400/6000s" start="282300/6000s" />
+				<transition offset="1874800/6000s" ref="r5" name="Cross Dissolve" duration="3400/6000s" />
+				<video offset="1876500/6000s" ref="r4" duration="4500/6000s" start="290100/6000s" />
+				<transition offset="1879300/6000s" ref="r5" name="Cross Dissolve" duration="3400/6000s" />
+				<video offset="1881000/6000s" ref="r4" duration="4600/6000s" start="298000/6000s" />
+				<transition offset="1883900/6000s" ref="r5" name="Cross Dissolve" duration="3400/6000s" />
+				<video offset="1885600/6000s" ref="r4" duration="4400/6000s" start="306000/6000s" />
+				<transition offset="1888200/6000s" ref="r5" name="Cross Dissolve" duration="3500/6000s" />
+				<video offset="1890000/6000s" ref="r4" duration="3900/6000s" start="313900/6000s" />
+				<transition offset="1892300/6000s" ref="r5" name="Cross Dissolve" duration="3200/6000s" />
+				<video offset="1893900/6000s" ref="r4" duration="4100/6000s" start="321000/6000s" />
+				<transition offset="1896500/6000s" ref="r5" name="Cross Dissolve" duration="3000/6000s" />
+				<video offset="1898000/6000s" ref="r4" duration="4200/6000s" start="328100/6000s" />
+				<transition offset="1900500/6000s" ref="r5" name="Cross Dissolve" duration="3400/6000s" />
+				<video offset="1902200/6000s" ref="r4" duration="4200/6000s" start="335700/6000s" />
+				<transition offset="1904800/6000s" ref="r5" name="Cross Dissolve" duration="3200/6000s" />
+				<video offset="1906400/6000s" ref="r4" duration="4100/6000s" start="343100/6000s" />
+				<transition offset="1909000/6000s" ref="r5" name="Cross Dissolve" duration="3000/6000s" />
+				<video offset="1910500/6000s" ref="r4" duration="4300/6000s" start="350200/6000s" />
+				<transition offset="1913100/6000s" ref="r5" name="Cross Dissolve" duration="3400/6000s" />
+				<video offset="1914800/6000s" ref="r4" duration="4400/6000s" start="357900/6000s" />
+				<transition offset="1917500/6000s" ref="r5" name="Cross Dissolve" duration="3300/6000s" />
+				<video offset="1919200/6000s" ref="r4" duration="4200/6000s" start="365600/6000s" />
+				<transition offset="1921900/6000s" ref="r5" name="Cross Dissolve" duration="3000/6000s" />
+				<video offset="1923400/6000s" ref="r4" duration="3900/6000s" start="372800/6000s" />
+				<transition offset="1925800/6000s" ref="r5" name="Cross Dissolve" duration="3000/6000s" />
+				<video offset="1927300/6000s" ref="r4" duration="3400/6000s" start="379700/6000s" />
+				<transition offset="1929400/6000s" ref="r5" name="Cross Dissolve" duration="2600/6000s" />
+				<video offset="1930700/6000s" ref="r4" duration="3400/6000s" start="385700/6000s" />
+				<transition offset="1932800/6000s" ref="r5" name="Cross Dissolve" duration="2600/6000s" />
+				<video offset="1934100/6000s" ref="r4" duration="3500/6000s" start="391700/6000s" />
+				<transition offset="1936200/6000s" ref="r5" name="Cross Dissolve" duration="2700/6000s" />
+				<video offset="1937600/6000s" ref="r4" duration="4000/6000s" start="397900/6000s" />
+				<transition offset="1940000/6000s" ref="r5" name="Cross Dissolve" duration="3100/6000s" />
+				<video offset="1941600/6000s" ref="r4" duration="3700/6000s" start="405000/6000s" />
+				<transition offset="1944000/6000s" ref="r5" name="Cross Dissolve" duration="2600/6000s" />
+				<video offset="1945300/6000s" ref="r4" duration="3500/6000s" start="411300/6000s" />
+				<transition offset="1947500/6000s" ref="r5" name="Cross Dissolve" duration="2500/6000s" />
+				<video offset="1948800/6000s" ref="r4" duration="3400/6000s" start="417300/6000s" />
+				<transition offset="1950900/6000s" ref="r5" name="Cross Dissolve" duration="2600/6000s" />
+				<video offset="1952200/6000s" ref="r4" duration="3400/6000s" start="423300/6000s" />
+				<transition offset="1954400/6000s" ref="r5" name="Cross Dissolve" duration="2400/6000s" />
+				<video offset="1955600/6000s" ref="r4" duration="3300/6000s" start="429100/6000s" />
+				<transition offset="1957600/6000s" ref="r5" name="Cross Dissolve" duration="2600/6000s" />
+				<video offset="1958900/6000s" ref="r4" duration="3300/6000s" start="435000/6000s" />
+				<transition offset="1961000/6000s" ref="r5" name="Cross Dissolve" duration="2400/6000s" />
+				<video offset="1962200/6000s" ref="r4" duration="3600/6000s" start="440700/6000s" />
+				<transition offset="1964300/6000s" ref="r5" name="Cross Dissolve" duration="3000/6000s" />
+				<video offset="1965800/6000s" ref="r4" duration="4000/6000s" start="447300/6000s" />
+				<transition offset="1968200/6000s" ref="r5" name="Cross Dissolve" duration="3200/6000s" />
+				<video offset="1969800/6000s" ref="r4" duration="4000/6000s" start="454500/6000s" />
+				<transition offset="1972100/6000s" ref="r5" name="Cross Dissolve" duration="3300/6000s" />
+				<video offset="1973800/6000s" ref="r4" duration="3700/6000s" start="461800/6000s" />
+				<transition offset="1976100/6000s" ref="r5" name="Cross Dissolve" duration="2800/6000s" />
+				<video offset="1977500/6000s" ref="r4" duration="4300/6000s" start="468300/6000s" />
+				<transition offset="1980000/6000s" ref="r5" name="Cross Dissolve" duration="3600/6000s" />
+				<video offset="1981800/6000s" ref="r4" duration="4500/6000s" start="476200/6000s" />
+				<transition offset="1984400/6000s" ref="r5" name="Cross Dissolve" duration="3700/6000s" />
+				<video offset="1986300/6000s" ref="r4" duration="4600/6000s" start="484400/6000s" />
+				<transition offset="1989100/6000s" ref="r5" name="Cross Dissolve" duration="3500/6000s" />
+				<video offset="1990900/6000s" ref="r4" duration="4300/6000s" start="492500/6000s" />
+				<transition offset="1993500/6000s" ref="r5" name="Cross Dissolve" duration="3400/6000s" />
+				<video offset="1995200/6000s" ref="r4" duration="4300/6000s" start="500200/6000s" />
+				<transition offset="1997900/6000s" ref="r5" name="Cross Dissolve" duration="3200/6000s" />
+				<video offset="1999500/6000s" ref="r4" duration="4100/6000s" start="507700/6000s" />
+				<transition offset="2002000/6000s" ref="r5" name="Cross Dissolve" duration="3200/6000s" />
+				<video offset="2003600/6000s" ref="r4" duration="4200/6000s" start="515000/6000s" />
+				<transition offset="2006200/6000s" ref="r5" name="Cross Dissolve" duration="3100/6000s" />
+				<video offset="2007800/6000s" ref="r4" duration="4000/6000s" start="522300/6000s" />
+				<transition offset="2010200/6000s" ref="r5" name="Cross Dissolve" duration="3200/6000s" />
+				<video offset="2011800/6000s" ref="r4" duration="4000/6000s" start="529500/6000s" />
+				<transition offset="2014300/6000s" ref="r5" name="Cross Dissolve" duration="3000/6000s" />
+				<video offset="2015800/6000s" ref="r4" duration="4300/6000s" start="536500/6000s" />
+				<transition offset="2018200/6000s" ref="r5" name="Cross Dissolve" duration="3800/6000s" />
+				<video offset="2020100/6000s" ref="r4" duration="4600/6000s" start="544600/6000s" />
+				<transition offset="2023000/6000s" ref="r5" name="Cross Dissolve" duration="3400/6000s" />
+				<video offset="2024700/6000s" ref="r4" duration="4500/6000s" start="552600/6000s" />
+				<transition offset="2027500/6000s" ref="r5" name="Cross Dissolve" duration="3400/6000s" />
+				<video offset="2029200/6000s" ref="r4" duration="4100/6000s" start="560500/6000s" />
+				<transition offset="2031700/6000s" ref="r5" name="Cross Dissolve" duration="3100/6000s" />
+				<video offset="2033300/6000s" ref="r4" duration="4200/6000s" start="567700/6000s" />
+				<transition offset="2035900/6000s" ref="r5" name="Cross Dissolve" duration="3200/6000s" />
+				<video offset="2037500/6000s" ref="r4" duration="4100/6000s" start="575100/6000s" />
+				<transition offset="2039800/6000s" ref="r5" name="Cross Dissolve" duration="3500/6000s" />
+				<video offset="2041600/6000s" ref="r4" duration="3900/6000s" start="582700/6000s" />
+				<transition offset="2044000/6000s" ref="r5" name="Cross Dissolve" duration="2900/6000s" />
+				<video offset="2045500/6000s" ref="r4" duration="3800/6000s" start="589500/6000s" />
+				<transition offset="2047500/6000s" ref="r5" name="Cross Dissolve" duration="3500/6000s" />
+				<video offset="2049300/6000s" ref="r4" duration="4000/6000s" start="596800/6000s" />
+				<transition offset="2051700/6000s" ref="r5" name="Cross Dissolve" duration="3200/6000s" />
+				<video offset="2053300/6000s" ref="r4" duration="3700/6000s" start="604000/6000s" />
+				<transition offset="2055600/6000s" ref="r5" name="Cross Dissolve" duration="2700/6000s" />
+				<video offset="2057000/6000s" ref="r4" duration="3400/6000s" start="610400/6000s" />
+				<transition offset="2058900/6000s" ref="r5" name="Cross Dissolve" duration="2900/6000s" />
+				<video offset="2060400/6000s" ref="r4" duration="3700/6000s" start="616700/6000s" />
+				<transition offset="2062500/6000s" ref="r5" name="Cross Dissolve" duration="3100/6000s" />
+				<video offset="2064100/6000s" ref="r4" duration="3900/6000s" start="623500/6000s" />
+				<transition offset="2066300/6000s" ref="r5" name="Cross Dissolve" duration="3400/6000s" />
+				<video offset="2068000/6000s" ref="r4" duration="4000/6000s" start="630800/6000s" />
+				<transition offset="2070500/6000s" ref="r5" name="Cross Dissolve" duration="3000/6000s" />
+				<video offset="2072000/6000s" ref="r4" duration="3600/6000s" start="637800/6000s" />
+				<transition offset="2074200/6000s" ref="r5" name="Cross Dissolve" duration="2700/6000s" />
+				<video offset="2075600/6000s" ref="r4" duration="3800/6000s" start="644100/6000s" />
+				<transition offset="2077800/6000s" ref="r5" name="Cross Dissolve" duration="3200/6000s" />
+				<video offset="2079400/6000s" ref="r4" duration="4100/6000s" start="651100/6000s" />
+				<transition offset="2081900/6000s" ref="r5" name="Cross Dissolve" duration="3200/6000s" />
+				<video offset="2083500/6000s" ref="r4" duration="4200/6000s" start="658400/6000s" />
+				<transition offset="2085900/6000s" ref="r5" name="Cross Dissolve" duration="3500/6000s" />
+				<video offset="2087700/6000s" ref="r4" duration="4400/6000s" start="666100/6000s" />
+				<transition offset="2090200/6000s" ref="r5" name="Cross Dissolve" duration="3800/6000s" />
+				<video offset="2092100/6000s" ref="r4" duration="4900/6000s" start="674300/6000s" />
+				<transition offset="2094900/6000s" ref="r5" name="Cross Dissolve" duration="4100/6000s" />
+				<video offset="2097000/6000s" ref="r4" duration="4500/6000s" start="683300/6000s" />
+				<transition offset="2099900/6000s" ref="r5" name="Cross Dissolve" duration="3100/6000s" />
+				<video offset="2101500/6000s" ref="r4" duration="3900/6000s" start="690900/6000s" />
+				<transition offset="2103900/6000s" ref="r5" name="Cross Dissolve" duration="3000/6000s" />
+				<video offset="2105400/6000s" ref="r4" duration="3900/6000s" start="697800/6000s" />
+				<transition offset="2107700/6000s" ref="r5" name="Cross Dissolve" duration="3100/6000s" />
+				<video offset="2109300/6000s" ref="r4" duration="4200/6000s" start="704800/6000s" />
+				<transition offset="2111700/6000s" ref="r5" name="Cross Dissolve" duration="3500/6000s" />
+				<video offset="2113500/6000s" ref="r4" duration="4600/6000s" start="712500/6000s" />
+				<transition offset="2116300/6000s" ref="r5" name="Cross Dissolve" duration="3500/6000s" />
+				<video offset="2118100/6000s" ref="r4" duration="4300/6000s" start="720600/6000s" />
+				<transition offset="2120800/6000s" ref="r5" name="Cross Dissolve" duration="3200/6000s" />
+				<video offset="2122400/6000s" ref="r4" duration="3900/6000s" start="728100/6000s" />
+				<transition offset="2124900/6000s" ref="r5" name="Cross Dissolve" duration="2800/6000s" />
+				<video offset="2126300/6000s" ref="r4" duration="3400/6000s" start="734800/6000s" />
+				<transition offset="2128500/6000s" ref="r5" name="Cross Dissolve" duration="2400/6000s" />
+				<video offset="2129700/6000s" ref="r4" duration="3600/6000s" start="740600/6000s" />
+				<transition offset="2131900/6000s" ref="r5" name="Cross Dissolve" duration="2800/6000s" />
+				<video offset="2133300/6000s" ref="r4" duration="4100/6000s" start="747000/6000s" />
+				<transition offset="2135700/6000s" ref="r5" name="Cross Dissolve" duration="3400/6000s" />
+				<video offset="2137400/6000s" ref="r4" duration="4500/6000s" start="754500/6000s" />
+				<transition offset="2140100/6000s" ref="r5" name="Cross Dissolve" duration="3500/6000s" />
+				<video offset="2141900/6000s" ref="r4" duration="4400/6000s" start="762500/6000s" />
+				<transition offset="2144400/6000s" ref="r5" name="Cross Dissolve" duration="3700/6000s" />
+				<video offset="2146300/6000s" ref="r4" duration="4600/6000s" start="770600/6000s" />
+				<transition offset="2148900/6000s" ref="r5" name="Cross Dissolve" duration="3900/6000s" />
+				<video offset="2150900/6000s" ref="r4" duration="4300/6000s" start="779100/6000s" />
+				<transition offset="2153800/6000s" ref="r5" name="Cross Dissolve" duration="2700/6000s" />
+				<video offset="2155200/6000s" ref="r4" duration="3600/6000s" start="786100/6000s" />
+				<transition offset="2157500/6000s" ref="r5" name="Cross Dissolve" duration="2600/6000s" />
+				<video offset="2158800/6000s" ref="r4" duration="4200/6000s" start="792300/6000s" />
+				<transition offset="2161400/6000s" ref="r5" name="Cross Dissolve" duration="3200/6000s" />
+				<video offset="2163000/6000s" ref="r4" duration="4500/6000s" start="799700/6000s" />
+				<transition offset="2165600/6000s" ref="r5" name="Cross Dissolve" duration="3800/6000s" />
+				<video offset="2167500/6000s" ref="r4" duration="4800/6000s" start="808000/6000s" />
+				<transition offset="2170500/6000s" ref="r5" name="Cross Dissolve" duration="3500/6000s" />
+				<video offset="2172300/6000s" ref="r4" duration="4400/6000s" start="816300/6000s" />
+				<transition offset="2174900/6000s" ref="r5" name="Cross Dissolve" duration="3600/6000s" />
+				<video offset="2176700/6000s" ref="r4" duration="4800/6000s" start="824300/6000s" />
+				<transition offset="2179700/6000s" ref="r5" name="Cross Dissolve" duration="3500/6000s" />
+				<video offset="2181500/6000s" ref="r4" duration="4600/6000s" start="832600/6000s" />
+				<transition offset="2184300/6000s" ref="r5" name="Cross Dissolve" duration="3500/6000s" />
+				<video offset="2186100/6000s" ref="r4" duration="4500/6000s" start="840700/6000s" />
+				<transition offset="2188800/6000s" ref="r5" name="Cross Dissolve" duration="3600/6000s" />
+				<video offset="2190600/6000s" ref="r4" duration="4400/6000s" start="848800/6000s" />
+				<transition offset="2193400/6000s" ref="r5" name="Cross Dissolve" duration="3100/6000s" />
+				<video offset="2195000/6000s" ref="r4" duration="3900/6000s" start="856300/6000s" />
+				<transition offset="2197400/6000s" ref="r5" name="Cross Dissolve" duration="2900/6000s" />
+				<video offset="2198900/6000s" ref="r4" duration="4100/6000s" start="863100/6000s" />
+				<transition offset="2201300/6000s" ref="r5" name="Cross Dissolve" duration="3300/6000s" />
+				<video offset="2203000/6000s" ref="r4" duration="4400/6000s" start="870500/6000s" />
+				<transition offset="2205700/6000s" ref="r5" name="Cross Dissolve" duration="3300/6000s" />
+				<video offset="2207400/6000s" ref="r4" duration="4300/6000s" start="878200/6000s" />
+				<transition offset="2210000/6000s" ref="r5" name="Cross Dissolve" duration="3400/6000s" />
+				<video offset="2211700/6000s" ref="r4" duration="4800/6000s" start="885900/6000s" />
+				<transition offset="2214500/6000s" ref="r5" name="Cross Dissolve" duration="4000/6000s" />
+				<video offset="2216500/6000s" ref="r4" duration="5000/6000s" start="894700/6000s" />
+				<transition offset="2219400/6000s" ref="r5" name="Cross Dissolve" duration="4200/6000s" />
+				<video offset="2221500/6000s" ref="r4" duration="5700/6000s" start="903900/6000s" />
+				<transition offset="2224700/6000s" ref="r5" name="Cross Dissolve" duration="4900/6000s" />
+				<video offset="2227200/6000s" ref="r4" duration="5600/6000s" start="914500/6000s" />
+				<transition offset="2230700/6000s" ref="r5" name="Cross Dissolve" duration="4100/6000s" />
+				<video offset="2232800/6000s" ref="r4" duration="4900/6000s" start="924200/6000s" />
+				<transition offset="2235800/6000s" ref="r5" name="Cross Dissolve" duration="3700/6000s" />
+				<video offset="2237700/6000s" ref="r4" duration="4800/6000s" start="932800/6000s" />
+				<transition offset="2240500/6000s" ref="r5" name="Cross Dissolve" duration="3900/6000s" />
+				<video offset="2242500/6000s" ref="r4" duration="5300/6000s" start="941500/6000s" />
+				<transition offset="2245600/6000s" ref="r5" name="Cross Dissolve" duration="4400/6000s" />
+				<video offset="2247800/6000s" ref="r4" duration="5700/6000s" start="951200/6000s" />
+				<transition offset="2251100/6000s" ref="r5" name="Cross Dissolve" duration="4700/6000s" />
+				<video offset="2253500/6000s" ref="r4" duration="5000/6000s" start="961600/6000s" />
+				<transition offset="2256600/6000s" ref="r5" name="Cross Dissolve" duration="3800/6000s" />
+				<video offset="2258500/6000s" ref="r4" duration="5400/6000s" start="970400/6000s" />
+				<transition offset="2261300/6000s" ref="r5" name="Cross Dissolve" duration="5100/6000s" />
+				<video offset="2263900/6000s" ref="r4" duration="6100/6000s" start="980900/6000s" />
+				<transition offset="2267400/6000s" ref="r5" name="Cross Dissolve" duration="5100/6000s" />
+				<video offset="2270000/6000s" ref="r4" duration="5500/6000s" start="992100/6000s" />
+				<transition offset="2273500/6000s" ref="r5" name="Cross Dissolve" duration="3900/6000s" />
+				<video offset="2275500/6000s" ref="r4" duration="4600/6000s" start="1001500/6000s" />
+				<transition offset="2278300/6000s" ref="r5" name="Cross Dissolve" duration="3600/6000s" />
+				<video offset="2280100/6000s" ref="r4" duration="4700/6000s" start="1009700/6000s" />
+				<transition offset="2282900/6000s" ref="r5" name="Cross Dissolve" duration="3800/6000s" />
+				<video offset="2284800/6000s" ref="r4" duration="4600/6000s" start="1018200/6000s" />
+				<transition offset="2287600/6000s" ref="r5" name="Cross Dissolve" duration="3600/6000s" />
+				<video offset="2289400/6000s" ref="r4" duration="4900/6000s" start="1026400/6000s" />
+				<transition offset="2292200/6000s" ref="r5" name="Cross Dissolve" duration="4200/6000s" />
+				<video offset="2294300/6000s" ref="r4" duration="5000/6000s" start="1035500/6000s" />
+				<transition offset="2297300/6000s" ref="r5" name="Cross Dissolve" duration="3900/6000s" />
+				<video offset="2299300/6000s" ref="r4" duration="4800/6000s" start="1044400/6000s" />
+				<transition offset="2302200/6000s" ref="r5" name="Cross Dissolve" duration="3700/6000s" />
+				<video offset="2304100/6000s" ref="r4" duration="4800/6000s" start="1052900/6000s" />
+				<transition offset="2306800/6000s" ref="r5" name="Cross Dissolve" duration="4100/6000s" />
+				<video offset="2308900/6000s" ref="r4" duration="4800/6000s" start="1061800/6000s" />
+				<transition offset="2311900/6000s" ref="r5" name="Cross Dissolve" duration="3500/6000s" />
+				<video offset="2313700/6000s" ref="r4" duration="4600/6000s" start="1070100/6000s" />
+				<transition offset="2316500/6000s" ref="r5" name="Cross Dissolve" duration="3500/6000s" />
+				<video offset="2318300/6000s" ref="r4" duration="4300/6000s" start="1078200/6000s" />
+				<transition offset="2321000/6000s" ref="r5" name="Cross Dissolve" duration="3100/6000s" />
+				<video offset="2322600/6000s" ref="r4" duration="4000/6000s" start="1085600/6000s" />
+				<transition offset="2325000/6000s" ref="r5" name="Cross Dissolve" duration="3100/6000s" />
+				<video offset="2326600/6000s" ref="r4" duration="3900/6000s" start="1092700/6000s" />
+				<transition offset="2329000/6000s" ref="r5" name="Cross Dissolve" duration="3000/6000s" />
+				<video offset="2330500/6000s" ref="r4" duration="4000/6000s" start="1099600/6000s" />
+				<transition offset="2333000/6000s" ref="r5" name="Cross Dissolve" duration="3000/6000s" />
+				<video offset="2334500/6000s" ref="r4" duration="3900/6000s" start="1106600/6000s" />
+				<transition offset="2337100/6000s" ref="r5" name="Cross Dissolve" duration="2500/6000s" />
+				<video offset="2338400/6000s" ref="r4" duration="4200/6000s" start="1113000/6000s" />
+				<transition offset="2340800/6000s" ref="r5" name="Cross Dissolve" duration="3600/6000s" />
+				<video offset="2342600/6000s" ref="r4" duration="4400/6000s" start="1120800/6000s" />
+				<transition offset="2345500/6000s" ref="r5" name="Cross Dissolve" duration="2900/6000s" />
+				<video offset="2347000/6000s" ref="r4" duration="4100/6000s" start="1128100/6000s" />
+				<transition offset="2349400/6000s" ref="r5" name="Cross Dissolve" duration="3400/6000s" />
+				<video offset="2351100/6000s" ref="r4" duration="4000/6000s" start="1135600/6000s" />
+				<transition offset="2353700/6000s" ref="r5" name="Cross Dissolve" duration="2800/6000s" />
+				<video offset="2355100/6000s" ref="r4" duration="4000/6000s" start="1142400/6000s" />
+				<transition offset="2357500/6000s" ref="r5" name="Cross Dissolve" duration="3200/6000s" />
+				<video offset="2359100/6000s" ref="r4" duration="4400/6000s" start="1149600/6000s" />
+				<transition offset="2361600/6000s" ref="r5" name="Cross Dissolve" duration="3700/6000s" />
+				<video offset="2363500/6000s" ref="r4" duration="5000/6000s" start="1157700/6000s" />
+				<transition offset="2366400/6000s" ref="r5" name="Cross Dissolve" duration="4200/6000s" />
+				<video offset="2368500/6000s" ref="r4" duration="5000/6000s" start="1166900/6000s" />
+				<transition offset="2371700/6000s" ref="r5" name="Cross Dissolve" duration="3500/6000s" />
+				<video offset="2373500/6000s" ref="r4" duration="5600/6000s" start="1175400/6000s" />
+				<transition offset="2376300/6000s" ref="r5" name="Cross Dissolve" duration="5500/6000s" />
+				<video offset="2379100/6000s" ref="r4" duration="5600/6000s" start="1186500/6000s" />
+				<transition offset="2382900/6000s" ref="r5" name="Cross Dissolve" duration="3500/6000s" />
+				<video offset="2384700/6000s" ref="r4" duration="4600/6000s" start="1195600/6000s" />
+				<transition offset="2387400/6000s" ref="r5" name="Cross Dissolve" duration="3700/6000s" />
+				<video offset="2389300/6000s" ref="r4" duration="4800/6000s" start="1203900/6000s" />
+				<transition offset="2392200/6000s" ref="r5" name="Cross Dissolve" duration="3800/6000s" />
+				<video offset="2394100/6000s" ref="r4" duration="4500/6000s" start="1212500/6000s" />
+				<transition offset="2396800/6000s" ref="r5" name="Cross Dissolve" duration="3600/6000s" />
+				<video offset="2398600/6000s" ref="r4" duration="4500/6000s" start="1220600/6000s" />
+				<transition offset="2401200/6000s" ref="r5" name="Cross Dissolve" duration="3800/6000s" />
+				<video offset="2403100/6000s" ref="r4" duration="4600/6000s" start="1228900/6000s" />
+				<transition offset="2405900/6000s" ref="r5" name="Cross Dissolve" duration="3600/6000s" />
+				<video offset="2407700/6000s" ref="r4" duration="4300/6000s" start="1237100/6000s" />
+				<transition offset="2410400/6000s" ref="r5" name="Cross Dissolve" duration="3100/6000s" />
+				<video offset="2412000/6000s" ref="r4" duration="4200/6000s" start="1244500/6000s" />
+				<transition offset="2414400/6000s" ref="r5" name="Cross Dissolve" duration="3600/6000s" />
+				<video offset="2416200/6000s" ref="r4" duration="7500/6000s" start="1252300/6000s" />
+			</spine>
+		</sequence>
+	</project>
+</fcpxml>
