@@ -18,7 +18,7 @@
 ### Архитектура
 - **Язык**: C++17+
 - **UI**: Qt 6.8+ Widgets, `.ui` в `ui/`, тема через `resources/openvegas.qss`
-- **Сборка**: CMake (предпочтительно `build/Windows_MinGW-x64`) и `OpenVegas.pro` (qmake) — **синхронизировать** оба
+- **Сборка**: CMake (предпочтительно `build/Windows_MinGW-x64-Debug`) и `OpenVegas.pro` (qmake) — **синхронизировать** оба
 - **Домен**: `ProjectModel` (tracks / events / media pool / FX slots) отдельно от chrome UI
 - **I/O**: `VegReader` для `.veg` (v1 timings + Event FX recovery); запись `.veg` / `.ovp` — позже
 - **Audio / Video / Media**: `src/audio/*`, `src/video/*`, `src/media/*`
@@ -152,7 +152,7 @@ OpenVegas/
 ### CMake
 - Минимум 3.16, C++17, Qt6 Widgets + Svg (+ зависимости audio/video)
 - `AUTOUIC` / `AUTOMOC` / `AUTORCC`
-- Предпочтительный out-of-tree: `build/Windows_MinGW-x64` (preset `windows-mingw-debug`)
+- Предпочтительный out-of-tree: `build/Windows_MinGW-x64-Debug` (preset `windows-mingw-debug`)
 - Опция `OPENVGAS_COPY_VEGAS_RUNTIME` → только в `build/vegas-runtime/` (gitignore)
 - Перед rebuild закрывать `OpenVegas.exe`, если линковка падает из‑за занятого файла
 
@@ -268,7 +268,7 @@ TODO в коде без записи в ISSUES — не оставлять.
 - Теги плагинов: `[plugins]`, `[vst3]`, `[ofx]`, `[builtin-dsp]`, `[video-fx]`, `[state]`, `[perf]`
 - Ручная проверка Open `.veg`:
   ```text
-  build\Windows_MinGW-x64\OpenVegas.exe SAMPLES\example_project_with_video_and_audio.veg
+  build\Windows_MinGW-x64-Debug\OpenVegas.exe SAMPLES\example_project_with_video_and_audio.veg
   ```
 - FX sample: `SAMPLES/veg_projects/project_big--buck-bunny_4x3-preview-reverse-fades-fx.veg`
 - Регресс UI: сравнить с `SAMPLES/veg_projects/` и `SAMPLES/screenshots/` (если есть)

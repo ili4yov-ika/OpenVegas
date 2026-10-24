@@ -11,7 +11,7 @@ source ~/.openvegas_macos_env.sh
 
 bash tools/macos_build.sh                 # Debug (preset macos-debug)
 bash tools/macos_build.sh release         # Release
-bash tools/macos_build.sh release deploy  # + macdeployqt → build/macos/OpenVegas.app
+bash tools/macos_build.sh release deploy  # + macdeployqt → build/macOS_LLVM-arm64-Release/OpenVegas.app
 ```
 
 Требуется: macOS 11+, Xcode CLT, Homebrew. CMake Presets: `macos-debug`, `macos-release` (`CMakePresets.json`).
@@ -22,7 +22,7 @@ Qt ищется через `CMAKE_PREFIX_PATH` (Homebrew `qt@6` или `~/Qt/6.x
 ```bash
 bash tools/setup_wsl_debian.sh     # пакеты + aqtinstall Qt 6.8 + сборка
 source ~/.openvegas_wsl_env.sh
-./build/linux-wsl/OpenVegas
+./build/Linux_GCC-x64-Release/OpenVegas
 ```
 
 Шаблон env без установки: `tools/wsl_debian_env.sh`.
@@ -37,7 +37,7 @@ source ~/.openvegas_wsl_env.sh
 То же для `ffprobe.exe`. Удобно положить Gyan/BtbN full build в `ffmpeg/bin/` в каталоге сборки или инсталлятора.
 
 ```text
-build/Windows_MinGW-x64/
+build/Windows_MinGW-x64-Debug/
   OpenVegas.exe
   ffmpeg.exe          # или
   ffmpeg/bin/ffmpeg.exe
@@ -77,7 +77,7 @@ tools\build_windows_installer.bat
 | `OPENVEGAS_CMAKE_GENERATOR` | генератор CMake, например `Ninja` или `MinGW Makefiles`; не задан — CMake выбирает сам |
 
 Скрипт собирает в отдельное дерево `build\windows-installer` (Release), а не в
-`build\Windows_MinGW-x64` из `CMakePresets.json`: тот сконфигурирован под Debug,
+`build\Windows_MinGW-x64-Debug` из `CMakePresets.json`: тот сконфигурирован под Debug,
 и переиспользование заставляло бы полностью пересобирать проект при каждом
 переключении между ними.
 
@@ -122,7 +122,7 @@ cpack -G NSIS
 # Linux
 cpack -G DEB   # или -G RPM
 
-# macOS (после Release в build/macos)
+# macOS (после Release в build/macOS_LLVM-arm64-Release)
 cpack -G DragNDrop
 ```
 

@@ -1,172 +1,641 @@
 {
-  "version": 6,
-  "cmakeMinimumRequired": {
-    "major": 3,
-    "minor": 16,
-    "patch": 0
-  },
-  "configurePresets": [
-    {
-      "name": "windows-mingw-debug",
-      "displayName": "Windows MinGW Debug",
-      "generator": "Ninja",
-      "binaryDir": "${sourceDir}/build/Windows_MinGW-x64",
-      "cacheVariables": {
-        "CMAKE_BUILD_TYPE": "Debug",
-        "CMAKE_PREFIX_PATH": "C:/Qt/6.9.3/mingw_64",
-        "CMAKE_C_COMPILER": "C:/Qt/Tools/mingw1310_64/bin/gcc.exe",
-        "CMAKE_CXX_COMPILER": "C:/Qt/Tools/mingw1310_64/bin/g++.exe"
-      },
-      "environment": {
-        "PATH": "C:/Qt/Tools/mingw1310_64/bin;C:/Qt/Tools/Ninja;$penv{PATH}"
-      }
+    "version": 6,
+    "cmakeMinimumRequired": {
+        "major": 3,
+        "minor": 21,
+        "patch": 0
     },
-    {
-      "name": "windows-mingw-release",
-      "displayName": "Windows MinGW Release",
-      "generator": "Ninja",
-      "binaryDir": "${sourceDir}/build/Windows_MinGW-x64",
-      "cacheVariables": {
-        "CMAKE_BUILD_TYPE": "Release",
-        "CMAKE_PREFIX_PATH": "C:/Qt/6.9.3/mingw_64",
-        "CMAKE_C_COMPILER": "C:/Qt/Tools/mingw1310_64/bin/gcc.exe",
-        "CMAKE_CXX_COMPILER": "C:/Qt/Tools/mingw1310_64/bin/g++.exe"
-      },
-      "environment": {
-        "PATH": "C:/Qt/Tools/mingw1310_64/bin;C:/Qt/Tools/Ninja;$penv{PATH}"
-      }
-    },
-    {
-      "name": "windows-msvc-debug",
-      "displayName": "Windows MSVC Debug",
-      "generator": "Ninja",
-      "binaryDir": "${sourceDir}/build-msvc",
-      "cacheVariables": {
-        "CMAKE_BUILD_TYPE": "Debug",
-        "CMAKE_PREFIX_PATH": "C:/Qt/6.9.3/msvc2022_64",
-        "CMAKE_MAKE_PROGRAM": "C:/Qt/Tools/Ninja/ninja.exe"
-      },
-      "environment": {
-        "PATH": "C:/Qt/6.9.3/msvc2022_64/bin;C:/Qt/Tools/Ninja;$penv{PATH}"
-      }
-    },
-    {
-      "name": "windows-msvc-release",
-      "displayName": "Windows MSVC Release",
-      "generator": "Ninja",
-      "binaryDir": "${sourceDir}/build-msvc",
-      "cacheVariables": {
-        "CMAKE_BUILD_TYPE": "Release",
-        "CMAKE_PREFIX_PATH": "C:/Qt/6.9.3/msvc2022_64",
-        "CMAKE_MAKE_PROGRAM": "C:/Qt/Tools/Ninja/ninja.exe"
-      },
-      "environment": {
-        "PATH": "C:/Qt/6.9.3/msvc2022_64/bin;C:/Qt/Tools/Ninja;$penv{PATH}"
-      }
-    },
-    {
-      "name": "macos-debug",
-      "displayName": "macOS Debug",
-      "generator": "Ninja",
-      "binaryDir": "${sourceDir}/build/macos",
-      "cacheVariables": {
-        "CMAKE_BUILD_TYPE": "Debug",
-        "CMAKE_PREFIX_PATH": "$env{CMAKE_PREFIX_PATH}"
-      }
-    },
-    {
-      "name": "macos-release",
-      "displayName": "macOS Release",
-      "generator": "Ninja",
-      "binaryDir": "${sourceDir}/build/macos",
-      "cacheVariables": {
-        "CMAKE_BUILD_TYPE": "Release",
-        "CMAKE_PREFIX_PATH": "$env{CMAKE_PREFIX_PATH}"
-      }
-    },
-    {
-      "name": "linux-wsl-release",
-      "displayName": "Linux WSL Release",
-      "description": "Run from inside WSL only (not from Windows CMake Tools).",
-      "generator": "Ninja",
-      "binaryDir": "${sourceDir}/build/linux-wsl",
-      "condition": {
-        "type": "equals",
-        "lhs": "${hostSystemName}",
-        "rhs": "Linux"
-      },
-      "cacheVariables": {
-        "CMAKE_BUILD_TYPE": "Release",
-        "CMAKE_PREFIX_PATH": "$env{CMAKE_PREFIX_PATH}"
-      }
-    },
-    {
-      "name": "linux-debug",
-      "displayName": "Linux Debug",
-      "generator": "Ninja",
-      "binaryDir": "${sourceDir}/build/linux",
-      "condition": {
-        "type": "equals",
-        "lhs": "${hostSystemName}",
-        "rhs": "Linux"
-      },
-      "cacheVariables": {
-        "CMAKE_BUILD_TYPE": "Debug",
-        "CMAKE_PREFIX_PATH": "$env{CMAKE_PREFIX_PATH}"
-      }
-    },
-    {
-      "name": "linux-release",
-      "displayName": "Linux Release",
-      "generator": "Ninja",
-      "binaryDir": "${sourceDir}/build/linux",
-      "condition": {
-        "type": "equals",
-        "lhs": "${hostSystemName}",
-        "rhs": "Linux"
-      },
-      "cacheVariables": {
-        "CMAKE_BUILD_TYPE": "Release",
-        "CMAKE_PREFIX_PATH": "$env{CMAKE_PREFIX_PATH}"
-      }
-    }
-  ],
-  "buildPresets": [
-    {
-      "name": "windows-mingw-debug",
-      "configurePreset": "windows-mingw-debug"
-    },
-    {
-      "name": "windows-mingw-release",
-      "configurePreset": "windows-mingw-release"
-    },
-    {
-      "name": "windows-msvc-debug",
-      "configurePreset": "windows-msvc-debug"
-    },
-    {
-      "name": "windows-msvc-release",
-      "configurePreset": "windows-msvc-release"
-    },
-    {
-      "name": "macos-debug",
-      "configurePreset": "macos-debug"
-    },
-    {
-      "name": "macos-release",
-      "configurePreset": "macos-release"
-    },
-    {
-      "name": "linux-wsl-release",
-      "configurePreset": "linux-wsl-release"
-    },
-    {
-      "name": "linux-debug",
-      "configurePreset": "linux-debug"
-    },
-    {
-      "name": "linux-release",
-      "configurePreset": "linux-release"
-    }
-  ]
+    "configurePresets": [
+        {
+            "name": "base",
+            "hidden": true,
+            "generator": "Ninja",
+            "cacheVariables": {
+                "CMAKE_EXPORT_COMPILE_COMMANDS": "ON"
+            }
+        },
+        {
+            "name": "windows-base",
+            "hidden": true,
+            "inherits": "base",
+            "condition": {
+                "type": "equals",
+                "lhs": "${hostSystemName}",
+                "rhs": "Windows"
+            }
+        },
+        {
+            "name": "windows-msvc-base",
+            "hidden": true,
+            "inherits": "windows-base",
+            "architecture": {
+                "value": "x64",
+                "strategy": "external"
+            },
+            "toolset": {
+                "value": "host=x64",
+                "strategy": "external"
+            },
+            "cacheVariables": {
+                "CMAKE_PREFIX_PATH": "C:/Qt/6.9.3/msvc2022_64",
+                "CMAKE_MAKE_PROGRAM": "C:/Qt/Tools/Ninja/ninja.exe"
+            },
+            "environment": {
+                "PATH": "C:/Qt/6.9.3/msvc2022_64/bin;C:/Qt/Tools/Ninja;$penv{PATH}"
+            }
+        },
+        {
+            "name": "windows-mingw-base",
+            "hidden": true,
+            "inherits": "windows-base",
+            "cacheVariables": {
+                "CMAKE_PREFIX_PATH": "C:/Qt/6.9.3/mingw_64",
+                "CMAKE_C_COMPILER": "C:/Qt/Tools/mingw1310_64/bin/gcc.exe",
+                "CMAKE_CXX_COMPILER": "C:/Qt/Tools/mingw1310_64/bin/g++.exe",
+                "CMAKE_MAKE_PROGRAM": "C:/Qt/Tools/Ninja/ninja.exe"
+            },
+            "environment": {
+                "PATH": "C:/Qt/Tools/mingw1310_64/bin;C:/Qt/6.9.3/mingw_64/bin;C:/Qt/Tools/Ninja;$penv{PATH}"
+            }
+        },
+        {
+            "name": "windows-llvm-base",
+            "hidden": true,
+            "inherits": "windows-base",
+            "cacheVariables": {
+                "CMAKE_PREFIX_PATH": "C:/Qt/6.9.3/llvm-mingw_64",
+                "CMAKE_C_COMPILER": "C:/Qt/Tools/llvm-mingw1706_64/bin/clang.exe",
+                "CMAKE_CXX_COMPILER": "C:/Qt/Tools/llvm-mingw1706_64/bin/clang++.exe",
+                "CMAKE_MAKE_PROGRAM": "C:/Qt/Tools/Ninja/ninja.exe"
+            },
+            "environment": {
+                "PATH": "C:/Qt/Tools/llvm-mingw1706_64/bin;C:/Qt/6.9.3/llvm-mingw_64/bin;C:/Qt/Tools/Ninja;$penv{PATH}"
+            }
+        },
+        {
+            "name": "linux-base",
+            "hidden": true,
+            "inherits": "base",
+            "condition": {
+                "type": "equals",
+                "lhs": "${hostSystemName}",
+                "rhs": "Linux"
+            },
+            "cacheVariables": {
+                "CMAKE_PREFIX_PATH": "$env{CMAKE_PREFIX_PATH}"
+            }
+        },
+        {
+            "name": "linux-gcc-base",
+            "hidden": true,
+            "inherits": "linux-base",
+            "cacheVariables": {
+                "CMAKE_C_COMPILER": "gcc",
+                "CMAKE_CXX_COMPILER": "g++"
+            }
+        },
+        {
+            "name": "linux-llvm-base",
+            "hidden": true,
+            "inherits": "linux-base",
+            "cacheVariables": {
+                "CMAKE_C_COMPILER": "clang",
+                "CMAKE_CXX_COMPILER": "clang++"
+            }
+        },
+        {
+            "name": "macos-base",
+            "hidden": true,
+            "inherits": "base",
+            "condition": {
+                "type": "equals",
+                "lhs": "${hostSystemName}",
+                "rhs": "Darwin"
+            },
+            "cacheVariables": {
+                "CMAKE_PREFIX_PATH": "$env{CMAKE_PREFIX_PATH}"
+            }
+        },
+        {
+            "name": "windows-msvc-debug",
+            "inherits": "windows-msvc-base",
+            "displayName": "Windows MSVC Debug (Ninja, Qt msvc2022_64)",
+            "description": "Run from a VS 2022 x64 developer prompt, or let the IDE supply the MSVC environment. Output in build/Windows_MSVC-x64-Debug.",
+            "binaryDir": "${sourceDir}/build/Windows_MSVC-x64-Debug",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Debug"
+            }
+        },
+        {
+            "name": "windows-msvc-release",
+            "inherits": "windows-msvc-base",
+            "displayName": "Windows MSVC Release (Ninja, Qt msvc2022_64)",
+            "description": "Run from a VS 2022 x64 developer prompt, or let the IDE supply the MSVC environment. Output in build/Windows_MSVC-x64-Release.",
+            "binaryDir": "${sourceDir}/build/Windows_MSVC-x64-Release",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Release"
+            }
+        },
+        {
+            "name": "windows-mingw-debug",
+            "inherits": "windows-mingw-base",
+            "displayName": "Windows MinGW Debug (Ninja, Qt mingw_64)",
+            "description": "Output in build/Windows_MinGW-x64-Debug.",
+            "binaryDir": "${sourceDir}/build/Windows_MinGW-x64-Debug",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Debug"
+            }
+        },
+        {
+            "name": "windows-mingw-release",
+            "inherits": "windows-mingw-base",
+            "displayName": "Windows MinGW Release (Ninja, Qt mingw_64)",
+            "description": "Output in build/Windows_MinGW-x64-Release.",
+            "binaryDir": "${sourceDir}/build/Windows_MinGW-x64-Release",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Release"
+            }
+        },
+        {
+            "name": "windows-llvm-debug",
+            "inherits": "windows-llvm-base",
+            "displayName": "Windows LLVM-MinGW Debug (Ninja, Qt llvm-mingw_64)",
+            "description": "Output in build/Windows_LLVM-x64-Debug.",
+            "binaryDir": "${sourceDir}/build/Windows_LLVM-x64-Debug",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Debug"
+            }
+        },
+        {
+            "name": "windows-llvm-release",
+            "inherits": "windows-llvm-base",
+            "displayName": "Windows LLVM-MinGW Release (Ninja, Qt llvm-mingw_64)",
+            "description": "Output in build/Windows_LLVM-x64-Release.",
+            "binaryDir": "${sourceDir}/build/Windows_LLVM-x64-Release",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Release"
+            }
+        },
+        {
+            "name": "linux-debug",
+            "inherits": "linux-gcc-base",
+            "displayName": "Linux GCC Debug (Ninja)",
+            "description": "Qt comes from CMAKE_PREFIX_PATH or the system. Output in build/Linux_GCC-x64-Debug.",
+            "binaryDir": "${sourceDir}/build/Linux_GCC-x64-Debug",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Debug"
+            }
+        },
+        {
+            "name": "linux-release",
+            "inherits": "linux-gcc-base",
+            "displayName": "Linux GCC Release (Ninja)",
+            "description": "Qt comes from CMAKE_PREFIX_PATH or the system. Output in build/Linux_GCC-x64-Release.",
+            "binaryDir": "${sourceDir}/build/Linux_GCC-x64-Release",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Release"
+            }
+        },
+        {
+            "name": "linux-llvm-debug",
+            "inherits": "linux-llvm-base",
+            "displayName": "Linux LLVM Debug (Ninja, Clang)",
+            "description": "Qt comes from CMAKE_PREFIX_PATH or the system. Output in build/Linux_LLVM-x64-Debug.",
+            "binaryDir": "${sourceDir}/build/Linux_LLVM-x64-Debug",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Debug"
+            }
+        },
+        {
+            "name": "linux-llvm-release",
+            "inherits": "linux-llvm-base",
+            "displayName": "Linux LLVM Release (Ninja, Clang)",
+            "description": "Qt comes from CMAKE_PREFIX_PATH or the system. Output in build/Linux_LLVM-x64-Release.",
+            "binaryDir": "${sourceDir}/build/Linux_LLVM-x64-Release",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Release"
+            }
+        },
+        {
+            "name": "macos-debug",
+            "inherits": "macos-base",
+            "displayName": "macOS Debug, Apple silicon (Ninja)",
+            "description": "Qt comes from CMAKE_PREFIX_PATH or the system. Output in build/macOS_LLVM-arm64-Debug.",
+            "binaryDir": "${sourceDir}/build/macOS_LLVM-arm64-Debug",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Debug",
+                "CMAKE_OSX_ARCHITECTURES": "arm64"
+            }
+        },
+        {
+            "name": "macos-release",
+            "inherits": "macos-base",
+            "displayName": "macOS Release, Apple silicon (Ninja)",
+            "description": "Qt comes from CMAKE_PREFIX_PATH or the system. Output in build/macOS_LLVM-arm64-Release.",
+            "binaryDir": "${sourceDir}/build/macOS_LLVM-arm64-Release",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Release",
+                "CMAKE_OSX_ARCHITECTURES": "arm64"
+            }
+        },
+        {
+            "name": "macos-x64-debug",
+            "inherits": "macos-base",
+            "displayName": "macOS Debug, Intel (Ninja)",
+            "description": "Qt comes from CMAKE_PREFIX_PATH or the system. Output in build/macOS_LLVM-x64-Debug.",
+            "binaryDir": "${sourceDir}/build/macOS_LLVM-x64-Debug",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Debug",
+                "CMAKE_OSX_ARCHITECTURES": "x86_64"
+            }
+        },
+        {
+            "name": "macos-x64-release",
+            "inherits": "macos-base",
+            "displayName": "macOS Release, Intel (Ninja)",
+            "description": "Qt comes from CMAKE_PREFIX_PATH or the system. Output in build/macOS_LLVM-x64-Release.",
+            "binaryDir": "${sourceDir}/build/macOS_LLVM-x64-Release",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Release",
+                "CMAKE_OSX_ARCHITECTURES": "x86_64"
+            }
+        },
+        {
+            "name": "windows-msvc-vs2022",
+            "displayName": "Windows MSVC (Visual Studio 2022 solution)",
+            "description": "Visual Studio 17 2022 generator; Debug and Release side by side in build/Windows_MSVC-x64-VS2022.",
+            "generator": "Visual Studio 17 2022",
+            "architecture": "x64",
+            "toolset": "host=x64",
+            "binaryDir": "${sourceDir}/build/Windows_MSVC-x64-VS2022",
+            "cacheVariables": {
+                "CMAKE_PREFIX_PATH": "C:/Qt/6.9.3/msvc2022_64"
+            },
+            "condition": {
+                "type": "equals",
+                "lhs": "${hostSystemName}",
+                "rhs": "Windows"
+            }
+        }
+    ],
+    "buildPresets": [
+        {
+            "name": "windows-msvc-debug",
+            "configurePreset": "windows-msvc-debug",
+            "condition": {
+                "type": "equals",
+                "lhs": "${hostSystemName}",
+                "rhs": "Windows"
+            }
+        },
+        {
+            "name": "windows-msvc-release",
+            "configurePreset": "windows-msvc-release",
+            "condition": {
+                "type": "equals",
+                "lhs": "${hostSystemName}",
+                "rhs": "Windows"
+            }
+        },
+        {
+            "name": "windows-mingw-debug",
+            "configurePreset": "windows-mingw-debug",
+            "condition": {
+                "type": "equals",
+                "lhs": "${hostSystemName}",
+                "rhs": "Windows"
+            }
+        },
+        {
+            "name": "windows-mingw-release",
+            "configurePreset": "windows-mingw-release",
+            "condition": {
+                "type": "equals",
+                "lhs": "${hostSystemName}",
+                "rhs": "Windows"
+            }
+        },
+        {
+            "name": "windows-llvm-debug",
+            "configurePreset": "windows-llvm-debug",
+            "condition": {
+                "type": "equals",
+                "lhs": "${hostSystemName}",
+                "rhs": "Windows"
+            }
+        },
+        {
+            "name": "windows-llvm-release",
+            "configurePreset": "windows-llvm-release",
+            "condition": {
+                "type": "equals",
+                "lhs": "${hostSystemName}",
+                "rhs": "Windows"
+            }
+        },
+        {
+            "name": "linux-debug",
+            "configurePreset": "linux-debug",
+            "condition": {
+                "type": "equals",
+                "lhs": "${hostSystemName}",
+                "rhs": "Linux"
+            }
+        },
+        {
+            "name": "linux-release",
+            "configurePreset": "linux-release",
+            "condition": {
+                "type": "equals",
+                "lhs": "${hostSystemName}",
+                "rhs": "Linux"
+            }
+        },
+        {
+            "name": "linux-llvm-debug",
+            "configurePreset": "linux-llvm-debug",
+            "condition": {
+                "type": "equals",
+                "lhs": "${hostSystemName}",
+                "rhs": "Linux"
+            }
+        },
+        {
+            "name": "linux-llvm-release",
+            "configurePreset": "linux-llvm-release",
+            "condition": {
+                "type": "equals",
+                "lhs": "${hostSystemName}",
+                "rhs": "Linux"
+            }
+        },
+        {
+            "name": "macos-debug",
+            "configurePreset": "macos-debug",
+            "condition": {
+                "type": "equals",
+                "lhs": "${hostSystemName}",
+                "rhs": "Darwin"
+            }
+        },
+        {
+            "name": "macos-release",
+            "configurePreset": "macos-release",
+            "condition": {
+                "type": "equals",
+                "lhs": "${hostSystemName}",
+                "rhs": "Darwin"
+            }
+        },
+        {
+            "name": "macos-x64-debug",
+            "configurePreset": "macos-x64-debug",
+            "condition": {
+                "type": "equals",
+                "lhs": "${hostSystemName}",
+                "rhs": "Darwin"
+            }
+        },
+        {
+            "name": "macos-x64-release",
+            "configurePreset": "macos-x64-release",
+            "condition": {
+                "type": "equals",
+                "lhs": "${hostSystemName}",
+                "rhs": "Darwin"
+            }
+        },
+        {
+            "name": "windows-msvc-vs2022-debug",
+            "configurePreset": "windows-msvc-vs2022",
+            "configuration": "Debug",
+            "condition": {
+                "type": "equals",
+                "lhs": "${hostSystemName}",
+                "rhs": "Windows"
+            }
+        },
+        {
+            "name": "windows-msvc-vs2022-release",
+            "configurePreset": "windows-msvc-vs2022",
+            "configuration": "Release",
+            "condition": {
+                "type": "equals",
+                "lhs": "${hostSystemName}",
+                "rhs": "Windows"
+            }
+        }
+    ],
+    "testPresets": [
+        {
+            "name": "windows-msvc-debug",
+            "configurePreset": "windows-msvc-debug",
+            "condition": {
+                "type": "equals",
+                "lhs": "${hostSystemName}",
+                "rhs": "Windows"
+            },
+            "output": {
+                "outputOnFailure": true
+            },
+            "environment": {
+                "QT_QPA_PLATFORM": "offscreen"
+            }
+        },
+        {
+            "name": "windows-msvc-release",
+            "configurePreset": "windows-msvc-release",
+            "condition": {
+                "type": "equals",
+                "lhs": "${hostSystemName}",
+                "rhs": "Windows"
+            },
+            "output": {
+                "outputOnFailure": true
+            },
+            "environment": {
+                "QT_QPA_PLATFORM": "offscreen"
+            }
+        },
+        {
+            "name": "windows-mingw-debug",
+            "configurePreset": "windows-mingw-debug",
+            "condition": {
+                "type": "equals",
+                "lhs": "${hostSystemName}",
+                "rhs": "Windows"
+            },
+            "output": {
+                "outputOnFailure": true
+            },
+            "environment": {
+                "QT_QPA_PLATFORM": "offscreen"
+            }
+        },
+        {
+            "name": "windows-mingw-release",
+            "configurePreset": "windows-mingw-release",
+            "condition": {
+                "type": "equals",
+                "lhs": "${hostSystemName}",
+                "rhs": "Windows"
+            },
+            "output": {
+                "outputOnFailure": true
+            },
+            "environment": {
+                "QT_QPA_PLATFORM": "offscreen"
+            }
+        },
+        {
+            "name": "windows-llvm-debug",
+            "configurePreset": "windows-llvm-debug",
+            "condition": {
+                "type": "equals",
+                "lhs": "${hostSystemName}",
+                "rhs": "Windows"
+            },
+            "output": {
+                "outputOnFailure": true
+            },
+            "environment": {
+                "QT_QPA_PLATFORM": "offscreen"
+            }
+        },
+        {
+            "name": "windows-llvm-release",
+            "configurePreset": "windows-llvm-release",
+            "condition": {
+                "type": "equals",
+                "lhs": "${hostSystemName}",
+                "rhs": "Windows"
+            },
+            "output": {
+                "outputOnFailure": true
+            },
+            "environment": {
+                "QT_QPA_PLATFORM": "offscreen"
+            }
+        },
+        {
+            "name": "linux-debug",
+            "configurePreset": "linux-debug",
+            "condition": {
+                "type": "equals",
+                "lhs": "${hostSystemName}",
+                "rhs": "Linux"
+            },
+            "output": {
+                "outputOnFailure": true
+            },
+            "environment": {
+                "QT_QPA_PLATFORM": "offscreen"
+            }
+        },
+        {
+            "name": "linux-release",
+            "configurePreset": "linux-release",
+            "condition": {
+                "type": "equals",
+                "lhs": "${hostSystemName}",
+                "rhs": "Linux"
+            },
+            "output": {
+                "outputOnFailure": true
+            },
+            "environment": {
+                "QT_QPA_PLATFORM": "offscreen"
+            }
+        },
+        {
+            "name": "linux-llvm-debug",
+            "configurePreset": "linux-llvm-debug",
+            "condition": {
+                "type": "equals",
+                "lhs": "${hostSystemName}",
+                "rhs": "Linux"
+            },
+            "output": {
+                "outputOnFailure": true
+            },
+            "environment": {
+                "QT_QPA_PLATFORM": "offscreen"
+            }
+        },
+        {
+            "name": "linux-llvm-release",
+            "configurePreset": "linux-llvm-release",
+            "condition": {
+                "type": "equals",
+                "lhs": "${hostSystemName}",
+                "rhs": "Linux"
+            },
+            "output": {
+                "outputOnFailure": true
+            },
+            "environment": {
+                "QT_QPA_PLATFORM": "offscreen"
+            }
+        },
+        {
+            "name": "macos-debug",
+            "configurePreset": "macos-debug",
+            "condition": {
+                "type": "equals",
+                "lhs": "${hostSystemName}",
+                "rhs": "Darwin"
+            },
+            "output": {
+                "outputOnFailure": true
+            },
+            "environment": {
+                "QT_QPA_PLATFORM": "offscreen"
+            }
+        },
+        {
+            "name": "macos-release",
+            "configurePreset": "macos-release",
+            "condition": {
+                "type": "equals",
+                "lhs": "${hostSystemName}",
+                "rhs": "Darwin"
+            },
+            "output": {
+                "outputOnFailure": true
+            },
+            "environment": {
+                "QT_QPA_PLATFORM": "offscreen"
+            }
+        },
+        {
+            "name": "macos-x64-debug",
+            "configurePreset": "macos-x64-debug",
+            "condition": {
+                "type": "equals",
+                "lhs": "${hostSystemName}",
+                "rhs": "Darwin"
+            },
+            "output": {
+                "outputOnFailure": true
+            },
+            "environment": {
+                "QT_QPA_PLATFORM": "offscreen"
+            }
+        },
+        {
+            "name": "macos-x64-release",
+            "configurePreset": "macos-x64-release",
+            "condition": {
+                "type": "equals",
+                "lhs": "${hostSystemName}",
+                "rhs": "Darwin"
+            },
+            "output": {
+                "outputOnFailure": true
+            },
+            "environment": {
+                "QT_QPA_PLATFORM": "offscreen"
+            }
+        }
+    ]
 }

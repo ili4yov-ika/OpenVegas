@@ -36,8 +36,15 @@ for arg in "$@"; do
     esac
 done
 
-PRESET="macos-${BUILD_TYPE}"
-BUILD_DIR="${PROJECT_ROOT}/build/macos"
+# Presets and folders follow CMakePresets.json: build/macOS_LLVM-<arch>-<Debug|Release>.
+CONFIG_NAME="$(tr '[:lower:]' '[:upper:]' <<< "${BUILD_TYPE:0:1}")${BUILD_TYPE:1}"
+if [[ "$(uname -m)" == "arm64" ]]; then
+    PRESET="macos-${BUILD_TYPE}"
+    BUILD_DIR="${PROJECT_ROOT}/build/macOS_LLVM-arm64-${CONFIG_NAME}"
+else
+    PRESET="macos-x64-${BUILD_TYPE}"
+    BUILD_DIR="${PROJECT_ROOT}/build/macOS_LLVM-x64-${CONFIG_NAME}"
+fi
 
 cd "$PROJECT_ROOT"
 

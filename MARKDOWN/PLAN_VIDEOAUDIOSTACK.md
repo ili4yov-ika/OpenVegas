@@ -43,7 +43,7 @@
 | NLE interchange export | **Done (MVP)** | Vegas CSV, FCP7+pathurl/fades, FCPXML assets; CMX `.edl`; Premiere write — stub |
 | Render progress UI | **Done** | `RenderingProgressDialog` (elapsed / ETA / cancel) |
 | Timeline ruler zoom UX | **Done** | Fit / Zoom In-Out; Ctrl+колёсико; sync `m_pxPerSec` |
-| Build: CMake MinGW path | **Done** | `build/Windows_MinGW-x64` (preset `windows-mingw-debug`) |
+| Build: CMake MinGW path | **Done** | `build/Windows_MinGW-x64-Debug` (preset `windows-mingw-debug`) |
 | Build: Qt Creator qmake | **Done** | `OpenVegas.pro` синхронизирован с CMake; `user32` / `winmm` |
 | Shadow / Glow, blend modes, mask interpolate | **Not started** | video polish |
 | VEG VST/OFX full state restore | **Partial** | `CcnK` → chunk; Event FX: Glint XML + skip Magix AutoFrame; полный blob backlog |

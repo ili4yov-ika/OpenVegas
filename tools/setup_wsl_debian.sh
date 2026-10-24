@@ -112,13 +112,13 @@ source "${ENV_FILE}"
 echo
 echo "[4/5] Конфигурация CMake..."
 cd "$PROJECT_ROOT"
-cmake -S . -B build/linux-wsl -G Ninja \
+cmake -S . -B build/Linux_GCC-x64-Release -G Ninja \
     -DCMAKE_BUILD_TYPE=Release \
     -DCMAKE_PREFIX_PATH="${QT_DIR}"
 
 echo
 echo "[5/5] Сборка..."
-cmake --build build/linux-wsl --parallel
+cmake --build build/Linux_GCC-x64-Release --parallel
 
 echo
 echo "========================================"
@@ -128,8 +128,8 @@ echo
 echo "Пересборка:"
 echo "  cd '$PROJECT_ROOT'"
 echo "  source ~/.openvegas_wsl_env.sh"
-echo "  cmake --build build/linux-wsl --parallel"
+echo "  cmake --build build/Linux_GCC-x64-Release --parallel"
 echo
 echo "Запуск GUI (Windows 10: нужен VcXsrv/X410; Windows 11: WSLg):"
 echo "  source ~/.openvegas_wsl_env.sh"
-echo "  ./build/linux-wsl/OpenVegas"
+echo "  ./build/Linux_GCC-x64-Release/OpenVegas"

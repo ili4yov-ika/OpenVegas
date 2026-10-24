@@ -86,10 +86,10 @@ VEG Glint/AutoFrame fix, editor stretch.
 ### Команды (MinGW)
 
 ```text
-cmake --build build/Windows_MinGW-x64 --target openvegas_audio_tests openvegas_video_tests openvegas_media_tests -j
-ctest --test-dir build/Windows_MinGW-x64 -R "openvegas_(audio|video|media)_tests" --output-on-failure
-build/Windows_MinGW-x64/openvegas_media_tests.exe "[plugins]"
-build/Windows_MinGW-x64/openvegas_media_tests.exe "[video-fx]"
+cmake --build build/Windows_MinGW-x64-Debug --target openvegas_audio_tests openvegas_video_tests openvegas_media_tests -j
+ctest --test-dir build/Windows_MinGW-x64-Debug -R "openvegas_(audio|video|media)_tests" --output-on-failure
+build/Windows_MinGW-x64-Debug/openvegas_media_tests.exe "[plugins]"
+build/Windows_MinGW-x64-Debug/openvegas_media_tests.exe "[video-fx]"
 ```
 
 ### Фикстуры

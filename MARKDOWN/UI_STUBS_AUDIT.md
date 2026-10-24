@@ -147,7 +147,7 @@ DSP. Страницы остаются привязаны к тому же об�
 восстановление настроек и смену sample rate. Прогон всего audio suite с исключением
 отдельного sandbox-зависимого `[policy]`: **37 cases / 1301 assertions — passed**.
 
-Интеграционная проверка `python tools/run_ui_stubs_smoke.py --build build-msvc --suite audio-fx`
+Интеграционная проверка `python tools/run_ui_stubs_smoke.py --build build/Windows_MinGW-x64-Debug --suite audio-fx`
 использует настоящий DirectShow-плагин, его HWND и штатный MainWindow/AudioEngine graph.
 **146 checks — passed**: нативные редакторы открылись для всех **39** эффектов,
 все заявленные страницы активировались. Проверены влияние правки на микс, bypass,
@@ -521,7 +521,7 @@ UI smoke использует штатные UI/model/compositor/mixer объе�
 тестовую реализацию PluginScanner; он не проверяет оригинальные OFX.
 Проверяемые настройки MainWindow/Project Properties используют выбранный формат
 QSettings; тест направляет их в временный INI-каталог. Preview jobs должны завершиться
-до teardown. Runner для Windows MinGW/Ninja: `python tools/run_ui_stubs_smoke.py --build build-msvc`.
+до teardown. Runner для Windows MinGW/Ninja: `python tools/run_ui_stubs_smoke.py --build build/Windows_MinGW-x64-Debug`.
 
 Не заявляются полная реализация отключённых функций, полное восстановление/запись
 родного `.veg`, точное совпадение настроек snapshot/keyboard maps с VEGAS и pixel/DSP parity.

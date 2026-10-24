@@ -522,8 +522,8 @@ OPENVEGAS_OFX_TRACE=/tmp/ofx.log ./OpenVegas
 Запуск:
 
 ```bash
-build/Windows_MinGW-x64/openvegas_media_tests.exe "[ofx]"
-build/Windows_MinGW-x64/openvegas_video_tests.exe "[vegas-video]"
+build/Windows_MinGW-x64-Debug/openvegas_media_tests.exe "[ofx]"
+build/Windows_MinGW-x64-Debug/openvegas_video_tests.exe "[vegas-video]"
 ```
 
 ---

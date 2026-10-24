@@ -79,23 +79,46 @@ Details and backlog: [`MARKDOWN/ISSUES_AND_PLANS.md`](MARKDOWN/ISSUES_AND_PLANS.
 
 Requires **Qt 6.8+** (Widgets + Svg). On Windows, close `OpenVegas.exe` before rebuilding if linking fails because the file is in use.
 
-### Qt Creator (qmake)
+### Build folders
 
-Open [`OpenVegas.pro`](OpenVegas.pro), choose a **Qt 6.8+ Widgets** kit (MSVC / MinGW / Clang) → Build.
+Every build goes into its own folder under `build/`, named `<OS>_<Compiler>-<arch>-<Config>`:
+
+| Preset | Folder |
+|--------|--------|
+| `windows-msvc-debug` / `windows-msvc-release` | `build/Windows_MSVC-x64-Debug` / `-Release` |
+| `windows-mingw-debug` / `windows-mingw-release` | `build/Windows_MinGW-x64-Debug` / `-Release` |
+| `windows-llvm-debug` / `windows-llvm-release` | `build/Windows_LLVM-x64-Debug` / `-Release` |
+| `windows-msvc-vs2022` | `build/Windows_MSVC-x64-VS2022` (Visual Studio solution, Debug and Release) |
+| `linux-debug` / `linux-release` | `build/Linux_GCC-x64-Debug` / `-Release` |
+| `linux-llvm-debug` / `linux-llvm-release` | `build/Linux_LLVM-x64-Debug` / `-Release` |
+| `macos-debug` / `macos-release` | `build/macOS_LLVM-arm64-Debug` / `-Release` |
+| `macos-x64-debug` / `macos-x64-release` | `build/macOS_LLVM-x64-Debug` / `-Release` |
+
+qmake builds from Qt Creator use the same name with a `-qmake` suffix, for example
+`build/Windows_MinGW-x64-Debug-qmake`. The Windows installer builds in
+`build/Windows_x64-Release-Installer`.
+
+The Windows presets expect Qt 6.9.3 in `C:/Qt` (`msvc2022_64`, `mingw_64`, `llvm-mingw_64`);
+the MSVC ones also need a VS 2022 x64 developer prompt. On Linux and macOS, Qt comes from
+`CMAKE_PREFIX_PATH`.
 
 ### CMake
 
 ```bash
-# Windows MinGW (see also cmake --preset windows-mingw-debug)
-cmake -S . -B build/Windows_MinGW-x64 -DCMAKE_PREFIX_PATH=<path-to-Qt6.8>
-cmake --build build/Windows_MinGW-x64
+cmake --preset windows-mingw-debug
+cmake --build --preset windows-mingw-debug
 ```
+
+### Qt Creator (qmake)
+
+Open [`OpenVegas.pro`](OpenVegas.pro), choose a **Qt 6.8+ Widgets** kit (MSVC / MinGW / Clang) and set
+the build directory to `build/<OS>_<Compiler>-x64-<Config>-qmake` → Build.
 
 Running:
 
 ```text
-build\Windows_MinGW-x64\OpenVegas.exe
-build\Windows_MinGW-x64\OpenVegas.exe SAMPLES\veg_projects\project_big--buck-bunny.veg
+build\Windows_MinGW-x64-Debug\OpenVegas.exe
+build\Windows_MinGW-x64-Debug\OpenVegas.exe SAMPLES\veg_projects\project_big--buck-bunny.veg
 ```
 
 Reference projects to check against:
@@ -109,7 +132,7 @@ Reference projects to check against:
 Optionally copy Vegas subtrees into the **ignored** `build/.../vegas-runtime/`:
 
 ```bash
-cmake -S . -B build/Windows_MinGW-x64 -DCMAKE_PREFIX_PATH=<Qt6.8> -DOPENVGAS_COPY_VEGAS_RUNTIME=ON
+cmake --preset windows-mingw-debug -DOPENVGAS_COPY_VEGAS_RUNTIME=ON
 ```
 
 **Do not commit** `build/`, `vegas-runtime/` or Vegas binaries — they are in [`.gitignore`](.gitignore).
@@ -122,7 +145,7 @@ Shallow-clone it into `thirdparty/vst3sdk` (submodules `pluginterfaces`, `base`,
 
 ```bash
 cd thirdparty/vst3sdk && git submodule update --init pluginterfaces base public.sdk
-cmake -S . -B build/Windows_MinGW-x64 -DCMAKE_PREFIX_PATH=<Qt6.8>
+cd ../.. && cmake --preset windows-mingw-debug
 ```
 
 ### OFX video plug-ins
@@ -152,8 +175,8 @@ Details — [`MARKDOWN/PLAN_OFX_VIDEO_PLUGINS.md`](MARKDOWN/PLAN_OFX_VIDEO_PLUGI
 ### Tests
 
 ```bash
-cmake --build build/Windows_MinGW-x64 --target openvegas_audio_tests openvegas_video_tests openvegas_media_tests
-ctest --test-dir build/Windows_MinGW-x64 --output-on-failure
+cmake --build --preset windows-mingw-debug --target openvegas_audio_tests openvegas_video_tests openvegas_media_tests
+ctest --preset windows-mingw-debug
 ```
 
 ### CI (GitHub Actions)

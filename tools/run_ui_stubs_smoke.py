@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Run the UI integration check using a configured Windows MinGW/Ninja build.
-Usage: python tools/run_ui_stubs_smoke.py --build build-msvc [--suite audio-fx]
+Usage: python tools/run_ui_stubs_smoke.py --build build/Windows_MinGW-x64-Debug [--suite audio-fx]
 The audio-fx suite requires registered Windows Shared Plug-Ins and native HWNDs.
 Reuses application objects; QSettings are isolated by the test's temporary directory.
 """
@@ -13,7 +13,7 @@ import subprocess
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--build", default="build-msvc")
+    parser.add_argument("--build", default="build/Windows_MinGW-x64-Debug")
     parser.add_argument("--suite", choices=("ui-stubs", "audio-fx"), default="ui-stubs")
     args = parser.parse_args()
     root = Path(__file__).resolve().parents[1]

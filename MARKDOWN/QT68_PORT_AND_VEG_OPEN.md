@@ -17,7 +17,7 @@
 
 | Тема | Статус |
 |------|--------|
-| Qt 6.8 / MinGW / MSVC kit | Работает; предпочтительно `build/Windows_MinGW-x64` |
+| Qt 6.8 / MinGW / MSVC kit | Работает; предпочтительно `build/Windows_MinGW-x64-Debug` |
 | Open `.veg` + Project Media + timeline | **Done** (v1 timings + Event FX recovery) |
 | Video Preview compositor | **Done** MVP (`src/video/*`) |
 | Audio / Builtin / VST1–3 / OFX | **Done** lean; VST3 `IPlugView` |

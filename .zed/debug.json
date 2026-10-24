@@ -3,8 +3,8 @@
     "label": "OpenVegas (CMake MinGW Debug)",
     "adapter": "GDB",
     "request": "launch",
-    "program": "$ZED_WORKTREE_ROOT/build/Windows_MinGW-x64/OpenVegas.exe",
-    "cwd": "$ZED_WORKTREE_ROOT/build/Windows_MinGW-x64",
+    "program": "$ZED_WORKTREE_ROOT/build/Windows_MinGW-x64-Debug/OpenVegas.exe",
+    "cwd": "$ZED_WORKTREE_ROOT/build/Windows_MinGW-x64-Debug",
     "env": {
       "PATH": "C:/Qt/6.9.3/mingw_64/bin;C:/Qt/Tools/mingw1310_64/bin",
       "QT_PLUGIN_PATH": "C:/Qt/6.9.3/mingw_64/plugins"
@@ -16,8 +16,8 @@
     "label": "OpenVegas (CMake MinGW Release)",
     "adapter": "GDB",
     "request": "launch",
-    "program": "$ZED_WORKTREE_ROOT/build/Windows_MinGW-x64/OpenVegas.exe",
-    "cwd": "$ZED_WORKTREE_ROOT/build/Windows_MinGW-x64",
+    "program": "$ZED_WORKTREE_ROOT/build/Windows_MinGW-x64-Release/OpenVegas.exe",
+    "cwd": "$ZED_WORKTREE_ROOT/build/Windows_MinGW-x64-Release",
     "env": {
       "PATH": "C:/Qt/6.9.3/mingw_64/bin;C:/Qt/Tools/mingw1310_64/bin",
       "QT_PLUGIN_PATH": "C:/Qt/6.9.3/mingw_64/plugins"
@@ -29,8 +29,8 @@
     "label": "OpenVegas (qmake MinGW Debug)",
     "adapter": "GDB",
     "request": "launch",
-    "program": "$ZED_WORKTREE_ROOT/build-pro/debug/OpenVegas.exe",
-    "cwd": "$ZED_WORKTREE_ROOT/build-pro/debug",
+    "program": "$ZED_WORKTREE_ROOT/build/Windows_MinGW-x64-Debug-qmake/OpenVegas.exe",
+    "cwd": "$ZED_WORKTREE_ROOT/build/Windows_MinGW-x64-Debug-qmake",
     "env": {
       "PATH": "C:/Qt/6.9.3/mingw_64/bin;C:/Qt/Tools/mingw1310_64/bin",
       "QT_PLUGIN_PATH": "C:/Qt/6.9.3/mingw_64/plugins"
@@ -42,8 +42,8 @@
     "label": "OpenVegas (CMake MSVC Debug)",
     "adapter": "CodeLLDB",
     "request": "launch",
-    "program": "$ZED_WORKTREE_ROOT/build-msvc/OpenVegas.exe",
-    "cwd": "$ZED_WORKTREE_ROOT/build-msvc",
+    "program": "$ZED_WORKTREE_ROOT/build/Windows_MSVC-x64-Debug/OpenVegas.exe",
+    "cwd": "$ZED_WORKTREE_ROOT/build/Windows_MSVC-x64-Debug",
     "env": {
       "PATH": "C:/Qt/6.9.3/msvc2022_64/bin",
       "QT_PLUGIN_PATH": "C:/Qt/6.9.3/msvc2022_64/plugins"

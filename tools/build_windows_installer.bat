@@ -17,10 +17,10 @@ chcp 65001 >nul
 
 set "SCRIPT_DIR=%~dp0"
 set "PROJECT_ROOT=%SCRIPT_DIR%.."
-REM Deliberately NOT the dev tree from CMakePresets (build\Windows_MinGW-x64):
+REM Deliberately NOT the dev tree from CMakePresets (build\Windows_MinGW-x64-Debug):
 REM that one is configured Debug, and reusing it would flip its cache to Release
 REM and force a full rebuild every time you switch between the two.
-set "BUILD_DIR=%PROJECT_ROOT%\build\windows-installer"
+set "BUILD_DIR=%PROJECT_ROOT%\build\Windows_x64-Release-Installer"
 set "INSTALL_DIR=%BUILD_DIR%\install"
 set "NSIS_SCRIPT=%SCRIPT_DIR%nsis_installer.nsi"
 

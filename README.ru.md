@@ -79,23 +79,46 @@
 
 Требуется **Qt 6.8+** (Widgets + Svg). Перед rebuild на Windows закройте `OpenVegas.exe`, если линковка падает из‑за занятого файла.
 
-### Qt Creator (qmake)
+### Папки сборки
 
-Откройте [`OpenVegas.pro`](OpenVegas.pro), kit **Qt 6.8+ Widgets** (MSVC / MinGW / Clang) → Build.
+Каждая сборка идёт в свою папку внутри `build/` с именем `<ОС>_<Компилятор>-<архитектура>-<Конфигурация>`:
+
+| Preset | Папка |
+|--------|-------|
+| `windows-msvc-debug` / `windows-msvc-release` | `build/Windows_MSVC-x64-Debug` / `-Release` |
+| `windows-mingw-debug` / `windows-mingw-release` | `build/Windows_MinGW-x64-Debug` / `-Release` |
+| `windows-llvm-debug` / `windows-llvm-release` | `build/Windows_LLVM-x64-Debug` / `-Release` |
+| `windows-msvc-vs2022` | `build/Windows_MSVC-x64-VS2022` (решение Visual Studio, Debug и Release) |
+| `linux-debug` / `linux-release` | `build/Linux_GCC-x64-Debug` / `-Release` |
+| `linux-llvm-debug` / `linux-llvm-release` | `build/Linux_LLVM-x64-Debug` / `-Release` |
+| `macos-debug` / `macos-release` | `build/macOS_LLVM-arm64-Debug` / `-Release` |
+| `macos-x64-debug` / `macos-x64-release` | `build/macOS_LLVM-x64-Debug` / `-Release` |
+
+Сборки qmake из Qt Creator используют то же имя с суффиксом `-qmake`, например
+`build/Windows_MinGW-x64-Debug-qmake`. Установщик Windows собирается в
+`build/Windows_x64-Release-Installer`.
+
+Windows-пресеты ждут Qt 6.9.3 в `C:/Qt` (`msvc2022_64`, `mingw_64`, `llvm-mingw_64`);
+MSVC-пресетам ещё нужна консоль разработчика VS 2022 x64. На Linux и macOS Qt берётся
+из `CMAKE_PREFIX_PATH`.
 
 ### CMake
 
 ```bash
-# Windows MinGW (см. также cmake --preset windows-mingw-debug)
-cmake -S . -B build/Windows_MinGW-x64 -DCMAKE_PREFIX_PATH=<путь-к-Qt6.8>
-cmake --build build/Windows_MinGW-x64
+cmake --preset windows-mingw-debug
+cmake --build --preset windows-mingw-debug
 ```
+
+### Qt Creator (qmake)
+
+Откройте [`OpenVegas.pro`](OpenVegas.pro), kit **Qt 6.8+ Widgets** (MSVC / MinGW / Clang), каталог сборки —
+`build/<ОС>_<Компилятор>-x64-<Конфигурация>-qmake` → Build.
 
 Запуск:
 
 ```text
-build\Windows_MinGW-x64\OpenVegas.exe
-build\Windows_MinGW-x64\OpenVegas.exe SAMPLES\veg_projects\project_big--buck-bunny.veg
+build\Windows_MinGW-x64-Debug\OpenVegas.exe
+build\Windows_MinGW-x64-Debug\OpenVegas.exe SAMPLES\veg_projects\project_big--buck-bunny.veg
 ```
 
 Эталонные проекты для проверки:
@@ -109,7 +132,7 @@ build\Windows_MinGW-x64\OpenVegas.exe SAMPLES\veg_projects\project_big--buck-bun
 Опционально скопировать поддеревья Vegas в **игнорируемый** `build/.../vegas-runtime/`:
 
 ```bash
-cmake -S . -B build/Windows_MinGW-x64 -DCMAKE_PREFIX_PATH=<Qt6.8> -DOPENVGAS_COPY_VEGAS_RUNTIME=ON
+cmake --preset windows-mingw-debug -DOPENVGAS_COPY_VEGAS_RUNTIME=ON
 ```
 
 **Не коммитьте** `build/`, `vegas-runtime/` и бинарники Vegas — они в [`.gitignore`](.gitignore).
@@ -122,7 +145,7 @@ Shallow-clone в `thirdparty/vst3sdk` (submodules `pluginterfaces`, `base`, `pub
 
 ```bash
 cd thirdparty/vst3sdk && git submodule update --init pluginterfaces base public.sdk
-cmake -S . -B build/Windows_MinGW-x64 -DCMAKE_PREFIX_PATH=<Qt6.8>
+cd ../.. && cmake --preset windows-mingw-debug
 ```
 
 ### OFX-видеоплагины
@@ -152,8 +175,8 @@ OPENVEGAS_OFX_THREADS=1 ./OpenVegas            # однопоточный рен
 ### Тесты
 
 ```bash
-cmake --build build/Windows_MinGW-x64 --target openvegas_audio_tests openvegas_video_tests openvegas_media_tests
-ctest --test-dir build/Windows_MinGW-x64 --output-on-failure
+cmake --build --preset windows-mingw-debug --target openvegas_audio_tests openvegas_video_tests openvegas_media_tests
+ctest --preset windows-mingw-debug
 ```
 
 ### CI (GitHub Actions)

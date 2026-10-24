@@ -7,7 +7,7 @@
             "command": "cmake",
             "args": [
                 "-S", "${workspaceFolder}",
-                "-B", "${workspaceFolder}/build/Windows_MinGW-x64",
+                "-B", "${workspaceFolder}/build/Windows_MinGW-x64-Debug",
                 "-G", "Ninja",
                 "-DCMAKE_BUILD_TYPE=Debug",
                 "-DCMAKE_PREFIX_PATH=C:/Qt/6.9.3/mingw_64",
@@ -18,7 +18,7 @@
             "group": "build",
             "presentation": { "reveal": "always", "panel": "shared" },
             "problemMatcher": [],
-            "detail": "CMake → build/Windows_MinGW-x64 (MinGW + Ninja Debug)",
+            "detail": "CMake → build/Windows_MinGW-x64-Debug (MinGW + Ninja Debug)",
             "options": {
                 "cwd": "${workspaceFolder}",
                 "env": {
@@ -30,7 +30,7 @@
             "label": "CMake: Build (MinGW Debug)",
             "type": "shell",
             "command": "cmake",
-            "args": ["--build", "${workspaceFolder}/build/Windows_MinGW-x64", "--parallel"],
+            "args": ["--build", "${workspaceFolder}/build/Windows_MinGW-x64-Debug", "--parallel"],
             "group": { "kind": "build", "isDefault": true },
             "presentation": { "reveal": "always", "panel": "shared" },
             "problemMatcher": ["$gcc"],
@@ -49,7 +49,7 @@
             "command": "cmake",
             "args": [
                 "-S", "${workspaceFolder}",
-                "-B", "${workspaceFolder}/build/Windows_MinGW-x64",
+                "-B", "${workspaceFolder}/build/Windows_MinGW-x64-Release",
                 "-G", "Ninja",
                 "-DCMAKE_BUILD_TYPE=Release",
                 "-DCMAKE_PREFIX_PATH=C:/Qt/6.9.3/mingw_64",
@@ -70,7 +70,7 @@
             "label": "CMake: Build (MinGW Release)",
             "type": "shell",
             "command": "cmake",
-            "args": ["--build", "${workspaceFolder}/build/Windows_MinGW-x64", "--parallel"],
+            "args": ["--build", "${workspaceFolder}/build/Windows_MinGW-x64-Release", "--parallel"],
             "group": "build",
             "presentation": { "reveal": "always", "panel": "shared" },
             "problemMatcher": ["$gcc"],
@@ -88,12 +88,12 @@
             "command": "cmd",
             "args": [
                 "/c",
-                "call \"%ProgramFiles(x86)%\\Microsoft Visual Studio\\Installer\\vswhere.exe\" -latest -property installationPath > \"%TEMP%\\ov_vs.txt\" && set /p VS=<\"%TEMP%\\ov_vs.txt\" && call \"%VS%\\VC\\Auxiliary\\Build\\vcvars64.bat\" && cmake -S \"${workspaceFolder}\" -B \"${workspaceFolder}/build-msvc\" -G Ninja -DCMAKE_BUILD_TYPE=Debug -DCMAKE_PREFIX_PATH=C:/Qt/6.9.3/msvc2022_64 -DCMAKE_MAKE_PROGRAM=C:/Qt/Tools/Ninja/ninja.exe -DCMAKE_EXPORT_COMPILE_COMMANDS=ON"
+                "call \"%ProgramFiles(x86)%\\Microsoft Visual Studio\\Installer\\vswhere.exe\" -latest -property installationPath > \"%TEMP%\\ov_vs.txt\" && set /p VS=<\"%TEMP%\\ov_vs.txt\" && call \"%VS%\\VC\\Auxiliary\\Build\\vcvars64.bat\" && cmake -S \"${workspaceFolder}\" -B \"${workspaceFolder}/build/Windows_MSVC-x64-Debug\" -G Ninja -DCMAKE_BUILD_TYPE=Debug -DCMAKE_PREFIX_PATH=C:/Qt/6.9.3/msvc2022_64 -DCMAKE_MAKE_PROGRAM=C:/Qt/Tools/Ninja/ninja.exe -DCMAKE_EXPORT_COMPILE_COMMANDS=ON"
             ],
             "group": "build",
             "presentation": { "reveal": "always", "panel": "shared" },
             "problemMatcher": [],
-            "detail": "CMake → build-msvc/ (MSVC + Qt msvc2022_64)",
+            "detail": "CMake → build/Windows_MSVC-x64-Debug/ (MSVC + Qt msvc2022_64)",
             "options": { "cwd": "${workspaceFolder}" }
         },
         {
@@ -102,7 +102,7 @@
             "command": "cmd",
             "args": [
                 "/c",
-                "call \"%ProgramFiles(x86)%\\Microsoft Visual Studio\\Installer\\vswhere.exe\" -latest -property installationPath > \"%TEMP%\\ov_vs.txt\" && set /p VS=<\"%TEMP%\\ov_vs.txt\" && call \"%VS%\\VC\\Auxiliary\\Build\\vcvars64.bat\" && cmake --build \"${workspaceFolder}/build-msvc\" --parallel"
+                "call \"%ProgramFiles(x86)%\\Microsoft Visual Studio\\Installer\\vswhere.exe\" -latest -property installationPath > \"%TEMP%\\ov_vs.txt\" && set /p VS=<\"%TEMP%\\ov_vs.txt\" && call \"%VS%\\VC\\Auxiliary\\Build\\vcvars64.bat\" && cmake --build \"${workspaceFolder}/build/Windows_MSVC-x64-Debug\" --parallel"
             ],
             "group": "build",
             "presentation": { "reveal": "always", "panel": "shared" },
@@ -117,12 +117,12 @@
             "args": [
                 "-NoProfile",
                 "-Command",
-                "New-Item -ItemType Directory -Force -Path '${workspaceFolder}/build-pro' | Out-Null; Set-Location '${workspaceFolder}/build-pro'; & 'C:/Qt/6.9.3/mingw_64/bin/qmake.exe' '${workspaceFolder}/OpenVegas.pro' CONFIG+=debug -spec win32-g++"
+                "New-Item -ItemType Directory -Force -Path '${workspaceFolder}/build/Windows_MinGW-x64-Debug-qmake' | Out-Null; Set-Location '${workspaceFolder}/build/Windows_MinGW-x64-Debug-qmake'; & 'C:/Qt/6.9.3/mingw_64/bin/qmake.exe' '${workspaceFolder}/OpenVegas.pro' CONFIG+=debug -spec win32-g++"
             ],
             "group": "build",
             "presentation": { "reveal": "always", "panel": "shared" },
             "problemMatcher": [],
-            "detail": "qmake OpenVegas.pro → build-pro/",
+            "detail": "qmake OpenVegas.pro → build/Windows_MinGW-x64-Debug-qmake/",
             "options": {
                 "cwd": "${workspaceFolder}",
                 "env": {
@@ -141,7 +141,7 @@
             "detail": "mingw32-make OpenVegas (qmake)",
             "dependsOn": "qmake: Configure (MinGW Debug)",
             "options": {
-                "cwd": "${workspaceFolder}/build-pro",
+                "cwd": "${workspaceFolder}/build/Windows_MinGW-x64-Debug-qmake",
                 "env": {
                     "PATH": "C:/Qt/Tools/mingw1310_64/bin;C:/Qt/6.9.3/mingw_64/bin;${env:PATH}"
                 }
@@ -151,7 +151,7 @@
             "label": "CMake: Clean (MinGW)",
             "type": "shell",
             "command": "cmake",
-            "args": ["--build", "${workspaceFolder}/build/Windows_MinGW-x64", "--target", "clean"],
+            "args": ["--build", "${workspaceFolder}/build/Windows_MinGW-x64-Debug", "--target", "clean"],
             "group": "build",
             "presentation": { "reveal": "always", "panel": "shared" },
             "problemMatcher": [],
