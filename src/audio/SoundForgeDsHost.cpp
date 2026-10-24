@@ -15,10 +15,14 @@
 #include <algorithm>
 #include <cmath>
 #include <cstring>
+#include <cwchar>
 #include <functional>
 #include <vector>
 
 #ifdef Q_OS_WIN
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
 #include <windows.h>
 
 #include <control.h>
@@ -180,6 +184,26 @@ QString hrText(HRESULT hr)
     return QStringLiteral("0x%1").arg(static_cast<unsigned long>(hr), 8, 16, QLatin1Char('0'));
 }
 
+/** Copy into a fixed WCHAR array, truncating and always terminating. Spelled out because
+ *  MSVC deprecates wcsncpy/wcscpy, and not every MinGW CRT carries the _s forms. */
+template <size_t N>
+void copyWide(WCHAR (&dst)[N], const WCHAR *src)
+{
+    size_t i = 0;
+    for (; src && i + 1 < N && src[i]; ++i) dst[i] = src[i];
+    dst[i] = 0;
+}
+
+/** A CoTaskMemAlloc'd copy of `src`, which is what IPin::QueryId hands its caller. */
+HRESULT taskMemCopy(LPWSTR *out, const WCHAR *src)
+{
+    const size_t bytes = (std::wcslen(src) + 1) * sizeof(WCHAR);
+    *out = static_cast<LPWSTR>(CoTaskMemAlloc(bytes));
+    if (!*out) return E_OUTOFMEMORY;
+    std::memcpy(*out, src, bytes);
+    return S_OK;
+}
+
 // --------------------------------------------------------------- pin enumerator
 class OnePinEnum : public IEnumPins {
 public:
@@ -339,7 +363,7 @@ public:
             return E_POINTER;
         }
         ZeroMemory(out, sizeof(*out));
-        wcsncpy(out->achName, m_name, 63);
+        copyWide(out->achName, m_name);
         out->pGraph = m_graph;
         if (m_graph) {
             m_graph->AddRef();
@@ -350,8 +374,7 @@ public:
     {
         m_graph = graph;
         if (name) {
-            wcsncpy(m_name, name, 63);
-            m_name[63] = 0;
+            copyWide(m_name, name);
         }
         return S_OK;
     }
@@ -444,7 +467,7 @@ public:
         }
         ZeroMemory(out, sizeof(*out));
         out->dir = PINDIR_OUTPUT;
-        wcscpy(out->achName, L"Out");
+        copyWide(out->achName, L"Out");
         out->pFilter = static_cast<IBaseFilter *>(owner);
         if (out->pFilter) {
             out->pFilter->AddRef();
@@ -464,9 +487,7 @@ public:
         if (!out) {
             return E_POINTER;
         }
-        *out = static_cast<LPWSTR>(CoTaskMemAlloc(sizeof(WCHAR) * 4));
-        wcscpy(*out, L"Out");
-        return S_OK;
+        return taskMemCopy(out, L"Out");
     }
     STDMETHODIMP QueryAccept(const AM_MEDIA_TYPE *) override { return S_OK; }
     STDMETHODIMP EnumMediaTypes(IEnumMediaTypes **out) override
@@ -569,7 +590,7 @@ public:
         }
         ZeroMemory(out, sizeof(*out));
         out->dir = PINDIR_INPUT;
-        wcscpy(out->achName, L"In");
+        copyWide(out->achName, L"In");
         out->pFilter = static_cast<IBaseFilter *>(owner);
         if (out->pFilter) {
             out->pFilter->AddRef();
@@ -589,9 +610,7 @@ public:
         if (!out) {
             return E_POINTER;
         }
-        *out = static_cast<LPWSTR>(CoTaskMemAlloc(sizeof(WCHAR) * 3));
-        wcscpy(*out, L"In");
-        return S_OK;
+        return taskMemCopy(out, L"In");
     }
     STDMETHODIMP QueryAccept(const AM_MEDIA_TYPE *) override { return S_OK; }
     STDMETHODIMP EnumMediaTypes(IEnumMediaTypes **out) override

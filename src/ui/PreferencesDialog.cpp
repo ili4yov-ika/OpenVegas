@@ -39,9 +39,6 @@ void setEditLines(QPlainTextEdit *edit, const QStringList &lines)
     }
 }
 
-/** Settings token ("auto"/"nvenc"/…) ↔ combo row. */
-const char *const kHwEncoderKeys[] = {"auto", "nvenc", "qsv", "amf", "cpu"};
-
 } // namespace
 
 PreferencesDialog::PreferencesDialog(QWidget *parent)

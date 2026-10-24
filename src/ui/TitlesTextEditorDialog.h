@@ -39,7 +39,7 @@ public:
     explicit TitlesTextEditorDialog(QWidget *parent = nullptr);
 
     void setEvent(TrackEvent *ev, int frameWidth, int frameHeight, double frameRateFps);
-    TrackEvent *event() const { return m_event; }
+    TrackEvent *trackEvent() const { return m_event; }
     /** Re-reads the current event's params into every field — for external edits (the
      *  on-canvas Video Preview move/resize overlay) that write straight to the event
      *  and bypass this dialog's own widgets. */

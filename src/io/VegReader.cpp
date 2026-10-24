@@ -1247,6 +1247,8 @@ void VegReader::parseTransitions(const QByteArray &data, VegOpenResult *result)
             // is what selects the gradient / height map for these — is still recovered.
             info.paramsUndecoded = true;
             break;
+        case VegTransitionKind::Ofx:
+            // String-keyed transitions are read by the OFX path, never by this GUID table.
         case VegTransitionKind::Unknown:
             break;
         }

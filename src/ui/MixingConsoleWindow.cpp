@@ -494,7 +494,7 @@ public:
                 emit owner->tracksChanged();
             }
         };
-        auto bindSlider = [this, owner, applyLive, beginEdit, endEdit](QSlider *slider) {
+        auto bindSlider = [owner, applyLive, beginEdit, endEdit](QSlider *slider) {
             QObject::connect(slider, &QSlider::sliderPressed, owner, beginEdit);
             QObject::connect(slider, &QSlider::valueChanged, owner,
                              [slider, applyLive, beginEdit, endEdit, owner](int) {

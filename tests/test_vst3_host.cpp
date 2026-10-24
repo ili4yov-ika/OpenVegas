@@ -33,8 +33,8 @@ QString findFixtureVst3()
         }
         const QFileInfoList bundles =
             dir.entryInfoList({QStringLiteral("*.vst3")}, QDir::Dirs | QDir::Files);
-        for (const QFileInfo &fi : bundles) {
-            return fi.absoluteFilePath();
+        if (!bundles.isEmpty()) {
+            return bundles.first().absoluteFilePath();
         }
     }
     return {};

@@ -51,6 +51,16 @@
 namespace openvegas {
 namespace {
 
+#ifdef _WIN32
+/** GetProcAddress, typed. Goes through void(*)(), the one function-pointer type GCC lets
+ *  a cast pass through without -Wcast-function-type. */
+template <typename Fn>
+Fn procAddress(HMODULE module, const char *name)
+{
+    return reinterpret_cast<Fn>(reinterpret_cast<void (*)()>(GetProcAddress(module, name)));
+}
+#endif
+
 void passThrough(float **in, float **out, int channels, int frames)
 {
     if (!in || !out) {
@@ -409,7 +419,7 @@ uint32 PLUGIN_API MemoryIBStream::release()
 }
 
 /** Single-point parameter queue for UI → process transfer. */
-class HostParamQueue : public IParamValueQueue {
+class HostParamQueue final : public IParamValueQueue {
 public:
     HostParamQueue() { FUNKNOWN_CTOR }
     ~HostParamQueue() { FUNKNOWN_DTOR }
@@ -510,7 +520,7 @@ uint32 PLUGIN_API HostParameterChanges::release()
 
 struct Vst3Runtime;
 
-class OpenVegasComponentHandler : public IComponentHandler {
+class OpenVegasComponentHandler final : public IComponentHandler {
 public:
     explicit OpenVegasComponentHandler(Vst3Runtime *rt)
         : m_rt(rt)
@@ -528,7 +538,7 @@ public:
     Vst3Runtime *m_rt = nullptr;
 };
 
-class OpenVegasPlugFrame : public IPlugFrame {
+class OpenVegasPlugFrame final : public IPlugFrame {
 public:
     OpenVegasPlugFrame() { FUNKNOWN_CTOR }
     ~OpenVegasPlugFrame() { FUNKNOWN_DTOR }
@@ -766,7 +776,7 @@ struct Vst3Runtime {
 #ifdef _WIN32
         if (module) {
             using ExitDllFn = bool(PLUGIN_API *)();
-            if (auto exitDll = reinterpret_cast<ExitDllFn>(GetProcAddress(module, "ExitDll"))) {
+            if (auto exitDll = procAddress<ExitDllFn>(module, "ExitDll")) {
                 exitDll();
             }
             FreeLibrary(module);
@@ -960,14 +970,14 @@ struct Vst3Runtime {
         }
         using InitDllFn = bool(PLUGIN_API *)();
         using GetFactoryFn = IPluginFactory *(PLUGIN_API *)();
-        if (auto initDll = reinterpret_cast<InitDllFn>(GetProcAddress(module, "InitDll"))) {
+        if (auto initDll = procAddress<InitDllFn>(module, "InitDll")) {
             if (!initDll()) {
                 FreeLibrary(module);
                 module = nullptr;
                 return false;
             }
         }
-        auto getFactory = reinterpret_cast<GetFactoryFn>(GetProcAddress(module, "GetPluginFactory"));
+        auto getFactory = procAddress<GetFactoryFn>(module, "GetPluginFactory");
         if (!getFactory) {
             FreeLibrary(module);
             module = nullptr;
@@ -1573,9 +1583,9 @@ bool Vst2Host::createInstance(const AudioPluginDesc &desc, FxSlot *slot)
         inst->module = LoadLibraryW(reinterpret_cast<LPCWSTR>(path.utf16()));
         if (inst->module) {
             using MainProc = AEffect *(VST_CALL_CONV *)(audioMasterCallback);
-            auto mainProc = reinterpret_cast<MainProc>(GetProcAddress(inst->module, "VSTPluginMain"));
+            auto mainProc = procAddress<MainProc>(inst->module, "VSTPluginMain");
             if (!mainProc) {
-                mainProc = reinterpret_cast<MainProc>(GetProcAddress(inst->module, "main"));
+                mainProc = procAddress<MainProc>(inst->module, "main");
             }
             if (mainProc) {
                 inst->effect = mainProc(hostCallback);

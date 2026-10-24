@@ -279,14 +279,17 @@ set(OPENVGAS_VST3_SDK_SOURCES "")
 if(OPENVGAS_VST3_SDK_PATH AND EXISTS "${OPENVGAS_VST3_SDK_PATH}/pluginterfaces/vst/ivstaudioprocessor.h")
     set(OPENVGAS_HAS_VST3_SDK_INTERNAL 1)
     target_compile_definitions(OpenVegas PRIVATE OPENVGAS_HAS_VST3_SDK=1)
-    target_include_directories(OpenVegas PRIVATE
+    # SYSTEM: the SDK headers trip Clang's -Wpragma-pack on every include, and the
+    # warnings are about Steinberg's code, not ours.
+    target_include_directories(OpenVegas SYSTEM PRIVATE
         "${OPENVGAS_VST3_SDK_PATH}"
         "${OPENVGAS_VST3_SDK_PATH}/pluginterfaces"
     )
     # Minimal IID symbols for lean host (headers-only process path; no full hosting stack).
+    # funknown.cpp goes through a wrapper that turns its format warnings off.
     list(APPEND OPENVGAS_VST3_SDK_SOURCES
         "${OPENVGAS_VST3_SDK_PATH}/pluginterfaces/base/coreiids.cpp"
-        "${OPENVGAS_VST3_SDK_PATH}/pluginterfaces/base/funknown.cpp"
+        "${CMAKE_SOURCE_DIR}/src/audio/Vst3SdkFunknown.cpp"
         "${OPENVGAS_VST3_SDK_PATH}/public.sdk/source/common/commoniids.cpp"
         "${OPENVGAS_VST3_SDK_PATH}/public.sdk/source/vst/vstinitiids.cpp"
     )
@@ -646,7 +649,7 @@ if(OPENVGAS_BUILD_TESTS)
     )
     if(OPENVGAS_HAS_VST3_SDK_INTERNAL)
         target_compile_definitions(openvegas_media_tests PRIVATE OPENVGAS_HAS_VST3_SDK=1)
-        target_include_directories(openvegas_media_tests PRIVATE
+        target_include_directories(openvegas_media_tests SYSTEM PRIVATE
             "${OPENVGAS_VST3_SDK_PATH}"
             "${OPENVGAS_VST3_SDK_PATH}/pluginterfaces"
         )

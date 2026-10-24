@@ -2751,7 +2751,7 @@ QLinearGradient pageCurlShade(const PageAxis &axis, double at, double width,
     QLinearGradient g(QPointF(n.x() * (at - width), n.y() * (at - width)),
                       QPointF(n.x() * (at + width), n.y() * (at + width)));
     QColor lit = light;
-    lit.setAlphaF(0.55);
+    lit.setAlphaF(0.55f);
     g.setColorAt(0.0, QColor(0, 0, 0, 0));
     g.setColorAt(0.35, QColor(0, 0, 0, 115));
     g.setColorAt(0.62, lit);
