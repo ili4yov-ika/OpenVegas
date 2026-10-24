@@ -28,7 +28,7 @@ VegOpenResult openFxSampleVeg(QString *outPath = nullptr)
 {
     const QString root = SamplePaths::vegProjectDir();
     if (root.isEmpty()) {
-        SKIP("SAMPLES/veg_project not available");
+        SKIP("SAMPLES/veg_projects not available");
     }
     const QString path =
         QDir(root).filePath(QStringLiteral("project_big--buck-bunny_4x3-preview-reverse-fades-fx.veg"));
@@ -180,7 +180,7 @@ TEST_CASE("VegReader recovers VEGAS Titles & Text generator instances",
 {
     const QString root = SamplePaths::vegProjectDir();
     if (root.isEmpty()) {
-        SKIP("SAMPLES/veg_project not available");
+        SKIP("SAMPLES/veg_projects not available");
     }
     const QString path =
         QDir(root).filePath(QStringLiteral("project_big--buck-bunny_titles-and-text.veg"));
@@ -240,7 +240,7 @@ TEST_CASE("Real VEG-recovered Titles & Text events keep their animation on impor
     // registry-level coverage of the same bug.
     const QString root = SamplePaths::vegProjectDir();
     if (root.isEmpty()) {
-        SKIP("SAMPLES/veg_project not available");
+        SKIP("SAMPLES/veg_projects not available");
     }
     const QString path =
         QDir(root).filePath(QStringLiteral("project_titles-and-text.veg"));

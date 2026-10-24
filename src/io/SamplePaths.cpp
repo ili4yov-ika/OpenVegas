@@ -45,14 +45,14 @@ QString SamplePaths::samplesDir()
 QString SamplePaths::vegProjectDir()
 {
     for (const QString &root : candidateSamplesRoots()) {
-        const QString vp = QDir(root).filePath(QStringLiteral("veg_project"));
+        const QString vp = QDir(root).filePath(QStringLiteral("veg_projects"));
         if (QDir(vp).exists()) {
             return vp;
         }
     }
     const QString samples = samplesDir();
     if (!samples.isEmpty()) {
-        return QDir(samples).filePath(QStringLiteral("veg_project"));
+        return QDir(samples).filePath(QStringLiteral("veg_projects"));
     }
     return {};
 }
@@ -76,7 +76,7 @@ QString SamplePaths::resolveProjectPath(const QString &pathOrName)
     const QStringList dirs = {
         vegProjectDir(),
         samplesDir(),
-        QDir(samplesDir()).filePath(QStringLiteral("veg_project")),
+        QDir(samplesDir()).filePath(QStringLiteral("veg_projects")),
     };
     for (const QString &d : dirs) {
         if (d.isEmpty()) {
@@ -86,7 +86,7 @@ QString SamplePaths::resolveProjectPath(const QString &pathOrName)
         if (QFileInfo::exists(cand)) {
             return QFileInfo(cand).absoluteFilePath();
         }
-        // Allow "SAMPLES/veg_project/foo.veg" relative fragments
+        // Allow "SAMPLES/veg_projects/foo.veg" relative fragments
         const QString nested = QDir(d).filePath(pathOrName);
         if (QFileInfo::exists(nested)) {
             return QFileInfo(nested).absoluteFilePath();

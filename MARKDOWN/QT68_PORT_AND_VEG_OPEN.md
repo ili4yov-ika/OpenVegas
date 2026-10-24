@@ -6,7 +6,7 @@
 
 | Путь | Содержание |
 |------|------------|
-| ~~`SAMPLES/pages/`, `css/`, `js/`~~ | HTML UI-макеты **удалены** из репозитория; эталон — Qt UI + `SAMPLES/veg_project/` |
+| ~~`SAMPLES/pages/`, `css/`, `js/`~~ | HTML UI-макеты **удалены** из репозитория; эталон — Qt UI + `SAMPLES/veg_projects/` |
 | `SAMPLES/docs_veg/` | Реверс `.veg` |
 | `SAMPLES/VEGAS-PRO-22-PROGRAM-FILES/` | Runtime Vegas 22.0.250 + ScriptPortal API |
 | `SAMPLES/screenshots/`, `example_project_*.veg` | Визуальные и бинарные эталоны |
@@ -345,7 +345,7 @@ public:
 | `project-trimmers*.html` | `…_trimmers*.veg` |
 | `project-with-2-videos*.html` | `example_project_with_2_videos*.veg` |
 
-После импорта v1+: визуально сверять с Qt UI, `SAMPLES/veg_project/` и `screenshots/`.
+После импорта v1+: визуально сверять с Qt UI, `SAMPLES/veg_projects/` и `screenshots/`.
 
 ---
 

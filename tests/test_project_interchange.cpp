@@ -31,7 +31,7 @@ TEST_CASE("importEdl auto-detects Vegas CSV samples", "[interchange]")
 {
     const QString path = samplePath(QStringLiteral("edl-text-file/project_sample_for_project_pictures.txt"));
     if (path.isEmpty() || !QFile::exists(path)) {
-        SKIP("SAMPLES/veg_project not available");
+        SKIP("SAMPLES/veg_projects not available");
     }
     QString err;
     const InterchangeResult r = ProjectInterchange::importEdl(path, 60.0, &err);
@@ -47,7 +47,7 @@ TEST_CASE("importFinalCutXml parses FCPX audio-only sample", "[interchange]")
 {
     const QString path = samplePath(QStringLiteral("final-cut-pro-x/project_sample_for_project_audio.fcpxml"));
     if (path.isEmpty() || !QFile::exists(path)) {
-        SKIP("SAMPLES/veg_project not available");
+        SKIP("SAMPLES/veg_projects not available");
     }
     QString err;
     const InterchangeResult r = ProjectInterchange::importFinalCutXml(path, &err);
@@ -62,7 +62,7 @@ TEST_CASE("importFinalCutXml reverse uses offset 0 and timeMap", "[interchange]"
     const QString path =
         samplePath(QStringLiteral("final-cut-pro-x/project_big--buck-bunny_4x3-preview-reverse-fades-fx.fcpxml"));
     if (path.isEmpty() || !QFile::exists(path)) {
-        SKIP("SAMPLES/veg_project not available");
+        SKIP("SAMPLES/veg_projects not available");
     }
     QString err;
     const InterchangeResult r = ProjectInterchange::importFinalCutXml(path, &err);
@@ -226,7 +226,7 @@ TEST_CASE("importFinalCutXml parses every FCP7/Resolve XML sample", "[interchang
 {
     const QString root = SamplePaths::vegProjectDir();
     if (root.isEmpty()) {
-        SKIP("SAMPLES/veg_project not available");
+        SKIP("SAMPLES/veg_projects not available");
     }
     int checked = 0;
     for (const QString &base : sampleBaseNames()) {
@@ -255,7 +255,7 @@ TEST_CASE("importFinalCutXml parses every FCPX sample", "[interchange]")
 {
     const QString root = SamplePaths::vegProjectDir();
     if (root.isEmpty()) {
-        SKIP("SAMPLES/veg_project not available");
+        SKIP("SAMPLES/veg_projects not available");
     }
     int checked = 0;
     for (const QString &base : sampleBaseNames()) {
@@ -283,7 +283,7 @@ TEST_CASE("importPremiereProject parses every .prproj sample", "[interchange]")
 {
     const QString root = SamplePaths::vegProjectDir();
     if (root.isEmpty()) {
-        SKIP("SAMPLES/veg_project not available");
+        SKIP("SAMPLES/veg_projects not available");
     }
     int checked = 0;
     for (const QString &base : sampleBaseNames()) {
@@ -306,7 +306,7 @@ TEST_CASE("importVegasCsvEdl parses every EDL Text File sample", "[interchange]"
 {
     const QString root = SamplePaths::vegProjectDir();
     if (root.isEmpty()) {
-        SKIP("SAMPLES/veg_project not available");
+        SKIP("SAMPLES/veg_projects not available");
     }
     int checked = 0;
     for (const QString &base : sampleBaseNames()) {
@@ -339,7 +339,7 @@ TEST_CASE("Vegas .veg round-trips through export → re-import for every format"
     // a project with real track/event variety (fades) rather than a trivial one.
     const QString root = SamplePaths::vegProjectDir();
     if (root.isEmpty()) {
-        SKIP("SAMPLES/veg_project not available");
+        SKIP("SAMPLES/veg_projects not available");
     }
     const QString vegPath =
         QDir(root).filePath(QStringLiteral("project_big--buck-bunny_fades.veg"));
@@ -511,7 +511,7 @@ TEST_CASE("OpenVegas project archive round-trips full state (fxChain, panCrop, m
 TEST_CASE("Interchange formats carry a transition's fade but not its identity",
          "[interchange][transitions]")
 {
-    // Verified against Vegas's own exports of SAMPLES/veg_project/
+    // Verified against Vegas's own exports of SAMPLES/veg_projects/
     // project_transitions_3d-blinds.veg: even real Vegas degrades a 3D Blinds
     // transition to a generic dissolve — FCP7 XML gets "Cross Dissolve" /
     // "Fade In Fade Out Dissolve", FCPXML gets <transition name="Cross Dissolve">, the

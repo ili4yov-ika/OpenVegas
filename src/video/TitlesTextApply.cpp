@@ -179,7 +179,7 @@ double easeShape(double t)
 
 struct PresetDef {
     QString label;
-    /** Real Vegas AnimationName value (see SAMPLES/veg_project/project_titles-and-text.veg) —
+    /** Real Vegas AnimationName value (see SAMPLES/veg_projects/project_titles-and-text.veg) —
      *  NOT derivable from label (Vegas's own scheme mixes Title_Case and lower_case words:
      *  "_Drop_split", "_Fly_in_from_Right", …), so every key is spelled out explicitly. */
     QString key;
@@ -194,7 +194,7 @@ struct PresetDef {
 
 /**
  * Real Vegas preset names AND AnimationName keys (recovered from
- * SAMPLES/veg_project/project_titles-and-text.veg — every one of its 51 distinct
+ * SAMPLES/veg_projects/project_titles-and-text.veg — every one of its 51 distinct
  * AnimationName values, cross-checked against the real Animation dropdown / Media
  * Generator catalog screenshots). TextColor/Scale are real recovered defaults; the
  * motion CURVE itself is still a hand-crafted functional approximation (same status as

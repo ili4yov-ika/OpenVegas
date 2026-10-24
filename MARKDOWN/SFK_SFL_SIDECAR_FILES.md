@@ -1,7 +1,7 @@
 # Сайдкар-файлы `.sfk` / `.sfl` (Sound Forge Peak / Playlist)
 
-Анализ на реальных файлах: [`SAMPLES/veg_project/big-buck-bunny_video-60fps-4k.mp4.sfk`](../SAMPLES/veg_project/big-buck-bunny_video-60fps-4k.mp4.sfk) (2 855 872 B) и
-[`…mp4.sfl`](../SAMPLES/veg_project/big-buck-bunny_video-60fps-4k.mp4.sfl) (316 B), лежащих рядом с исходником
+Анализ на реальных файлах: [`SAMPLES/veg_projects/big-buck-bunny_video-60fps-4k.mp4.sfk`](../SAMPLES/veg_projects/big-buck-bunny_video-60fps-4k.mp4.sfk) (2 855 872 B) и
+[`…mp4.sfl`](../SAMPLES/veg_projects/big-buck-bunny_video-60fps-4k.mp4.sfl) (316 B), лежащих рядом с исходником
 `big-buck-bunny_video-60fps-4k.mp4` (743 402 442 B). Оба формата — наследие Sound Forge (Sonic Foundry → Magix), который
 Vegas Pro использует как общий audio-движок: при первом добавлении медиафайла в проект Vegas тихо создаёт эти сайдкары
 рядом с файлом (один раз) и переиспользует их при повторных открытиях — вместо повторного декодирования всей дорожки.

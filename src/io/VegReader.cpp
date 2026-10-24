@@ -1133,7 +1133,7 @@ void VegReader::parseTransitions(const QByteArray &data, VegOpenResult *result)
 {
     const QVector<VegChunk> chunks = vegRiffChunks(data);
     /*
-     * Byte layout, reverse-engineered from SAMPLES/veg_project/
+     * Byte layout, reverse-engineered from SAMPLES/veg_projects/
      * project_transitions_3d-blinds.veg (12 instances = 4 presets x fade-in/fade-out/
      * crossfade) and cross-checked against the reference screenshots — every recovered
      * value matches the preset defaults captured there:

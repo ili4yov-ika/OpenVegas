@@ -1,4 +1,4 @@
-# `veg_project/` — эталонные проекты VEGAS Pro 22
+# `veg_projects/` — эталонные проекты VEGAS Pro 22
 
 Каталог **реальных** проектов и interchange-экспортов для OpenVegas: разбор `.veg`, QA импорта/экспорта (EDL / FCP XML / FCPXML / Premiere), сверка fades / trims / crossfades / markers.
 
@@ -11,23 +11,23 @@
 ## Быстрый старт
 
 ```text
-# из корня OpenVegas (имя файла тоже резолвится через SAMPLES/veg_project)
-build\OpenVegas.exe SAMPLES\veg_project\project_big--buck-bunny.veg
-build\OpenVegas.exe SAMPLES\veg_project\project_big--buck-bunny_mix-console.veg
-build\OpenVegas.exe SAMPLES\veg_project\project_big--buck-bunny_mix-console-2.veg
-build\OpenVegas.exe SAMPLES\veg_project\project_big--buck-bunny_track-motion.veg
-build\OpenVegas.exe SAMPLES\veg_project\project_big--buck-bunny_pan-crop.veg
+# из корня OpenVegas (имя файла тоже резолвится через SAMPLES/veg_projects)
+build\OpenVegas.exe SAMPLES\veg_projects\project_big--buck-bunny.veg
+build\OpenVegas.exe SAMPLES\veg_projects\project_big--buck-bunny_mix-console.veg
+build\OpenVegas.exe SAMPLES\veg_projects\project_big--buck-bunny_mix-console-2.veg
+build\OpenVegas.exe SAMPLES\veg_projects\project_big--buck-bunny_track-motion.veg
+build\OpenVegas.exe SAMPLES\veg_projects\project_big--buck-bunny_pan-crop.veg
 build\OpenVegas.exe sample_for_project_pictures.veg
-build\OpenVegas.exe SAMPLES\veg_project\project_sample_for_project_audio.veg
+build\OpenVegas.exe SAMPLES\veg_projects\project_sample_for_project_audio.veg
 build\OpenVegas.exe project_sample_for_project_audio_trims-and-crossfade.veg
 build\OpenVegas.exe project_big--buck-bunny_opacity-gain.veg
-build\OpenVegas.exe SAMPLES\veg_project\project_big--buck-bunny_4x3-preview-and-fades.veg
-build\OpenVegas.exe SAMPLES\veg_project\project_big--buck-bunny_4x3-preview-and-fades_color-grading.veg
-build\OpenVegas.exe SAMPLES\veg_project\project_big--buck-bunny_4x3-preview-reverse-fades-fx.veg
-build\OpenVegas.exe SAMPLES\veg_project\project_big--buck-bunny_576x1024-preview-and-fades.veg
+build\OpenVegas.exe SAMPLES\veg_projects\project_big--buck-bunny_4x3-preview-and-fades.veg
+build\OpenVegas.exe SAMPLES\veg_projects\project_big--buck-bunny_4x3-preview-and-fades_color-grading.veg
+build\OpenVegas.exe SAMPLES\veg_projects\project_big--buck-bunny_4x3-preview-reverse-fades-fx.veg
+build\OpenVegas.exe SAMPLES\veg_projects\project_big--buck-bunny_576x1024-preview-and-fades.veg
 ```
 
-Медиа должно лежать рядом с `.veg` (или по абсолютным путям внутри файла). Relink в OpenVegas ищет файлы по имени рядом с проектом, в `SAMPLES/veg_project`, `assets` и export-подпапках (в т.ч. суффиксы `-1` / `- 1`).
+Медиа должно лежать рядом с `.veg` (или по абсолютным путям внутри файла). Relink в OpenVegas ищет файлы по имени рядом с проектом, в `SAMPLES/veg_projects`, `assets` и export-подпапках (в т.ч. суффиксы `-1` / `- 1`).
 
 При открытии `.veg`, если рядом есть `edl-text-file/<basename>.txt`, таймлайн (треки, fades, CurveIn/Out) берётся из Vegas EDL CSV — точнее, чем бинарный разбор. **Audio Event FX** и Mixing Console buses читаются из UTF-16 строк внутри `.veg` (в EDL их нет).
 
@@ -75,7 +75,7 @@ build\OpenVegas.exe SAMPLES\veg_project\project_big--buck-bunny_576x1024-preview
 
 **Анализ `.veg`:** RGB/COLORREF палитры в бинарнике **не найдены** (FCP7 XML тоже без label colors — пустые `<label2/>`). В Vegas цвет дорожки — индекс в Preferences → Display → Track Colors; точный layout поля в VEG22 пока не reverse-engineered. OpenVegas при открытии назначает `TrackColors::palette()` по индексу дорожки (цикл из **8** swatches Vegas Pro: purple → rose → coral → orange → yellow → green → sky → steel). ПКМ по header → **Track Display Color**. EDL/FCP/Premiere цвета дорожек **не** переносят.
 
-Открыть: `build\OpenVegas.exe SAMPLES\veg_project\project_big--buck-bunny_colors-tracks.veg`
+Открыть: `build\OpenVegas.exe SAMPLES\veg_projects\project_big--buck-bunny_colors-tracks.veg`
 
 ### Reverse + Event FX sample
 
@@ -91,7 +91,7 @@ build\OpenVegas.exe SAMPLES\veg_project\project_big--buck-bunny_576x1024-preview
 ## Структура
 
 ```
-veg_project/
+veg_projects/
 ├── README.md
 │
 ├── big-buck-bunny_video-60fps-4k.mp4   # ~726 MB, 60 fps, 4K (основное видео)
@@ -141,7 +141,7 @@ veg_project/
 | `sample_for_project_picture_2.png` | Still #2 | **3840×2160**; ~6.4 MB |
 | `*.sfk` | Peak-кэш Vegas | Не звук; см. [`../veg_analyzators/02_sfk_peak_files.md`](../veg_analyzators/02_sfk_peak_files.md) |
 
-Тот же wav/mp4 для UI-макетов продублирован в [`../assets/`](../assets/) и иногда в корне `SAMPLES/` — для `.veg` канонические пути указывают сюда, в `veg_project/`. PNG stills канонически лежат рядом с `.veg` (и копируются в export-подпапки).
+Тот же wav/mp4 для UI-макетов продублирован в [`../assets/`](../assets/) и иногда в корне `SAMPLES/` — для `.veg` канонические пути указывают сюда, в `veg_projects/`. PNG stills канонически лежат рядом с `.veg` (и копируются в export-подпапки).
 
 ---
 
@@ -196,7 +196,7 @@ Interchange (переэкспорт 2026-08-01 ≈23:44):
 | FCPX | `final-cut-pro-x/….fcpxml` | format `640x480p2997`; fades в `adjust-blend` / `adjust-volume`; **`adjust-transform` scale=`1.333333 1`** (вписывание 16:9 → 4:3) |
 | Premiere / AE | `premiere_after-effect/….prproj` | + `.log` |
 
-Открыть: `build\OpenVegas.exe SAMPLES\veg_project\project_big--buck-bunny_4x3-preview-and-fades.veg` → **640×480**, **29,97 fps**; длинные fade-in/out на A/V.
+Открыть: `build\OpenVegas.exe SAMPLES\veg_projects\project_big--buck-bunny_4x3-preview-and-fades.veg` → **640×480**, **29,97 fps**; длинные fade-in/out на A/V.
 
 ### Раскладка `project_big--buck-bunny_4x3-preview-and-fades_color-grading`
 
@@ -221,7 +221,7 @@ Interchange (экспорт 2026-08-02 ≈03:48):
 | FCPX | `final-cut-pro-x/….fcpxml` | timeline only |
 | Premiere / AE | `premiere_after-effect/….prproj` | + `.log` |
 
-Открыть: `build\OpenVegas.exe SAMPLES\veg_project\project_big--buck-bunny_4x3-preview-and-fades_color-grading.veg` → **640×480** + Color Grading на video track.
+Открыть: `build\OpenVegas.exe SAMPLES\veg_projects\project_big--buck-bunny_4x3-preview-and-fades_color-grading.veg` → **640×480** + Color Grading на video track.
 
 ### Раскладка `project_big--buck-bunny_4x3-preview-reverse-fades-fx`
 
@@ -252,7 +252,7 @@ Interchange (экспорт 2026-08-02 ≈04:40–04:46):
 | FCPX | `final-cut-pro-x/….fcpxml` | **`timeMap`** reverse на video + wav |
 | Premiere / AE | `premiere_after-effect/….prproj` | FX ignored; media-копии `-16.mp4` / `-3.wav` |
 
-Открыть: `build\Windows_MinGW-x64\OpenVegas.exe SAMPLES\veg_project\project_big--buck-bunny_4x3-preview-reverse-fades-fx.veg`.
+Открыть: `build\Windows_MinGW-x64\OpenVegas.exe SAMPLES\veg_projects\project_big--buck-bunny_4x3-preview-reverse-fades-fx.veg`.
 
 ### Раскладка `project_big--buck-bunny_4x3-preview-reverse-fades-fx1`
 
@@ -270,7 +270,7 @@ OpenVegas: reverse SubClip — `StreamStart` = in-point на перевёрну�
 Для looped `…-fx`: length **24.1 s**, cycle **10.285 s**, первая засечка на remaining **~2.094 s**, далее каждые 10.285 s; клип продолжается за последней засечкой.  
 Sidecar: **`edl-text-file/…_reverse-fades-fx1.txt`** (нужен: binary timeline в `.veg` неполный).
 
-Открыть: `build\Windows_MinGW-x64\OpenVegas.exe SAMPLES\veg_project\project_big--buck-bunny_4x3-preview-reverse-fades-fx1.veg`.
+Открыть: `build\Windows_MinGW-x64\OpenVegas.exe SAMPLES\veg_projects\project_big--buck-bunny_4x3-preview-reverse-fades-fx1.veg`.
 
 ### Раскладка `project_big--buck-bunny_576x1024-preview-and-fades`
 
@@ -309,7 +309,7 @@ Interchange (экспорт 2026-08-02):
 | FCPX | `final-cut-pro-x/….fcpxml` | format `576×1024`; `adjust-transform` scale ≈ `1.333333` / `3.160494` |
 | Premiere / AE | `premiere_after-effect/….prproj` | + `.log` |
 
-Открыть: `build\OpenVegas.exe SAMPLES\veg_project\project_big--buck-bunny_576x1024-preview-and-fades.veg` → **576×1024**, **9** Position KF с разными кривыми; ПКМ по diamond → Cut/Copy/Paste/Delete + тип интерполяции.
+Открыть: `build\OpenVegas.exe SAMPLES\veg_projects\project_big--buck-bunny_576x1024-preview-and-fades.veg` → **576×1024**, **9** Position KF с разными кривыми; ПКМ по diamond → Cut/Copy/Paste/Delete + тип интерполяции.
 
 ### Раскладка `sample_for_project_pictures`
 
@@ -436,7 +436,7 @@ OpenVegas при Open читает имена из UTF-16 (пары `Name` + `(V
 
 | Формат | Файл | Что внутри |
 |--------|------|------------|
-| Vegas EDL CSV | `edl-text-file/sample_for_project_pictures.txt` | 2× VIDEO, StartTime 0 / 5000 ms, Length 5000 ms; пути к PNG в `veg_project/` |
+| Vegas EDL CSV | `edl-text-file/sample_for_project_pictures.txt` | 2× VIDEO, StartTime 0 / 5000 ms, Length 5000 ms; пути к PNG в `veg_projects/` |
 | FCP7 / Resolve | `final-cut-pro-7_davinci-resolve/sample_for_project_pictures.xml` | xmeml; sequence **60 fps**, duration **600** frames (=10 s); clipitems start/end **0–300**, **300–600**; копии PNG рядом |
 | FCPX | `final-cut-pro-x/sample_for_project_pictures.fcpxml` | sequence `60000/6000s`; два `<video>` по `30000/6000s` (=5 s); assets 3840×2160 |
 | Premiere / AE | `premiere_after-effect/sample_for_project_pictures.prproj` | бинарный/zip `.prproj` + `.log`; медиа-копии |
@@ -447,7 +447,7 @@ OpenVegas при Open читает имена из UTF-16 (пары `Name` + `(V
 
 | Задача | Что брать отсюда |
 |--------|------------------|
-| File → Open `.veg` | Любой `project_*.veg` / `sample_for_project*.veg` — старт диалога: `veg_project/` |
+| File → Open `.veg` | Любой `project_*.veg` / `sample_for_project*.veg` — старт диалога: `veg_projects/` |
 | Timeline при Open | Если есть `edl-text-file/<basename>.txt` — таймлайн/fades/curves из Vegas CSV EDL; иначе бинарный `.veg` |
 | Stills / pictures | `sample_for_project_pictures.veg` (+ EDL / FCP XML / FCPXML / prproj) |
 | File → Import → Media from Project | `.veg` → media pool |

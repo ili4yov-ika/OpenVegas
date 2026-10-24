@@ -1,6 +1,6 @@
 # Блоб параметров OFX в `.veg`: разобран
 
-Дата: 2026-08-25. Материал — `SAMPLES/veg_project/project_big--buck-bunny_4x3-preview-reverse-fades-fx.veg`
+Дата: 2026-08-25. Материал — `SAMPLES/veg_projects/project_big--buck-bunny_4x3-preview-reverse-fades-fx.veg`
 (Chroma Blur с анимацией) и `project_transitions_othersmores.veg` (переходы).
 Код: [`src/io/VegOfxParams.*`](../src/io/VegOfxParams.h), применение анимации —
 [`src/plugins/FxParamCurves.*`](../src/plugins/FxParamCurves.h).

@@ -36,7 +36,7 @@
 | `src/app/main.cpp` | CLI: `OpenVegas.exe path\to\file.veg` |
 | `tests/test_plugin_state.cpp` | `[video-fx]` Glint / AutoFrame regression |
 | `SAMPLES/example_project_*.veg` | Эталонные проекты Vegas Pro 22 |
-| `SAMPLES/veg_project/` | FX / reverse / fades samples |
+| `SAMPLES/veg_projects/` | FX / reverse / fades samples |
 | `SAMPLES/docs_veg/` | Реверс-документация и скрипты анализа |
 
 Сборка: цель CMake / qmake включает `src/io/VegReader.cpp`.

@@ -2,7 +2,7 @@
 
 Поэтапный roadmap поверх MVP. Kdenlive (`thirdparty/kdenlive`, gitignore) — **референс** тайминга/архитектуры, не форк. Vegas Pro runtime (`SAMPLES/VEGAS-PRO-22-PROGRAM-FILES`) — **справочник** OFX/иконок для отладки, не LoadLibrary proprietary hosts.
 
-См. также: [`ISSUES_AND_PLANS.md`](ISSUES_AND_PLANS.md), [`PLAN_VIDEO-AUDIO-PLUGINS-STACK.md`](PLAN_VIDEO-AUDIO-PLUGINS-STACK.md) (VST/OFX/Builtin), `SAMPLES/veg_project/README.md` (эталоны VEG + interchange).
+См. также: [`ISSUES_AND_PLANS.md`](ISSUES_AND_PLANS.md), [`PLAN_VIDEO-AUDIO-PLUGINS-STACK.md`](PLAN_VIDEO-AUDIO-PLUGINS-STACK.md) (VST/OFX/Builtin), `SAMPLES/veg_projects/README.md` (эталоны VEG + interchange).
 
 **Обновлено:** 2026-08-03 (transport clock, interchange, plugins MVP + VST3 IPlugView / Event FX UX / VEG Glint).
 
@@ -127,7 +127,7 @@ Timeline / ProjectModel
 1. EDL reverse: `StreamStart` = in-point на **reversed** item; `mediaLengthSec` = META Length (не StreamLength).
 2. `ClipEvent::sourceTimeSec` / `AudioGraph` — одна формула reverse SubClip + loop.
 3. Waveform + loop notches: первый notch при reverse = `cycle - mediaStart`.
-4. Samples: `project_big--buck-bunny_4x3-preview-reverse-fades-fx.veg` (looped) и `…-fx1.veg` (split); sidecars EDL/FCPX/interchange; см. `SAMPLES/veg_project/README.md`.
+4. Samples: `project_big--buck-bunny_4x3-preview-reverse-fades-fx.veg` (looped) и `…-fx1.veg` (split); sidecars EDL/FCPX/interchange; см. `SAMPLES/veg_projects/README.md`.
 
 ### Фаза 7e — transport / live mix (сделано)
 
@@ -146,7 +146,7 @@ Timeline / ProjectModel
 | FCPX | `<video>`/`<audio>`, offset/mediaStart, timeMap reverse, fades; не ломать kind audio на mp4 | assets + video/audio (не gap) |
 | Premiere `.prproj` | path scrape (в т.ч. пробелы в имени); без timeline | stub → FCP7/EDL |
 
-Эталоны: `SAMPLES/veg_project/{edl-text-file,final-cut-pro-7_davinci-resolve,final-cut-pro-x,premiere_after-effect}/`.  
+Эталоны: `SAMPLES/veg_projects/{edl-text-file,final-cut-pro-7_davinci-resolve,final-cut-pro-x,premiere_after-effect}/`.  
 Тесты: `tests/test_project_interchange.cpp` (`[interchange]`).
 
 **Ограничения MVP:** Mixing Console / Track Motion / Pan-Crop KF / Color Grading / Event FX из interchange **не** восстанавливаются (как в Vegas export logs) — канон: Open `.veg`.

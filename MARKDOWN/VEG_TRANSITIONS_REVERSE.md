@@ -1,7 +1,7 @@
 # Переходы VEGAS в `.veg`: разбор за пределами 3D Blinds
 
 Дата: 2026-08-22. Исходник для анализа —
-`SAMPLES/veg_project/project_transitions_othersmores.veg` (813 КБ), собранный специально
+`SAMPLES/veg_projects/project_transitions_othersmores.veg` (813 КБ), собранный специально
 для этой задачи. Сырые выгрузки — в [`decompile-src/`](../decompile-src/).
 
 ## 1. В проекте две разные системы переходов

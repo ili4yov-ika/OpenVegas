@@ -1,6 +1,6 @@
 # `.sfap0` — аудиопрокси проекта VEGAS
 
-Разбор файла `SAMPLES/veg_project/project_big--buck-bunny.veg.sfap0` (232 МБ).
+Разбор файла `SAMPLES/veg_projects/project_big--buck-bunny.veg.sfap0` (232 МБ).
 
 ## Что это
 

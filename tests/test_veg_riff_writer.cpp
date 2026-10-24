@@ -46,7 +46,7 @@ TEST_CASE("Every sample project survives a trip through the container writer",
 {
     const QStringList projects = sampleProjects();
     if (projects.isEmpty()) {
-        SKIP("SAMPLES/veg_project not available");
+        SKIP("SAMPLES/veg_projects not available");
     }
 
     int checked = 0;
@@ -118,7 +118,7 @@ TEST_CASE("Mixing console busses come out of a project", "[veg][mixer]")
 {
     const QString dir = SamplePaths::vegProjectDir();
     if (dir.isEmpty()) {
-        SKIP("SAMPLES/veg_project not available");
+        SKIP("SAMPLES/veg_projects not available");
     }
     auto open = [&](const QString &name) {
         QString err;
@@ -159,7 +159,7 @@ TEST_CASE("An imported project keeps the mixer it was saved with", "[veg][mixer]
 {
     const QString dir = SamplePaths::vegProjectDir();
     if (dir.isEmpty()) {
-        SKIP("SAMPLES/veg_project not available");
+        SKIP("SAMPLES/veg_projects not available");
     }
     auto load = [&](const QString &name) {
         const QString path = QDir(dir).filePath(name);
@@ -191,7 +191,7 @@ TEST_CASE("The media pool comes out of a project, generators included", "[veg][m
 {
     const QString dir = SamplePaths::vegProjectDir();
     if (dir.isEmpty()) {
-        SKIP("SAMPLES/veg_project not available");
+        SKIP("SAMPLES/veg_projects not available");
     }
     auto open = [&](const QString &name) {
         QString err;

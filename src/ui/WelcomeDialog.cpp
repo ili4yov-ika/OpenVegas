@@ -382,10 +382,10 @@ void WelcomeDialog::setupRecentList()
     const QString samples = SamplePaths::samplesDir();
     if (!samples.isEmpty()) {
         dirs << samples;
-        dirs << QDir(samples).filePath(QStringLiteral("veg_project"));
+        dirs << QDir(samples).filePath(QStringLiteral("veg_projects"));
     }
-    dirs << QDir::current().absoluteFilePath(QStringLiteral("SAMPLES/veg_project"));
-    dirs << QDir::current().absoluteFilePath(QStringLiteral("../SAMPLES/veg_project"));
+    dirs << QDir::current().absoluteFilePath(QStringLiteral("SAMPLES/veg_projects"));
+    dirs << QDir::current().absoluteFilePath(QStringLiteral("../SAMPLES/veg_projects"));
     dirs << QDir::current().absoluteFilePath(QStringLiteral("SAMPLES"));
     dirs << QDir::current().absoluteFilePath(QStringLiteral("../SAMPLES"));
     dirs.removeDuplicates();

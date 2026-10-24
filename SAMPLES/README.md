@@ -4,7 +4,7 @@
 
 Здесь собраны:
 
-- каталог [`veg_project/`](veg_project/) — актуальные `.veg`, медиа и interchange-экспорты (EDL / XML / FCPXML / Premiere);
+- каталог [`veg_projects/`](veg_projects/) — актуальные `.veg`, медиа и interchange-экспорты (EDL / XML / FCPXML / Premiere);
 - документация и скрипты анализа `.veg` — [`veg_analyzators/`](veg_analyzators/);
 - эталонные скриншоты Vegas Pro — [`screenshots/`](screenshots/) (если есть);
 - снимок Program Files Vegas Pro 22 — [`VEGAS-PRO-22-PROGRAM-FILES/`](VEGAS-PRO-22-PROGRAM-FILES/) (справочник по runtime/API).
@@ -15,14 +15,14 @@
 
 ## Быстрый старт
 
-1. Актуальные проекты Vegas: [`veg_project/README.md`](veg_project/README.md).
+1. Актуальные проекты Vegas: [`veg_projects/README.md`](veg_projects/README.md).
 2. Реверс формата `.veg`: [`veg_analyzators/README.md`](veg_analyzators/README.md).
 3. Анализ установки Vegas: [`VEGAS-PRO-22-PROGRAM-FILES/README.md`](VEGAS-PRO-22-PROGRAM-FILES/README.md).
 
 Открыть проект в OpenVegas:
 
 ```text
-build\Windows_MinGW-x64\OpenVegas.exe SAMPLES\veg_project\project_big--buck-bunny.veg
+build\Windows_MinGW-x64\OpenVegas.exe SAMPLES\veg_projects\project_big--buck-bunny.veg
 ```
 
 ---
@@ -33,16 +33,16 @@ build\Windows_MinGW-x64\OpenVegas.exe SAMPLES\veg_project\project_big--buck-bunn
 SAMPLES/
 ├── README.md                       # этот файл
 ├── screenshots/                    # эталонные скриншоты Vegas Pro (опционально)
-├── veg_project/                    # актуальные .veg + медиа + Export-эталоны
+├── veg_projects/                    # актуальные .veg + медиа + Export-эталоны
 ├── veg_analyzators/                # реверс .veg (docs + скрипты)
 └── VEGAS-PRO-22-PROGRAM-FILES/     # снимок установки Vegas Pro 22 (+ README)
 ```
 
 | Путь | Назначение |
 |------|------------|
-| `veg_project/` | Рабочие `.veg`, медиа (BBB, wav), EDL/XML/FCPXML/Premiere sidecar |
+| `veg_projects/` | Рабочие `.veg`, медиа (BBB, wav), EDL/XML/FCPXML/Premiere sidecar |
 | `veg_analyzators/` | Документация и скрипты разбора бинарного `.veg` |
 | `screenshots/` | Скриншоты UI Vegas для сверки |
 | `VEGAS-PRO-22-PROGRAM-FILES/` | Справочный снимок Program Files (не публиковать runtime в git) |
 
-Подробности по проектам: [`veg_project/README.md`](veg_project/README.md).
+Подробности по проектам: [`veg_projects/README.md`](veg_projects/README.md).

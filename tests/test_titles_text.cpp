@@ -34,7 +34,7 @@ void ensureQtGuiApp()
 
 // Regression coverage for a real bug: titlesTextMotionForPreset() used to derive its
 // lookup key from the display label ("Drop Split" -> "_DropSplit"), which does NOT match
-// the real Vegas AnimationName format recovered from SAMPLES/veg_project/
+// the real Vegas AnimationName format recovered from SAMPLES/veg_projects/
 // project_titles-and-text.veg ("_Drop_split" — Vegas mixes Title_Case and lower_case
 // words per preset, e.g. "_Fly_in_from_Right", "_Rolling_Glow_and_Enlarge"). Every
 // multi-word named preset except the always-matching single-word ones silently fell back
@@ -68,7 +68,7 @@ TEST_CASE("titlesTextAnimationPresets() keys match the real Vegas AnimationName 
 {
     const QVector<TitlesTextPresetEntry> presets = titlesTextAnimationPresets();
     // None + 25 named + 25 Title-N, per the real Media Generator catalog (see
-    // SAMPLES/veg_project/project_titles-and-text.veg — 51 distinct AnimationName values).
+    // SAMPLES/veg_projects/project_titles-and-text.veg — 51 distinct AnimationName values).
     REQUIRE(presets.size() == 51);
 
     QSet<QString> keys;

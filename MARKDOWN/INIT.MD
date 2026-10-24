@@ -12,7 +12,7 @@
 
 ### Продукт
 - **OpenVegas** — GPL open-source NLE, UI и поведение ориентированы на **VEGAS Pro 22**.
-- Эталоны: Qt UI + `SAMPLES/veg_project/`, скриншоты, `example_project_*.veg`, реверс в `SAMPLES/docs_veg/`.
+- Эталоны: Qt UI + `SAMPLES/veg_projects/`, скриншоты, `example_project_*.veg`, реверс в `SAMPLES/docs_veg/`.
 - Runtime Vegas (`SAMPLES/VEGAS-PRO-22-PROGRAM-FILES/`, `build/vegas-runtime/`) — **только справочник**, не GPL, **не коммитить** копии в git.
 
 ### Архитектура
@@ -42,7 +42,7 @@ OpenVegas/
 ├── tests/             # Catch2: audio / video / media / plugin state
 ├── docs/              # краткая документация для пользователей
 ├── MARKDOWN/          # INIT, ISSUES, PLAN_*, VEG_READER, QT68
-├── SAMPLES/           # .veg, docs_veg, veg_project, скриншоты (эталоны)
+├── SAMPLES/           # .veg, docs_veg, veg_projects, скриншоты (эталоны)
 ├── thirdparty/        # vst3sdk (и пр.)
 ├── CMakeLists.txt
 ├── OpenVegas.pro
@@ -87,7 +87,7 @@ OpenVegas/
 ## Qt / UI
 
 ### Макеты и fidelity
-1. Сначала смотреть **эталонный `.veg`** (`SAMPLES/veg_project/`) и/или **скриншот** Vegas.
+1. Сначала смотреть **эталонный `.veg`** (`SAMPLES/veg_projects/`) и/или **скриншот** Vegas.
 2. Потом править `.ui` / `MainWindow` / QSS / `IconFactory`.
 3. Не выдумывать chrome, которого нет в эталоне, без записи в ISSUES.
 
@@ -270,8 +270,8 @@ TODO в коде без записи в ISSUES — не оставлять.
   ```text
   build\Windows_MinGW-x64\OpenVegas.exe SAMPLES\example_project_with_video_and_audio.veg
   ```
-- FX sample: `SAMPLES/veg_project/project_big--buck-bunny_4x3-preview-reverse-fades-fx.veg`
-- Регресс UI: сравнить с `SAMPLES/veg_project/` и `SAMPLES/screenshots/` (если есть)
+- FX sample: `SAMPLES/veg_projects/project_big--buck-bunny_4x3-preview-reverse-fades-fx.veg`
+- Регресс UI: сравнить с `SAMPLES/veg_projects/` и `SAMPLES/screenshots/` (если есть)
 - Скрипты анализа `.veg`: `SAMPLES/docs_veg/_analyze_*.py`
 
 ---
@@ -307,7 +307,7 @@ TODO в коде без записи в ISSUES — не оставлять.
 
 ## Обязательные действия при разработке
 
-1. Эталон UI → `SAMPLES/veg_project/` / screenshot перед полировкой chrome  
+1. Эталон UI → `SAMPLES/veg_projects/` / screenshot перед полировкой chrome  
 2. Новый `.cpp/.h` → **CMakeLists.txt и OpenVegas.pro**  
 3. Баг / stub / план → `ISSUES_AND_PLANS.md`  
 3a. Элемент UI без привязки или, наоборот, получил её → `MARKDOWN/UI_STUBS_AUDIT.md` в том же коммите  

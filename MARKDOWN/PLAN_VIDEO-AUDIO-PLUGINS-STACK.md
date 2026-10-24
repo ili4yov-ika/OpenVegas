@@ -3,7 +3,7 @@
 План **хостинга и обработки** аудио- и видеоплагинов поверх готового MediaEngine / playback стека.
 
 Родительский roadmap: [`PLAN_VIDEOAUDIOSTACK.md`](PLAN_VIDEOAUDIOSTACK.md) (фазы **8–11**).  
-См. также: [`ISSUES_AND_PLANS.md`](ISSUES_AND_PLANS.md), `SAMPLES/veg_project/README.md`.
+См. также: [`ISSUES_AND_PLANS.md`](ISSUES_AND_PLANS.md), `SAMPLES/veg_projects/README.md`.
 
 **Обновлено:** 2026-08-11 — **барьер `DescribeInContext` снят: настоящие OFX-бинарники VEGAS
 рендерят по-настоящему** (причина была в хосте, а не в плагине — см.

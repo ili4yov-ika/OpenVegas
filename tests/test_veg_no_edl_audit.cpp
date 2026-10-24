@@ -61,7 +61,7 @@ TEST_CASE("Every sample .veg opens sanely without an EDL sidecar", "[interchange
 {
     const QString root = SamplePaths::vegProjectDir();
     if (root.isEmpty()) {
-        SKIP("SAMPLES/veg_project not available");
+        SKIP("SAMPLES/veg_projects not available");
     }
 
     int checked = 0;
@@ -124,7 +124,7 @@ TEST_CASE("No-EDL veg import recovers crossfades on standalone (audio-only) over
 {
     const QString root = SamplePaths::vegProjectDir();
     if (root.isEmpty()) {
-        SKIP("SAMPLES/veg_project not available");
+        SKIP("SAMPLES/veg_projects not available");
     }
     const QString path =
         QDir(root).filePath(QStringLiteral("project_sample_for_project_audio_trims-and-crossfade.veg"));

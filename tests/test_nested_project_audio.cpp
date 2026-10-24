@@ -27,7 +27,7 @@ TEST_CASE("A nested VEGAS project plays from its .sfap0 mixdown",
 {
     const QString root = SamplePaths::vegProjectDir();
     if (root.isEmpty()) {
-        SKIP("SAMPLES/veg_project not available");
+        SKIP("SAMPLES/veg_projects not available");
     }
     const QString veg = QDir(root).filePath(QStringLiteral("project_big--buck-bunny.veg"));
     if (!QFile::exists(veg) || !QFile::exists(veg + QStringLiteral(".sfap0"))) {
@@ -84,7 +84,7 @@ TEST_CASE("A nested VEGAS project composes picture", "[video][nested-project]")
 {
     const QString root = SamplePaths::vegProjectDir();
     if (root.isEmpty()) {
-        SKIP("SAMPLES/veg_project not available");
+        SKIP("SAMPLES/veg_projects not available");
     }
     const QString veg = QDir(root).filePath(QStringLiteral("project_big--buck-bunny.veg"));
     if (!QFile::exists(veg)) {
@@ -143,7 +143,7 @@ TEST_CASE("The frame caches reach a nested project only once the provider is ins
 {
     const QString root = SamplePaths::vegProjectDir();
     if (root.isEmpty()) {
-        SKIP("SAMPLES/veg_project not available");
+        SKIP("SAMPLES/veg_projects not available");
     }
     const QString veg = QDir(root).filePath(QStringLiteral("project_big--buck-bunny.veg"));
     if (!QFile::exists(veg)) {
@@ -195,7 +195,7 @@ TEST_CASE("The preview cache itself returns a nested project's frame",
 {
     const QString root = SamplePaths::vegProjectDir();
     if (root.isEmpty()) {
-        SKIP("SAMPLES/veg_project not available");
+        SKIP("SAMPLES/veg_projects not available");
     }
     const QString veg = QDir(root).filePath(QStringLiteral("project_big--buck-bunny.veg"));
     if (!QFile::exists(veg)) {

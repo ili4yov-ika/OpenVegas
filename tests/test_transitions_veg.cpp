@@ -18,7 +18,7 @@
 using namespace openvegas;
 
 // --- Recovery from a real Vegas project -------------------------------------------
-// SAMPLES/veg_project/project_transitions_3d-blinds.veg is the user's own test bed:
+// SAMPLES/veg_projects/project_transitions_3d-blinds.veg is the user's own test bed:
 // all four presets placed on a fade-in, a fade-out and a crossfade (12 instances). The
 // binary layout parseTransitions() reads was reverse-engineered from this file, so the
 // recovered values double as a cross-check of the screenshot-derived preset defaults.
@@ -28,7 +28,7 @@ TEST_CASE("VegReader recovers every 3D Blinds transition from the sample project
 {
     const QString root = SamplePaths::vegProjectDir();
     if (root.isEmpty()) {
-        SKIP("SAMPLES/veg_project not available");
+        SKIP("SAMPLES/veg_projects not available");
     }
     const QString path =
         QDir(root).filePath(QStringLiteral("project_transitions_3d-blinds.veg"));
@@ -60,7 +60,7 @@ TEST_CASE("Recovered 3D Blinds parameters match the catalog defaults for every p
 {
     const QString root = SamplePaths::vegProjectDir();
     if (root.isEmpty()) {
-        SKIP("SAMPLES/veg_project not available");
+        SKIP("SAMPLES/veg_projects not available");
     }
     const QString path =
         QDir(root).filePath(QStringLiteral("project_transitions_3d-blinds.veg"));
@@ -98,7 +98,7 @@ TEST_CASE("Opening the sample project puts transitions on the events' fades",
 {
     const QString root = SamplePaths::vegProjectDir();
     if (root.isEmpty()) {
-        SKIP("SAMPLES/veg_project not available");
+        SKIP("SAMPLES/veg_projects not available");
     }
     const QString path =
         QDir(root).filePath(QStringLiteral("project_transitions_3d-blinds.veg"));
@@ -144,7 +144,7 @@ TEST_CASE("VegReader recognises the transition groups beyond 3D Blinds",
 {
     const QString root = SamplePaths::vegProjectDir();
     if (root.isEmpty()) {
-        SKIP("SAMPLES/veg_project not available");
+        SKIP("SAMPLES/veg_projects not available");
     }
     const QString path =
         QDir(root).filePath(QStringLiteral("project_transitions_othersmores.veg"));
@@ -180,7 +180,7 @@ TEST_CASE("Venetian Blinds parameters match what the preset names state",
 {
     const QString root = SamplePaths::vegProjectDir();
     if (root.isEmpty()) {
-        SKIP("SAMPLES/veg_project not available");
+        SKIP("SAMPLES/veg_projects not available");
     }
     const QString path =
         QDir(root).filePath(QStringLiteral("project_transitions_othersmores.veg"));
@@ -226,7 +226,7 @@ TEST_CASE("3D Shuffle specular light separates Bright Light from Low Light",
 {
     const QString root = SamplePaths::vegProjectDir();
     if (root.isEmpty()) {
-        SKIP("SAMPLES/veg_project not available");
+        SKIP("SAMPLES/veg_projects not available");
     }
     const QString path =
         QDir(root).filePath(QStringLiteral("project_transitions_othersmores.veg"));
@@ -262,7 +262,7 @@ TEST_CASE("Groups whose layout is not pinned down report it rather than guess",
 {
     const QString root = SamplePaths::vegProjectDir();
     if (root.isEmpty()) {
-        SKIP("SAMPLES/veg_project not available");
+        SKIP("SAMPLES/veg_projects not available");
     }
     const QString path =
         QDir(root).filePath(QStringLiteral("project_transitions_othersmores.veg"));
@@ -501,7 +501,7 @@ TEST_CASE("A .veg walks as a riff64 container, exactly to its last byte",
 {
     const QString root = SamplePaths::vegProjectDir();
     if (root.isEmpty()) {
-        SKIP("SAMPLES/veg_project not available");
+        SKIP("SAMPLES/veg_projects not available");
     }
     const QString veg = QDir(root).filePath(QStringLiteral("project_transitions_3d-blinds.veg"));
     if (!QFile::exists(veg)) {
@@ -554,7 +554,7 @@ TEST_CASE("A plug-in record names its own event by nesting", "[io][veg][riff]")
 {
     const QString root = SamplePaths::vegProjectDir();
     if (root.isEmpty()) {
-        SKIP("SAMPLES/veg_project not available");
+        SKIP("SAMPLES/veg_projects not available");
     }
     const QString veg = QDir(root).filePath(QStringLiteral("project_transitions_3d-blinds.veg"));
     if (!QFile::exists(veg)) {
@@ -625,7 +625,7 @@ TEST_CASE("Track Motion keyframes come back from a real project", "[io][veg][mot
 {
     const QString root = SamplePaths::vegProjectDir();
     if (root.isEmpty()) {
-        SKIP("SAMPLES/veg_project not available");
+        SKIP("SAMPLES/veg_projects not available");
     }
     const QString veg =
         QDir(root).filePath(QStringLiteral("project_big--buck-bunny_track-motion.veg"));

@@ -209,7 +209,7 @@ struct TitlesTextPresetEntry {
 QVector<TitlesTextPresetEntry> titlesTextAnimationPresets();
 
 /** Starting text/background color / scale for a known preset key, reverse-engineered
- *  from a real Vegas sample project (SAMPLES/veg_project/project_titles-and-text.veg —
+ *  from a real Vegas sample project (SAMPLES/veg_projects/project_titles-and-text.veg —
  *  51 distinct AnimationName values recovered and cross-checked against their
  *  TextColor/Background/Scale properties). Applied when a preset is placed on the
  *  timeline (drag/drop or double-click) so the result matches what real Vegas starts

@@ -344,7 +344,7 @@ Transition**. При этом ни одного `<missing>` в трассиро�
 ### Отказ на `Load` отравляет весь бинарник (2026-08-26)
 
 Найдено по падению, которое воспроизвёл пользователь: открыть
-`SAMPLES/veg_project/project_big--buck-bunny_4x3-preview-reverse-fades-fx.veg` и подвинуть
+`SAMPLES/veg_projects/project_big--buck-bunny_4x3-preview-reverse-fades-fx.veg` и подвинуть
 курсор — SIGSEGV **внутри чужого кода**, в `Vfx1.ofx` из VEGAS Pro 18, на первом же кадре с
 Chroma Blur. Стек: `MainWindow::refreshPreviewFrame` → `VideoCompositor::compose` →
 `applyVideoFxChain` → `OfxHost::processSlot` → `processFrame` →

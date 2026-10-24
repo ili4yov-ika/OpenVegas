@@ -14,7 +14,7 @@ namespace {
 
 QByteArray readSample(const QString &name)
 {
-    const QString path = SamplePaths::resolveProjectPath(QStringLiteral("SAMPLES/veg_project/")
+    const QString path = SamplePaths::resolveProjectPath(QStringLiteral("SAMPLES/veg_projects/")
                                                          + name);
     QFile f(path);
     if (!f.open(QIODevice::ReadOnly)) {

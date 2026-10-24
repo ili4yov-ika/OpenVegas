@@ -273,7 +273,7 @@ void MediaGeneratorPane::loadCatalog()
         p.gpu = true;
         // All 53 real Vegas presets (catalog grid order: Default, Title01–25, then the 25
         // named animations alphabetically, then Placeholder/Subtitles) — recovered from
-        // SAMPLES/veg_project/project_titles-and-text.veg (real AnimationName + TextColor
+        // SAMPLES/veg_projects/project_titles-and-text.veg (real AnimationName + TextColor
         // + Background + Scale + sample text per instance; see
         // video/TitlesTextApply.cpp's presetTable() for the same data feeding the actual
         // placed event, and makeTitlesTextPreset() for where the background comes from —

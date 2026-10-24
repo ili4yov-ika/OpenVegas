@@ -254,9 +254,9 @@ QString ProjectModel::resolveMediaPath(const QString &storedPath, const QString 
         QDir(vegDir + QStringLiteral("/../screenshots")).absolutePath(),
         QDir(vegDir + QStringLiteral("/../SAMPLES")).absolutePath(),
         QDir(vegDir + QStringLiteral("/../SAMPLES/assets")).absolutePath(),
-        QDir(vegDir + QStringLiteral("/../SAMPLES/veg_project")).absolutePath(),
+        QDir(vegDir + QStringLiteral("/../SAMPLES/veg_projects")).absolutePath(),
         QDir(vegDir + QStringLiteral("/../../SAMPLES/assets")).absolutePath(),
-        QDir(vegDir + QStringLiteral("/../../SAMPLES/veg_project")).absolutePath(),
+        QDir(vegDir + QStringLiteral("/../../SAMPLES/veg_projects")).absolutePath(),
         // Export folders that contain media copies
         vegDir + QStringLiteral("/edl-text-file"),
         vegDir + QStringLiteral("/final-cut-pro-7_davinci-resolve"),
@@ -1564,9 +1564,9 @@ bool ProjectModel::applyVegImport(const VegOpenResult &veg, const QString &opene
         addMarkerAt(mk.timeSec, mk.label);
     }
 
-    // --- Preferred: Vegas EDL CSV sidecar (veg_project/edl-text-file/<name>.txt) ---
+    // --- Preferred: Vegas EDL CSV sidecar (veg_projects/edl-text-file/<name>.txt) ---
     // Renamed copies (e.g. Downloads/1-просто-видео.veg) still embed the original
-    // project path - use that basename so EDL from SAMPLES/veg_project still matches.
+    // project path - use that basename so EDL from SAMPLES/veg_projects still matches.
     QStringList edlAltNames;
     if (!veg.projectPathHint.isEmpty()) {
         edlAltNames << veg.projectPathHint;

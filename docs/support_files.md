@@ -58,7 +58,7 @@
 | Import Closed Captions | `.srt` `.vtt` `.scc` | **partial** — cues → markers |
 | AAF / OMF | — | нет |
 
-Эталонные экспорты Vegas: [`SAMPLES/veg_project/`](../SAMPLES/veg_project/README.md)  
+Эталонные экспорты Vegas: [`SAMPLES/veg_projects/`](../SAMPLES/veg_projects/README.md)  
 (`edl-text-file/`, `final-cut-pro-7_davinci-resolve/`, `final-cut-pro-x/`, `premiere_after-effect/`).
 
 ---
