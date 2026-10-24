@@ -2,8 +2,14 @@
 # Open this file in Qt Creator (Qt 6.8+ Widgets kit).
 # Alternative build: CMakeLists.txt (keep SOURCES/HEADERS in sync).
 
+!versionAtLeast(QT_VERSION, 6.8.0):error("OpenVegas requires Qt 6.8 or newer")
+
 QT       += core gui widgets svg
 CONFIG   += c++17 warn_on
+# Qt Creator's MSVC build step uses Makefile.Debug/Makefile.Release. Generate
+# both instead of leaving obsolete sub-makefiles after a qmake refresh.
+win32-msvc:CONFIG += debug_and_release
+CONFIG   -= debug_and_release_target
 CONFIG   -= app_bundle
 
 TEMPLATE = app
@@ -19,6 +25,21 @@ UI_DIR       = $$OUT_PWD/ui_headers
 MOC_DIR      = $$OUT_PWD/moc
 OBJECTS_DIR  = $$OUT_PWD/obj
 RCC_DIR      = $$OUT_PWD/rcc
+
+# Each MSVC build pass gets its own generated files and output folder; a shared
+# one lets the release pass overwrite what the debug pass produced.
+win32-msvc:debug_and_release {
+    CONFIG(debug, debug|release): BUILD_VARIANT = debug
+    else: BUILD_VARIANT = release
+    UI_DIR      = $$OUT_PWD/ui_headers/$$BUILD_VARIANT
+    MOC_DIR     = $$OUT_PWD/moc/$$BUILD_VARIANT
+    # Objects beside the exe, as qmake does by default: the compiler writes its PDB
+    # into OBJECTS_DIR, and the linker looks for it next to the output (LNK4099).
+    OBJECTS_DIR = $$OUT_PWD/$$BUILD_VARIANT
+    RCC_DIR     = $$OUT_PWD/rcc/$$BUILD_VARIANT
+    DESTDIR     = $$OUT_PWD/$$BUILD_VARIANT
+}
+INCLUDEPATH += $$UI_DIR
 
 DEFINES += OPENVGAS_AUDIO=1
 
@@ -77,6 +98,12 @@ HEADERS += \
     src/ui/MediaThumbHoverScrub.h \
     src/ui/KeyboardMap.h \
     src/ui/CustomizeKeyboardDialog.h \
+    src/ui/CaptureSourceCard.h \
+    src/ui/CaptureSourceList.h \
+    src/ui/CaptureWindowTree.h \
+    src/ui/MediaPropertiesDialog.h \
+    src/ui/TitlesTextKeyframePane.h \
+    src/ui/TransitionPropertiesDialog.h \
     src/timeline/TimelineView.h \
     src/timeline/TimelineScrollHost.h \
     src/model/ProjectModel.h \
@@ -94,6 +121,7 @@ HEADERS += \
     src/capture/CapturePreview.h \
     src/capture/CaptureSources.h \
     src/capture/CaptureRecorder.h \
+    src/capture/CaptureLivePreview.h \
     src/io/SamplePaths.h \
     src/io/MediaMime.h \
     src/io/MediaThumbCache.h \
@@ -105,6 +133,7 @@ HEADERS += \
     src/io/RenderTemplateCatalog.h \
     src/io/FFmpegEncoder.h \
     src/io/FFmpegStreamDecoder.h \
+    src/io/VegRiff.h \
     src/media/MediaEngine.h \
     src/plugins/PluginScanner.h \
     src/plugins/PluginDiscovery.h \
@@ -121,6 +150,7 @@ HEADERS += \
     src/plugins/AudioPluginScanner.h \
     src/plugins/AudioPluginRegistry.h \
     src/plugins/AudioPluginHost.h \
+    src/plugins/SoundForgeHost.h \
     src/audio/FadeCurves.h \
     src/audio/AudioUtil.h \
     src/audio/AudioDecodeCache.h \
@@ -129,6 +159,7 @@ HEADERS += \
     src/audio/AudioEngine.h \
     src/audio/CompositePluginHost.h \
     src/audio/Vst3Host.h \
+    src/audio/SoundForgeDsHost.h \
     src/video/VideoFrameCache.h \
     src/video/VideoKeyframeEval.h \
     src/video/PanCropApply.h \
@@ -139,7 +170,9 @@ HEADERS += \
     src/video/TransitionApply.h \
     src/video/TransitionPresetData.h \
     src/video/TransitionPluginHook.h \
-    src/video/VideoCompositor.h
+    src/video/VideoCompositor.h \
+    src/video/NestedFrameHook.h \
+    src/video/NestedProjectSource.h
 
 SOURCES += \
     src/app/main.cpp \
@@ -187,6 +220,12 @@ SOURCES += \
     src/ui/MediaThumbHoverScrub.cpp \
     src/ui/KeyboardMap.cpp \
     src/ui/CustomizeKeyboardDialog.cpp \
+    src/ui/CaptureSourceCard.cpp \
+    src/ui/CaptureSourceList.cpp \
+    src/ui/CaptureWindowTree.cpp \
+    src/ui/MediaPropertiesDialog.cpp \
+    src/ui/TitlesTextKeyframePane.cpp \
+    src/ui/TransitionPropertiesDialog.cpp \
     src/timeline/TimelineView.cpp \
     src/timeline/TimelineScrollHost.cpp \
     src/model/ProjectModel.cpp \
@@ -202,6 +241,7 @@ SOURCES += \
     src/capture/CapturePreview.cpp \
     src/capture/CaptureSources.cpp \
     src/capture/CaptureRecorder.cpp \
+    src/capture/CaptureLivePreview.cpp \
     src/io/SamplePaths.cpp \
     src/io/MediaMime.cpp \
     src/io/MediaThumbCache.cpp \
@@ -213,6 +253,7 @@ SOURCES += \
     src/io/RenderTemplateCatalog.cpp \
     src/io/FFmpegEncoder.cpp \
     src/io/FFmpegStreamDecoder.cpp \
+    src/io/VegRiff.cpp \
     src/media/MediaEngine.cpp \
     src/plugins/PluginScanner.cpp \
     src/plugins/PluginDiscovery.cpp \
@@ -227,6 +268,7 @@ SOURCES += \
     src/plugins/AudioPluginScanner.cpp \
     src/plugins/AudioPluginRegistry.cpp \
     src/plugins/AudioPluginHost.cpp \
+    src/plugins/SoundForgeHost.cpp \
     src/audio/FadeCurves.cpp \
     src/audio/AudioDecodeCache.cpp \
     src/audio/BuiltinDsp.cpp \
@@ -235,6 +277,7 @@ SOURCES += \
     src/audio/CompositePluginHost.cpp \
     src/audio/Vst3Host.cpp \
     src/audio/miniaudio_impl.cpp \
+    src/audio/SoundForgeDsHost.cpp \
     src/video/VideoFrameCache.cpp \
     src/video/VideoKeyframeEval.cpp \
     src/video/PanCropApply.cpp \
@@ -245,13 +288,41 @@ SOURCES += \
     src/video/TransitionApply.cpp \
     src/video/TransitionPresetData.cpp \
     src/video/TransitionPluginHook.cpp \
-    src/video/VideoCompositor.cpp
+    src/video/VideoCompositor.cpp \
+    src/video/NestedFrameHook.cpp \
+    src/video/NestedProjectSource.cpp
 
 RESOURCES += \
     resources/resources.qrc
 
 win32:RC_ICONS = resources/icons/logo.ico
-win32:LIBS += -lole32 -lshell32 -luuid -luser32 -lgdi32 -lwinmm -ldwmapi
+# oleaut32/strmiids: DirectShow hosting of the Sound Forge Shared Plug-Ins.
+# dwmapi: telling a cloaked window from a visible one during capture enumeration.
+# advapi32: the registry scan that finds the Shared Plug-Ins (MinGW links it by default,
+# MSVC under qmake does not).
+win32:LIBS += -lole32 -loleaut32 -lshell32 -luuid -lstrmiids -luser32 -lgdi32 -lwinmm -ldwmapi -ladvapi32
+
+# Optional Steinberg VST3 SDK, picked up the same way CMakeLists.txt does: when the
+# vendored clone has its headers, build the real host; otherwise Vst3Host is a stub.
+VST3_SDK = $$PWD/thirdparty/vst3sdk
+exists($$VST3_SDK/pluginterfaces/vst/ivstaudioprocessor.h) {
+    DEFINES += OPENVGAS_HAS_VST3_SDK=1
+    # As system headers: they trip Clang's -Wpragma-pack and MSVC's C4996 (strcpy) on
+    # every include, and the warnings are about Steinberg's code, not ours.
+    win32-msvc {
+        QMAKE_CXXFLAGS += /external:W0 \
+            /external:I $$shell_quote($$system_path($$VST3_SDK)) \
+            /external:I $$shell_quote($$system_path($$VST3_SDK/pluginterfaces))
+    } else {
+        QMAKE_CXXFLAGS += -isystem $$shell_quote($$VST3_SDK) -isystem $$shell_quote($$VST3_SDK/pluginterfaces)
+    }
+    # funknown.cpp goes through a wrapper that turns its format warnings off.
+    SOURCES += \
+        $$VST3_SDK/pluginterfaces/base/coreiids.cpp \
+        src/audio/Vst3SdkFunknown.cpp \
+        $$VST3_SDK/public.sdk/source/common/commoniids.cpp \
+        $$VST3_SDK/public.sdk/source/vst/vstinitiids.cpp
+}
 
 # Warning levels. For MSVC do not append /W4 on top of Qt mkspec /W3 (D9025).
 win32-msvc {
@@ -267,11 +338,14 @@ win32-msvc {
 copy_vegas_runtime {
     VEGAS_SRC = $$PWD/SAMPLES/VEGAS-PRO-22-PROGRAM-FILES
     VEGAS_DST = $$OUT_PWD/vegas-runtime
+    VEGAS_OFX_SRC = "$$VEGAS_SRC/OFX Video Plug-Ins"
+    VEGAS_OFX_DST = "$$VEGAS_DST/OFX Video Plug-Ins"
     !exists($$VEGAS_SRC) {
         warning("CONFIG+=copy_vegas_runtime set but SAMPLES/VEGAS-PRO-22-PROGRAM-FILES not found")
     } else {
         message("Build will stage OFX/Icons into $$VEGAS_DST (do not commit)")
         QMAKE_POST_LINK += $$quote($$QMAKE_MKDIR $$shell_quote($$VEGAS_DST)) $$escape_expand(\\n\\t)
+        QMAKE_POST_LINK += $$quote($$QMAKE_COPY_DIR $$shell_quote($$VEGAS_OFX_SRC) $$shell_quote($$VEGAS_OFX_DST)) $$escape_expand(\\n\\t)
         QMAKE_POST_LINK += $$quote($$QMAKE_COPY_DIR $$shell_quote($$VEGAS_SRC/Icons) $$shell_quote($$VEGAS_DST/Icons))
     }
 }
