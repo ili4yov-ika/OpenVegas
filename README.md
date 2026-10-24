@@ -1,148 +1,155 @@
-# OpenVegas
+<h1 align="center">OpenVegas</h1>
+
+<p align="center">
+  <a href="README.md">English</a> |
+  <a href="README.ru.md">Русский</a>
+</p>
 
 [![CI](https://github.com/ili4yov-ika/OpenVegas/actions/workflows/ci.yml/badge.svg)](https://github.com/ili4yov-ika/OpenVegas/actions/workflows/ci.yml)
 
-Открытый кроссплатформенный видеоредактор — аналог **VEGAS Pro 22** на **C++ / Qt 6.8** с лицензией **GNU GPL**.
+![Main window](docs/main_ui.png)
 
-Цель — привычный workspace Vegas (таймлайн, events, fades/crossfades, media bin, Trimmer, Properties, Event FX, Media Generators, Transitions) и открытие проектов `.veg`.
+An open, cross-platform video editor — an analogue of **VEGAS Pro 22** written in **C++ / Qt 6.8** under the **GNU GPL**.
 
-Сейчас: **рабочий MVP** — playback A/V, compositor, Builtin/VST/OFX (OFX-хост грузит и рендерит настоящие `.ofx`; видеоплагины из Vegas Pro при этом пока не работают — см. ниже), Render As, interchange, импорт `.veg` (v1 + Event FX + Titles & Text + переходы), редактирование на таймлайне и сохранение проекта в собственный формат.
+The goal is the familiar Vegas workspace (timeline, events, fades/crossfades, media bin, Trimmer, Properties, Event FX, Media Generators, Transitions) and opening `.veg` projects.
+
+Current state: **a working MVP** — A/V playback, compositor, Builtin/VST/OFX (the OFX host loads and renders real `.ofx` files; video plug-ins from Vegas Pro do not work yet — see below), Render As, interchange, `.veg` import (v1 + Event FX + Titles & Text + transitions), timeline editing, and saving projects in a native format.
 
 ---
 
-## Скриншот
+## Screenshot
 
 ![Main Interface](docs/main_ui.png)
 
 ---
 
-## Что уже работает
+## What works
 
-| Область | Статус |
-|---------|--------|
+| Area | Status |
+|------|--------|
 | UI shell / timeline / media bin | Done |
 | Open `.veg` (timings, fades, media pool) | Done (v1) |
-| Video Event FX из `.veg` (Glint, Chroma Blur, …) | Done (best-effort) |
+| Video Event FX from `.veg` (Glint, Chroma Blur, …) | Done (best-effort) |
 | Video preview / compositor (Pan/Crop, Color, FX chain) | Done MVP |
 | Audio engine + mixer + Builtin DSP (Delay/Reverb, …) | Done |
 | VST1 / VST2 process + editor | Done |
-| VST3 process + `IPlugView` editor | Done (нужен SDK) |
-| Аудиоплагины Sound Forge / VEGAS Shared — хостинг + родное окно | Done (Windows)⁴ |
-| OFX host — загрузка и рендер реальных `.ofx` (включая бандлы VEGAS) | Done (хост) |
-| **Видеоплагины из Vegas Pro — пока НЕ работают**³ | Не работает |
-| OFX кроссплатформенно — стандартные корни (`OFX_PLUGIN_PATH`, `/usr/OFX/Plugins`, `/Library/OFX/Plugins`) + ABI-гейт | Done |
-| Event FX UI (Video / Audio, немодальные) | Done |
-| Video FX — Drag'n'Drop эффекта/пресета на видеоклип | Частично: перетаскивание из панели есть, приём на таймлайне не реализован |
+| VST3 process + `IPlugView` editor | Done (requires the SDK) |
+| Sound Forge / VEGAS Shared audio plug-ins — hosting + native window | Done (Windows)⁴ |
+| OFX host — loading and rendering real `.ofx` (including VEGAS bundles) | Done (host) |
+| **Video plug-ins from Vegas Pro — do NOT work yet**³ | Not working |
+| Cross-platform OFX — standard roots (`OFX_PLUGIN_PATH`, `/usr/OFX/Plugins`, `/Library/OFX/Plugins`) + ABI gate | Done |
+| Event FX UI (Video / Audio, modeless) | Done |
+| Video FX — drag and drop of an effect/preset onto a video clip | Partial: dragging from the pane works, dropping on the timeline is not implemented |
 | Render As (FFmpeg) + progress UI | Done |
 | NLE interchange (Vegas CSV / FCP7 / FCPX / Premiere scrape) | Done MVP¹ |
-| Media Generator — VEGAS Titles & Text (анимации, hover-preview, Drag'n'Drop) | Done MVP |
-| Titles & Text — окно редактора, Media Properties, кейфреймы параметров | Done MVP |
-| Transitions — 3D Blinds (4 пресета, DnD на фейд/кроссфейд, окно свойств) | Done для 1 группы² |
-| Переходы из `.veg` (3D Blinds: пресет + параметры + привязка к событию) | Done |
-| Правка на таймлайне: multi-select (Shift/Ctrl), групповое перетаскивание, Split (`S`), Automatic Crossfades, magnet snap | Done |
-| Save / Save As — родной **OpenVegas Project Archive** | Done |
+| Media Generator — VEGAS Titles & Text (animations, hover preview, drag and drop) | Done MVP |
+| Titles & Text — editor window, Media Properties, parameter keyframes | Done MVP |
+| Transitions — 3D Blinds (4 presets, DnD onto a fade/crossfade, properties window) | Done for 1 group² |
+| Transitions from `.veg` (3D Blinds: preset + parameters + binding to the event) | Done |
+| Timeline editing: multi-select (Shift/Ctrl), group drag, Split (`S`), Automatic Crossfades, magnet snap | Done |
+| Save / Save As — native **OpenVegas Project Archive** | Done |
 
-¹ Переходы не переносит **ни один** формат обмена — это предел самих форматов, а не наш дефект: Vegas в своих же экспортах вырождает 3D Blinds в `Cross Dissolve`. Что именно выживает в каждом формате — таблица в [`MARKDOWN/ISSUES_AND_PLANS.md`](MARKDOWN/ISSUES_AND_PLANS.md) (раздел «Render As / interchange»).
-² Остальные ~24 группы каталога (3D Cascade, Barn Door, Iris, …) — намеренно нерабочие плейсхолдеры: тайлы не перетаскиваются, чтобы нельзя было поставить переход, который ничего не делает.
-³ **Видеоплагины из Vegas Pro сейчас не открываются и не рендерят.** Цепочка Event FX из `.veg` восстанавливается, плагины видны в каталоге и в окне Event FX, но картинки не дают. Сам хост исправен — настоящий `Vfx1.ofx` проходит `Load → Describe → DescribeInContext → CreateInstance → Render` со статусом 0; не работает **перенос значений из проекта**: OFX-блоб параметров в `.veg` не разобран, слот приезжает пустым, и плагин честно рендерит с радиусом `0`.
+¹ **No** interchange format carries transitions — that is a limit of the formats themselves, not our defect: Vegas's own exports degrade 3D Blinds to `Cross Dissolve`. What survives in each format is tabulated in [`MARKDOWN/ISSUES_AND_PLANS.md`](MARKDOWN/ISSUES_AND_PLANS.md) (section «Render As / interchange»).
+² The other ~24 catalog groups (3D Cascade, Barn Door, Iris, …) are deliberately non-functional placeholders: their tiles cannot be dragged, so you cannot place a transition that does nothing.
+³ **Video plug-ins from Vegas Pro currently neither open nor render.** The Event FX chain from a `.veg` is restored and the plug-ins appear in the catalog and in the Event FX window, but they produce no picture. The host itself is sound — a real `Vfx1.ofx` passes `Load → Describe → DescribeInContext → CreateInstance → Render` with status 0; what does not work is **carrying values over from the project**: the OFX parameter blob in a `.veg` is not decoded, the slot arrives empty, and the plug-in honestly renders with a radius of `0`.
 
-⁴ Эффекты Sound Forge / VEGAS Shared (Reverb, Chorus, Track EQ, Wave Hammer Surround, …) оказались обычными **DirectShow transform filter**, поэтому хостятся документированными интерфейсами, без реверса. Звук идёт 32-битным float, окно параметров — родное, встроенное в диалог Event FX. Только Windows: это COM in-process сервера; на других системах остаются builtin-подстановки. Настройки, сделанные в родном окне, сохраняются в проект и восстанавливаются при открытии. Параметры правятся **только** в этом окне — поканальной автоматизации и чтения настроек из `.veg` нет. Разбор: [`MARKDOWN/VEGAS_SHARED_PLUGINS_REVERSE_FULL.md`](MARKDOWN/VEGAS_SHARED_PLUGINS_REVERSE_FULL.md) §6б.
+⁴ Sound Forge / VEGAS Shared effects (Reverb, Chorus, Track EQ, Wave Hammer Surround, …) turned out to be ordinary **DirectShow transform filters**, so they are hosted through documented interfaces, without reverse engineering. Audio runs as 32-bit float, and the parameter window is the native one, embedded in the Event FX dialog. Windows only: these are in-process COM servers; on other systems builtin substitutes remain. Settings made in the native window are saved with the project and restored on open. Parameters are edited **only** in that window — there is no per-parameter automation and no reading of settings from `.veg`. Analysis: [`MARKDOWN/VEGAS_SHARED_PLUGINS_REVERSE_FULL.md`](MARKDOWN/VEGAS_SHARED_PLUGINS_REVERSE_FULL.md) §6б.
 
-Собственные подмены (box blur вместо Chroma Blur, sepia-матрица вместо Sepia, gain на любой упавший рендер) **намеренно отключены** — `OPENVEGAS_EMULATED_VIDEO_FX = 0` в [`src/plugins/OfxHost.h`](src/plugins/OfxHost.h). Раньше они создавали впечатление, что приложение крутит эффекты VEGAS, тогда как оно крутило их приближения. Теперь эффект, который нельзя отрендерить по-настоящему, не рендерится вовсе. **Писать новые такие реализации не следует** — путь вперёд один: разобрать настоящие параметры. Замеры и план — [`MARKDOWN/PLAN_OFX_VIDEO_PLUGINS.md`](MARKDOWN/PLAN_OFX_VIDEO_PLUGINS.md).
+Our own stand-ins (a box blur for Chroma Blur, a sepia matrix for Sepia, a gain on any failed render) are **deliberately disabled** — `OPENVEGAS_EMULATED_VIDEO_FX = 0` in [`src/plugins/OfxHost.h`](src/plugins/OfxHost.h). They used to give the impression that the app was running VEGAS effects when it was running approximations of them. Now an effect that cannot be rendered for real is not rendered at all. **Do not write new implementations of this kind** — there is one way forward: decoding the real parameters. Measurements and plan — [`MARKDOWN/PLAN_OFX_VIDEO_PLUGINS.md`](MARKDOWN/PLAN_OFX_VIDEO_PLUGINS.md).
 
-Подробности и backlog: [`MARKDOWN/ISSUES_AND_PLANS.md`](MARKDOWN/ISSUES_AND_PLANS.md), [`MARKDOWN/PLAN_VIDEOAUDIOSTACK.md`](MARKDOWN/PLAN_VIDEOAUDIOSTACK.md), [`MARKDOWN/PLAN_VIDEO-AUDIO-PLUGINS-STACK.md`](MARKDOWN/PLAN_VIDEO-AUDIO-PLUGINS-STACK.md).
-
----
-
-## Стек
-
-| Слой | Выбор |
-|------|--------|
-| Язык / UI | C++17+, Qt 6.8 (Widgets), `.ui` в `ui/` |
-| Сборка | CMake 3.16+ (предпочтительно) и `OpenVegas.pro` |
-| Компиляторы | MSVC 2022, GCC 9+, Clang 12+ |
-| Аудио | miniaudio graph, Builtin DSP, VST1–3 |
-| Видео | software compositor + FFmpeg decode/encode |
-| Плагины | VST3 SDK (опц.), OpenFX host MVP |
-| Лицензия | GNU GPL v3 or later ([LICENSE](LICENSE)) |
+Details and backlog: [`MARKDOWN/ISSUES_AND_PLANS.md`](MARKDOWN/ISSUES_AND_PLANS.md), [`MARKDOWN/PLAN_VIDEOAUDIOSTACK.md`](MARKDOWN/PLAN_VIDEOAUDIOSTACK.md), [`MARKDOWN/PLAN_VIDEO-AUDIO-PLUGINS-STACK.md`](MARKDOWN/PLAN_VIDEO-AUDIO-PLUGINS-STACK.md).
 
 ---
 
-## Сборка и запуск
+## Stack
 
-Требуется **Qt 6.8+** (Widgets + Svg). Перед rebuild на Windows закройте `OpenVegas.exe`, если линковка падает из‑за занятого файла.
+| Layer | Choice |
+|-------|--------|
+| Language / UI | C++17+, Qt 6.8 (Widgets), `.ui` files in `ui/` |
+| Build | CMake 3.16+ (preferred) and `OpenVegas.pro` |
+| Compilers | MSVC 2022, GCC 9+, Clang 12+ |
+| Audio | miniaudio graph, Builtin DSP, VST1–3 |
+| Video | software compositor + FFmpeg decode/encode |
+| Plug-ins | VST3 SDK (optional), OpenFX host MVP |
+| License | GNU GPL v3 or later ([LICENSE](LICENSE)) |
+
+---
+
+## Building and running
+
+Requires **Qt 6.8+** (Widgets + Svg). On Windows, close `OpenVegas.exe` before rebuilding if linking fails because the file is in use.
 
 ### Qt Creator (qmake)
 
-Откройте [`OpenVegas.pro`](OpenVegas.pro), kit **Qt 6.8+ Widgets** (MSVC / MinGW / Clang) → Build.
+Open [`OpenVegas.pro`](OpenVegas.pro), choose a **Qt 6.8+ Widgets** kit (MSVC / MinGW / Clang) → Build.
 
 ### CMake
 
 ```bash
-# Windows MinGW (см. также cmake --preset windows-mingw-debug)
-cmake -S . -B build/Windows_MinGW-x64 -DCMAKE_PREFIX_PATH=<путь-к-Qt6.8>
+# Windows MinGW (see also cmake --preset windows-mingw-debug)
+cmake -S . -B build/Windows_MinGW-x64 -DCMAKE_PREFIX_PATH=<path-to-Qt6.8>
 cmake --build build/Windows_MinGW-x64
 ```
 
-Запуск:
+Running:
 
 ```text
 build\Windows_MinGW-x64\OpenVegas.exe
-build\Windows_MinGW-x64\OpenVegas.exe SAMPLES\veg_project\project_big--buck-bunny.veg
+build\Windows_MinGW-x64\OpenVegas.exe SAMPLES\veg_projects\project_big--buck-bunny.veg
 ```
 
-Эталонные проекты для проверки:
+Reference projects to check against:
 
-| Что смотреть | Файл в `SAMPLES/veg_project/` |
-| ------------ | ----------------------------- |
+| What to look at | File in `SAMPLES/veg_projects/` |
+| --------------- | ------------------------------- |
 | Video Event FX | `project_big--buck-bunny_4x3-preview-reverse-fades-fx.veg` |
-| Переходы 3D Blinds на фейдах и кроссфейдах | `project_transitions_3d-blinds.veg` |
+| 3D Blinds transitions on fades and crossfades | `project_transitions_3d-blinds.veg` |
 | Titles & Text | `project_titles-and-text.veg` |
 
-Опционально скопировать поддеревья Vegas в **игнорируемый** `build/.../vegas-runtime/`:
+Optionally copy Vegas subtrees into the **ignored** `build/.../vegas-runtime/`:
 
 ```bash
 cmake -S . -B build/Windows_MinGW-x64 -DCMAKE_PREFIX_PATH=<Qt6.8> -DOPENVGAS_COPY_VEGAS_RUNTIME=ON
 ```
 
-**Не коммитьте** `build/`, `vegas-runtime/` и бинарники Vegas — они в [`.gitignore`](.gitignore).
+**Do not commit** `build/`, `vegas-runtime/` or Vegas binaries — they are in [`.gitignore`](.gitignore).
 
-### VST3 SDK (опционально)
+### VST3 SDK (optional)
 
-Для реального VST3 host нужен [Steinberg VST3 SDK](https://github.com/steinbergmedia/vst3sdk) (лицензия Steinberg отдельно от GPL; Usage Guidelines).
+A real VST3 host needs the [Steinberg VST3 SDK](https://github.com/steinbergmedia/vst3sdk) (Steinberg's license, separate from the GPL; see its Usage Guidelines).
 
-Shallow-clone в `thirdparty/vst3sdk` (submodules `pluginterfaces`, `base`, `public.sdk`). CMake выставляет `OPENVGAS_VST3_SDK_PATH`, если заголовки на месте; иначе stub pass-through:
+Shallow-clone it into `thirdparty/vst3sdk` (submodules `pluginterfaces`, `base`, `public.sdk`). CMake sets `OPENVGAS_VST3_SDK_PATH` when the headers are in place; otherwise a pass-through stub is built:
 
 ```bash
 cd thirdparty/vst3sdk && git submodule update --init pluginterfaces base public.sdk
 cmake -S . -B build/Windows_MinGW-x64 -DCMAKE_PREFIX_PATH=<Qt6.8>
 ```
 
-### OFX-видеоплагины
+### OFX video plug-ins
 
-Ищутся в путях установки VEGAS Pro и в стандартных корнях OpenFX:
+They are searched for in the VEGAS Pro install paths and in the standard OpenFX roots:
 
-| Платформа | Корни |
-|-----------|-------|
-| Все | `OFX_PLUGIN_PATH` (`;` на Windows, `:` иначе) |
+| Platform | Roots |
+|----------|-------|
+| All | `OFX_PLUGIN_PATH` (`;` on Windows, `:` elsewhere) |
 | Windows | `%CommonProgramFiles%\OFX\Plugins` |
 | macOS | `/Library/OFX/Plugins`, `~/Library/OFX/Plugins` |
 | Linux | `/usr/OFX/Plugins`, `/usr/local/OFX/Plugins`, `~/OFX/Plugins` |
 
-Бандлы VEGAS содержат только `Contents/Win64`, поэтому на Linux и macOS они видны в
-каталоге, но не загружаются. Собственные подмены отключены, поэтому такой эффект просто не
-рендерится. Сторонние OFX-плагины, собранные для вашей ОС, работают полноценно.
+VEGAS bundles contain only `Contents/Win64`, so on Linux and macOS they show up in the
+catalog but do not load. Our own stand-ins are disabled, so such an effect simply does not
+render. Third-party OFX plug-ins built for your OS work fully.
 
-Если плагин не грузится:
+If a plug-in does not load:
 
 ```bash
-OPENVEGAS_OFX_TRACE=/tmp/ofx.log ./OpenVegas   # лог всех host-колбэков
-OPENVEGAS_OFX_THREADS=1 ./OpenVegas            # однопоточный рендер OFX
+OPENVEGAS_OFX_TRACE=/tmp/ofx.log ./OpenVegas   # log every host callback
+OPENVEGAS_OFX_THREADS=1 ./OpenVegas            # single-threaded OFX rendering
 ```
 
-Подробности — [`MARKDOWN/PLAN_OFX_VIDEO_PLUGINS.md`](MARKDOWN/PLAN_OFX_VIDEO_PLUGINS.md).
+Details — [`MARKDOWN/PLAN_OFX_VIDEO_PLUGINS.md`](MARKDOWN/PLAN_OFX_VIDEO_PLUGINS.md).
 
-### Тесты
+### Tests
 
 ```bash
 cmake --build build/Windows_MinGW-x64 --target openvegas_audio_tests openvegas_video_tests openvegas_media_tests
@@ -151,11 +158,11 @@ ctest --test-dir build/Windows_MinGW-x64 --output-on-failure
 
 ### CI (GitHub Actions)
 
-На каждый push / PR в `main` workflow [`.github/workflows/ci.yml`](.github/workflows/ci.yml) собирает Release на **Ubuntu 22.04**, **Windows 2022** и **macOS 14** (Qt **6.8.3**) и запускает `ctest`.
+On every push / PR to `main`, the workflow [`.github/workflows/ci.yml`](.github/workflows/ci.yml) builds Release on **Ubuntu 22.04**, **Windows 2022** and **macOS 14** (Qt **6.8.3**) and runs `ctest`.
 
 ---
 
-## Структура репозитория
+## Repository layout
 
 ```
 OpenVegas/
@@ -166,55 +173,57 @@ OpenVegas/
 ├── ui/                   # Qt Designer .ui
 ├── resources/            # QSS, icons
 ├── tests/                # Catch2
-├── tools/                # установщики, утилиты
+├── tools/                # installers, utilities
 ├── MARKDOWN/             # INIT, ISSUES, CHECKLIST, PLAN_*, VEG_READER, UI_STUBS_AUDIT
-├── docs/                 # краткие гайды
-├── thirdparty/           # vst3sdk / openfx (локально, по необходимости)
-└── SAMPLES/              # veg_project, veg_analyzators, screenshots, runtime Vegas
+├── docs/                 # short guides
+├── thirdparty/           # vst3sdk / openfx (local, as needed)
+└── SAMPLES/              # veg_projects, veg_analyzators, screenshots, Vegas runtime
 ```
 
-| Путь | Назначение |
-|------|------------|
+| Path | Purpose |
+|------|---------|
 | [`src/`](src/) | MainWindow, timeline, model, VegReader, audio/video/media/plugins |
 | [`tests/`](tests/) | Catch2: audio / video / media / plugin state |
 | [`tools/`](tools/README.md) | NSIS/deb/rpm, macOS/WSL, `svg_to_ico` |
-| [`MARKDOWN/`](MARKDOWN/INIT.MD) | Правила, планы, ISSUES, чеклист, аудит заглушек |
-| [`SAMPLES/`](SAMPLES/README.md) | Эталонные `.veg`, медиа, Vegas Pro 22 |
+| [`MARKDOWN/`](MARKDOWN/INIT.MD) | Rules, plans, ISSUES, checklist, stub audit |
+| [`SAMPLES/`](SAMPLES/README.md) | Reference `.veg` files, media, Vegas Pro 22 |
 
 ---
 
-## Эталоны Vegas
+## Vegas references
 
-1. Проекты и медиа — [`SAMPLES/veg_project/README.md`](SAMPLES/veg_project/README.md)
-2. Разбор `.veg` и скрипты-анализаторы — [`SAMPLES/veg_analyzators/README.md`](SAMPLES/veg_analyzators/README.md)
-3. Runtime Vegas Pro 22 — [`SAMPLES/VEGAS-PRO-22-PROGRAM-FILES/README.md`](SAMPLES/VEGAS-PRO-22-PROGRAM-FILES/README.md)
+1. Projects and media — [`SAMPLES/veg_projects/README.md`](SAMPLES/veg_projects/README.md)
+2. `.veg` analysis and analyzer scripts — [`SAMPLES/veg_analyzators/README.md`](SAMPLES/veg_analyzators/README.md)
+3. Vegas Pro 22 runtime — [`SAMPLES/VEGAS-PRO-22-PROGRAM-FILES/README.md`](SAMPLES/VEGAS-PRO-22-PROGRAM-FILES/README.md)
 
 ---
 
-## Документация
+## Documentation
 
-1. **Правила разработки** — [`MARKDOWN/INIT.MD`](MARKDOWN/INIT.MD)
-2. **Баги и планы** — [`MARKDOWN/ISSUES_AND_PLANS.md`](MARKDOWN/ISSUES_AND_PLANS.md)
+The documents below are written in Russian.
+
+1. **Development rules** — [`MARKDOWN/INIT.MD`](MARKDOWN/INIT.MD)
+2. **Bugs and plans** — [`MARKDOWN/ISSUES_AND_PLANS.md`](MARKDOWN/ISSUES_AND_PLANS.md)
 3. **Video / Audio stack** — [`MARKDOWN/PLAN_VIDEOAUDIOSTACK.md`](MARKDOWN/PLAN_VIDEOAUDIOSTACK.md)
 4. **Plugins stack** — [`MARKDOWN/PLAN_VIDEO-AUDIO-PLUGINS-STACK.md`](MARKDOWN/PLAN_VIDEO-AUDIO-PLUGINS-STACK.md)
-5. **OFX / видеоплагины Vegas + кроссплатформенность** — [`MARKDOWN/PLAN_OFX_VIDEO_PLUGINS.md`](MARKDOWN/PLAN_OFX_VIDEO_PLUGINS.md)
-6. **Нативные формы OFX (реверс `OfxHWndInteractSuite`)** — [`MARKDOWN/PLAN_OFX_HWND_INTERACT_RE.md`](MARKDOWN/PLAN_OFX_HWND_INTERACT_RE.md)
-6. **Открытие `.veg` (кратко)** — [`docs/VEG_OPEN.md`](docs/VEG_OPEN.md)
-7. **Открытие `.veg` (развёрнуто)** — [`MARKDOWN/VEG_READER_V0.md`](MARKDOWN/VEG_READER_V0.md)
-8. **Перенос на Qt + парсер** — [`MARKDOWN/QT68_PORT_AND_VEG_OPEN.md`](MARKDOWN/QT68_PORT_AND_VEG_OPEN.md)
-9. **Поддерживаемые файлы** — [`docs/support_files.md`](docs/support_files.md)
-10. **Формат `.veg`** — [`SAMPLES/veg_analyzators/00_format_overview.md`](SAMPLES/veg_analyzators/00_format_overview.md)
-10a. **Контейнер `.veg` (riff64, реверс через Ghidra)** — [`MARKDOWN/VEG_CONTAINER_FORMAT.md`](MARKDOWN/VEG_CONTAINER_FORMAT.md)
-11. **Родной формат проекта** — [`MARKDOWN/PROJECT_ARCHIVE_FORMAT.md`](MARKDOWN/PROJECT_ARCHIVE_FORMAT.md)
-12. **Сайдкары `.sfk` / `.sfl`** — [`MARKDOWN/SFK_SFL_SIDECAR_FILES.md`](MARKDOWN/SFK_SFL_SIDECAR_FILES.md)
-13. **Что в UI ещё заглушка** — [`MARKDOWN/UI_STUBS_AUDIT.md`](MARKDOWN/UI_STUBS_AUDIT.md)
-14. **Текущий чеклист задач** — [`MARKDOWN/CHECKLIST.md`](MARKDOWN/CHECKLIST.md)
-15. **Аппаратные ускорители (VLD, NVENC/QSV/AMF)** — [`MARKDOWN/HARDWARE_ACCELERATOR.md`](MARKDOWN/HARDWARE_ACCELERATOR.md)
+5. **OFX / Vegas video plug-ins + cross-platform support** — [`MARKDOWN/PLAN_OFX_VIDEO_PLUGINS.md`](MARKDOWN/PLAN_OFX_VIDEO_PLUGINS.md)
+6. **Native OFX forms (reversing `OfxHWndInteractSuite`)** — [`MARKDOWN/PLAN_OFX_HWND_INTERACT_RE.md`](MARKDOWN/PLAN_OFX_HWND_INTERACT_RE.md)
+6. **Opening `.veg` (short)** — [`docs/VEG_OPEN.md`](docs/VEG_OPEN.md)
+7. **Opening `.veg` (in depth)** — [`MARKDOWN/VEG_READER_V0.md`](MARKDOWN/VEG_READER_V0.md)
+8. **Port to Qt + parser** — [`MARKDOWN/QT68_PORT_AND_VEG_OPEN.md`](MARKDOWN/QT68_PORT_AND_VEG_OPEN.md)
+9. **Supported files** — [`docs/support_files.md`](docs/support_files.md)
+10. **The `.veg` format** — [`SAMPLES/veg_analyzators/00_format_overview.md`](SAMPLES/veg_analyzators/00_format_overview.md)
+10a. **The `.veg` container (riff64, reversed with Ghidra)** — [`MARKDOWN/VEG_CONTAINER_FORMAT.md`](MARKDOWN/VEG_CONTAINER_FORMAT.md)
+11. **Native project format** — [`MARKDOWN/PROJECT_ARCHIVE_FORMAT.md`](MARKDOWN/PROJECT_ARCHIVE_FORMAT.md)
+12. **`.sfk` / `.sfl` sidecars** — [`MARKDOWN/SFK_SFL_SIDECAR_FILES.md`](MARKDOWN/SFK_SFL_SIDECAR_FILES.md)
+13. **What in the UI is still a stub** — [`MARKDOWN/UI_STUBS_AUDIT.md`](MARKDOWN/UI_STUBS_AUDIT.md)
+14. **Current task checklist** — [`MARKDOWN/CHECKLIST.md`](MARKDOWN/CHECKLIST.md)
+15. **Hardware accelerators (VLD, NVENC/QSV/AMF)** — [`MARKDOWN/HARDWARE_ACCELERATOR.md`](MARKDOWN/HARDWARE_ACCELERATOR.md)
 
 ---
 
-## Лицензия
+## License
 
-Код OpenVegas — **GNU GPL v3 or later**. Полный текст: [`LICENSE`](LICENSE).
+OpenVegas code is **GNU GPL v3 or later**. Full text: [`LICENSE`](LICENSE).
 
-VEGAS Pro и материалы в `SAMPLES/VEGAS-PRO-22-PROGRAM-FILES/` принадлежат MAGIX/VEGAS и **не** покрываются GPL; только справочные эталоны. Копии runtime (`build/vegas-runtime/`) не публиковать в git. VST3 SDK — лицензия Steinberg, отдельно от GPL приложения.
+VEGAS Pro and the materials in `SAMPLES/VEGAS-PRO-22-PROGRAM-FILES/` belong to MAGIX/VEGAS and are **not** covered by the GPL; they are reference material only. Do not publish runtime copies (`build/vegas-runtime/`) to git. The VST3 SDK is under Steinberg's license, separate from the application's GPL.
