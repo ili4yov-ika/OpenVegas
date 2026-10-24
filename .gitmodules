@@ -1,0 +1,6 @@
+[submodule "thirdparty/openfx"]
+	path = thirdparty/openfx
+	url = https://github.com/AcademySoftwareFoundation/openfx.git
+[submodule "thirdparty/vst3sdk"]
+	path = thirdparty/vst3sdk
+	url = https://github.com/steinbergmedia/vst3sdk.git
