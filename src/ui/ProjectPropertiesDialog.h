@@ -20,11 +20,13 @@ class ProjectPropertiesDialog : public QDialog {
     Q_OBJECT
 public:
     explicit ProjectPropertiesDialog(ProjectModel *model, QWidget *parent = nullptr);
+    static void applyNewProjectDefaults(ProjectModel *model);
 
 private:
     void buildUi();
     void loadFromModel();
-    void applyToModel();
+    bool applyToModel();
+    void saveDefaults();
     void markDirty();
     void updateApplyEnabled();
     void onMatchMediaVideoSettings();

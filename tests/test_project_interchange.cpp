@@ -571,6 +571,12 @@ TEST_CASE("A project round-trips through a single .ovp file", "[io][project-file
     model.setFrameRate(25.0);
     model.setTempoBpm(140.0);
     model.setMasterVolumeDb(-3.5);
+    model.setSummary({QStringLiteral("Монтаж"), QStringLiteral("Artist"), QStringLiteral("Engineer"),
+                      QStringLiteral("Copyright"), QStringLiteral("Line 1\nLine 2")});
+    model.setRulerTimeFormat(RulerTimeFormat::MeasuresBeats);
+    model.setRulerStartSec(1.25);
+    model.setBeatsPerMeasure(3);
+    model.setBeatNote(3);
 
     const int vt = model.addTrack(TrackKind::Video);
     Track &track = model.tracks()[vt];
@@ -600,6 +606,13 @@ TEST_CASE("A project round-trips through a single .ovp file", "[io][project-file
     CHECK(back.frameHeight() == 720);
     CHECK(back.frameRate() == Catch::Approx(25.0));
     CHECK(back.tempoBpm() == Catch::Approx(140.0));
+    CHECK(back.summary() == model.summary());
+    CHECK(back.projectTitle() == QStringLiteral("Монтаж"));
+    CHECK(back.rulerTimeFormat() == RulerTimeFormat::MeasuresBeats);
+    CHECK(back.rulerStartSec() == Catch::Approx(1.25));
+    CHECK(back.beatsPerMeasure() == 3);
+    CHECK(back.beatNote() == 3);
+    CHECK(back.formatRulerTime(0.0) == model.formatRulerTime(0.0));
 
     bool found = false;
     for (const Track &t : back.tracks()) {

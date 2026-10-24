@@ -1657,6 +1657,8 @@ void VideoEventFxDialogExact::buildUi()
     sel->setFixedHeight(20);
     sel->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
     m_presetCombo = sel;
+    sel->setEnabled(false);
+    sel->setToolTip(tr("Preset name for the current effect"));
     presetLay->addWidget(sel, 1);
     presetLay->addWidget(makeIcoBtn(preset, QStringLiteral("💾"), tr("Save Preset")));
     presetLay->addWidget(makeIcoBtn(preset, QStringLiteral("✕"), tr("Delete Preset")));

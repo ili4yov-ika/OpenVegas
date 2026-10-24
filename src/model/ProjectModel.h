@@ -812,6 +812,16 @@ struct EventClipboard {
 
 struct VegOpenResult;
 
+/** Project Summary tab, persisted with the document. */
+struct ProjectSummary {
+    QString title, artist, engineer, copyright, comments;
+    bool operator==(const ProjectSummary &o) const
+    {
+        return title == o.title && artist == o.artist && engineer == o.engineer
+               && copyright == o.copyright && comments == o.comments;
+    }
+};
+
 class ProjectModel {
 public:
     explicit ProjectModel();
@@ -885,6 +895,17 @@ public:
     QString projectPath() const { return m_projectPath; }
     void setProjectPath(const QString &path) { m_projectPath = path; }
     QString projectTitle() const;
+    const ProjectSummary &summary() const { return m_summary; }
+    void setSummary(const ProjectSummary &summary) { m_summary = summary; }
+    int beatsPerMeasure() const { return m_beatsPerMeasure; }
+    void setBeatsPerMeasure(int beats) { m_beatsPerMeasure = std::clamp(beats, 1, 16); }
+    int beatNote() const { return m_beatNote; }
+    void setBeatNote(int note) { m_beatNote = std::clamp(note, 0, 4); }
+    double rulerStartSec() const { return m_rulerStartSec; }
+    void setRulerStartSec(double sec)
+    {
+        if (std::isfinite(sec)) m_rulerStartSec = std::max(0.0, sec);
+    }
 
     double frameRate() const { return m_frameRate; }
     void setFrameRate(double fps) { m_frameRate = fps; }
@@ -1117,6 +1138,10 @@ private:
     LoopRegion m_loopRegion;
     EventClipboard m_eventClipboard;
     QString m_projectPath;
+    ProjectSummary m_summary;
+    int m_beatsPerMeasure = 4;
+    int m_beatNote = 2; // Quarter note
+    double m_rulerStartSec = 0.0;
     double m_playheadSec = 0.0;
     double m_pps = 40.0;
     double m_frameRate = 29.97;

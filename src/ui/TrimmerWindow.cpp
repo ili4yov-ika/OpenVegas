@@ -1246,7 +1246,7 @@ void TrimmerWindow::showMoreMenu()
                                  QKeySequence(QStringLiteral("Shift+A")));
         a->setEnabled(false);
     }
-    menu.addAction(tr("Create Subclip…"));
+    menu.addAction(tr("Create Subclip…"))->setEnabled(false);
     menu.addSeparator();
     menu.addAction(tr("Set In Point"), QKeySequence(QStringLiteral("I")), this,
                    &TrimmerWindow::setInPoint);
@@ -1271,14 +1271,14 @@ void TrimmerWindow::showMoreMenu()
     menu.addAction(tr("Clear Markers"), this, &TrimmerWindow::clearMarkers);
     menu.addSeparator();
     if (isVideoFamily(m_kind)) {
-        menu.addAction(tr("Detect Scenes and Add to Timeline from Cursor"));
+        menu.addAction(tr("Detect Scenes and Add to Timeline from Cursor"))->setEnabled(false);
     }
     if (isAudioFamily(m_kind)) {
         menu.addAction(tr("Beat Detection"), QKeySequence(QStringLiteral("B")), this,
                        &TrimmerWindow::runBeatDetection);
     }
     menu.addSeparator();
-    menu.addAction(tr("Edit Visible Button Set…"));
+    menu.addAction(tr("Edit Visible Button Set…"))->setEnabled(false);
 
     if (m_moreBtn) {
         menu.exec(m_moreBtn->mapToGlobal(QPoint(0, m_moreBtn->height())));

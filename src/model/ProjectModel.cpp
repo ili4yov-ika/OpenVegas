@@ -300,6 +300,9 @@ QString ProjectModel::resolveMediaPath(const QString &storedPath, const QString 
 
 QString ProjectModel::projectTitle() const
 {
+    if (!m_summary.title.isEmpty()) {
+        return m_summary.title;
+    }
     if (m_projectPath.isEmpty()) {
         return QStringLiteral("Untitled");
     }
@@ -317,6 +320,10 @@ void ProjectModel::loadDemoProject()
     m_markers.clear();
     m_loopRegion = {};
     m_projectPath.clear();
+    m_summary = {};
+    m_beatsPerMeasure = 4;
+    m_beatNote = 2;
+    m_rulerStartSec = 0.0;
     m_nextEventId = 1;
     m_nextTrackId = 1;
     m_nextGroupId = 1;
@@ -419,6 +426,10 @@ void ProjectModel::loadEmptyProject()
     m_markers.clear();
     m_loopRegion = {};
     m_projectPath.clear();
+    m_summary = {};
+    m_beatsPerMeasure = 4;
+    m_beatNote = 2;
+    m_rulerStartSec = 0.0;
     m_nextEventId = 1;
     m_nextTrackId = 1;
     m_nextGroupId = 1;
@@ -2945,6 +2956,9 @@ bool ProjectModel::trimEventStartTo(int eventId, double timeSec)
     if (timeSec <= ev->startSec + 0.01 || timeSec >= end - 0.05) {
         return false;
     }
+    const double delta = timeSec - ev->startSec;
+    if (ev->mediaLengthSec <= 0.0 && ev->reversed) ev->mediaLengthSec = ev->lengthSec;
+    ev->mediaStartSec += delta;
     ev->lengthSec = end - timeSec;
     ev->startSec = timeSec;
     if (ev->fadeInSec + ev->fadeOutSec > ev->lengthSec) {
@@ -3484,11 +3498,11 @@ QString ProjectModel::formatRulerTime(double sec) const
     if (!std::isfinite(sec)) {
         sec = 0.0;
     }
-    sec = std::max(0.0, sec);
+    sec = std::max(0.0, sec + m_rulerStartSec);
 
     const double bpm = std::max(0.001, m_tempoBpm);
-    const double beatLen = 60.0 / bpm;
-    constexpr int beatsPerMeasure = 4;
+    const double beatLen = (60.0 / bpm) * (4.0 / double(1 << m_beatNote));
+    const int beatsPerMeasure = m_beatsPerMeasure;
     const double measureLen = beatLen * beatsPerMeasure;
 
     const int fpsInt = std::max(1, static_cast<int>(std::llround(m_frameRate)));
@@ -3499,10 +3513,12 @@ QString ProjectModel::formatRulerTime(double sec) const
         return QString::number(samples);
     }
     case RulerTimeFormat::Time: {
-        const int measure = 1 + static_cast<int>(std::floor(sec));
-        const double frac = sec - std::floor(sec);
-        const int ticks = static_cast<int>(std::llround(frac * 1000.0)) % 1000;
-        return QStringLiteral("%1.1.%2").arg(measure).arg(ticks, 3, 10, QChar('0'));
+        const qint64 totalMs = static_cast<qint64>(std::llround(sec * 1000.0));
+        return QStringLiteral("%1:%2:%3.%4")
+            .arg(totalMs / 3600000, 2, 10, QChar('0'))
+            .arg((totalMs / 60000) % 60, 2, 10, QChar('0'))
+            .arg((totalMs / 1000) % 60, 2, 10, QChar('0'))
+            .arg(totalMs % 1000, 3, 10, QChar('0'));
     }
     case RulerTimeFormat::Seconds: {
         // Simple "seconds with 1 decimal" (Vegas-like for this simplified editor).

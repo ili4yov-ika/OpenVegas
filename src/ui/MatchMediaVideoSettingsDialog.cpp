@@ -150,6 +150,8 @@ void MatchMediaVideoSettingsDialog::buildUi()
     grid->addWidget(m_audioTime, 1, 3);
 
     m_openSequence = new QCheckBox(tr("Open sequence"), details);
+    m_openSequence->setEnabled(false);
+    m_openSequence->setToolTip(tr("Image sequence import is not available yet"));
     grid->addWidget(new QLabel(tr("Stills:"), details), 2, 2);
     grid->addWidget(m_openSequence, 2, 3);
 

@@ -75,3 +75,38 @@ TEST_CASE("splitAllAt keeps a grouped A/V pair split together at the same time",
     CHECK(model.tracks()[vi].events[1].groupId == model.tracks()[ai].events[1].groupId);
     CHECK(model.tracks()[vi].events[1].groupId != 5);
 }
+
+TEST_CASE("Trim start retains the source in-point in forward and reverse events", "[trim][split]")
+{
+    for (bool reversed : {false, true}) {
+        ProjectModel model;
+        const int track = model.addTrack(TrackKind::Video);
+        TrackEvent event = makeVideoEvent(90, 2.0, 8.0);
+        event.mediaStartSec = 1.0;
+        event.mediaLengthSec = 20.0;
+        event.reversed = reversed;
+        model.tracks()[track].events.push_back(event);
+        const double sourceBefore = event.sourceTimeSec(6.0);
+        REQUIRE(model.trimEventStartTo(90, 5.0));
+        const TrackEvent *trimmed = model.findEvent(90);
+        REQUIRE(trimmed != nullptr);
+        CHECK(trimmed->sourceTimeSec(6.0) == Catch::Approx(sourceBefore));
+        CHECK(trimmed->startSec == Catch::Approx(5.0));
+        CHECK(trimmed->lengthSec == Catch::Approx(5.0));
+    }
+}
+TEST_CASE("Ruler offset, meter and beat note affect displayed time", "[ruler]")
+{
+    ProjectModel model;
+    model.setRulerTimeFormat(RulerTimeFormat::Time);
+    CHECK(model.formatRulerTime(61.125) == QStringLiteral("00:01:01.125"));
+    model.setRulerStartSec(2.0);
+    CHECK(model.formatRulerTime(61.125) == QStringLiteral("00:01:03.125"));
+    model.setRulerTimeFormat(RulerTimeFormat::MeasuresBeats);
+    model.setRulerStartSec(0.0);
+    model.setTempoBpm(120.0);
+    model.setBeatsPerMeasure(3);
+    CHECK(model.formatRulerTime(1.5) == QStringLiteral("2.1"));
+    model.setBeatNote(3);
+    CHECK(model.formatRulerTime(1.5) == QStringLiteral("3.1"));
+}

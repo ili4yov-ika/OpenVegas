@@ -3,6 +3,7 @@
 #include "plugins/AudioPluginHost.h"
 
 #include <QHash>
+#include <QMutex>
 #include <QString>
 #include <QStringList>
 #include <memory>
@@ -54,6 +55,9 @@ public:
 
     /** True when this slot already has a live instance (no reload needed). */
     bool hasInstance(const FxSlot &slot) const;
+    QString processingError(const FxSlot &slot) const;
+    /** Apply a changed document blob; keep unsaved live page edits when it is unchanged. */
+    bool synchronizeState(FxSlot *slot);
 
     bool createInstance(const AudioPluginDesc &desc, FxSlot *slot) override;
     void releaseInstance(FxSlot *slot) override;
@@ -85,6 +89,7 @@ private:
     struct Instance;
     std::shared_ptr<Instance> lookup(const FxSlot *slot) const;
     QHash<QString, std::shared_ptr<Instance>> m_instances;
+    mutable QMutex m_instancesMutex;
 };
 
 } // namespace openvegas

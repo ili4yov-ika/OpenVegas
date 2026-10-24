@@ -78,6 +78,27 @@ def call_args(text, open_paren):
     return ""
 
 
+def state_of(var, text, near):
+    """Classify candidates without confusing a display or unavailable control with dead UI."""
+    if var:
+        esc = re.escape(var)
+        if re.search(esc + r"\s*->\s*setReadOnly\s*\(\s*true", text):
+            return "DISPLAY"
+        if re.search(esc + r"\s*->\s*setEnabled\s*\(\s*false", text):
+            return "DISABLED"
+        # Project Properties disables unsupported fields together.
+        for batch in re.finditer(r"QList<QWidget \*>\s*\{([^}]+)\}\)\s*\{([^}]+)", text):
+            if re.search(r"\b" + esc + r"\b", batch[1]) and "setEnabled(false)" in batch[2]:
+                return "DISABLED"
+        # A local combo handed to a disabled member (e.g. the FX preset display).
+        for alias in re.findall(r"(m_\w+)\s*=\s*" + esc + r"\s*;", text):
+            if re.search(re.escape(alias) + r"\s*->\s*setEnabled\s*\(\s*false", text):
+                return "DISABLED"
+    if re.search(r"\)\s*->\s*setEnabled\s*\(\s*false", near):
+        return "DISABLED"
+    return "DEAD"
+
+
 def unwired_actions(sources):
     """addAction() overloads that leave the action unconnected."""
     wired_hint = re.compile(r"\[|&\w+::|\bwindow\b\s*,|\bthis\b\s*,|\bqApp\b\s*,|SLOT\s*\(")
@@ -104,9 +125,7 @@ def unwired_actions(sources):
             # A deliberate setEnabled(false) is a "not yet", which reads honestly on
             # screen; an unwired action that still looks clickable does not.
             after = text[m.start():m.start() + 400]
-            kind = "DEAD"
-            if var and re.search(re.escape(var) + r"\s*->\s*setEnabled\s*\(\s*false", after):
-                kind = "DISABLED"
+            kind = state_of(var, text, after)
             rows.append({"file": rel, "line": text[:m.start()].count("\n") + 1,
                          "label": label.group(1), "kind": kind})
     return rows
@@ -157,7 +176,8 @@ def controls(sources):
                         or re.search(r"return\s+" + re.escape(var) + r"\s*;", near) \
                         or re.search(r"addButton\s*\(\s*" + re.escape(var), near):
                     continue
-                no_handler.append({"file": rel, "line": line, "name": var, "class": kind})
+                no_handler.append({"file": rel, "line": line, "name": var, "class": kind,
+                                   "kind": state_of(var, text, near)})
             else:
                 seen["inputs"] += 1
                 # Connected counts as alive here: a slider wired to a lambda that uses the
@@ -173,8 +193,33 @@ def controls(sources):
                 # the wiring, so judging it here would blame the wrong place.
                 if re.search(r"return\s+" + re.escape(var) + r"\s*;", near):
                     continue
-                no_sink.append({"file": rel, "line": line, "name": var, "class": kind})
+                if re.search(r"\*\s*\w+\s*=\s*" + re.escape(var) + r"\s*;", text):
+                    continue  # factory output parameter; its caller supplies the sink
+                no_sink.append({"file": rel, "line": line, "name": var, "class": kind,
+                                "kind": state_of(var, text, near)})
     return seen, no_handler, no_sink
+
+
+def context_stubs(sources):
+    """Literal addItem declarations still disabled by ContextMenuBuilder's factory.
+    Dynamic labels and loops are declarations, not counts of runtime widgets.
+    """
+    text = sources.get("src/ui/ContextMenuBuilder.cpp", "")
+    rows = []
+    for m in re.finditer(r'addItem\s*\(\s*[^,]+,\s*QObject::tr\(\s*"([^"]+)"', text):
+        before = text[max(0, m.start() - 100):m.start()]
+        vm = re.search(r'(\w+)\s*=\s*$', before)
+        var = vm[1] if vm else None
+        after = text[m.end():]
+        # Limit variable evidence to this declaration's block or next declaration of it.
+        stop = re.search(r'\n}\n|(?:auto\s*\*\s*|QAction\s*\*\s*)' + re.escape(var or "__none") + r'\s*=', after)
+        if stop:
+            after = after[:stop.start()]
+        if var and re.search(r'enableItem\(\s*' + re.escape(var) + r'\s*\)', after):
+            continue
+        rows.append({"file": "src/ui/ContextMenuBuilder.cpp",
+                     "line": text[:m.start()].count("\n") + 1, "label": m[1], "kind": "DISABLED"})
+    return rows
 
 
 def discarded_buttons(sources):
@@ -230,6 +275,7 @@ def main():
     sources = load_sources(args.root)
     stubs = menu_stubs(sources)
     actions = unwired_actions(sources)
+    context = context_stubs(sources)
     seen, no_handler, no_sink = controls(sources)
     orphans = orphan_ui(args.root, sources)
     discarded = discarded_buttons(sources)
@@ -238,6 +284,7 @@ def main():
         "menu_stubs": {"dead": sum(1 for s in stubs if s["kind"] == "DEAD"),
                        "disabled": sum(1 for s in stubs if s["kind"] == "DISABLED"),
                        "rows": stubs},
+        "context_stubs": {"count": len(context), "rows": context},
         "unwired_actions": {"count": len(actions), "rows": actions},
         "no_handler": {"count": len(no_handler), "rows": no_handler},
         "no_sink": {"count": len(no_sink), "rows": no_sink},
@@ -257,9 +304,11 @@ def main():
 
     print("menu stubs        %3d dead, %d disabled  (MenuBuilder helpers)"
           % (report["menu_stubs"]["dead"], report["menu_stubs"]["disabled"]))
-    print("unwired actions   %3d" % len(actions))
-    print("buttons, no handler %d of %d scanned" % (len(no_handler), seen["buttons"]))
-    print("inputs, no reader   %d of %d scanned" % (len(no_sink), seen["inputs"]))
+    print("context stubs      %d disabled literal declarations" % len(context))
+    print("unwired actions    %d dead, %d disabled" % (
+        sum(row["kind"] == "DEAD" for row in actions), sum(row["kind"] == "DISABLED" for row in actions)))
+    print("buttons, no handler %d candidates of %d scanned (%d enabled)" % (len(no_handler), seen["buttons"], sum(row["kind"] == "DEAD" for row in no_handler)))
+    print("inputs, no reader   %d candidates of %d scanned (%d enabled)" % (len(no_sink), seen["inputs"], sum(row["kind"] == "DEAD" for row in no_sink)))
     print("discarded buttons   %d (built inline, no pointer kept)" % len(discarded))
     print("orphan .ui files    %d" % len(orphans))
     print()

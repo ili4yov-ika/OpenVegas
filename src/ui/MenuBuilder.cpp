@@ -11,21 +11,15 @@
 #include <QFileInfo>
 #include <QDir>
 #include <QObject>
+#include <QUndoStack>
+#include <QSignalBlocker>
+#include <QSet>
+#include <limits>
+#include "timeline/TimelineView.h"
 
 namespace openvegas {
 
 namespace {
-
-QAction *addStub(QMenu *menu, const QString &text, const QKeySequence &shortcut = {})
-{
-    // Do not call setShortcut on stubs — enabled menu actions steal accelerators
-    // application-wide even with no slot connected (Delete/Ctrl+C were broken by this).
-    auto *a = menu->addAction(text);
-    if (!shortcut.isEmpty()) {
-        a->setText(text + QLatin1Char('\t') + shortcut.toString(QKeySequence::NativeText));
-    }
-    return a;
-}
 
 QAction *addStubDisabled(QMenu *menu, const QString &text, const QKeySequence &shortcut = {})
 {
@@ -34,6 +28,7 @@ QAction *addStubDisabled(QMenu *menu, const QString &text, const QKeySequence &s
         a->setShortcut(shortcut); // safe: disabled actions do not consume shortcuts
     }
     a->setEnabled(false);
+    a->setToolTip(QObject::tr("This function is not available yet"));
     return a;
 }
 
@@ -60,12 +55,12 @@ void MenuBuilder::build(MainWindow *window, QMenuBar *menuBar)
     fileMenu->addAction(IconFactory::iconFromSvgBody(IconFactory::svgSave()), QObject::tr("Save As…"),
                         QKeySequence(QStringLiteral("Ctrl+Shift+S")), window,
                         &MainWindow::onSaveProjectAs);
-    addStub(fileMenu, QObject::tr("Incremental Save"), QKeySequence(QStringLiteral("Ctrl+Alt+S")));
+    fileMenu->addAction(QObject::tr("Incremental Save"), QKeySequence(QStringLiteral("Ctrl+Alt+S")), window, &MainWindow::onIncrementalSave);
     fileMenu->addSeparator();
     fileMenu->addAction(IconFactory::iconFromSvgBody(IconFactory::svgRender()), QObject::tr("Render As…"),
                         QKeySequence(QStringLiteral("Ctrl+Shift+M")), window, &MainWindow::onRenderAs);
     fileMenu->addAction(QObject::tr("Bounce Audio Mixdown…"), window, &MainWindow::onBounceAudioMixdown);
-    addStub(fileMenu, QObject::tr("Real-Time Render…"));
+    addStubDisabled(fileMenu, QObject::tr("Real-Time Render…"));
     fileMenu->addSeparator();
     {
         auto *importMenu = fileMenu->addMenu(IconFactory::iconFromSvgBody(IconFactory::svgImport()),
@@ -159,18 +154,31 @@ void MenuBuilder::build(MainWindow *window, QMenuBar *menuBar)
     addStubDisabled(editMenu, QObject::tr("Selectively Paste Event Attributes"));
     editMenu->addSeparator();
     editMenu->addAction(QObject::tr("Delete"), QKeySequence::Delete, window, &MainWindow::onEditDelete);
-    addStubDisabled(editMenu, QObject::tr("Trim"), QKeySequence(QStringLiteral("Ctrl+T")));
+    editMenu->addAction(QObject::tr("Trim"), QKeySequence(QStringLiteral("Ctrl+T")), window, &MainWindow::onEditTrim);
     editMenu->addAction(QObject::tr("Trim Start"), QKeySequence(QStringLiteral("Alt+[")), window,
                         &MainWindow::onEditTrimStart);
     editMenu->addAction(QObject::tr("Trim End"), QKeySequence(QStringLiteral("Alt+]")), window,
                         &MainWindow::onEditTrimEnd);
-    editMenu->addAction(QObject::tr("Split"), QKeySequence(QStringLiteral("S")), window,
-                        &MainWindow::onEditSplit);
+    auto *split = editMenu->addAction(QObject::tr("Split"), window, &MainWindow::onEditSplit);
+    split->setProperty("keyboardCommand", "Edit.Split");
     addStubDisabled(editMenu, QObject::tr("Smart Split"), QKeySequence(QStringLiteral("Alt+S")));
-    addStub(editMenu, QObject::tr("Quantize to Frames"));
-    addStub(editMenu, QObject::tr("Close Gaps"));
-    addStub(editMenu, QObject::tr("Freeze selected Adjustment Events to Project"));
-    addStub(editMenu, QObject::tr("Freeze all Adjustment Events to Project"));
+    editMenu->addAction(QObject::tr("Quantize to Frames"), window, [window]() {
+        window->runDocumentEdit(QObject::tr("Quantize to Frames"), [window]() {
+            auto &model = window->projectModel();
+            const double fps = std::max(1.0, model.frameRate());
+            for (auto &track : model.tracks()) for (auto &ev : track.events) if (ev.selected) {
+                const double start = std::round(ev.startSec * fps) / fps;
+                const double end = std::round((ev.startSec + ev.lengthSec) * fps) / fps;
+                ev.startSec = start; ev.lengthSec = std::max(1.0 / fps, end - start);
+                ev.fadeInSec = std::min(ev.fadeInSec, ev.lengthSec);
+                ev.fadeOutSec = std::min(ev.fadeOutSec, ev.lengthSec - ev.fadeInSec);
+            }
+        });
+        window->refreshTimeline();
+    });
+    addStubDisabled(editMenu, QObject::tr("Close Gaps"));
+    addStubDisabled(editMenu, QObject::tr("Freeze selected Adjustment Events to Project"));
+    addStubDisabled(editMenu, QObject::tr("Freeze all Adjustment Events to Project"));
     editMenu->addSeparator();
 
     auto *navigate = editMenu->addMenu(QObject::tr("Navigate"));
@@ -178,26 +186,42 @@ void MenuBuilder::build(MainWindow *window, QMenuBar *menuBar)
                         &MainWindow::onGoToStart);
     navigate->addAction(QObject::tr("Go to End"), QKeySequence(QStringLiteral("Ctrl+End")), window,
                         &MainWindow::onGoToEnd);
-    addStub(navigate, QObject::tr("Go to Previous Marker"));
-    addStub(navigate, QObject::tr("Go to Next Marker"));
+    navigate->addAction(QObject::tr("Go to Previous Marker"), window, [window]() { window->onNavigateMarker(false); });
+    navigate->addAction(QObject::tr("Go to Next Marker"), window, [window]() { window->onNavigateMarker(true); });
 
     auto *ripple = editMenu->addMenu(QObject::tr("Post-Edit Ripple"));
-    addStub(ripple, QObject::tr("Affected Tracks"));
-    addStub(ripple, QObject::tr("Affected Tracks, Bus Tracks, Markers, and Regions"));
-    addStub(ripple, QObject::tr("All Tracks, Markers, and Regions"));
+    addStubDisabled(ripple, QObject::tr("Affected Tracks"));
+    addStubDisabled(ripple, QObject::tr("Affected Tracks, Bus Tracks, Markers, and Regions"));
+    addStubDisabled(ripple, QObject::tr("All Tracks, Markers, and Regions"));
 
     auto *selectMenu = editMenu->addMenu(QObject::tr("Select"));
     selectMenu->addAction(QObject::tr("Select All"), QKeySequence::SelectAll, window, &MainWindow::onSelectAll);
-    addStub(selectMenu, QObject::tr("Select Event Start"));
-    addStub(selectMenu, QObject::tr("Select Event End"));
-    addStub(selectMenu, QObject::tr("Select Events to End"));
+    for (bool end : {false, true}) {
+        selectMenu->addAction(end ? QObject::tr("Select Event End") : QObject::tr("Select Event Start"), window, [window, end]() {
+            const auto ids = window->projectModel().selectedEventIds();
+            if (ids.isEmpty() || !window->timelineView()) return;
+            double start = std::numeric_limits<double>::infinity(), finish = 0.0;
+            for (int id : ids) if (const TrackEvent *ev = window->projectModel().findEvent(id)) {
+                start = std::min(start, ev->startSec); finish = std::max(finish, ev->startSec + ev->lengthSec);
+            }
+            if (std::isfinite(start)) window->timelineView()->seekPlayhead(end ? finish : start);
+        });
+    }
+    selectMenu->addAction(QObject::tr("Select Events to End"), window, [window]() {
+        auto &model = window->projectModel();
+        const double cursor = model.playheadSec();
+        model.clearSelection();
+        for (auto &track : model.tracks()) for (auto &ev : track.events)
+            if (ev.startSec + ev.lengthSec > cursor) ev.selected = true;
+        window->refreshTimeline();
+    });
 
     auto *editTool = editMenu->addMenu(QObject::tr("Editing Tool"));
-    addStub(editTool, QObject::tr("Normal Edit Tool"), QKeySequence(QStringLiteral("Ctrl+D")));
-    addStub(editTool, QObject::tr("Envelope Edit Tool"));
-    addStub(editTool, QObject::tr("Selection Edit Tool"));
-    addStub(editTool, QObject::tr("Zoom Edit Tool"));
-    addStub(editTool, QObject::tr("Delete"));
+    addStubDisabled(editTool, QObject::tr("Normal Edit Tool"), QKeySequence(QStringLiteral("Ctrl+D")));
+    addStubDisabled(editTool, QObject::tr("Envelope Edit Tool"));
+    addStubDisabled(editTool, QObject::tr("Selection Edit Tool"));
+    addStubDisabled(editTool, QObject::tr("Zoom Edit Tool"));
+    editTool->addAction(QObject::tr("Delete"), window, &MainWindow::onEditDelete);
 
     auto *extensions = editMenu->addMenu(QObject::tr("Extensions"));
     addStubDisabled(extensions, QObject::tr("(none)"));
@@ -205,183 +229,237 @@ void MenuBuilder::build(MainWindow *window, QMenuBar *menuBar)
     editMenu->addSeparator();
 
     auto *switches = editMenu->addMenu(QObject::tr("Switches"));
-    addStub(switches, QObject::tr("Mute"));
-    addStub(switches, QObject::tr("Lock"));
-    addStub(switches, QObject::tr("Loop"));
-    addStub(switches, QObject::tr("Invert Phase"));
-    addStub(switches, QObject::tr("Normalize"));
-    addStub(switches, QObject::tr("Maintain Aspect Ratio"));
-    addStub(switches, QObject::tr("Reduce Interlace Flicker"));
+    addStubDisabled(switches, QObject::tr("Mute"));
+    addStubDisabled(switches, QObject::tr("Lock"));
+    auto *eventLoop = switches->addAction(QObject::tr("Loop"));
+    eventLoop->setCheckable(true);
+    QObject::connect(switches, &QMenu::aboutToShow, window, [window, eventLoop]() {
+        const auto ids = window->projectModel().selectedEventIds();
+        eventLoop->setEnabled(!ids.isEmpty());
+        bool all = !ids.isEmpty();
+        for (int id : ids) if (const auto *ev = window->projectModel().findEvent(id)) all &= ev->looped;
+        QSignalBlocker block(eventLoop); eventLoop->setChecked(all);
+    });
+    QObject::connect(eventLoop, &QAction::triggered, window, [window](bool on) {
+        window->runDocumentEdit(QObject::tr("Loop Events"), [window, on]() {
+            for (int id : window->projectModel().selectedEventIds())
+                if (auto *ev = window->projectModel().findEvent(id)) ev->looped = on;
+        });
+        window->refreshTimeline();
+    });
+    addStubDisabled(switches, QObject::tr("Invert Phase"));
+    addStubDisabled(switches, QObject::tr("Normalize"));
+    switches->addAction(QObject::tr("Maintain Aspect Ratio"), window, [window]() {
+        const auto ids = window->projectModel().selectedEventIds();
+        bool on = true;
+        for (int id : ids) if (const auto *ev = window->projectModel().findEvent(id); ev && isVideoFamily(ev->mediaKind)) {
+            on = !ev->panCrop.maintainAspectRatio; break;
+        }
+        window->runDocumentEdit(QObject::tr("Maintain Aspect Ratio"), [window, ids, on]() {
+            for (int id : ids) if (auto *ev = window->projectModel().findEvent(id); ev && isVideoFamily(ev->mediaKind))
+                ev->panCrop.maintainAspectRatio = on;
+        });
+        window->refreshTimeline();
+    });
+    addStubDisabled(switches, QObject::tr("Reduce Interlace Flicker"));
 
     auto *tags = editMenu->addMenu(QObject::tr("Tags"));
     addStubDisabled(tags, QObject::tr("(none)"));
 
     auto *group = editMenu->addMenu(QObject::tr("Group"));
-    addStub(group, QObject::tr("Group"), QKeySequence(QStringLiteral("G")));
-    addStub(group, QObject::tr("Ungroup"), QKeySequence(QStringLiteral("U")));
-    addStub(group, QObject::tr("Ignore Event Grouping"), QKeySequence(QStringLiteral("Ctrl+Shift+U")));
-    addStub(group, QObject::tr("Clear Group"));
-    addStub(group, QObject::tr("Select Group"));
-    addStub(group, QObject::tr("Create New Group"));
+    const auto createGroup = [window]() {
+        window->runDocumentEdit(QObject::tr("Group"), [window]() { window->projectModel().groupSelectedEvents(); });
+        window->refreshTimeline();
+    };
+    auto *groupSelected = group->addAction(QObject::tr("Group"), window, createGroup);
+    groupSelected->setProperty("keyboardCommand", "Group.CreateNew");
+    group->addAction(QObject::tr("Ungroup"), window, [window]() {
+        window->runDocumentEdit(QObject::tr("Ungroup"), [window]() {
+            for (int id : window->projectModel().selectedEventIds()) window->projectModel().ungroupEvent(id);
+        }); window->refreshTimeline();
+    });
+    auto *ignoreGroup = group->addAction(QObject::tr("Ignore Event Grouping"));
+    ignoreGroup->setCheckable(true); ignoreGroup->setProperty("editingOption", "group");
+    QObject::connect(ignoreGroup, &QAction::toggled, window, &MainWindow::setIgnoreEventGrouping);
+    auto *clearGroup = group->addAction(QObject::tr("Clear Group"), window, [window]() {
+        QSet<int> groups;
+        for (int id : window->projectModel().selectedEventIds())
+            if (const auto *ev = window->projectModel().findEvent(id); ev && ev->groupId > 0) groups.insert(ev->groupId);
+        window->runDocumentEdit(QObject::tr("Clear Group"), [window, groups]() {
+            for (int id : groups) window->projectModel().clearGroup(id);
+        }); window->refreshTimeline();
+    });
+    clearGroup->setProperty("keyboardCommand", "Group.Clear");
+    group->addAction(QObject::tr("Select Group"), window, [window]() {
+        QSet<int> groups;
+        for (int id : window->projectModel().selectedEventIds())
+            if (const auto *ev = window->projectModel().findEvent(id); ev && ev->groupId > 0) groups.insert(ev->groupId);
+        for (int id : groups) for (int eventId : window->projectModel().eventIdsInGroup(id))
+            if (auto *ev = window->projectModel().findEvent(eventId)) ev->selected = true;
+        window->refreshTimeline();
+    });
+    group->addAction(QObject::tr("Create New Group"), window, createGroup);
 
     auto *stream = editMenu->addMenu(QObject::tr("Stream"));
-    addStub(stream, QObject::tr("Stream 0"));
-    addStub(stream, QObject::tr("Stream 1"));
+    addStubDisabled(stream, QObject::tr("Stream 0"));
+    addStubDisabled(stream, QObject::tr("Stream 1"));
 
     auto *channels = editMenu->addMenu(QObject::tr("Channels"));
-    addStub(channels, QObject::tr("Both"));
-    addStub(channels, QObject::tr("Left Only"));
-    addStub(channels, QObject::tr("Right Only"));
-    addStub(channels, QObject::tr("Combine"));
-    addStub(channels, QObject::tr("Swap Channels"));
+    for (int mode = 0; mode < 3; ++mode) {
+        const QStringList labels{QObject::tr("Both"), QObject::tr("Left Only"), QObject::tr("Right Only")};
+        channels->addAction(labels[mode], window, [window, mode]() {
+            window->runDocumentEdit(QObject::tr("Audio Channels"), [window, mode]() {
+                for (int id : window->projectModel().selectedEventIds())
+                    if (auto *ev = window->projectModel().findEvent(id); ev && isAudioFamily(ev->mediaKind)) {
+                        ev->firstChannel = mode == 2 ? 1 : 0; ev->channelCount = mode == 0 ? 2 : 1;
+                    }
+            }); window->refreshTimeline();
+        });
+    }
+    addStubDisabled(channels, QObject::tr("Combine"));
+    addStubDisabled(channels, QObject::tr("Swap Channels"));
 
     editMenu->addSeparator();
-    addStubDisabled(editMenu, QObject::tr("Undo All"));
-    addStubDisabled(editMenu, QObject::tr("Clear Edit History…"));
+    editMenu->addAction(QObject::tr("Undo All"), window, [window]() { if (window->undoStack()) window->undoStack()->setIndex(0); });
+    editMenu->addAction(QObject::tr("Clear Edit History…"), window, &MainWindow::clearUndoHistory);
 
     auto *viewMenu = menuBar->addMenu(QObject::tr("View"));
-    addStub(viewMenu, QObject::tr("Show Bus Tracks"))->setCheckable(true);
-    addStub(viewMenu, QObject::tr("Active Take Information"))->setCheckable(true);
+    addStubDisabled(viewMenu, QObject::tr("Show Bus Tracks"))->setCheckable(true);
+    addStubDisabled(viewMenu, QObject::tr("Active Take Information"))->setCheckable(true);
     viewMenu->addSeparator();
-    addStub(viewMenu, QObject::tr("Zoom In Time"), QKeySequence(QStringLiteral("Up")));
-    addStub(viewMenu, QObject::tr("Zoom Out Time"), QKeySequence(QStringLiteral("Down")));
-    addStub(viewMenu, QObject::tr("Zoom Time to Selection"));
+    viewMenu->addAction(QObject::tr("Zoom In Time"), QKeySequence(QStringLiteral("Up")), window, [window]() { window->onZoomTime(1.25); });
+    viewMenu->addAction(QObject::tr("Zoom Out Time"), QKeySequence(QStringLiteral("Down")), window, [window]() { window->onZoomTime(0.8); });
+    viewMenu->addAction(QObject::tr("Zoom Time to Selection"), window, &MainWindow::onZoomTimeSelection);
     viewMenu->addSeparator();
     {
         auto *layouts = viewMenu->addMenu(QObject::tr("Window Layouts"));
-        addStub(layouts, QObject::tr("Default Layout"));
-        addStub(layouts, QObject::tr("Save Layout…"));
-        addStub(layouts, QObject::tr("Load Layout…"));
+        layouts->addAction(QObject::tr("Default Layout"), window, &MainWindow::onDefaultLayout);
+        layouts->addAction(QObject::tr("Save Layout…"), window, &MainWindow::onSaveLayout);
+        layouts->addAction(QObject::tr("Load Layout…"), window, &MainWindow::onLoadLayout);
     }
     {
         auto *tb = viewMenu->addMenu(QObject::tr("Toolbar"));
-        auto *mainTb = addStub(tb, QObject::tr("Main Toolbar"));
+        auto *mainTb = tb->addAction(QObject::tr("Main Toolbar"));
+        QObject::connect(mainTb, &QAction::toggled, window, &MainWindow::setMainToolbarVisible);
+        QObject::connect(tb, &QMenu::aboutToShow, window, [window, mainTb]() { QSignalBlocker b(mainTb); mainTb->setChecked(window->mainToolbarVisible()); });
         mainTb->setCheckable(true);
         mainTb->setChecked(true);
     }
     {
         auto *dock = viewMenu->addMenu(QObject::tr("Docking Layouts"));
-        addStub(dock, QObject::tr("Default Docking"));
-        addStub(dock, QObject::tr("Save Docking Layout…"));
+        dock->addAction(QObject::tr("Default Docking"), window, &MainWindow::onDefaultLayout);
+        dock->addAction(QObject::tr("Save Docking Layout…"), window, &MainWindow::onSaveLayout);
     }
     viewMenu->addSeparator();
-    viewMenu->addAction(QObject::tr("Mixing Console"), QKeySequence(QStringLiteral("Alt+6")), window,
-                        &MainWindow::onMixingConsole);
+    auto *mixingConsole = viewMenu->addAction(QObject::tr("Mixing Console"), window, &MainWindow::onMixingConsole);
+    mixingConsole->setProperty("keyboardCommand", "View.MixingConsole");
     viewMenu->addAction(QObject::tr("Welcome Screen"), window, &MainWindow::onWelcome);
 
     auto *insertMenu = menuBar->addMenu(QObject::tr("Insert"));
-    insertMenu->addAction(QObject::tr("Audio Track"), QKeySequence(QStringLiteral("Ctrl+Q")), window,
-                          [window]() {
-                              Track t;
-                              t.id = window->projectModel().tracks().isEmpty()
-                                         ? 1
-                                         : (window->projectModel().tracks().last().id + 1);
-                              t.name = QObject::tr("Audio %1").arg(window->projectModel().tracks().size() + 1);
-                              t.kind = TrackKind::Audio;
-                              t.height = 100;
-                              window->projectModel().tracks().push_back(t);
-                              window->refreshTimeline();
-                          });
-    insertMenu->addAction(QObject::tr("Video Track"), QKeySequence(QStringLiteral("Ctrl+Shift+Q")),
-                          window, [window]() {
-                              Track t;
-                              t.id = window->projectModel().tracks().isEmpty()
-                                         ? 1
-                                         : (window->projectModel().tracks().last().id + 1);
-                              t.name = QObject::tr("Video %1").arg(window->projectModel().tracks().size() + 1);
-                              t.kind = TrackKind::Video;
-                              t.height = 96;
-                              window->projectModel().tracks().push_back(t);
-                              window->refreshTimeline();
-                          });
+    insertMenu->addAction(QObject::tr("Audio Track"), QKeySequence(QStringLiteral("Ctrl+Q")), window, [window]() {
+        window->runDocumentEdit(QObject::tr("Insert audio track"), [window]() { window->projectModel().addTrack(TrackKind::Audio); });
+        window->refreshTimeline();
+    });
+    insertMenu->addAction(QObject::tr("Video Track"), QKeySequence(QStringLiteral("Ctrl+Shift+Q")), window, [window]() {
+        window->runDocumentEdit(QObject::tr("Insert video track"), [window]() { window->projectModel().addTrack(TrackKind::Video); });
+        window->refreshTimeline();
+    });
     insertMenu->addSeparator();
     {
         auto *ae = insertMenu->addMenu(QObject::tr("Audio Envelope"));
-        addStub(ae, QObject::tr("Volume"));
-        addStub(ae, QObject::tr("Pan"));
+        addStubDisabled(ae, QObject::tr("Volume"));
+        addStubDisabled(ae, QObject::tr("Pan"));
     }
     {
         auto *ve = insertMenu->addMenu(QObject::tr("Video Envelope"));
-        addStub(ve, QObject::tr("Composite Level"));
-        addStub(ve, QObject::tr("Fade to Color"));
+        addStubDisabled(ve, QObject::tr("Composite Level"));
+        addStubDisabled(ve, QObject::tr("Fade to Color"));
     }
     insertMenu->addSeparator();
-    addStub(insertMenu, QObject::tr("Audio Bus Track"));
-    addStub(insertMenu, QObject::tr("Video Bus Track"));
+    addStubDisabled(insertMenu, QObject::tr("Audio Bus Track"));
+    addStubDisabled(insertMenu, QObject::tr("Video Bus Track"));
     insertMenu->addSeparator();
-    addStub(insertMenu, QObject::tr("Empty Event"));
-    addStub(insertMenu, QObject::tr("Text Media…"));
+    addStubDisabled(insertMenu, QObject::tr("Empty Event"));
+    insertMenu->addAction(QObject::tr("Text Media…"), window, [window]() { window->createTitlesTextEvent(); });
 
     auto *toolsMenu = menuBar->addMenu(QObject::tr("Tools"));
     {
         auto *scripting = toolsMenu->addMenu(QObject::tr("Scripting"));
-        addStub(scripting, QObject::tr("Run Script…"));
-        addStub(scripting, QObject::tr("Rescan Script Menu Folder"));
+        addStubDisabled(scripting, QObject::tr("Run Script…"));
+        addStubDisabled(scripting, QObject::tr("Rescan Script Menu Folder"));
     }
     {
         auto *ext = toolsMenu->addMenu(QObject::tr("External Tools"));
         addStubDisabled(ext, QObject::tr("(none)"));
     }
     toolsMenu->addSeparator();
-    addStub(toolsMenu, QObject::tr("Build Dynamic RAM Preview"), QKeySequence(QStringLiteral("Shift+B")));
-    addStub(toolsMenu, QObject::tr("Selectively Prune Dynamic RAM Preview"));
+    addStubDisabled(toolsMenu, QObject::tr("Build Dynamic RAM Preview"), QKeySequence(QStringLiteral("Shift+B")));
+    addStubDisabled(toolsMenu, QObject::tr("Selectively Prune Dynamic RAM Preview"));
     toolsMenu->addSeparator();
     {
         auto *audio = toolsMenu->addMenu(QObject::tr("Audio"));
-        addStub(audio, QObject::tr("Audio Mixer"));
-        addStub(audio, QObject::tr("Rebuild Audio Peaks"));
+        audio->addAction(QObject::tr("Audio Mixer"), window, &MainWindow::onMixingConsole);
+        addStubDisabled(audio, QObject::tr("Rebuild Audio Peaks"));
     }
     {
         auto *video = toolsMenu->addMenu(QObject::tr("Video"));
-        addStub(video, QObject::tr("Video Scopes"));
-        addStub(video, QObject::tr("Apply Non-Real-Time Event FX…"));
+        addStubDisabled(video, QObject::tr("Video Scopes"));
+        addStubDisabled(video, QObject::tr("Apply Non-Real-Time Event FX…"));
     }
     toolsMenu->addSeparator();
     toolsMenu->addAction(QObject::tr("Plug-In Chooser…"), window, &MainWindow::onPluginChooser);
 
     auto *optionsMenu = menuBar->addMenu(QObject::tr("Options"));
     {
-        auto *snap = addStub(optionsMenu, QObject::tr("Enable Snapping"), QKeySequence(QStringLiteral("F8")));
+        auto *snap = optionsMenu->addAction(QObject::tr("Enable Snapping"));
+        snap->setProperty("editingOption", "snap");
+        QObject::connect(snap, &QAction::toggled, window, &MainWindow::setSnappingEnabled);
         snap->setCheckable(true);
         snap->setChecked(true);
     }
     {
-        auto *q = addStub(optionsMenu, QObject::tr("Quantize to Frames"),
-                          QKeySequence(QStringLiteral("Alt+F8")));
+        auto *q = optionsMenu->addAction(QObject::tr("Quantize to Frames"));
+        q->setShortcut(QKeySequence(QStringLiteral("Alt+F8")));
+        q->setProperty("editingOption", "quantize");
+        QObject::connect(q, &QAction::toggled, window, [window](bool on) { window->projectModel().setQuantizeToFrames(on); window->syncEditingControls(); });
         q->setCheckable(true);
         q->setChecked(true);
     }
     {
         auto *enableRipple = optionsMenu->addMenu(QObject::tr("Enable Ripple Editing"));
-        addStub(enableRipple, QObject::tr("Affected Tracks"));
-        addStub(enableRipple, QObject::tr("Affected Tracks, Bus Tracks, Markers, and Regions"));
-        addStub(enableRipple, QObject::tr("All Tracks, Markers, and Regions"));
+        addStubDisabled(enableRipple, QObject::tr("Affected Tracks"));
+        addStubDisabled(enableRipple, QObject::tr("Affected Tracks, Bus Tracks, Markers, and Regions"));
+        addStubDisabled(enableRipple, QObject::tr("All Tracks, Markers, and Regions"));
     }
     optionsMenu->addSeparator();
-    addStub(optionsMenu, QObject::tr("Metronome"))->setCheckable(true);
+    addStubDisabled(optionsMenu, QObject::tr("Metronome"))->setCheckable(true);
     {
         auto *loop = optionsMenu->addAction(QObject::tr("Loop Playback"));
         loop->setCheckable(true);
         loop->setChecked(window->projectModel().loopPlaybackEnabled());
-        loop->setShortcut(QKeySequence(QStringLiteral("Ctrl+Shift+L")));
+        loop->setProperty("editingOption", "loop");
         QObject::connect(loop, &QAction::toggled, window, [window](bool on) {
-            window->projectModel().setLoopPlaybackEnabled(on);
+            window->setLoopPlaybackEnabled(on);
         });
     }
-    addStub(optionsMenu, QObject::tr("Ignore Event Grouping"),
-            QKeySequence(QStringLiteral("Ctrl+Shift+U")))
-        ->setCheckable(true);
+    auto *ignore = optionsMenu->addAction(QObject::tr("Ignore Event Grouping"));
+    ignore->setCheckable(true); ignore->setProperty("editingOption", "group");
+    QObject::connect(ignore, &QAction::toggled, window, &MainWindow::setIgnoreEventGrouping);
     optionsMenu->addSeparator();
-    addStub(optionsMenu, QObject::tr("Customize Toolbar…"));
-    addStub(optionsMenu, QObject::tr("Customize Timeline Toolbar…"));
+    addStubDisabled(optionsMenu, QObject::tr("Customize Toolbar…"));
+    addStubDisabled(optionsMenu, QObject::tr("Customize Timeline Toolbar…"));
     optionsMenu->addAction(QObject::tr("Customize Keyboard…"), window,
                            &MainWindow::onCustomizeKeyboard);
-    addStub(optionsMenu, QObject::tr("Export/Import Preferences…"));
+    addStubDisabled(optionsMenu, QObject::tr("Export/Import Preferences…"));
     optionsMenu->addAction(QObject::tr("Preferences…"), window, &MainWindow::onPreferences);
 
+    for (QMenu *menu : menuBar->findChildren<QMenu *>())
+        QObject::connect(menu, &QMenu::aboutToShow, window, &MainWindow::syncEditingControls);
+    window->syncEditingControls();
+
     auto *helpMenu = menuBar->addMenu(QObject::tr("Help"));
-    addStub(helpMenu, QObject::tr("Contents and Index"), QKeySequence::HelpContents);
-    addStub(helpMenu, QObject::tr("OpenVegas Interactive Tutorials"));
+    helpMenu->addAction(QObject::tr("Contents and Index"), QKeySequence::HelpContents, window, &MainWindow::onHelp);
+    addStubDisabled(helpMenu, QObject::tr("OpenVegas Interactive Tutorials"));
     helpMenu->addSeparator();
     helpMenu->addAction(QObject::tr("Keyboard Mapping…"), window, &MainWindow::onCustomizeKeyboard);
     helpMenu->addAction(QObject::tr("About OpenVegas…"), window, &MainWindow::onAbout);

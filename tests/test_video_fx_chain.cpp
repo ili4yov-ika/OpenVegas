@@ -169,3 +169,18 @@ TEST_CASE("applyVideoFxChain walks the whole chain without a real plug-in", "[vi
     applyVideoFxChain(&img, chain, 0.0);
     REQUIRE(qRed(img.pixel(0, 0)) > 128);
 }
+
+TEST_CASE("Color Grading RGB curve changes the rendered pixels and preserves alpha", "[video][grading]")
+{
+    QImage image(1, 1, QImage::Format_ARGB32);
+    image.setPixel(0, 0, qRgba(128, 64, 0, 90));
+    QVariantMap params;
+    params.insert(QStringLiteral("curve.rgb"), QVariantList{
+        QVariantMap{{QStringLiteral("x"), 0.0}, {QStringLiteral("y"), 0.0}},
+        QVariantMap{{QStringLiteral("x"), 1.0}, {QStringLiteral("y"), 0.5}}});
+    applyColorGrading(&image, params);
+    CHECK(qRed(image.pixel(0, 0)) == 64);
+    CHECK(qGreen(image.pixel(0, 0)) == 32);
+    CHECK(qBlue(image.pixel(0, 0)) == 0);
+    CHECK(qAlpha(image.pixel(0, 0)) == 90);
+}

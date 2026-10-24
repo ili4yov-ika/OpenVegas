@@ -36,8 +36,9 @@ private:
 
     QString selectedCommandKey() const; // "Context/Command.Id"
     KeyboardCommand *selectedCommand();
+    bool canEdit(const KeyboardCommand *command) const;
 
-    KeyboardContext m_context = KeyboardContext::TrackView;
+    KeyboardContext m_context = KeyboardContext::Global;
     QComboBox *m_mapCombo = nullptr;
     QLineEdit *m_filter = nullptr;
     QButtonGroup *m_contextGroup = nullptr;

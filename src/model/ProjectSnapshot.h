@@ -19,6 +19,11 @@ struct ProjectSnapshot {
     quint32 sampleRate = 48000;
     double masterVolumeDb = 0.0;
     double tempoBpm = 120.0;
+    ProjectSummary summary;
+    RulerTimeFormat rulerTimeFormat = RulerTimeFormat::TimeFrames;
+    int beatsPerMeasure = 4;
+    int beatNote = 2;
+    double rulerStartSec = 0.0;
     int frameWidth = 1920;
     int frameHeight = 1080;
     int nextEventId = 1;

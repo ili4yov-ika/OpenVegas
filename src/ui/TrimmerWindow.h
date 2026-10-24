@@ -31,6 +31,8 @@ public:
     QVector<TimelineMarker> markers() const { return m_markers; }
     void setMarkers(const QVector<TimelineMarker> &markers);
     bool markersVisible() const { return m_markersVisible; }
+    void play() { togglePlay(true); }
+    void stop() { stopPlayback(); }
     void setMarkersVisible(bool on);
 
     /** Persist Event Media Markers back to the project media pool. */

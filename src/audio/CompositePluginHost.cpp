@@ -280,7 +280,10 @@ bool CompositePluginHost::ensureInstance(FxSlot *slot, QString *errorOut)
         // Identified by CLSID in the pluginId, not by a DLL path: the COM registration
         // already points at the server, so there is nothing to search for on disk.
         if (SoundForgeDsHost::instance().hasInstance(*slot)) {
-            return true;
+            auto &host = SoundForgeDsHost::instance();
+            const bool ok = host.synchronizeState(slot);
+            if (!ok && errorOut) *errorOut = host.processingError(*slot);
+            return ok;
         }
         AudioPluginDesc d;
         d.id = slot->pluginId;
@@ -349,15 +352,16 @@ void CompositePluginHost::captureChainState(QVector<FxSlot> *chain)
     if (!chain) {
         return;
     }
-    for (FxSlot &slot : *chain) {
+    for (int i = 0; i < chain->size(); ++i) {
+        const FxSlot &slot = chain->at(i);
         if (slot.format == PluginFormat::Builtin) {
             // Builtin slots (Titles & Text, Media Generator, …) own their blob outright —
             // the UI writes it into the slot, so there is no instance to ask.
             continue;
         }
         const QByteArray blob = getState(&slot);
-        if (!blob.isEmpty()) {
-            slot.state = blob;
+        if (!blob.isEmpty() && blob != slot.state) {
+            (*chain)[i].state = blob;
         }
     }
 }

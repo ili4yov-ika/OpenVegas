@@ -119,6 +119,7 @@ void MediaPropertiesDialog::buildUi()
     tcLay->addLayout(customRow);
     m_timecodeFormatCombo = new QComboBox(timecodeBox);
     m_timecodeFormatCombo->addItem(tr("Time & Frames"));
+    m_timecodeFormatCombo->setEnabled(false);
     tcLay->addWidget(m_timecodeFormatCombo);
     tabLay->addWidget(timecodeBox);
 
@@ -128,6 +129,7 @@ void MediaPropertiesDialog::buildUi()
     auto *streamRow = new QHBoxLayout();
     m_streamCombo = new QComboBox(streamBox);
     m_streamCombo->addItem(tr("Video 1"));
+    m_streamCombo->setEnabled(false);
     streamRow->addWidget(m_streamCombo, 1);
     auto *snapshotBtn = new QToolButton(streamBox);
     snapshotBtn->setText(tr("⛶"));
@@ -206,6 +208,12 @@ void MediaPropertiesDialog::buildUi()
             updateBackgroundSwatch();
         }
     });
+    for (QWidget *control : QList<QWidget *>{m_frameWidthSpin, m_frameHeightSpin, m_fieldOrderCombo,
+                                            m_pixelAspectCombo, m_alphaChannelCombo, m_rotationCombo,
+                                            m_backgroundColorBtn}) {
+        control->setEnabled(false);
+        control->setToolTip(tr("This generator property is stored but not processed yet"));
+    }
     syncEnabled();
 }
 
@@ -214,7 +222,7 @@ void MediaPropertiesDialog::syncEnabled()
     const bool custom = m_customTimecodeRadio->isChecked();
     m_customTimecodeEdit->setEnabled(custom);
     // Vegas greys the format combo out unless a custom timecode is being entered.
-    m_timecodeFormatCombo->setEnabled(custom);
+    m_timecodeFormatCombo->setEnabled(false); // Only one supported display format.
 }
 
 void MediaPropertiesDialog::updateBackgroundSwatch()

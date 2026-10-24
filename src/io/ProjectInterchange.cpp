@@ -1720,6 +1720,17 @@ QJsonObject ProjectInterchange::projectToJson(const ProjectModel &model,
     root.insert(QStringLiteral("frameRate"), model.frameRate());
     root.insert(QStringLiteral("sampleRate"), static_cast<qint64>(model.sampleRate()));
     root.insert(QStringLiteral("tempoBpm"), model.tempoBpm());
+    const ProjectSummary &summary = model.summary();
+    root.insert(QStringLiteral("summary"), QJsonObject{
+        {QStringLiteral("title"), summary.title}, {QStringLiteral("artist"), summary.artist},
+        {QStringLiteral("engineer"), summary.engineer},
+        {QStringLiteral("copyright"), summary.copyright},
+        {QStringLiteral("comments"), summary.comments}});
+    root.insert(QStringLiteral("ruler"), QJsonObject{
+        {QStringLiteral("format"), int(model.rulerTimeFormat())},
+        {QStringLiteral("startSec"), model.rulerStartSec()},
+        {QStringLiteral("beatsPerMeasure"), model.beatsPerMeasure()},
+        {QStringLiteral("beatNote"), model.beatNote()}});
     root.insert(QStringLiteral("width"), model.frameWidth());
     root.insert(QStringLiteral("height"), model.frameHeight());
     root.insert(QStringLiteral("sourceProject"), model.projectPath());
@@ -1931,6 +1942,19 @@ bool ProjectInterchange::projectFromJson(const QJsonObject &root, const QString 
     model->setSampleRate(static_cast<quint32>(
         root.value(QStringLiteral("sampleRate")).toVariant().toLongLong()));
     model->setTempoBpm(root.value(QStringLiteral("tempoBpm")).toDouble(120.0));
+    const QJsonObject summary = root.value(QStringLiteral("summary")).toObject();
+    model->setSummary({summary.value(QStringLiteral("title")).toString(),
+                       summary.value(QStringLiteral("artist")).toString(),
+                       summary.value(QStringLiteral("engineer")).toString(),
+                       summary.value(QStringLiteral("copyright")).toString(),
+                       summary.value(QStringLiteral("comments")).toString()});
+    const QJsonObject ruler = root.value(QStringLiteral("ruler")).toObject();
+    const int format = ruler.value(QStringLiteral("format")).toInt(int(RulerTimeFormat::TimeFrames));
+    if (format >= int(RulerTimeFormat::Samples) && format <= int(RulerTimeFormat::AudioCDTime))
+        model->setRulerTimeFormat(static_cast<RulerTimeFormat>(format));
+    model->setRulerStartSec(ruler.value(QStringLiteral("startSec")).toDouble());
+    model->setBeatsPerMeasure(ruler.value(QStringLiteral("beatsPerMeasure")).toInt(4));
+    model->setBeatNote(ruler.value(QStringLiteral("beatNote")).toInt(2));
     model->setFrameSize(root.value(QStringLiteral("width")).toInt(1920),
                         root.value(QStringLiteral("height")).toInt(1080));
 

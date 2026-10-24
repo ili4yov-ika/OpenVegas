@@ -25,6 +25,12 @@
 #include <QStandardPaths>
 #include <QSpacerItem>
 #include <QSizePolicy>
+#include <QSettings>
+#include <QInputDialog>
+#include <QMessageBox>
+#include <QRegularExpression>
+#include <QDoubleValidator>
+#include <QLocale>
 #include <algorithm>
 #include <cmath>
 
@@ -202,10 +208,58 @@ void ProjectPropertiesDialog::buildUi()
                                {tr("Custom (1920x1080; 29,970 fps)"),
                                 tr("Custom (1920x1080; 59,940 fps)"),
                                 tr("HD 1280x720; 29,970 fps"), tr("UHD 3840x2160; 29,970 fps")});
+        m_template->setItemData(0, QVariantList{1920, 1080, 29.97});
+        m_template->setItemData(1, QVariantList{1920, 1080, 59.94});
+        m_template->setItemData(2, QVariantList{1280, 720, 29.97});
+        m_template->setItemData(3, QVariantList{3840, 2160, 29.97});
         tplRow->addWidget(tplLbl);
         tplRow->addWidget(m_template, 1);
-        tplRow->addWidget(icoBtn(page, tr("Save Template"), IconFactory::svgSave()));
-        tplRow->addWidget(icoBtn(page, tr("Delete Template"), IconFactory::svgRemove()));
+        auto *saveTemplate = icoBtn(page, tr("Save Template"), IconFactory::svgSave());
+        auto *deleteTemplate = icoBtn(page, tr("Delete Template"), IconFactory::svgRemove());
+        tplRow->addWidget(saveTemplate);
+        tplRow->addWidget(deleteTemplate);
+        QSettings templates(QSettings::defaultFormat(), QSettings::UserScope,
+                QStringLiteral("OpenVegas"), QStringLiteral("OpenVegas"));
+        templates.beginGroup(QStringLiteral("projectTemplates"));
+        for (const QString &name : templates.childGroups()) {
+            const QVariantList values = templates.value(name + QStringLiteral("/video")).toList();
+            m_template->addItem(name, values);
+        }
+        connect(saveTemplate, &QToolButton::clicked, this, [this]() {
+            bool ok = false;
+            const QString name = QInputDialog::getText(this, tr("Save Template"), tr("Name:"),
+                                                      QLineEdit::Normal, QString(), &ok).trimmed();
+            if (!ok || name.isEmpty() || name.contains(QLatin1Char('/'))
+                || name.contains(QLatin1Char('\\'))) return;
+            const QVariantList values{m_width->value(), m_height->value(), m_frameRate->currentData()};
+            QSettings s(QSettings::defaultFormat(), QSettings::UserScope,
+                QStringLiteral("OpenVegas"), QStringLiteral("OpenVegas"));
+            s.setValue(QStringLiteral("projectTemplates/%1/video").arg(name), values);
+            int i = m_template->findText(name);
+            if (i < 0) { m_template->addItem(name, values); i = m_template->count() - 1; }
+            else m_template->setItemData(i, values);
+            m_template->setCurrentIndex(i);
+        });
+        connect(deleteTemplate, &QToolButton::clicked, this, [this]() {
+            if (m_template->currentIndex() < 4 || m_template->currentData().toList().size() != 3) return;
+            QSettings s(QSettings::defaultFormat(), QSettings::UserScope,
+                QStringLiteral("OpenVegas"), QStringLiteral("OpenVegas"));
+            s.remove(QStringLiteral("projectTemplates/%1").arg(m_template->currentText()));
+            m_template->removeItem(m_template->currentIndex());
+        });
+        connect(m_template, &QComboBox::currentIndexChanged, this, [this, deleteTemplate](int i) {
+            QVariantList values = m_template->itemData(i).toList();
+            deleteTemplate->setEnabled(i >= 4 && values.size() == 3);
+            if (values.size() == 3 && m_width && m_height && m_frameRate) {
+                m_width->setValue(values[0].toInt());
+                m_height->setValue(values[1].toInt());
+                const double fps = values[2].toDouble();
+                int index = m_frameRate->findData(fps);
+                if (index < 0) { m_frameRate->addItem(QString::number(fps, 'g', 12), fps); index = m_frameRate->count() - 1; }
+                m_frameRate->setCurrentIndex(index);
+            }
+        });
+        deleteTemplate->setEnabled(false);
         {
             QToolButton *match = icoBtn(page, tr("Match Media Video Settings"), svgMatchMedia());
             connect(match, &QToolButton::clicked, this,
@@ -249,6 +303,8 @@ void ProjectPropertiesDialog::buildUi()
                                 {tr("23,976 (Film)"), tr("24,000 (Film)"), tr("25,000 (PAL)"),
                                  tr("29,970 (NTSC)"), tr("30,000"), tr("50,000"),
                                  tr("59,940 (Double NTSC)"), tr("60,000")});
+        const double fpsValues[] = {23.976, 24.0, 25.0, 29.97, 30.0, 50.0, 59.94, 60.0};
+        for (int i = 0; i < 8; ++i) m_frameRate->setItemData(i, fpsValues[i]);
         m_frameRate->setCurrentIndex(3);
         rightForm->addRow(tr("Field order:"), m_fieldOrder);
         rightForm->addRow(tr("Pixel aspect ratio:"), m_pixelAspect);
@@ -323,6 +379,8 @@ void ProjectPropertiesDialog::buildUi()
             QStandardPaths::writableLocation(QStandardPaths::AppLocalDataLocation));
         auto *browse = new QPushButton(tr("Browse…"), page);
         browse->setFixedHeight(kFieldH);
+        browse->setEnabled(false);
+        browse->setToolTip(tr("This processing path is not available yet"));
         connect(browse, &QPushButton::clicked, this, [this]() {
             const QString dir = QFileDialog::getExistingDirectory(this, tr("Prerendered files folder"),
                                                                   m_prerenderFolder->text());
@@ -359,6 +417,9 @@ void ProjectPropertiesDialog::buildUi()
         m_sampleRate = makeCombo(page, {QStringLiteral("44 100"), QStringLiteral("48 000"),
                                         QStringLiteral("96 000")},
                                  1);
+        m_sampleRate->setItemData(0, 44100u);
+        m_sampleRate->setItemData(1, 48000u);
+        m_sampleRate->setItemData(2, 96000u);
         form->addRow(tr("Sample rate (Hz):"), m_sampleRate);
         m_bitDepth = makeCombo(page, {QStringLiteral("16"), QStringLiteral("24"), QStringLiteral("32")});
         form->addRow(tr("Bit depth:"), m_bitDepth);
@@ -392,6 +453,8 @@ void ProjectPropertiesDialog::buildUi()
         m_recordFolder->setText(QStandardPaths::writableLocation(QStandardPaths::DocumentsLocation));
         auto *browse = new QPushButton(tr("Browse…"), page);
         browse->setFixedHeight(kFieldH);
+        browse->setEnabled(false);
+        browse->setToolTip(tr("This processing path is not available yet"));
         connect(browse, &QPushButton::clicked, this, [this]() {
             const QString dir = QFileDialog::getExistingDirectory(this, tr("Recorded files folder"),
                                                                   m_recordFolder->text());
@@ -421,12 +484,16 @@ void ProjectPropertiesDialog::buildUi()
         m_rulerFormat = makeCombo(
             page,
             {tr("Time"), tr("Seconds"), tr("Time & Frames"), tr("Absolute Frames"),
-             tr("Measures & Beats"), tr("SMPTE Non-Drop (29.97 fps, Video)")},
+             tr("Measures & Beats")},
             4);
         form->addRow(tr("Ruler time format:"), m_rulerFormat);
         m_rulerStart = new QLineEdit(QStringLiteral("1.1.000"), page);
         styleField(m_rulerStart);
-        form->addRow(tr("Ruler start time:"), m_rulerStart);
+        auto *rulerValidator = new QDoubleValidator(0.0, 1.0e9, 6, m_rulerStart);
+        rulerValidator->setLocale(QLocale::c());
+        m_rulerStart->setValidator(rulerValidator);
+        m_rulerStart->setToolTip(tr("Offset in seconds added to the ruler labels"));
+        form->addRow(tr("Ruler start time (seconds):"), m_rulerStart);
         lay->addLayout(form);
         lay->addWidget(hLine(page));
         auto *secLbl = new QLabel(tr("Measures & Beats"), page);
@@ -572,6 +639,25 @@ void ProjectPropertiesDialog::buildUi()
         tabs->addTab(page, tr("Advanced"));
     }
 
+    m_width->setObjectName(QStringLiteral("projectWidth"));
+    m_height->setObjectName(QStringLiteral("projectHeight"));
+    m_frameRate->setObjectName(QStringLiteral("projectFrameRate"));
+    m_sampleRate->setObjectName(QStringLiteral("projectSampleRate"));
+    m_rulerStart->setObjectName(QStringLiteral("projectRulerStart"));
+    m_title->setObjectName(QStringLiteral("projectSummaryTitle"));
+    m_comments->setObjectName(QStringLiteral("projectSummaryComments"));
+
+    // These settings need processing paths that the current engine does not provide.
+    // Keep the VEGAS fields visible, but do not accept edits that Apply would discard.
+    for (QWidget *w : QList<QWidget *>{m_hdr, m_fieldOrder, m_pixelAspect, m_rotation,
+            m_pixelFormat, m_renderQuality, m_motionBlur, m_deinterlace, m_resample,
+            m_adjustSource, m_overridePrerender, m_prerenderFolder, m_masterBus,
+            m_stereoBusses, m_bitDepth, m_audioQuality, m_lfeFilter, m_lfeCutoff,
+            m_lfeQuality, m_recordFolder, m_upc, m_firstTrack, m_360, m_stereo3d,
+            m_swapLR, m_crosstalk, m_includeCancel, m_startAllAdvanced}) {
+        w->setEnabled(false);
+        w->setToolTip(tr("This processing mode is not available yet"));
+    }
     root->addWidget(tabs, 1);
 
     auto *buttons = new QDialogButtonBox(this);
@@ -580,12 +666,14 @@ void ProjectPropertiesDialog::buildUi()
     m_applyBtn = buttons->addButton(QDialogButtonBox::Apply);
     m_applyBtn->setEnabled(false);
     connect(ok, &QPushButton::clicked, this, [this]() {
-        applyToModel();
-        accept();
+        if (applyToModel()) {
+            saveDefaults();
+            accept();
+        }
     });
     connect(cancel, &QPushButton::clicked, this, &QDialog::reject);
     connect(m_applyBtn, &QPushButton::clicked, this, [this]() {
-        applyToModel();
+        if (!applyToModel()) return;
         m_dirty = false;
         updateApplyEnabled();
     });
@@ -647,17 +735,9 @@ void ProjectPropertiesDialog::applyMatchedMedia(int width, int height, double fr
     }
 
     if (frameRate > 0.0) {
-        static const double kFps[] = {23.976, 24.0, 25.0, 29.97, 30.0, 50.0, 59.94, 60.0};
-        int best = 0;
-        double bestDiff = 1e9;
-        for (int i = 0; i < 8; ++i) {
-            const double d = std::abs(kFps[i] - frameRate);
-            if (d < bestDiff) {
-                bestDiff = d;
-                best = i;
-            }
-        }
-        m_frameRate->setCurrentIndex(best);
+        int index = m_frameRate->findData(frameRate);
+        if (index < 0) { m_frameRate->addItem(QString::number(frameRate, 'g', 12), frameRate); index = m_frameRate->count() - 1; }
+        m_frameRate->setCurrentIndex(index);
     }
 
     const QString fo = fieldOrder.toLower();
@@ -679,8 +759,9 @@ void ProjectPropertiesDialog::applyMatchedMedia(int width, int height, double fr
     if (existing >= 0) {
         m_template->setCurrentIndex(existing);
     } else {
-        m_template->insertItem(0, custom);
-        m_template->setCurrentIndex(0);
+        QSignalBlocker blocker(m_template);
+        m_template->addItem(custom);
+        m_template->setCurrentIndex(m_template->count() - 1);
     }
 
     markDirty();
@@ -708,51 +789,109 @@ void ProjectPropertiesDialog::loadFromModel()
     m_height->setValue(m_model->frameHeight());
 
     const double fps = m_model->frameRate();
-    int fpsIdx = 3; // 29.97
-    const auto near = [](double a, double b) { return std::abs(a - b) < 0.01; };
-    if (near(fps, 23.976)) {
-        fpsIdx = 0;
-    } else if (near(fps, 24.0)) {
-        fpsIdx = 1;
-    } else if (near(fps, 25.0)) {
-        fpsIdx = 2;
-    } else if (near(fps, 29.97)) {
-        fpsIdx = 3;
-    } else if (near(fps, 30.0)) {
-        fpsIdx = 4;
-    } else if (near(fps, 50.0)) {
-        fpsIdx = 5;
-    } else if (near(fps, 59.94)) {
-        fpsIdx = 6;
-    } else if (near(fps, 60.0)) {
-        fpsIdx = 7;
-    }
-    m_frameRate->setCurrentIndex(fpsIdx);
-
+    int fpsIndex = m_frameRate->findData(fps);
+    if (fpsIndex < 0) { m_frameRate->addItem(QString::number(fps, 'g', 12), fps); fpsIndex = m_frameRate->count() - 1; }
+    m_frameRate->setCurrentIndex(fpsIndex);
+    m_stereoBusses->setValue(m_model->mixerBuses().size());
     const quint32 sr = m_model->sampleRate();
-    m_sampleRate->setCurrentIndex(sr >= 96000 ? 2 : (sr >= 48000 ? 1 : 0));
+    int srIndex = m_sampleRate->findData(sr);
+    if (srIndex < 0) { m_sampleRate->addItem(QString::number(sr), sr); srIndex = m_sampleRate->count() - 1; }
+    m_sampleRate->setCurrentIndex(srIndex);
     m_tempo->setValue(m_model->tempoBpm());
-    m_title->setText(m_model->projectTitle());
+    static const RulerTimeFormat formats[] = {RulerTimeFormat::Time, RulerTimeFormat::Seconds,
+        RulerTimeFormat::TimeFrames, RulerTimeFormat::AbsoluteFrames, RulerTimeFormat::MeasuresBeats};
+    for (int i = 0; i < 5; ++i) {
+        if (formats[i] == m_model->rulerTimeFormat()) m_rulerFormat->setCurrentIndex(i);
+    }
+    m_rulerStart->setText(QString::number(m_model->rulerStartSec(), 'f', 6));
+    m_beatsPerMeasure->setValue(m_model->beatsPerMeasure());
+    m_noteBeat->setCurrentIndex(m_model->beatNote());
+    const ProjectSummary &summary = m_model->summary();
+    m_title->setText(summary.title);
+    m_artist->setText(summary.artist);
+    m_engineer->setText(summary.engineer);
+    m_copyright->setText(summary.copyright);
+    m_comments->setPlainText(summary.comments);
 
     m_dirty = false;
     updateApplyEnabled();
 }
 
-void ProjectPropertiesDialog::applyToModel()
+bool ProjectPropertiesDialog::applyToModel()
 {
-    if (!m_model) {
-        return;
+    if (!m_model) return false;
+    bool ok = false;
+    const double rulerStart = m_rulerStart->text().replace(QLatin1Char(','), QLatin1Char('.')).toDouble(&ok);
+    if (!ok || !std::isfinite(rulerStart) || rulerStart < 0.0) {
+        QMessageBox::warning(this, tr("Project Properties"), tr("Enter a valid ruler offset in seconds."));
+        m_rulerStart->setFocus();
+        return false;
     }
     m_model->setFrameSize(m_width->value(), m_height->value());
 
-    static const double kFps[] = {23.976, 24.0, 25.0, 29.97, 30.0, 50.0, 59.94, 60.0};
-    const int fi = std::clamp(m_frameRate->currentIndex(), 0, 7);
-    m_model->setFrameRate(kFps[fi]);
-
-    static const quint32 kSr[] = {44100u, 48000u, 96000u};
-    const int si = std::clamp(m_sampleRate->currentIndex(), 0, 2);
-    m_model->setSampleRate(kSr[si]);
+    m_model->setFrameRate(m_frameRate->currentData().toDouble());
+    m_model->setSampleRate(m_sampleRate->currentData().toUInt());
     m_model->setTempoBpm(m_tempo->value());
+    static const RulerTimeFormat formats[] = {RulerTimeFormat::Time, RulerTimeFormat::Seconds,
+        RulerTimeFormat::TimeFrames, RulerTimeFormat::AbsoluteFrames, RulerTimeFormat::MeasuresBeats};
+    m_model->setRulerTimeFormat(formats[std::clamp(m_rulerFormat->currentIndex(), 0, 4)]);
+    m_model->setRulerStartSec(rulerStart);
+    m_model->setBeatsPerMeasure(m_beatsPerMeasure->value());
+    m_model->setBeatNote(m_noteBeat->currentIndex());
+    m_model->setSummary({m_title->text(), m_artist->text(), m_engineer->text(),
+                         m_copyright->text(), m_comments->toPlainText()});
+    return true;
+}
+
+void ProjectPropertiesDialog::saveDefaults()
+{
+    QSettings s(QSettings::defaultFormat(), QSettings::UserScope,
+                QStringLiteral("OpenVegas"), QStringLiteral("OpenVegas"));
+    if (m_startAllVideo->isChecked()) {
+        s.setValue(QStringLiteral("newProject/width"), m_model->frameWidth());
+        s.setValue(QStringLiteral("newProject/height"), m_model->frameHeight());
+        s.setValue(QStringLiteral("newProject/fps"), m_model->frameRate());
+    }
+    if (m_startAllAudio->isChecked()) s.setValue(QStringLiteral("newProject/sampleRate"), m_model->sampleRate());
+    if (m_startAllRuler->isChecked()) {
+        s.setValue(QStringLiteral("newProject/rulerFormat"), int(m_model->rulerTimeFormat()));
+        s.setValue(QStringLiteral("newProject/rulerStart"), m_model->rulerStartSec());
+        s.setValue(QStringLiteral("newProject/tempo"), m_model->tempoBpm());
+        s.setValue(QStringLiteral("newProject/beatsPerMeasure"), m_model->beatsPerMeasure());
+        s.setValue(QStringLiteral("newProject/beatNote"), m_model->beatNote());
+    }
+    if (m_startAllSummary->isChecked()) {
+        const ProjectSummary &summary = m_model->summary();
+        s.setValue(QStringLiteral("newProject/title"), summary.title);
+        s.setValue(QStringLiteral("newProject/artist"), summary.artist);
+        s.setValue(QStringLiteral("newProject/engineer"), summary.engineer);
+        s.setValue(QStringLiteral("newProject/copyright"), summary.copyright);
+        s.setValue(QStringLiteral("newProject/comments"), summary.comments);
+    }
+}
+
+void ProjectPropertiesDialog::applyNewProjectDefaults(ProjectModel *model)
+{
+    if (!model) return;
+    QSettings s(QSettings::defaultFormat(), QSettings::UserScope,
+                QStringLiteral("OpenVegas"), QStringLiteral("OpenVegas"));
+    model->setFrameSize(std::clamp(s.value(QStringLiteral("newProject/width"), 1920).toInt(), 16, 8192),
+                        std::clamp(s.value(QStringLiteral("newProject/height"), 1080).toInt(), 16, 8192));
+    const double fps = s.value(QStringLiteral("newProject/fps"), 29.97).toDouble();
+    if (std::isfinite(fps) && fps > 0.0) model->setFrameRate(fps);
+    model->setSampleRate(s.value(QStringLiteral("newProject/sampleRate"), 48000).toUInt());
+    model->setTempoBpm(std::clamp(s.value(QStringLiteral("newProject/tempo"), 120.0).toDouble(), 20.0, 400.0));
+    const int format = s.value(QStringLiteral("newProject/rulerFormat"), int(model->rulerTimeFormat())).toInt();
+    if (format >= 0 && format <= int(RulerTimeFormat::AudioCDTime))
+        model->setRulerTimeFormat(static_cast<RulerTimeFormat>(format));
+    model->setRulerStartSec(s.value(QStringLiteral("newProject/rulerStart"), 0.0).toDouble());
+    model->setBeatsPerMeasure(s.value(QStringLiteral("newProject/beatsPerMeasure"), 4).toInt());
+    model->setBeatNote(s.value(QStringLiteral("newProject/beatNote"), 2).toInt());
+    model->setSummary({s.value(QStringLiteral("newProject/title")).toString(),
+                       s.value(QStringLiteral("newProject/artist")).toString(),
+                       s.value(QStringLiteral("newProject/engineer")).toString(),
+                       s.value(QStringLiteral("newProject/copyright")).toString(),
+                       s.value(QStringLiteral("newProject/comments")).toString()});
 }
 
 } // namespace openvegas

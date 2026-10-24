@@ -1,6 +1,8 @@
 #include "ui/CustomizeKeyboardDialog.h"
 
 #include <QAbstractItemView>
+#include <QAction>
+#include <QShortcut>
 #include <QButtonGroup>
 #include <QComboBox>
 #include <QDialogButtonBox>
@@ -15,6 +17,7 @@
 #include <QPushButton>
 #include <QSignalBlocker>
 #include <QTreeWidget>
+#include <QTreeWidgetItemIterator>
 #include <QVBoxLayout>
 
 namespace openvegas {
@@ -53,6 +56,8 @@ void CustomizeKeyboardDialog::buildUi()
     m_mapCombo = new QComboBox(this);
     m_mapCombo->addItem(tr("[Default]"));
     m_mapCombo->setMinimumWidth(180);
+    m_mapCombo->setEnabled(false);
+    m_mapCombo->setToolTip(tr("Named keyboard maps are not available yet; edit the active map below"));
     mapRow->addWidget(m_mapCombo);
     auto *saveAs = new QPushButton(tr("Save As…"), this);
     saveAs->setEnabled(false);
@@ -80,10 +85,14 @@ void CustomizeKeyboardDialog::buildUi()
         btn->setCheckable(true);
         btn->setAutoDefault(false);
         btn->setMinimumHeight(28);
+        if (ctx != KeyboardContext::Global) {
+            btn->setEnabled(false);
+            btn->setToolTip(tr("This context does not have configurable bindings yet"));
+        }
         m_contextGroup->addButton(btn, i);
         ctxGrid->addWidget(btn, i / 4, i % 4);
     }
-    if (auto *b = m_contextGroup->button(int(KeyboardContext::TrackView))) {
+    if (auto *b = m_contextGroup->button(int(KeyboardContext::Global))) {
         b->setChecked(true);
     }
     root->addLayout(ctxGrid);
@@ -192,6 +201,16 @@ void CustomizeKeyboardDialog::rebuildCommandTree()
             }
         }
     }
+    for (QTreeWidgetItemIterator it(m_tree); *it; ++it) {
+        QTreeWidgetItem *item = *it;
+        const QString key = item->data(0, kRoleCmdKey).toString();
+        if (key.isEmpty()) continue;
+        const QString id = key.mid(key.indexOf(QLatin1Char('/')) + 1);
+        if (!canEdit(KeyboardMap::instance().find(m_context, id))) {
+            item->setFlags(item->flags() & ~Qt::ItemIsEnabled);
+            item->setToolTip(0, tr("This command does not have a configurable binding yet"));
+        }
+    }
     m_tree->expandAll();
     onSelectionChanged();
 }
@@ -220,11 +239,23 @@ KeyboardCommand *CustomizeKeyboardDialog::selectedCommand()
     return KeyboardMap::instance().findMutable(ctx, id);
 }
 
+bool CustomizeKeyboardDialog::canEdit(const KeyboardCommand *command) const
+{
+    if (!command || !command->assignable || command->context != KeyboardContext::Global || !parentWidget())
+        return false;
+    if (parentWidget()->property("availableKeyboardCommands").toStringList().contains(command->id)) return true;
+    for (QAction *action : parentWidget()->findChildren<QAction *>())
+        if (action->property("keyboardCommand").toString() == command->id) return true;
+    for (QShortcut *shortcut : parentWidget()->findChildren<QShortcut *>())
+        if (shortcut->property("keyboardCommand").toString() == command->id) return true;
+    return false;
+}
+
 void CustomizeKeyboardDialog::onSelectionChanged()
 {
     KeyboardCommand *c = selectedCommand();
     const auto items = m_tree->selectedItems();
-    const bool hasSel = c != nullptr && !items.isEmpty();
+    const bool hasSel = canEdit(c) && !items.isEmpty();
     m_removeBtn->setEnabled(hasSel && items.first()->data(0, kRoleShortcutIndex).toInt() >= 0);
     onShortcutEdited();
 }
@@ -234,7 +265,8 @@ void CustomizeKeyboardDialog::onShortcutEdited()
     updateAssignedLabel();
     const QKeySequence seq = m_seqEdit->keySequence();
     KeyboardCommand *c = selectedCommand();
-    const bool hasCmd = c != nullptr;
+    const bool hasCmd = canEdit(c);
+    m_seqEdit->setEnabled(hasCmd);
     const bool hasSeq = !seq.isEmpty();
     m_addBtn->setEnabled(hasCmd && hasSeq);
     m_replaceBtn->setEnabled(hasCmd && hasSeq && m_removeBtn->isEnabled());

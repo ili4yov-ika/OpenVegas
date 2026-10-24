@@ -41,11 +41,21 @@ QAction *addItem(QMenu *menu, const QString &label, const QKeySequence &shortcut
     if (!shortcut.isEmpty()) {
         a->setShortcut(shortcut);
     }
-    a->setEnabled(enabled);
+    a->setProperty("unimplementedItem", enabled);
+    a->setEnabled(false);
+    a->setToolTip(QObject::tr("This function is not available yet"));
     return a;
 }
 
-void addSwitchesVideo(QMenu *parent)
+void enableItem(QAction *action)
+{
+    if (action->property("unimplementedItem").isValid()) {
+        action->setEnabled(action->property("unimplementedItem").toBool());
+        action->setToolTip(QString());
+    }
+}
+
+void addSwitchesVideo(QMenu *parent, MainWindow *window, int eventId)
 {
     auto *m = parent->addMenu(QObject::tr("Switches"));
     addItem(m, QObject::tr("Mute"))->setCheckable(true);
@@ -57,7 +67,15 @@ void addSwitchesVideo(QMenu *parent)
         g->setExclusive(true);
         auto *loop = addItem(m, QObject::tr("Loop event"));
         loop->setCheckable(true);
-        loop->setChecked(true);
+        const TrackEvent *event = window->projectModel().findEvent(eventId);
+        loop->setChecked(event && event->looped);
+        enableItem(loop);
+        QObject::connect(loop, &QAction::toggled, window, [window, eventId](bool on) {
+            window->runDocumentEdit(QObject::tr("Event loop"), [window, eventId, on]() {
+                if (TrackEvent *ev = window->projectModel().findEvent(eventId)) ev->looped = on;
+            });
+            window->refreshTimeline();
+        });
         g->addAction(loop);
         auto *trimAll = addItem(m, QObject::tr("Trim event to include all frames"));
         trimAll->setCheckable(true);
@@ -67,7 +85,15 @@ void addSwitchesVideo(QMenu *parent)
     {
         auto *aspect = addItem(m, QObject::tr("Maintain Aspect Ratio"));
         aspect->setCheckable(true);
-        aspect->setChecked(true);
+        const TrackEvent *ev = window->projectModel().findEvent(eventId);
+        aspect->setChecked(ev && ev->panCrop.maintainAspectRatio);
+        enableItem(aspect);
+        QObject::connect(aspect, &QAction::toggled, window, [window, eventId](bool on) {
+            window->runDocumentEdit(QObject::tr("Maintain aspect ratio"), [window, eventId, on]() {
+                if (TrackEvent *e = window->projectModel().findEvent(eventId)) e->panCrop.maintainAspectRatio = on;
+            });
+            window->refreshTimeline();
+        });
         addItem(m, QObject::tr("Reduce Interlace Flicker"))->setCheckable(true);
     }
     m->addSeparator();
@@ -87,7 +113,7 @@ void addSwitchesVideo(QMenu *parent)
     }
 }
 
-void addSwitchesAudio(QMenu *parent)
+void addSwitchesAudio(QMenu *parent, MainWindow *window, int eventId)
 {
     auto *m = parent->addMenu(QObject::tr("Switches"));
     addItem(m, QObject::tr("Mute"))->setCheckable(true);
@@ -95,7 +121,15 @@ void addSwitchesAudio(QMenu *parent)
     {
         auto *loop = addItem(m, QObject::tr("Loop"));
         loop->setCheckable(true);
-        loop->setChecked(true);
+        const TrackEvent *event = window->projectModel().findEvent(eventId);
+        loop->setChecked(event && event->looped);
+        enableItem(loop);
+        QObject::connect(loop, &QAction::toggled, window, [window, eventId](bool on) {
+            window->runDocumentEdit(QObject::tr("Event loop"), [window, eventId, on]() {
+                if (TrackEvent *ev = window->projectModel().findEvent(eventId)) ev->looped = on;
+            });
+            window->refreshTimeline();
+        });
     }
     addItem(m, QObject::tr("Invert Phase"))->setCheckable(true);
     addItem(m, QObject::tr("Normalize"))->setCheckable(true);
@@ -107,6 +141,7 @@ void addGroupMenu(QMenu *parent, MainWindow *window, int eventId, bool createNew
     auto *m = parent->addMenu(QObject::tr("Group"));
     auto *create = addItem(m, QObject::tr("Create New"), QKeySequence(QStringLiteral("G")),
                            createNewEnabled);
+    enableItem(create);
     QObject::connect(create, &QAction::triggered, window, [window]() {
         window->runDocumentEdit(QObject::tr("Group"),
                                 [window]() { window->projectModel().groupSelectedEvents(); });
@@ -114,12 +149,14 @@ void addGroupMenu(QMenu *parent, MainWindow *window, int eventId, bool createNew
     });
     m->addSeparator();
     auto *remove = addItem(m, QObject::tr("Remove From"), QKeySequence(QStringLiteral("U")));
+    enableItem(remove);
     QObject::connect(remove, &QAction::triggered, window, [window, eventId]() {
         window->runDocumentEdit(QObject::tr("Ungroup"),
                                 [window, eventId]() { window->projectModel().ungroupEvent(eventId); });
         window->refreshTimeline();
     });
     auto *clear = addItem(m, QObject::tr("Clear"), QKeySequence(QStringLiteral("Ctrl+U")));
+    enableItem(clear);
     QObject::connect(clear, &QAction::triggered, window, [window, eventId]() {
         window->runDocumentEdit(QObject::tr("Clear Group"), [window, eventId]() {
             if (TrackEvent *ev = window->projectModel().findEvent(eventId)) {
@@ -129,6 +166,7 @@ void addGroupMenu(QMenu *parent, MainWindow *window, int eventId, bool createNew
         window->refreshTimeline();
     });
     auto *selAll = addItem(m, QObject::tr("Select All"), QKeySequence(QStringLiteral("Shift+G")));
+    enableItem(selAll);
     QObject::connect(selAll, &QAction::triggered, window, [window, eventId]() {
         if (TrackEvent *ev = window->projectModel().findEvent(eventId)) {
             window->projectModel().selectGroup(ev->groupId);
@@ -136,9 +174,22 @@ void addGroupMenu(QMenu *parent, MainWindow *window, int eventId, bool createNew
         }
     });
     m->addSeparator();
-    addItem(m, QObject::tr("Cut All"));
-    addItem(m, QObject::tr("Copy All"));
+    m->addAction(QObject::tr("Cut All"), window, [window, eventId]() {
+        if (TrackEvent *ev = window->projectModel().findEvent(eventId)) {
+            window->projectModel().clearSelection(); window->projectModel().selectGroup(ev->groupId);
+            if (ev->groupId <= 0) ev->selected = true;
+            window->onEditCut();
+        }
+    });
+    m->addAction(QObject::tr("Copy All"), window, [window, eventId]() {
+        if (TrackEvent *ev = window->projectModel().findEvent(eventId)) {
+            window->projectModel().clearSelection(); window->projectModel().selectGroup(ev->groupId);
+            if (ev->groupId <= 0) ev->selected = true;
+            window->onEditCopy(); window->refreshTimeline();
+        }
+    });
     auto *delAll = addItem(m, QObject::tr("Delete All"));
+    enableItem(delAll);
     QObject::connect(delAll, &QAction::triggered, window, [window, eventId]() {
         window->runDocumentEdit(QObject::tr("Delete"), [window, eventId]() {
             window->projectModel().removeEventOrGroup(eventId);
@@ -190,22 +241,31 @@ void addStreamMenu(QMenu *parent)
     g->addAction(s1);
 }
 
-void addChannelsMenu(QMenu *parent)
+void addChannelsMenu(QMenu *parent, MainWindow *window, int eventId)
 {
     auto *channels = parent->addMenu(QObject::tr("Channels"));
     auto *g = new QActionGroup(channels);
     g->setExclusive(true);
-    auto addRadio = [&](const QString &label, bool on = false) {
-        auto *a = addItem(channels, label);
-        a->setCheckable(true);
-        a->setChecked(on);
-        g->addAction(a);
-        return a;
-    };
-    addRadio(QObject::tr("Both"), true);
-    addRadio(QObject::tr("Left Only"));
-    addRadio(QObject::tr("Right Only"));
-    addRadio(QObject::tr("Combine"));
+    const TrackEvent *event = window->projectModel().findEvent(eventId);
+    const QStringList labels{QObject::tr("Both"), QObject::tr("Left Only"), QObject::tr("Right Only")};
+    for (int mode = 0; mode < 3; ++mode) {
+        auto *action = addItem(channels, labels[mode]);
+        action->setCheckable(true);
+        action->setChecked(event && (mode == 0 ? event->channelCount >= 2 :
+            event->channelCount == 1 && event->firstChannel == (mode == 2 ? 1 : 0)));
+        g->addAction(action);
+        enableItem(action);
+        QObject::connect(action, &QAction::triggered, window, [window, eventId, mode]() {
+            window->runDocumentEdit(QObject::tr("Audio channels"), [window, eventId, mode]() {
+                if (TrackEvent *ev = window->projectModel().findEvent(eventId)) {
+                    ev->firstChannel = mode == 2 ? 1 : 0;
+                    ev->channelCount = mode == 0 ? 2 : 1;
+                }
+            });
+            window->refreshTimeline();
+        });
+    }
+    addItem(channels, QObject::tr("Combine"));
     addItem(channels, QObject::tr("Swap"));
 }
 
@@ -230,10 +290,10 @@ void addVideoEventStreamSyncMenus(QMenu *parent)
     addSynchronizeSyncLinkMenus(parent);
 }
 
-void addAudioEventStreamSyncMenus(QMenu *parent)
+void addAudioEventStreamSyncMenus(QMenu *parent, MainWindow *window, int eventId)
 {
     addStreamMenu(parent);
-    addChannelsMenu(parent);
+    addChannelsMenu(parent, window, eventId);
     addSynchronizeSyncLinkMenus(parent);
 }
 
@@ -359,6 +419,7 @@ void addAutomationWriteModes(QMenu *menu, MainWindow *window, int trackIndex,
         a->setChecked(on);
         g->addAction(a);
         if (window && trackIndex >= 0) {
+            enableItem(a);
             QObject::connect(a, &QAction::triggered, window, [window, trackIndex, mode]() {
                 window->runDocumentEdit(QObject::tr("Automation Mode"), [window, trackIndex, mode]() {
                     auto &tracks = window->projectModel().tracks();
@@ -434,6 +495,7 @@ void addTrackDisplayColorSubmenu(QMenu *parent, MainWindow *window, int trackInd
         a->setChecked(i == selectedIndex);
         a->setData(i);
         g->addAction(a);
+        enableItem(a);
         QObject::connect(a, &QAction::triggered, window, [window, trackIndex, i]() {
             if (!window || trackIndex < 0
                 || trackIndex >= window->projectModel().tracks().size()) {
@@ -555,8 +617,21 @@ void buildVideoTrackHeaderMenu(QMenu *menu, MainWindow *window, int trackIndex)
 
     {
         auto *sw = menu->addMenu(QObject::tr("Switches"));
-        addItem(sw, QObject::tr("Mute"), QKeySequence(QStringLiteral("Z")))->setCheckable(true);
-        addItem(sw, QObject::tr("Solo"), QKeySequence(QStringLiteral("X")))->setCheckable(true);
+        for (bool solo : {false, true}) {
+            auto *action = addItem(sw, solo ? QObject::tr("Solo") : QObject::tr("Mute"));
+            action->setCheckable(true);
+            const auto &tracks = window->projectModel().tracks();
+            action->setChecked(solo ? tracks[trackIndex].solo : tracks[trackIndex].muted);
+            enableItem(action);
+            QObject::connect(action, &QAction::toggled, window, [window, trackIndex, solo](bool on) {
+                window->runDocumentEdit(QObject::tr("Track switch"), [window, trackIndex, solo, on]() {
+                    auto &tracks = window->projectModel().tracks();
+                    if (trackIndex < 0 || trackIndex >= tracks.size()) return;
+                    if (solo) tracks[trackIndex].solo = on; else tracks[trackIndex].muted = on;
+                });
+                window->refreshTimeline();
+            });
+        }
     }
     {
         auto *fade = menu->addMenu(QObject::tr("Fade Colors"));
@@ -657,6 +732,7 @@ void buildAudioTrackHeaderMenu(QMenu *menu, MainWindow *window, int trackIndex)
         addItem(env, QObject::tr("Mute"));
         auto *vol = addItem(env, QObject::tr("Volume"), QKeySequence(QStringLiteral("Shift+V")));
         auto *panEnv = addItem(env, QObject::tr("Pan"), QKeySequence(QStringLiteral("Shift+P")));
+        enableItem(vol);
         QObject::connect(vol, &QAction::triggered, window, [window, trackIndex]() {
             window->runDocumentEdit(QObject::tr("Insert Volume Envelope"), [window, trackIndex]() {
                 auto &tracks = window->projectModel().tracks();
@@ -667,6 +743,7 @@ void buildAudioTrackHeaderMenu(QMenu *menu, MainWindow *window, int trackIndex)
             });
             window->refreshTimeline();
         });
+        enableItem(panEnv);
         QObject::connect(panEnv, &QAction::triggered, window, [window, trackIndex]() {
             window->runDocumentEdit(QObject::tr("Insert Pan Envelope"), [window, trackIndex]() {
                 auto &tracks = window->projectModel().tracks();
@@ -679,6 +756,7 @@ void buildAudioTrackHeaderMenu(QMenu *menu, MainWindow *window, int trackIndex)
         });
         env->addSeparator();
         auto *fxAuto = addItem(env, QObject::tr("FX Automation…"));
+        enableItem(fxAuto);
         QObject::connect(fxAuto, &QAction::triggered, window, [window, trackIndex]() {
             window->runDocumentEdit(QObject::tr("Insert FX Automation"), [window, trackIndex]() {
                 auto &tracks = window->projectModel().tracks();
@@ -696,6 +774,7 @@ void buildAudioTrackHeaderMenu(QMenu *menu, MainWindow *window, int trackIndex)
     {
         auto *fxEnv = menu->addMenu(QObject::tr("FX Automation Envelopes"));
         auto *fxAuto = addItem(fxEnv, QObject::tr("FX Automation…"));
+        enableItem(fxAuto);
         QObject::connect(fxAuto, &QAction::triggered, window, [window, trackIndex]() {
             window->onTrackFx(trackIndex);
         });
@@ -704,8 +783,21 @@ void buildAudioTrackHeaderMenu(QMenu *menu, MainWindow *window, int trackIndex)
 
     {
         auto *sw = menu->addMenu(QObject::tr("Switches"));
-        addItem(sw, QObject::tr("Mute"), QKeySequence(QStringLiteral("Z")))->setCheckable(true);
-        addItem(sw, QObject::tr("Solo"), QKeySequence(QStringLiteral("X")))->setCheckable(true);
+        for (bool solo : {false, true}) {
+            auto *action = addItem(sw, solo ? QObject::tr("Solo") : QObject::tr("Mute"));
+            action->setCheckable(true);
+            const auto &tracks = window->projectModel().tracks();
+            action->setChecked(solo ? tracks[trackIndex].solo : tracks[trackIndex].muted);
+            enableItem(action);
+            QObject::connect(action, &QAction::toggled, window, [window, trackIndex, solo](bool on) {
+                window->runDocumentEdit(QObject::tr("Track switch"), [window, trackIndex, solo, on]() {
+                    auto &tracks = window->projectModel().tracks();
+                    if (trackIndex < 0 || trackIndex >= tracks.size()) return;
+                    if (solo) tracks[trackIndex].solo = on; else tracks[trackIndex].muted = on;
+                });
+                window->refreshTimeline();
+            });
+        }
         addItem(sw, QObject::tr("Invert Phase"))->setCheckable(true);
     }
     menu->addSeparator();
@@ -757,8 +849,8 @@ void ContextMenuBuilder::showEventMenu(MainWindow *window, int eventId, const QP
         menu.addSeparator();
         addItem(&menu, QObject::tr("Media FX…"));
         menu.addSeparator();
-        addItem(&menu, QObject::tr("Video Event Pan/Crop…"));
-        addItem(&menu, QObject::tr("Video Event FX…"));
+        menu.addAction(QObject::tr("Video Event Pan/Crop…"), window, [window, eventId]() { window->onVideoEventFx(eventId); });
+        menu.addAction(QObject::tr("Video Event FX…"), window, [window, eventId]() { window->onVideoEventFx(eventId); });
         addItem(&menu, QObject::tr("Motion Tracking"), QKeySequence(QStringLiteral("Alt+M")));
         menu.addSeparator();
         menu.addAction(QObject::tr("Cut"), QKeySequence::Cut, window, &MainWindow::onEditCut);
@@ -767,7 +859,7 @@ void ContextMenuBuilder::showEventMenu(MainWindow *window, int eventId, const QP
         addItem(&menu, QObject::tr("Selectively Paste Event Attributes"), {}, false);
         menu.addSeparator();
         menu.addAction(QObject::tr("Delete"), QKeySequence::Delete, window, &MainWindow::onEditDelete);
-        addItem(&menu, QObject::tr("Trim"), QKeySequence(QStringLiteral("Ctrl+T")), false);
+        menu.addAction(QObject::tr("Trim"), window, &MainWindow::onEditTrim)->setEnabled(window->projectModel().hasLoopRegion());
         {
             auto *a = menu.addAction(QObject::tr("Trim Start"), QKeySequence(QStringLiteral("Alt+[")),
                                      window, &MainWindow::onEditTrimStart);
@@ -796,6 +888,7 @@ void ContextMenuBuilder::showEventMenu(MainWindow *window, int eventId, const QP
             auto *rev = menu.addAction(QObject::tr("Reverse"));
             rev->setCheckable(true);
             rev->setChecked(ev->reversed);
+            enableItem(rev);
             QObject::connect(rev, &QAction::triggered, window, [window, eventId]() {
                 window->runDocumentEdit(QObject::tr("Reverse Event"), [window, eventId]() {
                     TrackEvent *e = window->projectModel().findEvent(eventId);
@@ -825,7 +918,7 @@ void ContextMenuBuilder::showEventMenu(MainWindow *window, int eventId, const QP
         addItem(&menu, QObject::tr("Select All After Cursor"));
         addVideoEventEnvelopeMenu(&menu);
         menu.addSeparator();
-        addSwitchesVideo(&menu);
+        addSwitchesVideo(&menu, window, eventId);
         addTakeMenu(&menu, ev->name);
         addGroupMenu(&menu, window, eventId);
         addVideoEventStreamSyncMenus(&menu);
@@ -850,7 +943,7 @@ void ContextMenuBuilder::showEventMenu(MainWindow *window, int eventId, const QP
     addItem(&menu, QObject::tr("Beat Detection"));
     addItem(&menu, QObject::tr("Tempo Detection"));
     menu.addSeparator();
-    addItem(&menu, QObject::tr("Audio Event FX…"));
+    menu.addAction(QObject::tr("Audio Event FX…"), window, [window, eventId]() { window->onAudioEventFx(eventId); });
     addItem(&menu, QObject::tr("Apply Non-Real-Time Event FX…"));
     menu.addSeparator();
     menu.addAction(QObject::tr("Cut"), QKeySequence::Cut, window, &MainWindow::onEditCut);
@@ -859,7 +952,7 @@ void ContextMenuBuilder::showEventMenu(MainWindow *window, int eventId, const QP
     addItem(&menu, QObject::tr("Selectively Paste Event Attributes"), {}, false);
     menu.addSeparator();
     menu.addAction(QObject::tr("Delete"), QKeySequence::Delete, window, &MainWindow::onEditDelete);
-    addItem(&menu, QObject::tr("Trim"), QKeySequence(QStringLiteral("Ctrl+T")), false);
+    menu.addAction(QObject::tr("Trim"), window, &MainWindow::onEditTrim)->setEnabled(window->projectModel().hasLoopRegion());
     {
         auto *a = menu.addAction(QObject::tr("Trim Start"), QKeySequence(QStringLiteral("Alt+[")),
                                  window, &MainWindow::onEditTrimStart);
@@ -884,6 +977,7 @@ void ContextMenuBuilder::showEventMenu(MainWindow *window, int eventId, const QP
         auto *rev = menu.addAction(QObject::tr("Reverse"));
         rev->setCheckable(true);
         rev->setChecked(ev->reversed);
+        enableItem(rev);
         QObject::connect(rev, &QAction::triggered, window, [window, eventId]() {
             window->runDocumentEdit(QObject::tr("Reverse Event"), [window, eventId]() {
                 TrackEvent *e = window->projectModel().findEvent(eventId);
@@ -911,14 +1005,15 @@ void ContextMenuBuilder::showEventMenu(MainWindow *window, int eventId, const QP
     addItem(&menu, QObject::tr("Select Events to End"));
     addItem(&menu, QObject::tr("Select All After Cursor"));
     menu.addSeparator();
-    addSwitchesAudio(&menu);
+    addSwitchesAudio(&menu, window, eventId);
     addTakeMenu(&menu, ev->name);
     addGroupMenu(&menu, window, eventId);
-    addAudioEventStreamSyncMenus(&menu);
+    addAudioEventStreamSyncMenus(&menu, window, eventId);
     menu.addSeparator();
     {
         auto *env = menu.addMenu(QObject::tr("Insert/Remove Envelope"));
         auto *vol = addItem(env, QObject::tr("Volume"), QKeySequence(QStringLiteral("Shift+V")));
+        enableItem(vol);
         QObject::connect(vol, &QAction::triggered, window, [window, eventId]() {
             window->runDocumentEdit(QObject::tr("Insert Event Gain Envelope"), [window, eventId]() {
                 if (TrackEvent *e = window->projectModel().findEvent(eventId)) {
@@ -1007,6 +1102,7 @@ void ContextMenuBuilder::showEventFxMenu(MainWindow *window, int eventId, const 
     QMenu menu(window);
     auto *bypass = menu.addAction(QObject::tr("&Bypass All"));
     bypass->setEnabled(hasFx);
+    enableItem(bypass);
     QObject::connect(bypass, &QAction::triggered, window, [window, eventId]() {
         window->runDocumentEdit(QObject::tr("Bypass All FX"), [window, eventId]() {
             if (TrackEvent *e = window->projectModel().findEvent(eventId)) {
@@ -1020,6 +1116,7 @@ void ContextMenuBuilder::showEventFxMenu(MainWindow *window, int eventId, const 
 
     auto *enable = menu.addAction(QObject::tr("&Enable All"));
     enable->setEnabled(hasFx);
+    enableItem(enable);
     QObject::connect(enable, &QAction::triggered, window, [window, eventId]() {
         window->runDocumentEdit(QObject::tr("Enable All FX"), [window, eventId]() {
             if (TrackEvent *e = window->projectModel().findEvent(eventId)) {
@@ -1033,6 +1130,7 @@ void ContextMenuBuilder::showEventFxMenu(MainWindow *window, int eventId, const 
 
     auto *delAll = menu.addAction(QObject::tr("&Delete All"));
     delAll->setEnabled(hasRemovable);
+    enableItem(delAll);
     QObject::connect(delAll, &QAction::triggered, window, [window, eventId, isAudio]() {
         window->runDocumentEdit(QObject::tr("Delete All FX"), [window, eventId, isAudio]() {
             if (TrackEvent *e = window->projectModel().findEvent(eventId)) {
@@ -1059,6 +1157,7 @@ void ContextMenuBuilder::showEventFxMenu(MainWindow *window, int eventId, const 
     menu.addSeparator();
 
     auto *chooser = menu.addAction(QObject::tr("&Plug-In Chooser…"));
+    enableItem(chooser);
     QObject::connect(chooser, &QAction::triggered, window, [window, eventId, isAudio]() {
         TrackEvent *e = window->projectModel().findEvent(eventId);
         if (!e) {
@@ -1202,6 +1301,7 @@ void ContextMenuBuilder::showRulerMenu(MainWindow *window, const QPoint &globalP
         window ? window->projectModel().rulerTimeFormat() : RulerTimeFormat::TimeFrames;
 
     auto addRadio = [&](const QString &label, RulerTimeFormat fmt, bool enabled = true) {
+        enabled = enabled && window && fmt <= RulerTimeFormat::MeasuresBeats;
         auto *a = menu.addAction(label);
         a->setCheckable(true);
         a->setChecked(cur == fmt);
@@ -1209,8 +1309,10 @@ void ContextMenuBuilder::showRulerMenu(MainWindow *window, const QPoint &globalP
         a->setActionGroup(group);
         a->setData(static_cast<int>(fmt));
         if (!enabled) {
+            a->setToolTip(QObject::tr("This ruler format is not available yet"));
             return a;
         }
+        enableItem(a);
         QObject::connect(a, &QAction::triggered, &menu, [window, fmt]() {
             if (!window) {
                 return;
@@ -1272,11 +1374,13 @@ void ContextMenuBuilder::showMarkerLaneMenu(MainWindow *window, const QPoint &gl
     loop->setChecked(model.loopPlaybackEnabled());
     loop->setShortcuts(
         {QKeySequence(QStringLiteral("Ctrl+Shift+L")), QKeySequence(QStringLiteral("Q"))});
+    enableItem(loop);
     QObject::connect(loop, &QAction::triggered, &menu, [window](bool on) {
         window->setLoopPlaybackEnabled(on);
     });
 
     auto *setView = menu.addAction(QObject::tr("Set Selection to &View"));
+    enableItem(setView);
     QObject::connect(setView, &QAction::triggered, &menu, [window, tl]() {
         if (!tl) {
             return;
@@ -1291,6 +1395,7 @@ void ContextMenuBuilder::showMarkerLaneMenu(MainWindow *window, const QPoint &gl
     });
 
     auto *setProj = menu.addAction(QObject::tr("Set Selection to &Project"));
+    enableItem(setProj);
     QObject::connect(setProj, &QAction::triggered, &menu, [window]() {
         const double end = window->projectModel().timelineEndSec();
         window->runDocumentEdit(QObject::tr("Set Selection to Project"), [window, end]() {
@@ -1303,6 +1408,7 @@ void ContextMenuBuilder::showMarkerLaneMenu(MainWindow *window, const QPoint &gl
     selLoop->setShortcuts(
         {QKeySequence(QStringLiteral("Shift+L")), QKeySequence(QStringLiteral("Shift+Q"))});
     selLoop->setEnabled(model.hasLoopRegion());
+    enableItem(selLoop);
     QObject::connect(selLoop, &QAction::triggered, &menu, [window, tl]() {
         if (!window->projectModel().hasLoopRegion() || !tl) {
             return;
@@ -1316,6 +1422,7 @@ void ContextMenuBuilder::showMarkerLaneMenu(MainWindow *window, const QPoint &gl
     {
         auto *insMarker = markersMenu->addAction(QObject::tr("&Marker"));
         insMarker->setShortcut(QKeySequence(QStringLiteral("M")));
+        enableItem(insMarker);
         QObject::connect(insMarker, &QAction::triggered, &menu, [tl]() {
             if (tl) {
                 tl->insertMarkerAtPlayhead();
@@ -1328,6 +1435,7 @@ void ContextMenuBuilder::showMarkerLaneMenu(MainWindow *window, const QPoint &gl
         markersMenu->addSeparator();
         auto *delAll = markersMenu->addAction(QObject::tr("&Delete All"));
         delAll->setEnabled(!model.markers().isEmpty());
+        enableItem(delAll);
         QObject::connect(delAll, &QAction::triggered, &menu, [window]() {
             window->runDocumentEdit(QObject::tr("Delete All Markers"),
                                     [window]() { window->projectModel().removeAllMarkers(); });
@@ -1342,6 +1450,7 @@ void ContextMenuBuilder::showMarkerLaneMenu(MainWindow *window, const QPoint &gl
     quantize->setCheckable(true);
     quantize->setChecked(model.quantizeToFrames());
     quantize->setShortcut(QKeySequence(QStringLiteral("Alt+F8")));
+    enableItem(quantize);
     QObject::connect(quantize, &QAction::triggered, &menu, [window, saveTimelineOpts](bool on) {
         window->projectModel().setQuantizeToFrames(on);
         saveTimelineOpts();
@@ -1372,6 +1481,7 @@ void ContextMenuBuilder::showMarkerLaneMenu(MainWindow *window, const QPoint &gl
     snapEvents->setShortcut(QKeySequence(QStringLiteral("Ctrl+Shift+F8")));
     snapEvents->setEnabled(model.snappingEnabled());
 
+    enableItem(snap);
     QObject::connect(snap, &QAction::triggered, &menu,
                      [window, saveTimelineOpts, snapGrid, snapMarkers, snapEvents](bool on) {
                          window->projectModel().setSnappingEnabled(on);
@@ -1380,14 +1490,17 @@ void ContextMenuBuilder::showMarkerLaneMenu(MainWindow *window, const QPoint &gl
                          snapEvents->setEnabled(on);
                          saveTimelineOpts();
                      });
+    enableItem(snapGrid);
     QObject::connect(snapGrid, &QAction::triggered, &menu, [window, saveTimelineOpts](bool on) {
         window->projectModel().setSnapToGrid(on);
         saveTimelineOpts();
     });
+    enableItem(snapMarkers);
     QObject::connect(snapMarkers, &QAction::triggered, &menu, [window, saveTimelineOpts](bool on) {
         window->projectModel().setSnapToMarkers(on);
         saveTimelineOpts();
     });
+    enableItem(snapEvents);
     QObject::connect(snapEvents, &QAction::triggered, &menu, [window, saveTimelineOpts](bool on) {
         window->projectModel().setSnapToAllEvents(on);
         saveTimelineOpts();
@@ -1405,6 +1518,7 @@ void ContextMenuBuilder::showMarkerLaneMenu(MainWindow *window, const QPoint &gl
             a->setCheckable(true);
             a->setChecked(cur == sp);
             a->setActionGroup(group);
+            enableItem(a);
             QObject::connect(a, &QAction::triggered, gridMenu, [window, sp, saveTimelineOpts]() {
                 window->projectModel().setGridSpacing(sp);
                 saveTimelineOpts();
@@ -1432,7 +1546,7 @@ void ContextMenuBuilder::showMarkerLaneMenu(MainWindow *window, const QPoint &gl
     auto *prerender = menu.addAction(QObject::tr("&Selectively Prerender Video..."));
     prerender->setShortcut(QKeySequence(QStringLiteral("Shift+M")));
     prerender->setEnabled(false);
-    menu.addAction(QObject::tr("&Clean Up Prerendered Video..."));
+    menu.addAction(QObject::tr("&Clean Up Prerendered Video..."))->setEnabled(false);
 
     menu.exec(globalPos);
 }
@@ -1445,6 +1559,7 @@ void ContextMenuBuilder::showMarkerMenu(MainWindow *window, int markerId, const 
     TimelineView *tl = window->timelineView();
     QMenu menu(window);
     auto *go = menu.addAction(QObject::tr("&Go To"));
+    enableItem(go);
     QObject::connect(go, &QAction::triggered, &menu, [window, markerId, tl]() {
         const auto *m = window->projectModel().findMarker(markerId);
         if (m && tl) {
@@ -1452,6 +1567,7 @@ void ContextMenuBuilder::showMarkerMenu(MainWindow *window, int markerId, const 
         }
     });
     auto *rename = menu.addAction(QObject::tr("&Rename"));
+    enableItem(rename);
     QObject::connect(rename, &QAction::triggered, &menu, [markerId, tl]() {
         if (tl) {
             tl->beginMarkerRename(markerId);
@@ -1459,6 +1575,7 @@ void ContextMenuBuilder::showMarkerMenu(MainWindow *window, int markerId, const 
     });
     menu.addSeparator();
     auto *del = menu.addAction(QObject::tr("&Delete"));
+    enableItem(del);
     QObject::connect(del, &QAction::triggered, &menu, [window, markerId]() {
         window->runDocumentEdit(QObject::tr("Delete Marker"),
                                 [window, markerId]() { window->projectModel().removeMarker(markerId); });
@@ -1523,6 +1640,7 @@ void ContextMenuBuilder::showQualityMenu(MainWindow *window, QToolButton *chip, 
             a->setCheckable(true);
             const bool on = (level == QObject::tr("Preview") && i == 0);
             a->setChecked(on);
+            enableItem(a);
             QObject::connect(a, &QAction::triggered, chip, [window, chip, level, r = res[i]]() {
                 if (chip) {
                     chip->setText(QStringLiteral("%1 (%2) ▾").arg(level, r));
@@ -1551,6 +1669,7 @@ void ContextMenuBuilder::showZoomMenu(QToolButton *chip, const QPoint &globalPos
         a->setCheckable(true);
         a->setChecked(z == QObject::tr("100 %"));
         if (chip) {
+            enableItem(a);
             QObject::connect(a, &QAction::triggered, chip, [chip, z]() {
                 chip->setText(z + QStringLiteral(" ▾"));
             });
@@ -1571,7 +1690,9 @@ void ContextMenuBuilder::showOverlaysMenu(MainWindow *window, QToolButton *btn, 
     auto *safe = addItem(&menu, QObject::tr("Safe Areas"));
     safe->setCheckable(true);
     safe->setChecked(window->overlaySafeAreas());
+    enableItem(grid);
     QObject::connect(grid, &QAction::toggled, window, &MainWindow::setOverlayGrid);
+    enableItem(safe);
     QObject::connect(safe, &QAction::toggled, window, &MainWindow::setOverlaySafeAreas);
     menu.addSeparator();
     {
@@ -1652,8 +1773,8 @@ void ContextMenuBuilder::showPreviewMenu(MainWindow *window, const QPoint &globa
         addItem(fr, QObject::tr("Quarter"))->setCheckable(true);
     }
     menu.addSeparator();
-    addItem(&menu, QObject::tr("Copy Frame to Clipboard"));
-    addItem(&menu, QObject::tr("Save Frame to File…"));
+    menu.addAction(QObject::tr("Copy Frame to Clipboard"), window, &MainWindow::onCopySnapshot);
+    menu.addAction(QObject::tr("Save Frame to File…"), window, &MainWindow::onSaveSnapshot);
     menu.exec(globalPos);
 }
 

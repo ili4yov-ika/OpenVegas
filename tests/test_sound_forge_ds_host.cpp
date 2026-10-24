@@ -4,6 +4,8 @@
 #include "plugins/SoundForgeHost.h"
 #include "plugins/VegasSharedAudioCatalog.h"
 
+#include <QApplication>
+#include <QWidget>
 #include <QRegularExpression>
 #include <QHash>
 #include <QSet>
@@ -12,6 +14,10 @@
 #include <algorithm>
 #include <cmath>
 #include <vector>
+
+#ifdef Q_OS_WIN
+#include <windows.h>
+#endif
 
 using namespace openvegas;
 
@@ -402,5 +408,135 @@ TEST_CASE("Every look-alike dialog that was retired has a real plug-in behind it
         // Building the graph is the point; several of these are deliberately transparent
         // at default settings, so the amount of change is not what makes them valid.
         CHECK(SoundForgeDsHost::probeProcess(clsid, &meanDiff, &error));
+    }
+}
+
+#ifdef Q_OS_WIN
+TEST_CASE("Native ExpressFX EQ controls change the processed signal",
+          "[plugins][soundforge][dshost][native-editor]")
+{
+    AudioPluginDesc chosen;
+    for (const auto &desc : SoundForgeHost::pluginDescriptors()) {
+        if (normalizeVegasPluginKey(desc.name) == QStringLiteral("expressfx graphic eq")) {
+            chosen = desc;
+            break;
+        }
+    }
+    if (chosen.id.isEmpty()) {
+        WARN("ExpressFX Graphic EQ not registered — native editor check skipped");
+        return;
+    }
+    int argc = 1;
+    char name[] = "soundforge-editor-test";
+    char *argv[] = {name, nullptr};
+    qputenv("QT_QPA_PLATFORM", "windows");
+    QApplication app(argc, argv);
+    QWidget embed;
+    embed.setAttribute(Qt::WA_DontShowOnScreen);
+    auto &host = SoundForgeDsHost::instance();
+    FxSlot slot;
+    REQUIRE(host.createInstance(chosen, &slot));
+    struct Release {
+        SoundForgeDsHost &host; FxSlot &slot;
+        ~Release() { host.releaseInstance(&slot); }
+    } release{host, slot};
+    host.prepare(&slot, 48000.0, 512);
+    REQUIRE(host.openEditor(&slot, &embed));
+    embed.show();
+    app.processEvents();
+    std::vector<HWND> sliders;
+    EnumChildWindows(reinterpret_cast<HWND>(embed.winId()),
+        [](HWND window, LPARAM data) -> BOOL {
+            wchar_t className[128]{};
+            GetClassNameW(window, className, 128);
+            if (QString::fromWCharArray(className).endsWith(QStringLiteral("FaderClass")))
+                reinterpret_cast<std::vector<HWND> *>(data)->push_back(window);
+            return TRUE;
+        }, reinterpret_cast<LPARAM>(&sliders));
+    REQUIRE(sliders.size() >= 11);
+    const QByteArray before = host.getState(&slot);
+    REQUIRE_FALSE(before.isEmpty());
+    // The final custom fader is output gain. Drag to its attenuated end;
+    // SetState alone cannot detect an editor which displays unapplied edits.
+    HWND outputGain = sliders.back();
+    RECT rect{}; GetClientRect(outputGain, &rect);
+    const LPARAM point = MAKELPARAM(rect.right / 2, rect.bottom * 3 / 4);
+    SendMessageW(outputGain, WM_LBUTTONDOWN, MK_LBUTTON, point);
+    SendMessageW(outputGain, WM_MOUSEMOVE, MK_LBUTTON, point);
+    SendMessageW(outputGain, WM_LBUTTONUP, 0, point);
+    app.processEvents();
+    wchar_t gainText[128]{}; GetDlgItemTextW(GetParent(outputGain), 2039, gainText, 128);
+    INFO("native gain=" << QString::fromWCharArray(gainText).toStdString() << " height=" << rect.bottom);
+    const QByteArray edited = host.getState(&slot);
+    CHECK(edited != before);
+    // The native page, without a manual SetState call, must update its live DSP.
+    constexpr int frames = 512;
+    auto signal = tone(frames);
+    std::vector<float> left(frames), right(frames);
+    float *in[] = {signal.data(), signal.data()};
+    float *out[] = {left.data(), right.data()};
+    double energy = 0.0, inputEnergy = 0.0;
+    for (int block = 0; block < 8; ++block) host.process(&slot, in, out, 2, frames);
+    for (int i = 0; i < frames; ++i) {
+        energy += left[i] * left[i]; inputEnergy += signal[i] * signal[i];
+    }
+    INFO("output/input RMS=" << std::sqrt(energy / inputEnergy));
+    CHECK(std::sqrt(energy / inputEnergy) < 0.95);
+    CHECK(IsWindow(outputGain)); // applying must retain the editor/filter object
+    auto rmsRatio = [&](FxSlot &target) {
+        for (int block = 0; block < 8; ++block) host.process(&target, in, out, 2, frames);
+        double result = 0.0;
+        for (float value : left) result += value * value;
+        return std::sqrt(result / inputEnergy);
+    };
+    // A graph rebuild before the UI poll must keep pending native edits.
+    REQUIRE(host.synchronizeState(&slot));
+    CHECK(rmsRatio(slot) < 0.95);
+    slot.state = edited;
+    REQUIRE(host.synchronizeState(&slot));
+    slot.state = before; // document Undo restores a different blob under the same key
+    REQUIRE(host.synchronizeState(&slot));
+    CHECK(rmsRatio(slot) > 0.99);
+    slot.state = edited;
+    REQUIRE(host.synchronizeState(&slot));
+    CHECK(rmsRatio(slot) < 0.95);
+
+    FxSlot reopened;
+    REQUIRE(host.createInstance(chosen, &reopened));
+    Release reopenedRelease{host, reopened};
+    REQUIRE(host.setState(&reopened, edited));
+    host.prepare(&reopened, 44100.0, frames);
+    CHECK(rmsRatio(reopened) < 0.95);
+    CHECK(host.getState(&reopened) == edited);
+    host.prepare(&reopened, 48000.0, frames);
+    CHECK(rmsRatio(reopened) < 0.95);
+}
+#endif
+
+TEST_CASE("Registered Shared effects accept audio through the production host",
+          "[plugins][soundforge][dshost][catalog-dsp]")
+{
+    const auto descriptors = SoundForgeHost::pluginDescriptors();
+    if (descriptors.isEmpty()) {
+        SKIP("No Shared Plug-Ins registered");
+    }
+    auto &host = SoundForgeDsHost::instance();
+    auto input = tone(512);
+    std::vector<float> left(512), right(512);
+    float *in[] = {input.data(), input.data()};
+    float *out[] = {left.data(), right.data()};
+    for (const auto &descriptor : descriptors) {
+        INFO(descriptor.name.toStdString());
+        FxSlot slot;
+        REQUIRE(host.createInstance(descriptor, &slot));
+        host.prepare(&slot, 48000.0, 512);
+        for (int block = 0; block < 8; ++block) host.process(&slot, in, out, 2, 512);
+        const auto error = host.processingError(slot);
+        INFO(error.toStdString());
+        CHECK(error.isEmpty());
+        CHECK_FALSE(host.getState(&slot).isEmpty());
+        CHECK(std::all_of(left.begin(), left.end(), [](float value) { return std::isfinite(value); }));
+        CHECK(std::all_of(right.begin(), right.end(), [](float value) { return std::isfinite(value); }));
+        host.releaseInstance(&slot);
     }
 }

@@ -18,6 +18,11 @@ ProjectSnapshot ProjectSnapshot::capture(const ProjectModel &model)
     s.sampleRate = model.sampleRate();
     s.masterVolumeDb = model.masterVolumeDb();
     s.tempoBpm = model.tempoBpm();
+    s.summary = model.summary();
+    s.rulerTimeFormat = model.rulerTimeFormat();
+    s.beatsPerMeasure = model.beatsPerMeasure();
+    s.beatNote = model.beatNote();
+    s.rulerStartSec = model.rulerStartSec();
     s.frameWidth = model.frameWidth();
     s.frameHeight = model.frameHeight();
     s.nextEventId = model.nextEventId();
@@ -46,6 +51,11 @@ void ProjectSnapshot::apply(ProjectModel &model) const
     model.setSampleRate(sampleRate);
     model.setMasterVolumeDb(masterVolumeDb);
     model.setTempoBpm(tempoBpm);
+    model.setSummary(summary);
+    model.setRulerTimeFormat(rulerTimeFormat);
+    model.setBeatsPerMeasure(beatsPerMeasure);
+    model.setBeatNote(beatNote);
+    model.setRulerStartSec(rulerStartSec);
     model.setFrameSize(frameWidth, frameHeight);
     model.setIdCounters(nextEventId, nextTrackId, nextGroupId, nextMarkerId, nextMarkerNumber,
                         nextAssignableFxId, nextMixerBusId, nextMixerInputBusId);
@@ -61,7 +71,9 @@ bool ProjectSnapshot::operator==(const ProjectSnapshot &o) const
            && eventClipboard.items == o.eventClipboard.items
            && eventClipboard.anchorSec == o.eventClipboard.anchorSec && frameRate == o.frameRate
            && sampleRate == o.sampleRate && masterVolumeDb == o.masterVolumeDb
-           && tempoBpm == o.tempoBpm && frameWidth == o.frameWidth
+           && summary == o.summary && rulerTimeFormat == o.rulerTimeFormat
+           && beatsPerMeasure == o.beatsPerMeasure && beatNote == o.beatNote
+           && rulerStartSec == o.rulerStartSec && tempoBpm == o.tempoBpm && frameWidth == o.frameWidth
            && frameHeight == o.frameHeight && nextEventId == o.nextEventId
            && nextTrackId == o.nextTrackId && nextGroupId == o.nextGroupId
            && nextMarkerId == o.nextMarkerId && nextMarkerNumber == o.nextMarkerNumber

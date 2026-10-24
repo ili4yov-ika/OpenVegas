@@ -5,6 +5,7 @@
 #include "plugins/AudioPluginHost.h"
 #include "plugins/SoundForgeHost.h"
 #include "audio/CompositePluginHost.h"
+#include "audio/SoundForgeDsHost.h"
 
 #include <QHBoxLayout>
 #include <QVBoxLayout>
@@ -42,6 +43,7 @@
 #include <QTimer>
 #include <algorithm>
 #include <cmath>
+#include <functional>
 
 namespace openvegas {
 
@@ -109,6 +111,19 @@ void setParam(FxSlot *slot, const QString &key, const QVariant &value)
     QVariantMap m = loadParams(*slot);
     m.insert(key, value);
     saveParams(slot, m);
+}
+
+using SlotAccessor = std::function<FxSlot *()>;
+
+QVariantMap loadParams(const SlotAccessor &resolve)
+{
+    if (FxSlot *slot = resolve()) return loadParams(*slot);
+    return {};
+}
+
+void setParam(const SlotAccessor &resolve, const QString &key, const QVariant &value)
+{
+    if (FxSlot *slot = resolve()) setParam(slot, key, value);
 }
 
 QToolButton *makeIconBtn(QWidget *parent, const QString &tip, const QString &svg)
@@ -333,6 +348,46 @@ AudioEventFxDialog::AudioEventFxDialog(QWidget *parent)
     setMinimumSize(720, 520);
     resize(900, 640);
     buildUi();
+    auto *tick = new QTimer(this);
+    tick->setInterval(30);
+    connect(tick, &QTimer::timeout, this, [this]() {
+        if (isVisible()) pollFxState();
+    });
+    tick->start();
+}
+
+void AudioEventFxDialog::setAudioFormat(double sampleRate, int blockSize)
+{
+    if (sampleRate > 0.0) m_sampleRate = sampleRate;
+    if (blockSize > 0) m_blockSize = blockSize;
+}
+
+void AudioEventFxDialog::pollFxState()
+{
+    QVector<FxSlot> *c = chain();
+    if (!c) return;
+    CompositePluginHost::instance().captureChainState(c);
+    if (*c != m_observedChain) {
+        m_observedChain = *c;
+        m_observedChain.detach();
+        emit parametersChanged();
+    }
+}
+
+void AudioEventFxDialog::notifyChainChanged()
+{
+    if (auto *c = chain()) {
+        CompositePluginHost::instance().captureChainState(c);
+        m_observedChain = *c;
+        m_observedChain.detach();
+    }
+    emit chainChanged();
+}
+
+void AudioEventFxDialog::done(int result)
+{
+    pollFxState();
+    QDialog::done(result);
 }
 
 void AudioEventFxDialog::buildUi()
@@ -454,6 +509,7 @@ void AudioEventFxDialog::setEvent(TrackEvent *ev)
 {
     m_mode = Mode::Event;
     m_event = ev;
+    m_eventId = ev ? ev->id : -1;
     m_track = nullptr;
     m_chain = nullptr;
     setWindowTitle(tr("Audio Event FX"));
@@ -466,6 +522,7 @@ void AudioEventFxDialog::setTrack(Track *track)
 {
     m_mode = Mode::Track;
     m_track = track;
+    m_trackId = track ? track->id : -1;
     m_event = nullptr;
     m_chain = nullptr;
     if (track && track->kind == TrackKind::Video) {
@@ -487,12 +544,33 @@ void AudioEventFxDialog::setChain(QVector<FxSlot> *chain, const QString &title)
 {
     m_mode = Mode::Chain;
     m_chain = chain;
+    m_assignableBusId = -1;
+    if (m_project) {
+        for (AssignableFxBus &bus : m_project->assignableFxBuses())
+            if (&bus.fxChain == chain) m_assignableBusId = bus.id;
+    }
     m_event = nullptr;
     m_track = nullptr;
     setWindowTitle(tr("Assignable FX"));
     m_eventName->setText(title);
     m_eventIcon->setPixmap(IconFactory::iconFromSvgBody(IconFactory::svgFx(), 16).pixmap(16, 16));
     rebuildChain();
+}
+
+void AudioEventFxDialog::refreshTarget()
+{
+    // Document restoration replaces vectors. Resolve ids before using any UI pointer.
+    if (!m_project) return;
+    if (m_mode == Mode::Event) {
+        setEvent(m_project->findEvent(m_eventId));
+    } else if (m_mode == Mode::Track) {
+        Track *found = nullptr;
+        for (Track &track : m_project->tracks()) if (track.id == m_trackId) found = &track;
+        setTrack(found);
+    } else {
+        auto *bus = m_project->findAssignableFxBus(m_assignableBusId);
+        setChain(bus ? &bus->fxChain : nullptr, bus ? bus->name : QString());
+    }
 }
 
 QString AudioEventFxDialog::eventTitle() const
@@ -508,6 +586,19 @@ QString AudioEventFxDialog::eventTitle() const
 
 QVector<FxSlot> *AudioEventFxDialog::chain()
 {
+    if (m_project) {
+        if (m_mode == Mode::Event) {
+            auto *event = m_project->findEvent(m_eventId);
+            return event ? &event->fxChain : nullptr;
+        }
+        if (m_mode == Mode::Track) {
+            for (Track &track : m_project->tracks())
+                if (track.id == m_trackId) return &track.fxChain;
+            return nullptr;
+        }
+        auto *bus = m_project->findAssignableFxBus(m_assignableBusId);
+        return bus ? &bus->fxChain : nullptr;
+    }
     if (m_mode == Mode::Event && m_event) {
         return &m_event->fxChain;
     }
@@ -520,13 +611,29 @@ QVector<FxSlot> *AudioEventFxDialog::chain()
     return nullptr;
 }
 
+FxSlot *AudioEventFxDialog::slotByKey(const QString &hostKey)
+{
+    if (auto *c = chain())
+        for (int i = 0; i < c->size(); ++i)
+            if (c->at(i).hostKey == hostKey) return &(*c)[i];
+    return nullptr;
+}
+
 void AudioEventFxDialog::rebuildChain()
 {
+    // Close pages before restoring a document blob or relocating FxSlot storage.
+    while (m_viewport->count() > 1) {
+        QWidget *old = m_viewport->widget(1);
+        m_viewport->removeWidget(old);
+        delete old;
+    }
     if (QVector<FxSlot> *c = chain()) {
         for (FxSlot &s : *c) {
             normalizeBuiltinFxSlot(&s);
         }
         CompositePluginHost::instance().ensureChainLoaded(c);
+        m_observedChain = *c;
+        m_observedChain.detach();
     }
     while (QLayoutItem *it = m_chainLay->takeAt(0)) {
         if (it->widget()) {
@@ -624,7 +731,7 @@ void AudioEventFxDialog::refreshViewport()
     while (m_viewport->count() > 1) {
         QWidget *w = m_viewport->widget(1);
         m_viewport->removeWidget(w);
-        w->deleteLater();
+        delete w;
     }
 
     QVector<FxSlot> *c = chain();
@@ -704,7 +811,7 @@ QWidget *AudioEventFxDialog::buildColorGradingEditor(FxSlot &slot)
 
 QWidget *AudioEventFxDialog::buildDelayEditor(FxSlot &slot)
 {
-    FxSlot *slotPtr = &slot;
+    const auto slotPtr = [this, hostKey = slot.hostKey]() { return slotByKey(hostKey); };
     const QVariantMap p0 = loadParams(slot);
 
     auto *page = new QWidget;
@@ -773,7 +880,7 @@ QWidget *AudioEventFxDialog::buildDelayEditor(FxSlot &slot)
 
 QWidget *AudioEventFxDialog::buildReverbEditor(FxSlot &slot)
 {
-    FxSlot *slotPtr = &slot;
+    const auto slotPtr = [this, hostKey = slot.hostKey]() { return slotByKey(hostKey); };
     const QVariantMap p0 = loadParams(slot);
 
     auto *page = new QWidget;
@@ -842,7 +949,7 @@ QWidget *AudioEventFxDialog::buildReverbEditor(FxSlot &slot)
 
 QWidget *AudioEventFxDialog::buildChorusEditor(FxSlot &slot)
 {
-    FxSlot *slotPtr = &slot;
+    const auto slotPtr = [this, hostKey = slot.hostKey]() { return slotByKey(hostKey); };
     const QVariantMap p0 = loadParams(slot);
 
     auto *page = new QWidget;
@@ -1251,7 +1358,7 @@ QWidget *makePluginChrome(QWidget *page, const QString &title)
 
 QWidget *AudioEventFxDialog::buildNoiseGateEditor(FxSlot &slot)
 {
-    FxSlot *slotPtr = &slot;
+    const auto slotPtr = [this, hostKey = slot.hostKey]() { return slotByKey(hostKey); };
     const QVariantMap p0 = loadParams(slot);
 
     auto *page = new QWidget;
@@ -1347,7 +1454,7 @@ QWidget *AudioEventFxDialog::buildNoiseGateEditor(FxSlot &slot)
 
 QWidget *AudioEventFxDialog::buildTrackEqEditor(FxSlot &slot)
 {
-    FxSlot *slotPtr = &slot;
+    const auto slotPtr = [this, hostKey = slot.hostKey]() { return slotByKey(hostKey); };
     QVariantMap p0 = loadParams(slot);
 
     auto *page = new QWidget;
@@ -1457,7 +1564,7 @@ QWidget *AudioEventFxDialog::buildTrackEqEditor(FxSlot &slot)
         return QStringLiteral("band%1.%2").arg(i).arg(QLatin1String(field));
     };
     auto syncCurve = [curve, slotPtr, bandKey]() {
-        const QVariantMap m = loadParams(*slotPtr);
+        const QVariantMap m = loadParams(slotPtr);
         for (int i = 0; i < 4; ++i) {
             curve->setBand(i, mapGetB(m, bandKey(i, "enabled"), true),
                            mapGetI(m, bandKey(i, "type"), i == 0 ? 0 : (i == 3 ? 2 : 1)),
@@ -1467,7 +1574,7 @@ QWidget *AudioEventFxDialog::buildTrackEqEditor(FxSlot &slot)
         }
     };
     auto loadBandUi = [=](int bi) {
-        const QVariantMap m = loadParams(*slotPtr);
+        const QVariantMap m = loadParams(slotPtr);
         enabled->blockSignals(true);
         type->blockSignals(true);
         freq->blockSignals(true);
@@ -1578,7 +1685,7 @@ QWidget *AudioEventFxDialog::buildTrackEqEditor(FxSlot &slot)
 
 QWidget *AudioEventFxDialog::buildTrackCompressorEditor(FxSlot &slot)
 {
-    FxSlot *slotPtr = &slot;
+    const auto slotPtr = [this, hostKey = slot.hostKey]() { return slotByKey(hostKey); };
     const QVariantMap p0 = loadParams(slot);
 
     auto *page = new QWidget;
@@ -1724,7 +1831,7 @@ QWidget *AudioEventFxDialog::buildTrackCompressorEditor(FxSlot &slot)
 
 QWidget *AudioEventFxDialog::buildGenericBuiltinEditor(FxSlot &slot)
 {
-    FxSlot *slotPtr = &slot;
+    const auto slotPtr = [this, hostKey = slot.hostKey]() { return slotByKey(hostKey); };
     const QVariantMap p0 = loadParams(slot);
 
     auto *page = new QWidget;
@@ -1800,6 +1907,7 @@ QWidget *AudioEventFxDialog::buildGenericBuiltinEditor(FxSlot &slot)
 QWidget *AudioEventFxDialog::buildVstEditorPage(FxSlot &slot)
 {
     FxSlot *slotPtr = &slot;
+    const auto resolveSlot = [this, hostKey = slot.hostKey]() { return slotByKey(hostKey); };
     auto *page = new QWidget;
     page->setObjectName(QStringLiteral("aefxVstPage"));
     auto *root = new QVBoxLayout(page);
@@ -1840,7 +1948,9 @@ QWidget *AudioEventFxDialog::buildVstEditorPage(FxSlot &slot)
     paramsLay->setContentsMargins(12, 8, 12, 8);
     root->addWidget(paramsHost);
 
-    const auto rebuildParams = [slotPtr, paramsHost, paramsLay]() {
+    const auto rebuildParams = [resolveSlot, paramsHost, paramsLay]() {
+        FxSlot *slotPtr = resolveSlot();
+        if (!slotPtr) return;
         while (QLayoutItem *it = paramsLay->takeAt(0)) {
             if (it->widget()) {
                 it->widget()->deleteLater();
@@ -1871,8 +1981,9 @@ QWidget *AudioEventFxDialog::buildVstEditorPage(FxSlot &slot)
             sl->setValue(int(std::lround(std::clamp(double(v), 0.0, 1.0) * 1000.0)));
             row->addWidget(sl, 1);
             const int idx = i;
-            QObject::connect(sl, &QSlider::valueChanged, paramsHost, [slotPtr, idx](int x) {
-                CompositePluginHost::instance().setParameter(slotPtr, idx, float(x) / 1000.f);
+            QObject::connect(sl, &QSlider::valueChanged, paramsHost, [resolveSlot, idx](int x) {
+                if (FxSlot *current = resolveSlot())
+                    CompositePluginHost::instance().setParameter(current, idx, float(x) / 1000.f);
             });
             paramsLay->addLayout(row);
         }
@@ -1890,15 +2001,25 @@ QWidget *AudioEventFxDialog::buildVstEditorPage(FxSlot &slot)
     }
 
     status->setText(tr("Loading native editor…"));
-    QTimer::singleShot(0, page, [slotPtr, embed, status, rebuildParams, page]() {
+    QTimer::singleShot(0, page, [this, resolveSlot, embed, status, paramsHost, rebuildParams, page]() {
+        FxSlot *slotPtr = resolveSlot();
+        if (!slotPtr) return;
         auto &host = CompositePluginHost::instance();
-        host.prepare(slotPtr, 48000.0, 512);
+        host.prepare(slotPtr, m_sampleRate, m_blockSize);
         const bool opened = host.openEditor(slotPtr, embed);
         if (opened) {
-            status->setText(tr("Native editor connected — audio is processed in the FX chain."));
+            status->setText(tr("Native editor connected. Changes are applied during playback."));
             embed->show();
         } else {
             embed->hide();
+            if (slotPtr->format == PluginFormat::DirectShow) {
+                const QString error = SoundForgeDsHost::instance().processingError(*slotPtr);
+                if (!error.isEmpty()) {
+                    status->setText(tr("Audio effect could not be started: %1").arg(error));
+                    paramsHost->hide();
+                    return;
+                }
+            }
             status->setText(
                 tr("Native GUI not available for this plug-in — use parameter sliders below. "
                    "Audio is still processed when Play is active."));
@@ -1935,6 +2056,7 @@ void AudioEventFxDialog::addPlugins()
     rebuildChain();
     if (!picked.isEmpty()) {
         selectPlugin(c->size() - 1);
+        notifyChainChanged();
     }
 }
 
@@ -1950,6 +2072,7 @@ void AudioEventFxDialog::removeSelected()
         m_selected = c->size() - 1;
     }
     rebuildChain();
+    notifyChainChanged();
 }
 
 void AudioEventFxDialog::setBypass(int index, bool bypass)
@@ -1959,6 +2082,7 @@ void AudioEventFxDialog::setBypass(int index, bool bypass)
         return;
     }
     (*c)[index].bypass = bypass;
+    pollFxState();
 }
 
 void AudioEventFxDialog::movePlugin(int from, int insertBefore)
@@ -1985,6 +2109,7 @@ void AudioEventFxDialog::movePlugin(int from, int insertBefore)
     c->insert(insertBefore, slot);
     m_selected = insertBefore;
     rebuildChain();
+    notifyChainChanged();
 }
 
 void AudioEventFxDialog::scrollChain(int dx)

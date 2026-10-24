@@ -170,6 +170,8 @@ QToolButton *makeStripIconBtn(QWidget *parent, const QString &svg, const QString
     b->setFixedSize(20, 16);
     b->setAutoRaise(true);
     b->setFocusPolicy(Qt::NoFocus);
+    b->setEnabled(false);
+    b->setToolTip(tip + QObject::tr(" — not available yet"));
     return b;
 }
 
@@ -182,6 +184,8 @@ QComboBox *makeStripCombo(QWidget *parent, const QStringList &items, int current
     c->setFixedHeight(16);
     c->setFocusPolicy(Qt::NoFocus);
     c->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
+    c->setEnabled(false);
+    c->setToolTip(QObject::tr("This routing or automation mode is not available yet"));
     return c;
 }
 
@@ -253,7 +257,8 @@ public:
                 root->addWidget(makeStripCombo(this, {subtitle, tr("Input Off"), tr("Microsoft Sound Mapper")}));
             }
             if (!route.isEmpty()) {
-                root->addWidget(makeStripCombo(this, {route, tr("Output Off"), tr("Master"), tr("Bus A")}));
+                m_outputCombo = makeStripCombo(this, {route});
+                root->addWidget(m_outputCombo);
             } else if (master) {
                 root->addWidget(makeStripCombo(this, {tr("Microsoft Sound Mapper"), tr("Output Off")}));
             }
@@ -317,7 +322,14 @@ public:
             btns->addWidget(makeStripIconBtn(this, IconFactory::svgAudioDevice(), tr("Monitor"), true));
         } else {
             btns->addWidget(makeStripIconBtn(this, IconFactory::svgFx(), tr("Assignable FX")));
-            btns->addWidget(makeStripIconBtn(this, IconFactory::svgLockFader(), tr("Lock Fader"), true));
+            auto *lockFader = makeStripIconBtn(this, IconFactory::svgLockFader(), tr("Lock Fader"), true);
+            lockFader->setEnabled(true);
+            lockFader->setToolTip(tr("Lock Fader"));
+            QObject::connect(lockFader, &QToolButton::toggled, this, [this](bool locked) {
+                m_fader->setEnabled(!locked);
+                if (m_linkedFader) m_linkedFader->setEnabled(!locked);
+            });
+            btns->addWidget(lockFader);
         }
         btns->addStretch(1);
         body->addLayout(btns);
@@ -332,12 +344,25 @@ public:
         };
 
         m_fader = makeFader();
+        body->addWidget(m_fader, 0, Qt::AlignHCenter);
         if (master) {
-            body->addWidget(m_fader, 0, Qt::AlignHCenter);
-            body->addWidget(makeFader(), 0, Qt::AlignHCenter);
-        } else {
-            body->addWidget(m_fader, 0, Qt::AlignHCenter);
+            m_linkedFader = makeFader();
+            m_linkedFader->setToolTip(tr("Master volume (linked stereo)"));
+            body->addWidget(m_linkedFader, 0, Qt::AlignHCenter);
+            QObject::connect(m_linkedFader, &QSlider::sliderPressed, this, [this]() { m_fader->setSliderDown(true); });
+            QObject::connect(m_linkedFader, &QSlider::sliderReleased, this, [this]() { m_fader->setSliderDown(false); });
+            QObject::connect(m_linkedFader, &QSlider::valueChanged, this, [this](int value) { m_fader->setValue(value); });
+            QObject::connect(m_fader, &QSlider::valueChanged, this, [this](int value) {
+                QSignalBlocker blocker(m_linkedFader); m_linkedFader->setValue(value);
+            });
         }
+        if (master || fxBus || kind == Kind::InputBus) {
+            m_pan->setEnabled(false);
+            m_muteBtn->setEnabled(false);
+            m_soloBtn->setEnabled(false);
+        }
+        if (fxBus || kind == Kind::InputBus) m_fader->setEnabled(false);
+        if (kind != Kind::AudioTrack && kind != Kind::AssignableFx) m_fxBtn->setEnabled(false);
 
         m_scale = new MixerDbScale(faderTicks, this);
         body->addWidget(m_scale);
@@ -459,29 +484,52 @@ public:
                 }
             }
         };
-        auto commitUndo = [owner, applyLive]() {
-            emit owner->documentEditBegan();
-            applyLive();
-            emit owner->documentEditCommitted(QObject::tr("Mixer"));
-            emit owner->tracksChanged();
+        auto beginEdit = [this, owner]() {
+            if (!m_editing) { emit owner->documentEditBegan(); m_editing = true; }
         };
-        auto liveOnly = [owner, applyLive]() {
-            applyLive();
-            emit owner->tracksChanged();
+        auto endEdit = [this, owner]() {
+            if (m_editing) {
+                m_editing = false;
+                emit owner->documentEditCommitted(QObject::tr("Mixer"));
+                emit owner->tracksChanged();
+            }
         };
-        if (m_fader) {
-            QObject::connect(m_fader, &QSlider::valueChanged, owner, [liveOnly](int) { liveOnly(); });
-            QObject::connect(m_fader, &QSlider::sliderReleased, owner, commitUndo);
-        }
-        if (m_pan) {
-            QObject::connect(m_pan, &QSlider::valueChanged, owner, [liveOnly](int) { liveOnly(); });
-            QObject::connect(m_pan, &QSlider::sliderReleased, owner, commitUndo);
-        }
-        if (m_muteBtn) {
-            QObject::connect(m_muteBtn, &QToolButton::toggled, owner, [commitUndo](bool) { commitUndo(); });
-        }
-        if (m_soloBtn) {
-            QObject::connect(m_soloBtn, &QToolButton::toggled, owner, [commitUndo](bool) { commitUndo(); });
+        auto bindSlider = [this, owner, applyLive, beginEdit, endEdit](QSlider *slider) {
+            QObject::connect(slider, &QSlider::sliderPressed, owner, beginEdit);
+            QObject::connect(slider, &QSlider::valueChanged, owner,
+                             [slider, applyLive, beginEdit, endEdit, owner](int) {
+                beginEdit();
+                applyLive();
+                emit owner->tracksChanged();
+                if (!slider->isSliderDown()) endEdit();
+            });
+            QObject::connect(slider, &QSlider::sliderReleased, owner, endEdit);
+        };
+        bindSlider(m_fader);
+        bindSlider(m_pan);
+        auto commitUndo = [beginEdit, applyLive, endEdit]() {
+            beginEdit(); applyLive(); endEdit();
+        };
+        QObject::connect(m_muteBtn, &QToolButton::toggled, owner, [commitUndo](bool) { commitUndo(); });
+        QObject::connect(m_soloBtn, &QToolButton::toggled, owner, [commitUndo](bool) { commitUndo(); });
+        if (m_outputCombo && m_kind == Kind::AudioTrack) {
+            m_outputCombo->clear();
+            m_outputCombo->addItem(QObject::tr("Master"), 0);
+            for (const MixerBus &bus : project->mixerBuses()) m_outputCombo->addItem(bus.name, bus.id);
+            for (const Track &track : project->tracks()) {
+                if (track.id == m_trackId) m_outputCombo->setCurrentIndex(
+                    qMax(0, m_outputCombo->findData(track.busId)));
+            }
+            m_outputCombo->setEnabled(true);
+            m_outputCombo->setToolTip(QObject::tr("Output bus"));
+            QObject::connect(m_outputCombo, &QComboBox::currentIndexChanged, owner,
+                             [this, project, owner, beginEdit, endEdit](int) {
+                beginEdit();
+                for (Track &track : project->tracks())
+                    if (track.id == m_trackId) track.busId = m_outputCombo->currentData().toInt();
+                endEdit();
+                owner->refreshFromProject();
+            });
         }
         if (m_fxBtn && m_kind == Kind::AudioTrack) {
             QObject::connect(m_fxBtn, &QToolButton::clicked, owner, [this, owner]() {
@@ -509,6 +557,7 @@ public:
             if (m_fader) {
                 QSignalBlocker b(m_fader);
                 m_fader->setValue(dbToFaderPos(project->masterVolumeDb()));
+                if (m_linkedFader) { QSignalBlocker linked(m_linkedFader); m_linkedFader->setValue(m_fader->value()); }
             }
             return;
         }
@@ -536,10 +585,25 @@ public:
                 break;
             }
         }
+        if (m_busId >= 0) {
+            for (const MixerBus &bus : project->mixerBuses()) {
+                if (bus.id != m_busId) continue;
+                const QSignalBlocker fader(m_fader), pan(m_pan), mute(m_muteBtn), solo(m_soloBtn);
+                m_fader->setValue(dbToFaderPos(bus.volumeDb));
+                m_pan->setValue(int(std::lround((bus.pan + 1.f) * 50.f)));
+                m_muteBtn->setChecked(bus.muted);
+                m_soloBtn->setChecked(bus.solo);
+                break;
+            }
+        }
     }
+
+    void resetMeterClip() { m_clipped = false; m_peakLabel->setStyleSheet(QString()); }
 
     void setMeters(float peakL, float peakR)
     {
+        m_clipped = m_clipped || peakL >= 1.f || peakR >= 1.f;
+        if (m_clipped) m_peakLabel->setStyleSheet(QStringLiteral("color: #ff5349;"));
         auto toPct = [](float p) {
             if (p <= 1e-6f) {
                 return 0;
@@ -564,6 +628,7 @@ private:
     int m_baseW = kStripDefault;
     MixerDbScale *m_scale = nullptr;
     QSlider *m_fader = nullptr;
+    QSlider *m_linkedFader = nullptr;
     QSlider *m_pan = nullptr;
     QToolButton *m_muteBtn = nullptr;
     QToolButton *m_soloBtn = nullptr;
@@ -574,6 +639,9 @@ private:
     int m_trackId = -1;
     int m_busId = -1;
     bool m_isMaster = false;
+    bool m_editing = false;
+    bool m_clipped = false;
+    QComboBox *m_outputCombo = nullptr;
 };
 
 MixingConsoleWindow::MixingConsoleWindow(QWidget *parent)
@@ -679,7 +747,7 @@ void MixingConsoleWindow::buildUi()
 
     // Gear / properties menu
     auto *gearMenu = new QMenu(this);
-    gearMenu->addAction(tr("Audio Properties..."));
+    gearMenu->addAction(tr("Audio Properties..."), this, &MixingConsoleWindow::audioPropertiesRequested);
     auto *insertMenu = gearMenu->addMenu(tr("Insert"));
     insertMenu->addAction(tr("Audio Track"), this, &MixingConsoleWindow::insertAudioTrack);
     insertMenu->addAction(tr("Assignable FX..."), this, &MixingConsoleWindow::insertAssignableFx);
@@ -696,24 +764,36 @@ void MixingConsoleWindow::buildUi()
 
     auto *showChMenu = gearMenu->addMenu(tr("Show Channels"));
     showChMenu->addAction(tr("All"), this, &MixingConsoleWindow::showAllChannels);
-    showChMenu->addAction(tr("Audio Tracks"));
-    showChMenu->addAction(tr("Audio Busses"));
-    showChMenu->addAction(tr("Input Busses"));
-    showChMenu->addAction(tr("Assignable FX Busses"));
-    showChMenu->addAction(tr("Master Bus"));
-    showChMenu->addAction(tr("Preview Bus"));
+    const QStringList channelLabels = {tr("Audio Tracks"), tr("Audio Busses"), tr("Input Busses"),
+                                       tr("Assignable FX Busses"), tr("Master Bus")};
+    for (int i = 0; i < channelLabels.size(); ++i) {
+        auto *action = showChMenu->addAction(channelLabels[i]);
+        action->setCheckable(true);
+        connect(action, &QAction::toggled, this, [this, i](bool on) {
+            if (m_filterGroup && m_filterGroup->button(i)) {
+                m_filterGroup->button(i)->setChecked(on);
+                applyFilter();
+            }
+        });
+        connect(showChMenu, &QMenu::aboutToShow, this, [this, action, i]() {
+            QSignalBlocker blocker(action);
+            action->setChecked(m_filterGroup && m_filterGroup->button(i)->isChecked());
+        });
+    }
+    showChMenu->addAction(tr("Preview Bus"))->setEnabled(false);
 
     auto *regionsMenu = gearMenu->addMenu(tr("Show Control Regions"));
-    for (const QString &r : {tr("Insert FX"), tr("Sends"), tr("I/O"), tr("VU Meters"), tr("Peak Meters"),
-                             tr("Faders")}) {
-        auto *a = regionsMenu->addAction(r);
-        a->setCheckable(true);
-        a->setChecked(r == tr("I/O") || r == tr("Faders") || r == tr("Peak Meters"));
+    for (const QString &region : {tr("Insert FX"), tr("Sends")}) {
+        regionsMenu->addAction(region)->setEnabled(false);
     }
-
-    auto *actLabel = gearMenu->addAction(tr("Label Control Regions"));
-    actLabel->setShortcut(QKeySequence(QStringLiteral("Shift+L")));
-    actLabel->setCheckable(true);
+    for (const QString &region : {tr("I/O"), tr("VU Meters"), tr("Peak Meters"), tr("Faders")}) {
+        auto *action = regionsMenu->addAction(region);
+        action->setCheckable(true);
+        action->setChecked(true);
+        action->setProperty("mixerRegion", region);
+        connect(action, &QAction::toggled, this, [this]() { applyControlRegions(); });
+    }
+    gearMenu->addAction(tr("Label Control Regions"))->setEnabled(false);
 
     m_actFaderTicks = gearMenu->addAction(tr("Fader Ticks"));
     m_actFaderTicks->setCheckable(true);
@@ -759,24 +839,15 @@ void MixingConsoleWindow::buildUi()
     });
 
     auto *meterMenu = gearMenu->addMenu(tr("Meter Layout"));
-    meterMenu->addAction(tr("Reset Meter Clip"));
-    meterMenu->addSeparator();
-    auto *rangeGroup = new QActionGroup(this);
-    rangeGroup->setExclusive(true);
-    for (const QString &rng : {tr("-12 to 0 dB"), tr("-24 to 0 dB"), tr("-42 to 0 dB"), tr("-60 to 0 dB"),
-                               tr("-90 to 0 dB"), tr("-120 to 0 dB"), tr("-138 to 0 dB")}) {
-        auto *a = meterMenu->addAction(rng);
-        a->setCheckable(true);
-        if (rng.contains(QStringLiteral("-90"))) {
-            a->setChecked(true);
-        }
-        rangeGroup->addAction(a);
-    }
-    meterMenu->addSeparator();
-    for (const QString &t : {tr("Show Labels"), tr("Show Peaks"), tr("Hold Peaks"), tr("Hold Valleys")}) {
-        auto *a = meterMenu->addAction(t);
-        a->setCheckable(true);
-        a->setChecked(t != tr("Hold Valleys"));
+    meterMenu->addAction(tr("Reset Meter Clip"), this, [this]() {
+        for (MixerChannelStrip *strip : m_strips) strip->resetMeterClip();
+    });
+    // Alternative meter ranges and peak/valley holding require a meter model.
+    for (const QString &option : {tr("-12 to 0 dB"), tr("-24 to 0 dB"), tr("-42 to 0 dB"),
+                                  tr("-60 to +12 dB"), tr("-90 to 0 dB"), tr("-120 to 0 dB"),
+                                  tr("-138 to 0 dB"), tr("Show Labels"), tr("Show Peaks"),
+                                  tr("Hold Peaks"), tr("Hold Valleys")}) {
+        meterMenu->addAction(option)->setEnabled(false);
     }
 
     gearBtn->setMenu(gearMenu);
@@ -1067,8 +1138,24 @@ void MixingConsoleWindow::ensureFxDialog()
         return;
     }
     m_fxDialog = new AudioEventFxDialog(this);
+    m_fxDialog->setProjectModel(m_project);
     m_fxDialog->setPluginScanner(m_pluginScanner);
+    connect(m_fxDialog, &AudioEventFxDialog::chainChanged, this, [this]() {
+        emit fxChainChanged();
+    });
+    connect(m_fxDialog, &AudioEventFxDialog::parametersChanged, this, [this]() {
+        emit tracksChanged();
+    });
     connect(m_fxDialog, &QDialog::finished, this, [this](int) { commitOpenFxDialog(); });
+}
+
+void MixingConsoleWindow::resetFxTarget()
+{
+    if (m_fxDialog) {
+        m_fxDialog->hide();
+        m_fxDialog->setEvent(nullptr);
+    }
+    m_fxDialogKind = FxDialogKind::None;
 }
 
 void MixingConsoleWindow::commitOpenFxDialog()
@@ -1106,6 +1193,7 @@ void MixingConsoleWindow::openAssignableFx(int busId)
     m_fxDialogKind = FxDialogKind::Assignable;
     m_fxDialogBusId = busId;
     m_fxDialogTrackId = -1;
+    m_fxDialog->setAudioFormat(m_project->sampleRate(), 512);
     m_fxDialog->setChain(&bus->fxChain, QStringLiteral("%1  %2").arg(bus->number).arg(bus->name));
     m_fxDialog->show();
     m_fxDialog->raise();
@@ -1138,6 +1226,7 @@ void MixingConsoleWindow::openTrackFx(int trackId)
     m_fxDialogKind = FxDialogKind::Track;
     m_fxDialogTrackId = trackId;
     m_fxDialogBusId = -1;
+    m_fxDialog->setAudioFormat(m_project->sampleRate(), 512);
     m_fxDialog->setTrack(track);
     m_fxDialog->show();
     m_fxDialog->raise();
@@ -1296,6 +1385,7 @@ void MixingConsoleWindow::rebuildStrips()
     }
     m_stripsLay->addStretch(1);
     applyFilter();
+    applyControlRegions();
     applyChannelWidth();
 }
 
@@ -1332,6 +1422,24 @@ MixerChannelStrip *MixingConsoleWindow::addStrip(const QString &title, const QSt
     }
     m_stripsLay->insertWidget(stretchAt, strip);
     return strip;
+}
+
+void MixingConsoleWindow::applyControlRegions()
+{
+    for (QAction *action : findChildren<QAction *>()) {
+        const QString region = action->property("mixerRegion").toString();
+        if (region.isEmpty()) continue;
+        for (MixerChannelStrip *strip : m_strips) {
+            if (region == tr("I/O"))
+                for (QComboBox *combo : strip->findChildren<QComboBox *>()) combo->setVisible(action->isChecked());
+            else if (region == tr("VU Meters"))
+                for (QProgressBar *meter : strip->findChildren<QProgressBar *>()) meter->setVisible(action->isChecked());
+            else if (region == tr("Peak Meters"))
+                for (QLabel *label : strip->findChildren<QLabel *>(QStringLiteral("mixerPeak"))) label->setVisible(action->isChecked());
+            else if (region == tr("Faders"))
+                for (QSlider *slider : strip->findChildren<QSlider *>(QStringLiteral("mixerFader"))) slider->setVisible(action->isChecked());
+        }
+    }
 }
 
 void MixingConsoleWindow::applyFilter()

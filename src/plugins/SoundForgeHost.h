@@ -32,11 +32,10 @@ struct SoundForgeClass {
 /**
  * Discovery for the Sound Forge / VEGAS Shared audio plug-in packs.
  *
- * **Scope: discovery and naming only.** Instantiating one of these means calling
- * `CoCreateInstance` and then talking to a proprietary, undocumented interface — the
- * vtable has not been reverse engineered, so nothing here loads or runs a plug-in.
- * What it does give is the authoritative list: real effect names straight from the
- * registration the VEGAS installer wrote, instead of a hand-maintained guess.
+ * **Scope: discovery and naming only.** Runtime processing and native property pages
+ * are implemented by SoundForgeDsHost through documented DirectShow interfaces;
+ * this catalog never loads a plug-in. It returns effect names from the registration
+ * written by the installer.
  *
  * Windows-only by construction (COM registry). Returns empty elsewhere, which leaves
  * VegasSharedAudioCatalog's static map as the only source, exactly as before.

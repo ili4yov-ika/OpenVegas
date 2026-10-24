@@ -250,11 +250,9 @@ set(OPENVGAS_HEADERS
 set(OPENVGAS_UI
     ui/MainWindow.ui
     ui/WelcomeDialog.ui
-    ui/ProjectPropertiesDialog.ui
     ui/RenderAsDialog.ui
     ui/PreferencesDialog.ui
     ui/EventPropertiesDialog.ui
-    ui/TrimmerWindow.ui
     ui/PluginChooserDialog.ui
 )
 

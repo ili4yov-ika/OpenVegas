@@ -1,0 +1,166 @@
+// Standalone integration check, linked against the built application's objects.
+// Run through tools/run_ui_stubs_smoke.py with a MinGW/Ninja build.
+#include "app/MainWindow.h"
+#include "ui/ProjectPropertiesDialog.h"
+#include "ui/MixingConsoleWindow.h"
+#include "model/ProjectSnapshot.h"
+#include <QApplication>
+#include <QAction>
+#include <QClipboard>
+#include <QComboBox>
+#include <QDialogButtonBox>
+#include <QDir>
+#include <QInputDialog>
+#include <QLineEdit>
+#include <QPlainTextEdit>
+#include <QProgressBar>
+#include <QPushButton>
+#include <QSettings>
+#include <QSlider>
+#include <QSpinBox>
+#include <QTemporaryDir>
+#include <QTimer>
+#include <QThreadPool>
+#include <QToolButton>
+#include <QUndoStack>
+#include <cmath>
+#include <iostream>
+#include <stdexcept>
+using namespace openvegas;
+static int checks = 0;
+static void require(bool value, const char *message) {
+    ++checks;
+    if (!value) throw std::runtime_error(message);
+}
+static QAction *action(QWidget &widget, const QString &label) {
+    for (QAction *a : widget.findChildren<QAction *>()) if (a->text() == label) return a;
+    throw std::runtime_error(("Action not found: " + label).toStdString());
+}
+static void answerInput(const QString &value) {
+    QTimer::singleShot(0, [value]() {
+        for (QWidget *widget : QApplication::topLevelWidgets())
+            if (auto *dialog = qobject_cast<QInputDialog *>(widget)) {
+                dialog->setTextValue(value); dialog->accept();
+            }
+    });
+}
+int main(int argc, char **argv) {
+    std::cout << std::unitbuf;
+    QApplication app(argc, argv);
+    QApplication::setAttribute(Qt::AA_DontUseNativeDialogs);
+    QTemporaryDir settings;
+    if (!settings.isValid()) return 2;
+    QSettings::setDefaultFormat(QSettings::IniFormat);
+    QSettings::setPath(QSettings::IniFormat, QSettings::UserScope, settings.path());
+    try {
+        ProjectModel model;
+        model.setFrameRate(120.0); model.setSampleRate(88200);
+        model.setSummary({QStringLiteral("Original"), {}, {}, {}, QStringLiteral("Comment")});
+        model.setRulerStartSec(2.25); model.setBeatsPerMeasure(3); model.setBeatNote(3);
+        ProjectPropertiesDialog properties(&model);
+        auto *title = properties.findChild<QLineEdit *>(QStringLiteral("projectSummaryTitle"));
+        auto *offset = properties.findChild<QLineEdit *>(QStringLiteral("projectRulerStart"));
+        require(title && offset, "Property fields must exist");
+        title->setText(QStringLiteral("Changed")); offset->setText(QStringLiteral("4.5"));
+        auto *box = properties.findChild<QDialogButtonBox *>();
+        box->button(QDialogButtonBox::Apply)->click();
+        require(model.summary().title == QStringLiteral("Changed"), "Summary Apply");
+        require(model.rulerStartSec() == 4.5, "Ruler Apply");
+        require(model.frameRate() == 120.0 && model.sampleRate() == 88200, "Apply preserves custom rates");
+        const ProjectSnapshot before = ProjectSnapshot::capture(model);
+        model.setSummary({}); model.setRulerStartSec(0.0); before.apply(model);
+        require(ProjectSnapshot::capture(model) == before, "Snapshot restores summary and ruler");
+
+        std::cout << "Properties and snapshot passed; constructing MainWindow\n";
+        MainWindow window;
+        std::cout << "MainWindow constructed\n";
+        window.show(); app.processEvents();
+        window.setSnappingEnabled(false);
+        window.setIgnoreEventGrouping(true);
+        for (QAction *a : window.findChildren<QAction *>()) {
+            const QString option = a->property("editingOption").toString();
+            if (option == QStringLiteral("snap")) require(!a->isChecked(), "Snapping menu follows model");
+            if (option == QStringLiteral("group")) require(a->isChecked(), "Grouping menu follows model");
+        }
+        action(window, QStringLiteral("Enable Snapping"))->trigger();
+        require(window.projectModel().snappingEnabled(), "Snapping action updates model");
+        window.setLoopPlaybackEnabled(true);
+        require(action(window, QStringLiteral("Loop Playback"))->isChecked(), "Loop menu synchronized");
+        window.projectModel().setSummary({QStringLiteral("Before cancel"), {}, {}, {}, {}});
+        const ProjectSnapshot cancelBefore = ProjectSnapshot::capture(window.projectModel());
+        QTimer::singleShot(0, []() {
+            for (QWidget *widget : QApplication::topLevelWidgets())
+                if (auto *dialog = qobject_cast<ProjectPropertiesDialog *>(widget)) {
+                    dialog->findChild<QLineEdit *>(QStringLiteral("projectSummaryTitle"))->setText(QStringLiteral("Cancel me"));
+                    dialog->findChild<QDialogButtonBox *>()->button(QDialogButtonBox::Apply)->click();
+                    dialog->reject();
+                }
+        });
+        std::cout << "Checking Apply/Cancel\n";
+        window.onProjectProperties();
+        require(ProjectSnapshot::capture(window.projectModel()) == cancelBefore, "Cancel rolls back applied metadata");
+
+        window.setMainToolbarVisible(false);
+        auto *preview = window.findChild<QWidget *>(QStringLiteral("previewPanel"));
+        preview->hide();
+        std::cout << "Saving layout\n";
+        answerInput(QStringLiteral("Smoke layout")); window.onSaveLayout();
+        QSettings savedLayout(QSettings::defaultFormat(), QSettings::UserScope, QStringLiteral("OpenVegas"), QStringLiteral("OpenVegas"));
+        savedLayout.sync();
+        require(savedLayout.contains(QStringLiteral("layouts/Smoke layout/workspace")), "Layout was persisted");
+        window.onDefaultLayout();
+        require(window.mainToolbarVisible() && !preview->isHidden(), "Default layout restores panels");
+        std::cout << "Loading layout\n";
+        answerInput(QStringLiteral("Smoke layout")); window.onLoadLayout();
+        require(!window.mainToolbarVisible() && preview->isHidden(), "Saved layout restores visibility");
+        window.onDefaultLayout();
+
+        const int trackIndex = window.projectModel().addTrack(TrackKind::Audio);
+        TrackEvent ev; ev.id = 900; ev.selected = true; ev.startSec = 1; ev.lengthSec = 8;
+        ev.mediaKind = EventMediaKind::Audio;
+        window.projectModel().tracks()[trackIndex].events.push_back(ev);
+        window.projectModel().setLoopRegion(3, 6);
+        window.onEditTrim();
+        const TrackEvent *trimmed = window.projectModel().findEvent(900);
+        require(trimmed && trimmed->startSec == 3 && trimmed->lengthSec == 3 && trimmed->mediaStartSec == 2,
+                "Trim clips to the loop region and advances source");
+        window.undoStack()->undo();
+        require(window.projectModel().findEvent(900)->startSec == 1, "Trim is undoable");
+        window.onNewProject();
+        window.projectModel().setFrameSize(64, 36);
+        window.onCopySnapshot();
+        require(QApplication::clipboard()->image().size() == QSize(64, 36), "Snapshot uses project resolution");
+
+        std::cout << "Snapshot and Trim passed; checking mixer\n";
+        ProjectModel audio;
+        audio.loadEmptyProject();
+        const int at = audio.addTrack(TrackKind::Audio);
+        audio.tracks()[at].volumeDb = 0.0;
+        MixingConsoleWindow mixer; mixer.setProject(&audio); mixer.show(); app.processEvents();
+        ProjectSnapshot mixerBefore; bool began = false, committed = false;
+        QObject::connect(&mixer, &MixingConsoleWindow::documentEditBegan, [&]() {
+            began = true; mixerBefore = ProjectSnapshot::capture(audio);
+        });
+        QObject::connect(&mixer, &MixingConsoleWindow::documentEditCommitted, [&]() { committed = true; });
+        QWidget *strip = mixer.findChild<QWidget *>(QStringLiteral("mixerStrip"));
+        require(strip != nullptr, "Audio strip exists");
+        auto *fader = strip->findChild<QSlider *>(QStringLiteral("mixerFader"));
+        fader->setSliderDown(true); fader->setValue(fader->value() - 10); fader->setSliderDown(false);
+        require(began && committed && mixerBefore.tracks[at].volumeDb == 0.0 && audio.tracks()[at].volumeDb < 0,
+                "Mixer captures state before live fader edit");
+        action(mixer, QStringLiteral("VU Meters"))->trigger();
+        for (auto *meter : strip->findChildren<QProgressBar *>()) require(meter->isHidden(), "Meter visibility action");
+        mixer.setMasterMeter(1.1f, 0.5f);
+        action(mixer, QStringLiteral("Reset Meter Clip"))->trigger();
+        bool propertiesRequested = false;
+        QObject::connect(&mixer, &MixingConsoleWindow::audioPropertiesRequested, [&]() { propertiesRequested = true; });
+        action(mixer, QStringLiteral("Audio Properties..."))->trigger();
+        require(propertiesRequested, "Mixer properties action");
+        require(!action(mixer, QStringLiteral("Preview Bus"))->isEnabled(), "Unavailable preview bus is disabled");
+        require(QThreadPool::globalInstance()->waitForDone(10000), "Preview jobs finish before test teardown");
+        std::cout << "UI smoke passed: " << checks << " checks\n";
+    } catch (const std::exception &e) {
+        std::cerr << "UI smoke FAILED: " << e.what() << "\n"; return 1;
+    }
+    return 0;
+}

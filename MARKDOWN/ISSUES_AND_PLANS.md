@@ -6,6 +6,51 @@
 
 ---
 
+## Sound Forge / VEGAS Shared — 2026-10-04
+
+Исправлен подтверждённый дефект ExpressFX Graphic EQ: нативный UI/state принимал
+−1 дБ, но DSP оставался почти unity. Применение через `Stop → Apply/Load → Run`
+под mutex даёт RMS ratio **0.89125** и сохраняет тот же фильтр/редактор.
+
+FX-редактор передаёт состояние, bypass и структурные правки в аудиограф без закрытия;
+Undo/Redo восстанавливает нативное состояние, редактор использует заданный sample rate.
+Подключены загрузка/захват FX шин, Bus/Assignable live-bypass и reset внешних FX при seek.
+Диагностика обработки отделена от факта открытия GUI; FX target безопасно разрешается
+по id и сбрасывается при смене документа. Параметрические контролы разрешают слот
+по стабильному ключу, поэтому повторные правки работают и после копирования цепочки.
+
+Проверены **39** зарегистрированных Shared processors; `[soundforge]` —
+**12 cases / 1014 assertions**, audio без sandbox-зависимого `[policy]` —
+**37 cases / 1301 assertions**. Родные редакторы и все заявленные страницы открылись
+у всех **39** эффектов; нативный audio UI smoke — **146 checks**. Сборка и прежний
+UI smoke (**24 checks**) прошли.
+Подробности и команда нативной UI-регрессии — [UI_STUBS_AUDIT.md](UI_STUBS_AUDIT.md).
+Перезапуск фильтра при правке может сбросить его DSP-history; непрерывность хвостов
+delay/reverb во время изменения параметров остаётся отдельной задачей.
+
+## Интерфейсный аудит — 2026-10-04
+
+По текущему коду и загруженному в Ghidra `vegas220.exe` обновлён [UI_STUBS_AUDIT.md](UI_STUBS_AUDIT.md).
+Реализованы Incremental Save, Trim по loop region, переходы по маркерам, масштабирование,
+группировка, выбор аудиоканалов, раскладки, поиск/фильтр/просмотр Media, снимки и Help.
+Project Properties сохраняет Summary и параметры линейки в документе; новые поля входят
+в Undo и откат Cancel. Подключены фильтры/области микшера, маршрутизация дорожки и Reset
+Meter Clip; Undo фейдера захватывает состояние до изменения. RGB-кривая Color Grading
+теперь применяется существующим рендерером.
+
+Неподдерживаемые команды и параметры обработки явно отключены и остаются в backlog.
+Отключение не означает реализации функции. Удалены две неиспользуемые Designer-формы
+и ссылки на них в CMake/qmake. Аудит учитывает `addItem`, отключённые поля и read-only
+индикаторы; старые счётчики и утверждение о почти готовых контекстных меню устарели.
+
+| Остаток | Статус / следующий шаг |
+|---|---|
+| Ripple, специальные edit tools, lock/heal, takes/subclips, prerender, scopes, scripts | DISABLED; требуется модель и исполнение команд |
+| HDR/360/3D, interlace/PAR/rotation, качество обработки, LFE/CD и каталоги записи/prerender | DISABLED; сначала подключить параметры к реальным processing paths |
+| Переназначение клавиш остальных контекстов / неподключённых Global-команд | DISABLED в Customize Keyboard; редактируются только реально подключённые Global bindings |
+| Именованные клавиатурные карты | DISABLED; нужны Save As / Load / Delete и согласованный формат |
+| Сторонние OFX / Shared plug-ins в sandbox-проверке | Общий CTest не прошёл: policy-тест не прочитал записанное native QSettings-значение; video/media достигли тайм-аута на оригинальных OFX. Требуется отдельный прогон в среде с доступом к настройкам и работающим хостом |
+
 ## Известные баги
 
 | ID | Описание | Статус | План |
@@ -161,8 +206,8 @@
 | Customize Keyboard named maps | Catalog partial | Save As maps |
 | Explorer / Transitions panels | Placeholders (нет insert / DnD на таймлайн) | По макетам |
 | Relink dialog UI | Silent search | Vegas-style Relink |
-| Media Properties: frame size / field order / pixel aspect / alpha channel / rotation сохраняются, но на рендер не влияют | `VideoCompositor` рендерит генератор всегда в размере кадра проекта (`renderTitlesText(params, sz, …)`), а не в собственном размере медиа; поворот/поле/аспект нигде не применяются | Прокинуть собственный размер генератора в компоузер (рендер в свой размер + масштабирование), затем применить rotation/pixelAspect. Length и Tape name/timecode уже работают |
-| `KeyboardMap`: ~93% каталога (все не-Global контексты — TrackView/TrackList/Explorer/Trimmer/Mixer/MixingConsole/EditDetails/TrackMotion, ~308 из ~332 команд) никогда не становятся реальным `QShortcut` — `applyKeyboardMap()` читает только `KeyboardContext::Global` | `CustomizeKeyboardDialog` позволяет «настроить» команды этих контекстов, но переназначение ни на что не влияет — вводит в заблуждение | Либо реализовать per-context (per-widget, `Qt::WidgetWithChildrenShortcut`) биндинг для реально применимых контекстов (TrackView/Trimmer в первую очередь), либо явно урезать диалог до контекстов, которые правда работают |
+| Media Properties: frame size / field order / pixel aspect / alpha channel / rotation / background для генератора отключены (2026-10-04) | `VideoCompositor` рендерит генератор всегда в размере кадра проекта (`renderTitlesText(params, sz, …)`), а не в собственном размере медиа; поворот/поле/аспект нигде не применяются | Прокинуть собственный размер генератора в компоузер (рендер в свой размер + масштабирование), затем применить rotation/pixelAspect. Length и Tape name/timecode уже работают |
+| KeyboardMap: контексты кроме Global и неподключённые команды пока не получают исполняемого binding | С 2026-10-04 их редактирование отключено; четыре новых QAction-команды и Undo/Redo связаны с Global-картой | Реализовать per-widget bindings, затем включать контексты и команды |
 | Alt+0…Alt+8 (переключение панелей — TrackView/Explorer/Trimmer/MasterBus/VideoPreview/ProjectMedia/ProjectNotes/Transitions/VideoFX) | Все 9 команд в Global-каталоге, ни одна не в `kAppShortcuts`/`invokeKeyboardCommand` | Нужно выяснить механизм фокуса/показа для каждой панели (часть — вкладки `QTabWidget`, часть — доки) и подключить по образцу уже сделанного `View.MixingConsole` |
 | I/O Mark In/Out на основном таймлайне | Работают только в отдельном окне Trimmer (`TrimmerWindow.cpp` — хардкод, не через `KeyboardMap`, тоже не настраивается в Customize Keyboard); `TimelineView::keyPressEvent` их не обрабатывает вовсе | Перенести логику установки loop-region старта/конца в `TimelineView`, завести Global-обвязку |
 | Ctrl+R Record | `invokeKeyboardCommand` содержит честную заглушку (`"Record — not implemented yet"`), и вдобавок недостижима (нет Global-клавиши) — как и реальный pipeline записи (см. «Transport / Capture» выше) | После реализации capture pipeline |

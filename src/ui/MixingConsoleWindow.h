@@ -32,6 +32,7 @@ public:
 
     void setProject(ProjectModel *project);
     void refreshFromProject();
+    void resetFxTarget();
     /** Update VU meters from realtime peaks (0…1 linear). */
     void setMasterMeter(float peakL, float peakR);
     void setTrackMeter(int trackId, float peakL, float peakR);
@@ -53,6 +54,8 @@ signals:
     void documentEditCommitted(const QString &text);
     void downmixOutputCycled();
     void dimOutputChanged(bool on);
+    void audioPropertiesRequested();
+    void fxChainChanged();
 
 protected:
     void showEvent(QShowEvent *event) override;
@@ -64,6 +67,7 @@ private:
     void buildUi();
     void rebuildStrips();
     void applyFilter();
+    void applyControlRegions();
     void applyChannelWidth();
     void applyChromeVisibility();
     void showAllChannels();

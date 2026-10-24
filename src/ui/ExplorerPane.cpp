@@ -706,8 +706,27 @@ void ExplorerPane::buildUi()
     m_pathLay->setSpacing(2);
     tb->addWidget(pathHost, 1);
 
-    tb->addWidget(IconFactory::toolButton(m_toolbar, tr("Views"), IconFactory::svgViews()));
-    tb->addWidget(IconFactory::toolButton(m_toolbar, tr("Search"), IconFactory::svgSearch()));
+    auto *views = IconFactory::toolButton(m_toolbar, tr("Views"), IconFactory::svgViews());
+    auto *viewsMenu = new QMenu(views);
+    viewsMenu->addAction(tr("Thumbnails"), this, [this]() {
+        m_list->setViewMode(QListView::IconMode); m_list->setGridSize(QSize(104, 92));
+        m_list->setIconSize(QSize(88, 50));
+    });
+    viewsMenu->addAction(tr("List"), this, [this]() {
+        m_list->setViewMode(QListView::ListMode); m_list->setGridSize(QSize());
+        m_list->setIconSize(QSize(24, 24));
+    });
+    views->setMenu(viewsMenu); views->setPopupMode(QToolButton::InstantPopup); tb->addWidget(views);
+    auto *search = IconFactory::toolButton(m_toolbar, tr("Search"), IconFactory::svgSearch());
+    connect(search, &QToolButton::clicked, this, [this]() {
+        bool ok = false;
+        const QString name = QInputDialog::getText(this, tr("Search"), tr("File name contains (empty shows all):"),
+                                                  QLineEdit::Normal, QString(), &ok);
+        if (!ok) return;
+        m_listFs->setNameFilters(name.isEmpty() ? QStringList{} : QStringList{QStringLiteral("*%1*").arg(name)});
+        m_listFs->setNameFilterDisables(false);
+    });
+    tb->addWidget(search);
 
     root->addWidget(m_toolbar);
 

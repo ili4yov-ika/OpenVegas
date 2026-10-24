@@ -26,11 +26,9 @@ DEFINES += OPENVGAS_AUDIO=1
 FORMS += \
     ui/MainWindow.ui \
     ui/WelcomeDialog.ui \
-    ui/ProjectPropertiesDialog.ui \
     ui/RenderAsDialog.ui \
     ui/PreferencesDialog.ui \
     ui/EventPropertiesDialog.ui \
-    ui/TrimmerWindow.ui \
     ui/PluginChooserDialog.ui
 
 HEADERS += \

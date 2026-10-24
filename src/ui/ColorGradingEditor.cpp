@@ -7,6 +7,7 @@
 #include <QGridLayout>
 #include <QLabel>
 #include <QComboBox>
+#include <QMessageBox>
 #include <QDoubleSpinBox>
 #include <QToolButton>
 #include <QPainter>
@@ -407,6 +408,14 @@ void ColorGradingEditor::buildUi()
     help->setAutoRaise(true);
     help->setText(QStringLiteral("?"));
     help->setFixedSize(22, 22);
+    connect(help, &QToolButton::clicked, this, [this]() {
+        QMessageBox::information(this, tr("Color Grading"),
+            tr("Lift controls shadows, Gamma controls midtones, Gain controls highlights, and Offset shifts all levels. "
+               "Reset restores the selected controls to their defaults."));
+    });
+    connect(about, &QLabel::linkActivated, this, [this](const QString &) {
+        QMessageBox::information(this, tr("Color Grading"), tr("OpenVegas built-in color grading controls."));
+    });
     tb->addWidget(help);
     root->addWidget(titleBar);
 
@@ -595,6 +604,8 @@ void ColorGradingEditor::rebuildCurvesPage()
     auto *top = new QHBoxLayout();
     auto *channel = new QComboBox(m_curvesHost);
     channel->addItems({tr("RGB"), tr("Red"), tr("Green"), tr("Blue")});
+    channel->setEnabled(false);
+    channel->setToolTip(tr("Separate channel curves are not available yet"));
     top->addWidget(channel);
     top->addStretch(1);
     auto *reset = new QToolButton(m_curvesHost);

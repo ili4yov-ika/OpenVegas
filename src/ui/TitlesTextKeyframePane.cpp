@@ -524,9 +524,26 @@ void TitlesTextKeyframePane::buildUi()
 
     m_timecodeEdit = new QLineEdit(this);
     m_timecodeEdit->setFixedWidth(96);
-    m_timecodeEdit->setReadOnly(true);
+    m_timecodeEdit->setToolTip(tr("Time in seconds or HH:MM:SS,cc"));
     m_timecodeEdit->setAlignment(Qt::AlignCenter);
     toolbar->addWidget(m_timecodeEdit);
+    connect(m_timecodeEdit, &QLineEdit::editingFinished, this, [this]() {
+        const QString text = m_timecodeEdit->text().trimmed();
+        const QStringList fields = QString(text).replace(QLatin1Char(','), QLatin1Char(':')).split(QLatin1Char(':'));
+        bool valid = false;
+        double sec = text.toDouble(&valid);
+        if (fields.size() == 4) {
+            bool ok[4] = {};
+            const int h = fields[0].toInt(&ok[0]), m = fields[1].toInt(&ok[1]);
+            const int s = fields[2].toInt(&ok[2]), f = fields[3].toInt(&ok[3]);
+            const double units = text.contains(QLatin1Char(',')) ? 100.0 : std::max(1.0, m_frameRateFps);
+            valid = ok[0] && ok[1] && ok[2] && ok[3] && h >= 0 && m >= 0 && m < 60
+                    && s >= 0 && s < 60 && f >= 0 && f < units;
+            sec = h * 3600.0 + m * 60.0 + s + f / units;
+        }
+        if (valid && std::isfinite(sec) && sec >= 0.0) setPlayheadSec(sec);
+        else syncToolbarState();
+    });
 
     m_lanesBtn = new QToolButton(this);
     m_lanesBtn->setText(tr("Lanes"));

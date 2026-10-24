@@ -6,6 +6,8 @@
 
 #include <QDataStream>
 #include <QIODevice>
+#include <QPointF>
+#include <array>
 
 #include <algorithm>
 #include <cmath>
@@ -173,7 +175,35 @@ void applyColorGrading(QImage *img, const QVariantMap &params)
     const double offsetG = mapGet(params, QStringLiteral("offset.g"), 0.0);
     const double offsetB = mapGet(params, QStringLiteral("offset.b"), 0.0);
 
-    const bool identity =
+    QVector<QPointF> curve;
+    for (const QVariant &value : params.value(QStringLiteral("curve.rgb")).toList()) {
+        const QVariantMap point = value.toMap();
+        bool xOk = false, yOk = false;
+        const double x = point.value(QStringLiteral("x")).toDouble(&xOk);
+        const double y = point.value(QStringLiteral("y")).toDouble(&yOk);
+        if (xOk && yOk && std::isfinite(x) && std::isfinite(y))
+            curve.push_back(QPointF(clamp01(x), clamp01(y)));
+    }
+    std::stable_sort(curve.begin(), curve.end(), [](const QPointF &a, const QPointF &b) { return a.x() < b.x(); });
+    if (curve.size() < 2) curve.clear();
+    std::array<double, 256> curveLut{};
+    for (int i = 0; i < 256; ++i) {
+        const double input = i / 255.0;
+        double output = input;
+        if (!curve.isEmpty()) {
+            const auto right = std::upper_bound(curve.begin(), curve.end(), input,
+                [](double x, const QPointF &point) { return x < point.x(); });
+            if (right == curve.begin()) output = curve.front().y();
+            else if (right == curve.end()) output = curve.back().y();
+            else {
+                const QPointF &left = *(right - 1);
+                const double mix = (input - left.x()) / (right->x() - left.x());
+                output = left.y() + mix * (right->y() - left.y());
+            }
+        }
+        curveLut[i] = clamp01(output);
+    }
+    const bool identity = curve.isEmpty() &&
         std::abs(liftY) < 1e-6 && std::abs(liftR) < 1e-6 && std::abs(liftG) < 1e-6
         && std::abs(liftB) < 1e-6 && std::abs(gammaY - 1.0) < 1e-6 && std::abs(gammaR - 1.0) < 1e-6
         && std::abs(gammaG - 1.0) < 1e-6 && std::abs(gammaB - 1.0) < 1e-6
@@ -214,6 +244,9 @@ void applyColorGrading(QImage *img, const QVariantMap &params)
             g = clamp01(g * gainY * gainG + offsetY + offsetG);
             b = clamp01(b * gainY * gainB + offsetY + offsetB);
 
+            r = curveLut[int(std::lround(r * 255.0))];
+            g = curveLut[int(std::lround(g * 255.0))];
+            b = curveLut[int(std::lround(b * 255.0))];
             line[x] = qRgba(int(std::lround(r * 255.0)), int(std::lround(g * 255.0)),
                             int(std::lround(b * 255.0)), a);
         }

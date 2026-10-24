@@ -119,6 +119,9 @@ void AudioEngine::syncGraphFromProject()
                 }
             }
         }
+        for (MixerBus &bus : m_model->mixerBuses()) {
+            host->ensureChainLoaded(&bus.fxChain);
+        }
         for (AssignableFxBus &bus : m_model->assignableFxBuses()) {
             host->ensureChainLoaded(&bus.fxChain);
         }

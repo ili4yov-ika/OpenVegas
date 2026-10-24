@@ -110,6 +110,19 @@ void AudioGraph::rebuild(const ProjectModel &model, AudioPluginHost *host)
 void AudioGraph::applyLiveMixer(const ProjectModel &model)
 {
     m_masterGainDb = model.masterVolumeDb();
+    auto syncFx = [](QVector<FxSlot> &live, const QVector<FxSlot> &source) {
+        if (live.size() != source.size()) return;
+        for (int i = 0; i < live.size(); ++i)
+            if (live[i].hostKey != source[i].hostKey) return;
+        for (int i = 0; i < live.size(); ++i) {
+            live[i].bypass = source[i].bypass;
+            live[i].state = source[i].state;
+            if (!source[i].pluginId.isEmpty()) live[i].pluginId = source[i].pluginId;
+        }
+    };
+    QVector<FxSlot> masterFx;
+    for (const AssignableFxBus &bus : model.assignableFxBuses()) masterFx += bus.fxChain;
+    syncFx(m_masterFx, masterFx);
 
     for (AudioGraphBus &gb : m_buses) {
         for (const MixerBus &b : model.mixerBuses()) {
@@ -120,6 +133,7 @@ void AudioGraph::applyLiveMixer(const ProjectModel &model)
             gb.solo = b.solo;
             gb.volumeDb = b.volumeDb;
             gb.pan = b.pan;
+            syncFx(gb.fxChain, b.fxChain);
             break;
         }
     }
@@ -137,16 +151,7 @@ void AudioGraph::applyLiveMixer(const ProjectModel &model)
             gt.busId = tr.busId;
             gt.automationLanes = tr.automationLanes;
             // Live FX state / bypass without full rebuild
-            if (gt.fxChain.size() == tr.fxChain.size()) {
-                for (int i = 0; i < gt.fxChain.size(); ++i) {
-                    gt.fxChain[i].bypass = tr.fxChain[i].bypass;
-                    gt.fxChain[i].state = tr.fxChain[i].state;
-                    // Keep graph hostKey (instance identity); refresh pluginId if resolved
-                    if (!tr.fxChain[i].pluginId.isEmpty()) {
-                        gt.fxChain[i].pluginId = tr.fxChain[i].pluginId;
-                    }
-                }
-            }
+            syncFx(gt.fxChain, tr.fxChain);
             // Event gain / fades / envelopes — previously only applied on full rebuild,
             // so timeline Level edits were ignored while Play was active.
             for (AudioGraphClip &clip : gt.clips) {
@@ -160,15 +165,7 @@ void AudioGraph::applyLiveMixer(const ProjectModel &model)
                     clip.fadeInCurve = ev.fadeInCurve;
                     clip.fadeOutCurve = ev.fadeOutCurve;
                     clip.automationLanes = ev.automationLanes;
-                    if (clip.fxChain.size() == ev.fxChain.size()) {
-                        for (int i = 0; i < clip.fxChain.size(); ++i) {
-                            clip.fxChain[i].bypass = ev.fxChain[i].bypass;
-                            clip.fxChain[i].state = ev.fxChain[i].state;
-                            if (!ev.fxChain[i].pluginId.isEmpty()) {
-                                clip.fxChain[i].pluginId = ev.fxChain[i].pluginId;
-                            }
-                        }
-                    }
+                    syncFx(clip.fxChain, ev.fxChain);
                     break;
                 }
             }
@@ -250,6 +247,18 @@ void AudioGraph::reset()
     }
     for (auto &st : m_masterFxStates) {
         st.reset();
+    }
+    if (m_host) {
+        auto resetFx = [this](QVector<FxSlot> &chain) {
+            for (FxSlot &slot : chain)
+                if (slot.format != PluginFormat::Builtin) m_host->reset(&slot);
+        };
+        for (AudioGraphTrack &track : m_tracks) {
+            resetFx(track.fxChain);
+            for (AudioGraphClip &clip : track.clips) resetFx(clip.fxChain);
+        }
+        for (AudioGraphBus &bus : m_buses) resetFx(bus.fxChain);
+        resetFx(m_masterFx);
     }
     m_seekFade = 0.f;
 }

@@ -7,6 +7,7 @@
 #include <QMutex>
 #include <QMutexLocker>
 #include <QPointer>
+#include <QTimer>
 #include <QTabWidget>
 #include <QVBoxLayout>
 #include <QWidget>
@@ -14,6 +15,7 @@
 #include <algorithm>
 #include <cmath>
 #include <cstring>
+#include <functional>
 #include <vector>
 
 #ifdef Q_OS_WIN
@@ -75,6 +77,16 @@ std::shared_ptr<SoundForgeDsHost::Instance> SoundForgeDsHost::lookup(const FxSlo
 bool SoundForgeDsHost::hasInstance(const FxSlot &) const
 {
     return false;
+}
+
+QString SoundForgeDsHost::processingError(const FxSlot &) const
+{
+    return QStringLiteral("Sound Forge processing is available on Windows only.");
+}
+
+bool SoundForgeDsHost::synchronizeState(FxSlot *slot)
+{
+    return slot != nullptr;
 }
 
 bool SoundForgeDsHost::createInstance(const AudioPluginDesc &, FxSlot *)
@@ -145,8 +157,11 @@ void ensureComOnThread()
         // RPC_E_CHANGED_MODE just means the thread is already an STA (the Qt GUI
         // thread is). The effects register ThreadingModel=Both, so they work either
         // way; we only need *some* apartment to exist before CoCreateInstance.
-        CoInitializeEx(nullptr, COINIT_MULTITHREADED);
-        done = true;
+        HRESULT hr = CoInitializeEx(nullptr, COINIT_MULTITHREADED);
+        // Hold our own count in Qt's STA too, so destroying a temporary QApplication
+        // cannot leave this thread uninitialised while Shared instances remain live.
+        if (hr == RPC_E_CHANGED_MODE) hr = CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED);
+        done = SUCCEEDED(hr);
     }
 }
 
@@ -645,13 +660,14 @@ private:
  * so they can be activated straight into a Qt widget instead of the modal frame
  * OleCreatePropertyFrame would put up.
  *
- * A page reports edits through OnStatusChange; applying them there and then is what makes
- * the plug-in's dialog behave the way it does inside VEGAS, where moving a control is
- * audible immediately rather than on an OK button.
+ * A page reports edits through OnStatusChange. Defer Apply until its control event
+ * completes, then apply with the graph stopped so the filter refreshes its DSP.
  */
 class PropertyPageSite : public IPropertyPageSite {
 public:
+    virtual ~PropertyPageSite() = default;
     IPropertyPage *page = nullptr;
+    bool applyRequested = false;
 
     STDMETHODIMP QueryInterface(REFIID riid, void **out) override
     {
@@ -671,8 +687,10 @@ public:
 
     STDMETHODIMP OnStatusChange(DWORD flags) override
     {
-        if ((flags & PROPPAGESTATUS_DIRTY) && page) {
-            page->Apply();
+        if (flags & PROPPAGESTATUS_DIRTY) {
+            // The notification may arrive before the control finishes its event.
+            // Apply on the GUI tick, with the processing graph stopped and locked.
+            applyRequested = true;
         }
         return S_OK;
     }
@@ -911,8 +929,13 @@ struct Graph {
         want.cBuffers = 8;
         want.cbBuffer = long(blockFrames) * format.nBlockAlign;
         want.cbAlign = 1;
-        allocator->SetProperties(&want, &got);
-        effectMem->NotifyAllocator(allocator, FALSE);
+        hr = allocator->SetProperties(&want, &got);
+        if (FAILED(hr) || got.cbBuffer < want.cbBuffer
+            || FAILED(hr = effectMem->NotifyAllocator(allocator, FALSE))) {
+            if (errorOut) *errorOut = QStringLiteral("input allocator negotiation failed (%1)").arg(hrText(hr));
+            teardown();
+            return false;
+        }
 
         hr = builder->ConnectDirect(effectOut, static_cast<IPin *>(&sink.pin), &mediaType);
         if (FAILED(hr)) {
@@ -929,15 +952,21 @@ struct Graph {
             mf->SetSyncSource(nullptr); // free-running: we drive the clock
             mf->Release();
         }
-        if (SUCCEEDED(builder->QueryInterface(IID_IMediaControl,
-                                              reinterpret_cast<void **>(&control)))
-            && control) {
-            control->Run();
+        hr = builder->QueryInterface(IID_IMediaControl, reinterpret_cast<void **>(&control));
+        if (FAILED(hr) || !control || FAILED(hr = control->Run())) {
+            if (errorOut) *errorOut = QStringLiteral("filter graph could not run (%1)").arg(hrText(hr));
+            teardown();
+            return false;
         }
 
         // Wiring the output pin decommits the allocator; without this the first
         // GetBuffer fails with VFW_E_NOT_COMMITTED.
-        allocator->Commit();
+        hr = allocator->Commit();
+        if (FAILED(hr)) {
+            if (errorOut) *errorOut = QStringLiteral("input allocator commit failed (%1)").arg(hrText(hr));
+            teardown();
+            return false;
+        }
 
         source.pin.NewSegment(0, 0, 1.0);
         streamTime = 0;
@@ -1012,6 +1041,8 @@ struct SoundForgeDsHost::Instance {
     QString lastError;
     /** Pending state to apply once the effect object exists. */
     QByteArray pendingState;
+    QByteArray modelState;
+    QByteArray defaultState;
     std::vector<float> scratchIn;
     std::vector<float> scratchOut;
     /**
@@ -1024,9 +1055,64 @@ struct SoundForgeDsHost::Instance {
     QVector<IPropertyPage *> pages;
     QVector<PropertyPageSite *> sites;
     QPointer<QWidget> pageContainer;
+    QPointer<QTimer> pageTimer;
+
+    bool editStopped(const std::function<bool()> &edit)
+    {
+        if (graph.control && FAILED(graph.control->Stop())) {
+            lastError = QStringLiteral("could not stop the filter graph for a parameter edit");
+            return false;
+        }
+        const bool ok = edit();
+        // Shared filters cache DSP coefficients when streaming starts. Updating
+        // property pages while running only changed ExpressFX EQ displayed state.
+        // Stop/edit/Run makes the new settings audible on the same filter instance.
+        graph.sink.pin.fifo.clear();
+        graph.streamTime = 0;
+        if (graph.control && FAILED(graph.control->Run())) {
+            graph.running = false;
+            graphFailed = true;
+            lastError = QStringLiteral("could not restart the filter graph after a parameter edit");
+            return false;
+        }
+        if (ok) {
+            graphFailed = false;
+            lastError.clear();
+        }
+        return ok;
+    }
+
+    void applyPageChanges()
+    {
+        bool dirty = false;
+        for (int i = 0; i < pages.size(); ++i) {
+            dirty = dirty || sites[i]->applyRequested || pages[i]->IsPageDirty() == S_OK;
+        }
+        if (!dirty) return;
+        const bool ok = editStopped([this]() {
+            bool applied = true;
+            for (int i = 0; i < pages.size(); ++i) {
+                if (!sites[i]->applyRequested && pages[i]->IsPageDirty() != S_OK) continue;
+                sites[i]->applyRequested = false;
+                applied = SUCCEEDED(pages[i]->Apply()) && applied;
+            }
+            return applied;
+        });
+        if (!ok) {
+            if (lastError.isEmpty()) lastError = QStringLiteral("native property page rejected the parameter edit");
+            qWarning().noquote() << "[plugins][soundforge]" << displayName
+                                 << "native parameter edit failed:" << lastError;
+        }
+    }
 
     void closePage()
     {
+        applyPageChanges();
+        if (pageTimer) {
+            pageTimer->stop();
+            delete pageTimer.data();
+            pageTimer = nullptr;
+        }
         for (IPropertyPage *page : pages) {
             if (!page) {
                 continue;
@@ -1057,6 +1143,7 @@ struct SoundForgeDsHost::Instance {
         if (!graph.effect) {
             return;
         }
+        applyPageChanges();
         const QByteArray live = captureState();
         if (!live.isEmpty()) {
             pendingState = live;
@@ -1066,6 +1153,7 @@ struct SoundForgeDsHost::Instance {
 
     bool ensureGraph(int channels)
     {
+        if (graphFailed) return false;
         if (graph.running && graph.channels == channels
             && graph.format.nSamplesPerSec == DWORD(sampleRate)) {
             return true;
@@ -1082,8 +1170,11 @@ struct SoundForgeDsHost::Instance {
                                  << "could not be hosted:" << error;
             return false;
         }
-        if (!pendingState.isEmpty()) {
-            applyState(pendingState);
+        if (defaultState.isEmpty()) defaultState = captureState();
+        if (!pendingState.isEmpty() && !applyState(pendingState)) {
+            graphFailed = true;
+            lastError = QStringLiteral("could not restore the saved Shared Plug-In state");
+            return false;
         }
         return true;
     }
@@ -1107,7 +1198,9 @@ struct SoundForgeDsHost::Instance {
                 GlobalUnlock(mem);
                 IStream *stream = nullptr;
                 if (SUCCEEDED(CreateStreamOnHGlobal(mem, TRUE, &stream)) && stream) {
-                    ok = SUCCEEDED(persist->Load(stream));
+                    ok = editStopped([persist, stream]() {
+                        return SUCCEEDED(persist->Load(stream));
+                    });
                     stream->Release();
                     mem = nullptr; // owned by the stream now
                 }
@@ -1167,12 +1260,40 @@ std::shared_ptr<SoundForgeDsHost::Instance> SoundForgeDsHost::lookup(const FxSlo
     if (!slot || slot->hostKey.isEmpty()) {
         return {};
     }
+    QMutexLocker lock(&m_instancesMutex);
     return m_instances.value(slot->hostKey);
 }
 
 bool SoundForgeDsHost::hasInstance(const FxSlot &slot) const
 {
+    QMutexLocker lock(&m_instancesMutex);
     return !slot.hostKey.isEmpty() && m_instances.contains(slot.hostKey);
+}
+
+QString SoundForgeDsHost::processingError(const FxSlot &slot) const
+{
+    const auto inst = lookup(&slot);
+    if (!inst) return QStringLiteral("Shared Plug-In instance is not loaded.");
+    QMutexLocker lock(&inst->mutex);
+    return inst->lastError;
+}
+
+bool SoundForgeDsHost::synchronizeState(FxSlot *slot)
+{
+    auto inst = lookup(slot);
+    if (!inst || !slot) return false;
+    QMutexLocker lock(&inst->mutex);
+    if (slot->state == inst->modelState) return true;
+    inst->applyPageChanges();
+    const QByteArray desired = slot->state.isEmpty() ? inst->defaultState : slot->state;
+    if (inst->graph.effect && desired != inst->captureState() && !inst->applyState(desired)) {
+        inst->graphFailed = true;
+        if (inst->lastError.isEmpty()) inst->lastError = QStringLiteral("could not restore the document Shared Plug-In state");
+        return false;
+    }
+    inst->pendingState = desired;
+    inst->modelState = slot->state;
+    return true;
 }
 
 bool SoundForgeDsHost::createInstance(const AudioPluginDesc &desc, FxSlot *slot)
@@ -1195,8 +1316,12 @@ bool SoundForgeDsHost::createInstance(const AudioPluginDesc &desc, FxSlot *slot)
     inst->clsidText = clsidText;
     inst->displayName = desc.name.isEmpty() ? slot->displayName : desc.name;
     inst->pendingState = slot->state;
+    inst->modelState = slot->state;
 
-    m_instances.insert(slot->hostKey, inst);
+    {
+        QMutexLocker lock(&m_instancesMutex);
+        m_instances.insert(slot->hostKey, inst);
+    }
     slot->format = PluginFormat::DirectShow;
     slot->pluginId = makePluginId(clsidText);
     if (slot->displayName.isEmpty()) {
@@ -1210,11 +1335,15 @@ void SoundForgeDsHost::releaseInstance(FxSlot *slot)
     if (!slot || slot->hostKey.isEmpty()) {
         return;
     }
-    if (auto inst = m_instances.value(slot->hostKey)) {
+    std::shared_ptr<Instance> inst;
+    {
+        QMutexLocker lock(&m_instancesMutex);
+        inst = m_instances.take(slot->hostKey);
+    }
+    if (inst) {
         QMutexLocker lock(&inst->mutex);
         inst->closePage();
     }
-    m_instances.remove(slot->hostKey);
 }
 
 void SoundForgeDsHost::prepare(FxSlot *slot, double sampleRate, int blockSize)
@@ -1268,6 +1397,7 @@ void SoundForgeDsHost::process(FxSlot *slot, float **in, float **out, int channe
         passThrough();
         return;
     }
+    ensureComOnThread();
     QMutexLocker lock(&inst->mutex);
     if (!inst->ensureGraph(channels)) {
         passThrough();
@@ -1293,6 +1423,9 @@ void SoundForgeDsHost::process(FxSlot *slot, float **in, float **out, int channe
         offset += chunk;
     }
     if (!ok) {
+        inst->graphFailed = true;
+        inst->lastError = QStringLiteral("audio block was rejected by the Shared Plug-In filter");
+        qWarning().noquote() << "[plugins][soundforge]" << inst->displayName << inst->lastError;
         passThrough();
         return;
     }
@@ -1465,6 +1598,17 @@ bool SoundForgeDsHost::openEditor(FxSlot *slot, QWidget *parent)
     parent->layout()->addWidget(container);
     container->show();
     inst->pageContainer = container;
+    auto *timer = new QTimer(parent);
+    timer->setInterval(20);
+    const std::weak_ptr<Instance> weak = inst;
+    QObject::connect(timer, &QTimer::timeout, parent, [weak]() {
+        if (const auto live = weak.lock()) {
+            QMutexLocker guard(&live->mutex);
+            live->applyPageChanges();
+        }
+    });
+    inst->pageTimer = timer;
+    timer->start();
 
     // The page draws into the widget's HWND, so it must go down with the widget.
     QObject::connect(parent, &QObject::destroyed, parent, [inst]() {
@@ -1474,6 +1618,7 @@ bool SoundForgeDsHost::openEditor(FxSlot *slot, QWidget *parent)
 
     if (slot) {
         slot->state = inst->captureState();
+        inst->modelState = slot->state;
     }
     return true;
 }
@@ -1485,6 +1630,7 @@ QByteArray SoundForgeDsHost::getState(const FxSlot *slot) const
         return slot ? slot->state : QByteArray{};
     }
     QMutexLocker lock(&inst->mutex);
+    inst->applyPageChanges();
     const QByteArray blob = inst->captureState();
     return blob.isEmpty() && slot ? slot->state : blob;
 }
@@ -1501,9 +1647,12 @@ bool SoundForgeDsHost::setState(FxSlot *slot, const QByteArray &state)
     }
     QMutexLocker lock(&inst->mutex);
     inst->pendingState = state;
-    if (inst->graph.effect) {
-        inst->applyState(state);
+    if (inst->graph.effect && !inst->applyState(state)) {
+        inst->graphFailed = true;
+        if (inst->lastError.isEmpty()) inst->lastError = QStringLiteral("could not apply the saved Shared Plug-In state");
+        return false;
     }
+    inst->modelState = state;
     return true;
 }
 

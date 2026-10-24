@@ -110,6 +110,8 @@ public:
 
     explicit AudioEventFxDialog(QWidget *parent = nullptr);
 
+    void setProjectModel(ProjectModel *model) { m_project = model; }
+    void refreshTarget();
     void setEvent(TrackEvent *ev);
     void setTrack(Track *track);
     void setChain(QVector<FxSlot> *chain, const QString &title);
@@ -120,6 +122,14 @@ public:
     void setPluginScanner(PluginScanner *scanner) { m_pluginScanner = scanner; }
     /** Open Plug-In Chooser and append selected plugs (same as fx+). */
     void addPlugins();
+    void setAudioFormat(double sampleRate, int blockSize);
+
+signals:
+    void chainChanged();
+    void parametersChanged();
+
+protected:
+    void done(int result) override;
 
 private:
     void buildUi();
@@ -132,6 +142,9 @@ private:
     void scrollChain(int dx);
     QVector<FxSlot> *chain();
     QString eventTitle() const;
+    void pollFxState();
+    void notifyChainChanged();
+    FxSlot *slotByKey(const QString &hostKey);
 
 public:
     static QString formatSlotLabel(const FxSlot &s);
@@ -152,6 +165,10 @@ private:
     QWidget *buildGenericBuiltinEditor(FxSlot &slot);
     QWidget *buildVstEditorPage(FxSlot &slot);
 
+    ProjectModel *m_project = nullptr;
+    int m_eventId = -1;
+    int m_trackId = -1;
+    int m_assignableBusId = -1;
     Mode m_mode = Mode::Event;
     TrackEvent *m_event = nullptr;
     Track *m_track = nullptr;
@@ -168,6 +185,9 @@ private:
     QLabel *m_emptyHint = nullptr;
 
     int m_selected = -1;
+    double m_sampleRate = 48000.0;
+    int m_blockSize = 512;
+    QVector<FxSlot> m_observedChain;
     QVector<FxChainNodeWidget *> m_nodes;
 };
 
