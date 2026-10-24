@@ -7,8 +7,10 @@
 #include <QSet>
 
 #include <QFont>
+#include <QFontMetricsF>
 #include <QPainter>
 #include <QPainterPath>
+#include <QTransform>
 
 #include <algorithm>
 #include <cmath>
@@ -990,22 +992,41 @@ QImage crossDissolve(const QImage &from, const QImage &to, double progress, cons
     return out;
 }
 
-/** "A" / "B" test cards Vegas uses for its own preset thumbnails. */
-QImage testCard(const QSize &size, const QString &letter, const QColor &top, const QColor &bottom)
+/**
+ * The "A" / "B" frames VEGAS runs its transition thumbnails through: a flat fill and a
+ * white letter of regular weight whose outline is 58.3% of the frame's height. Measured
+ * off the bitmaps vegas220.exe loads for them (resources 0x552/0x553 and their 200- and
+ * 100-pixel versions, see MARKDOWN/TRANSITIONS_VEGAS22_AUDIT.md) and drawn here, not
+ * copied.
+ *
+ * The glyph is scaled by its own outline rather than by font size, so the proportion
+ * holds whichever sans-serif face the platform supplies. Vertically it is centred on
+ * that outline; horizontally on its advance width, as text layout does — VEGAS's "B"
+ * sits right of its outline's centre by its left side bearing, and centring the outline
+ * instead put it 3.6 pixels off at 400 wide.
+ */
+QImage testCard(const QSize &size, const QString &letter, const QColor &background)
 {
+    constexpr double kLetterHeight = 0.583;
     QImage img(size, QImage::Format_ARGB32_Premultiplied);
-    QPainter p(&img);
-    QLinearGradient g(0, 0, 0, size.height());
-    g.setColorAt(0.0, top);
-    g.setColorAt(1.0, bottom);
-    p.fillRect(img.rect(), g);
-    QFont f = p.font();
-    f.setPointSizeF(std::max(8.0, size.height() * 0.55));
-    f.setBold(true);
-    p.setFont(f);
-    p.setPen(QColor(255, 255, 255, 235));
-    p.drawText(img.rect(), Qt::AlignCenter, letter);
-    p.end();
+    img.fill(background);
+    QFont f;
+    f.setWeight(QFont::Normal);
+    f.setPixelSize(100);
+    QPainterPath glyph;
+    glyph.addText(0, 0, f, letter);
+    const QRectF box = glyph.boundingRect();
+    if (box.height() > 0.0) {
+        const double scale = size.height() * kLetterHeight / box.height();
+        const double advance = QFontMetricsF(f).horizontalAdvance(letter);
+        QTransform t;
+        t.translate(size.width() / 2.0, size.height() / 2.0);
+        t.scale(scale, scale);
+        t.translate(-advance / 2.0, -box.center().y());
+        QPainter p(&img);
+        p.setRenderHint(QPainter::Antialiasing);
+        p.fillPath(t.map(glyph), QColor(0xfb, 0xfb, 0xfb));
+    }
     return img;
 }
 
@@ -3058,10 +3079,8 @@ QImage renderTransitionPreview(const TransitionInstance &t, const QSize &size, d
     if (size.isEmpty()) {
         return QImage();
     }
-    const QImage a = testCard(size, QStringLiteral("A"), QColor(0x4a, 0x9a, 0xd0),
-                              QColor(0x1c, 0x5a, 0x8a));
-    const QImage b = testCard(size, QStringLiteral("B"), QColor(0x9a, 0xd8, 0xf0),
-                              QColor(0x4a, 0x9a, 0xd0));
+    const QImage a = testCard(size, QStringLiteral("A"), QColor(0x46, 0x7d, 0x96));
+    const QImage b = testCard(size, QStringLiteral("B"), QColor(0x8c, 0xb7, 0xca));
     const QImage blended = renderTransition(a, b, progress, t);
 
     // Transparent gaps between the blinds are the whole point of the thumbnail — show

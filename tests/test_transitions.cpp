@@ -13,6 +13,7 @@
 #include <QImage>
 #include <QPainter>
 #include <QDir>
+#include <QFontDatabase>
 #include <QFileInfo>
 #include <QHash>
 #include <QSet>
@@ -253,6 +254,73 @@ TEST_CASE("renderTransitionPreview produces a fully opaque tile of the requested
     // The checkerboard backdrop must cover every gap, so no pixel stays transparent.
     CHECK(qAlpha(tile.pixel(0, 0)) == 255);
     CHECK(qAlpha(tile.pixel(129 / 2, 78 / 2)) == 255);
+}
+
+TEST_CASE("Preview frames A and B are VEGAS's flat cards with its letter geometry",
+         "[video][transitions]")
+{
+    // What vegas220.exe feeds its transition thumbnails (MARKDOWN/TRANSITIONS_VEGAS22_AUDIT.md):
+    // flat #467d96 behind "A", flat #8cb7ca behind "B", a white #fbfbfb letter whose
+    // outline is 58.3% of the frame height, vertically centred, and horizontally where
+    // VEGAS's own bitmaps put it (0.499 and 0.509 of the width). With no plug-in a
+    // transition with no renderer cross-fades, so progress 0 shows A alone and
+    // progress 1 shows B alone.
+    ensureQtGuiApp();
+    const TransitionInstance none;
+    struct Card {
+        double progress;
+        QRgb background;
+        double centreX;
+    };
+    // The offscreen platform on Windows ships no fonts, and every glyph then comes out as
+    // the missing-glyph box — which has the right height and would pass the geometry
+    // checks below for the wrong reason.
+    const bool haveFonts = !QFontDatabase::families().isEmpty();
+    if (!haveFonts) {
+        WARN("no fonts on this platform: checking the cards' colours only");
+    }
+    for (const QSize size : {QSize(400, 240), QSize(130, 78)}) {
+        for (const Card card : {Card{0.0, qRgb(0x46, 0x7d, 0x96), 0.499},
+                                Card{1.0, qRgb(0x8c, 0xb7, 0xca), 0.509}}) {
+            const QImage img = renderTransitionPreview(none, size, card.progress)
+                                   .convertToFormat(QImage::Format_RGB32);
+            if (const QByteArray dump = qgetenv("OPENVGAS_DUMP_PREVIEW"); !dump.isEmpty()) {
+                img.save(QStringLiteral("%1/card_%2_%3.png")
+                             .arg(QString::fromLocal8Bit(dump))
+                             .arg(card.progress == 0.0 ? 'A' : 'B')
+                             .arg(size.width()));
+            }
+            CHECK(img.pixel(0, 0) == card.background);
+            CHECK(img.pixel(size.width() - 1, size.height() - 1) == card.background);
+
+            if (!haveFonts) {
+                continue;
+            }
+            int top = size.height(), bottom = -1, left = size.width(), right = -1, white = 0;
+            for (int y = 0; y < size.height(); ++y) {
+                for (int x = 0; x < size.width(); ++x) {
+                    const QRgb c = img.pixel(x, y);
+                    if (qRed(c) > 200 && qGreen(c) > 200 && qBlue(c) > 200) {
+                        top = std::min(top, y);
+                        bottom = std::max(bottom, y);
+                        left = std::min(left, x);
+                        right = std::max(right, x);
+                        ++white;
+                    }
+                }
+            }
+            REQUIRE(bottom >= top);
+            // A letter covers well under its box; the missing-glyph box covers all of it.
+            CHECK(double(white) / ((right - left + 1) * (bottom - top + 1)) < 0.75);
+            const double h = size.height();
+            const double w = size.width();
+            CHECK((bottom - top + 1) / h == Catch::Approx(0.583).margin(2.0 / h));
+            CHECK((top + bottom) / 2.0 / h == Catch::Approx(0.5).margin(2.0 / h));
+            // Side bearings differ a little between faces; a pixel or 1% either way.
+            CHECK((left + right) / 2.0 / w
+                  == Catch::Approx(card.centreX).margin(std::max(2.0, 0.01 * w) / w));
+        }
+    }
 }
 
 TEST_CASE("Every transition offers the presets VEGAS ships", "[video][transitions]")
