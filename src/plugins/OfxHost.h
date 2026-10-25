@@ -76,6 +76,20 @@ struct OfxPluginDesc {
     QString archNote;
 };
 
+/** One parameter as an effect declared it — everything a host needs to lay out its control. */
+struct OfxParamDescriptor {
+    QString name;
+    QString type;   ///< kOfxParamType… ("OfxParamTypeDouble", "OfxParamTypeRGBA", …)
+    QString label;  ///< kOfxPropLabel
+    QString parent; ///< kOfxParamPropParent: the group it sits in, or empty
+    QString hint;   ///< kOfxParamPropHint
+    QVariantList defaultValue; ///< one entry per component; strings for string params
+    double min = 0.0, max = 0.0, displayMin = 0.0, displayMax = 0.0;
+    bool hasRange = false, hasDisplayRange = false;
+    QStringList choices; ///< kOfxParamPropChoiceOption
+    bool animates = true; ///< kOfxParamPropAnimates
+};
+
 /** What DescribeInContext made of one effect in one context. */
 struct OfxContextReport {
     QString context;   ///< the kOfxImageEffectContext… value asked for
@@ -83,6 +97,8 @@ struct OfxContextReport {
     int status = 0;    ///< the OfxStatus the plug-in returned
     QStringList clips; ///< clip names it defined, sorted
     QStringList params;
+    /** The same parameters in the order the effect defined them, with their properties. */
+    QVector<OfxParamDescriptor> descriptors;
 };
 
 /** One effect declared inside an .ofx binary, as the binary itself describes it. */

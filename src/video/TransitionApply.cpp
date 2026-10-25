@@ -2717,16 +2717,16 @@ PageAxis pageAxisFor(double angleDeg, const QSizeF &size)
 {
     PageAxis a;
     const double rad = angleDeg * M_PI / 180.0;
-    // y up, the ordinary mathematical convention — not screen coordinates.
+    // Screen coordinates, y down: the angle points at the corner being lifted, so the
+    // preset names read literally — "Top-Left" lifts the top-left corner first.
     //
-    // This used to negate nothing, on the reading that the angle names the corner being
-    // lifted in screen coordinates because that is what makes the preset names come out
-    // right ("Top-Left" lifting the top-left corner). Measured against the plug-in, it does
-    // not: for every one of the sixteen Peel and Roll presets, the corner of the incoming
-    // clip VEGAS uncovers first is the one this convention gives, and the horizontal half
-    // was never in dispute — only the vertical. The names, then, say where the page is
-    // going rather than which corner comes up. See MARKDOWN/CHECKLIST.md.
-    a.dir = QPointF(std::cos(rad), -std::sin(rad));
+    // For a while this read the angle with y up, after a comparison with the plug-in said the
+    // opposite corner came up first. That comparison was wrong, not the names: the host
+    // handed the plug-in its frames upside down (OFX images run bottom-up, QImage rows
+    // top-down), so every corner it uncovered was mirrored. With the host fixed, VEGAS's own
+    // Page Peel uncovers the top-left of "Top-Left, Medium Fold" first, the bottom-right of
+    // "Bottom-Right" and the bottom-left of Page Roll's "Bottom-Left". See MARKDOWN/CHECKLIST.md.
+    a.dir = QPointF(std::cos(rad), std::sin(rad));
     const QPointF corners[4] = {QPointF(0, 0), QPointF(size.width(), 0),
                                 QPointF(size.width(), size.height()), QPointF(0, size.height())};
     a.atCorner = -std::numeric_limits<double>::max();

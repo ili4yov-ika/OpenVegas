@@ -447,6 +447,8 @@ struct ParamRec {
     PropSet props;
     /** Parametric ("curve") params: curve index -> sorted control points (position, value). */
     std::map<int, std::vector<std::pair<double, double>>> curves;
+    /** Place in the order the effect defined its parameters — the order a panel shows them. */
+    int order = 0;
 };
 
 struct ClipRec {
@@ -746,9 +748,11 @@ void seedClipInstanceProps(PropSet *ps, double width, double height)
     // A VEGAS extension, asked for on every clip right before the images are fetched.
     // Our buffers really are RGBA, so this only writes down what the components property
     // already implies — but leaving it out made every render start with a failed lookup.
+    // (Not every VEGAS plug-in heeds it in 8-bit: Solid Color writes blue first whatever
+    // it is told, Test Pattern red first. See OfxGeneratorSource.)
     setString(ps, kOfxImageEffectPropPixelOrder, 0, kOfxImagePixelOrderRGBA);
     setString(ps, kOfxImageEffectPropPixelDepth, 0, kOfxBitDepthByte);
-    setString(ps, kOfxImageEffectPropPreMultiplication, 0, kOfxImageUnPreMultiplied);
+    setString(ps, kOfxImageEffectPropPreMultiplication, 0, kOfxImagePreMultiplied);
     setString(ps, kOfxImageClipPropUnmappedComponents, 0, kOfxImageComponentRGBA);
     setString(ps, kOfxImageClipPropUnmappedPixelDepth, 0, kOfxBitDepthByte);
     setString(ps, kOfxImageClipPropFieldOrder, 0, kOfxImageFieldNone);
@@ -1152,6 +1156,47 @@ std::atomic<int> g_currentRenderHeight{0};
  */
 constexpr int kMinRowsPerRenderThread = 64;
 
+/** `img` with its rows in the opposite order: the bottom-up layout OFX images use. */
+QImage flippedVertically(const QImage &img)
+{
+    QImage out(img.size(), img.format());
+    const int h = img.height();
+    const qsizetype n = std::min(img.bytesPerLine(), out.bytesPerLine());
+    for (int y = 0; y < h; ++y) {
+        std::memcpy(out.scanLine(y), img.constScanLine(h - 1 - y), size_t(n));
+    }
+    return out;
+}
+
+/**
+ * Set for the length of one render of an effect that must get its frame as one band (see
+ * renderWholeFrame()): multiThread() then calls its function once, as on one thread.
+ */
+std::atomic<bool> g_renderWholeFrame{false};
+
+/**
+ * Whether an effect's multiThread() must hand it the whole frame in one call.
+ *
+ * VEGAS's generators thread themselves — Test Pattern runs OpenMP inside its render — and
+ * fail when split into bands: Noise Texture corrupted the heap with two bands running (a
+ * GlobalFree in A_Buffer::operator= on the other band's block), Test Pattern faulted inside
+ * its OpenMP workers with more than one band, even when the bands ran one after another.
+ * Given the whole frame in one call, every stock preset of all four renders. Filters and
+ * transitions keep their bands.
+ */
+bool renderWholeFrame(const std::map<std::string, ClipRec> &clips)
+{
+    // Decided by what the instance has, not by the context its module was first described
+    // in: Test Pattern also accepts the filter context, and is still a generator with no
+    // source to read — an Output clip and nothing else.
+    for (const auto &kv : clips) {
+        if (kv.first != kOfxImageEffectOutputClipName) {
+            return false;
+        }
+    }
+    return true;
+}
+
 /**
  * Upper bound on threads we will spawn for a plug-in's multiThread() call.
  *
@@ -1186,7 +1231,8 @@ OfxStatus mtMultiThread(OfxThreadFunctionV1 func, unsigned int nThreads, void *c
     if (height > 0) {
         cap = std::min(cap, unsigned(std::max(1, height / kMinRowsPerRenderThread)));
     }
-    const unsigned int actual = std::clamp(nThreads, 1u, cap);
+    // A generator gets its whole frame as one band (see renderWholeFrame()).
+    const unsigned int actual = g_renderWholeFrame.load() ? 1u : std::clamp(nThreads, 1u, cap);
     OPENVEGAS_OFX_TRACE(QStringLiteral("  multiThread(nThreads=%1 -> %2, cap %3 for %4 rows)")
                             .arg(nThreads)
                             .arg(actual)
@@ -1449,7 +1495,11 @@ OfxStatus paramDefine(OfxParamSetHandle paramSet, const char *paramType, const c
     OPENVEGAS_OFX_TRACE(QStringLiteral("  paramDefine(%1, \"%2\")")
                             .arg(QString::fromUtf8(paramType ? paramType : ""),
                                  QString::fromUtf8(name ? name : "")));
+    const bool fresh = fx->params.find(name ? name : "") == fx->params.end();
     ParamRec &p = fx->params[name ? name : ""];
+    if (fresh) {
+        p.order = int(fx->params.size());
+    }
     p.name = name ? name : "";
     p.type = paramType ? paramType : "";
     p.value = 0.0;
@@ -2476,6 +2526,63 @@ QVector<OfxEffectSummary> OfxHost::enumerateEffects(const QString &binaryPath)
     return out;
 }
 
+namespace {
+
+/** A parameter's properties as the host's report shape (see OfxParamDescriptor). */
+OfxParamDescriptor paramDescriptorOf(const ParamRec &p)
+{
+    auto find = [&](const char *key) -> const PropValue * {
+        const auto it = p.props.props.find(key);
+        return it == p.props.props.end() ? nullptr : &it->second;
+    };
+    auto str = [&](const char *key) {
+        const PropValue *v = find(key);
+        return v && v->kind == PropValue::String && !v->strings.empty()
+                   ? QString::fromStdString(v->strings.front())
+                   : QString();
+    };
+    auto values = [&](const char *key) {
+        QVariantList out;
+        if (const PropValue *v = find(key)) {
+            if (v->kind == PropValue::Double) {
+                for (double d : v->doubles) out << d;
+            } else if (v->kind == PropValue::Int) {
+                for (int i : v->ints) out << i;
+            } else if (v->kind == PropValue::String) {
+                for (const std::string &t : v->strings) out << QString::fromStdString(t);
+            }
+        }
+        return out;
+    };
+    OfxParamDescriptor d;
+    d.name = QString::fromStdString(p.name);
+    d.type = QString::fromStdString(p.type);
+    d.label = str(kOfxPropLabel);
+    d.parent = str(kOfxParamPropParent);
+    d.hint = str(kOfxParamPropHint);
+    d.defaultValue = values(kOfxParamPropDefault);
+    const QVariantList mn = values(kOfxParamPropMin), mx = values(kOfxParamPropMax);
+    const QVariantList dmn = values(kOfxParamPropDisplayMin), dmx = values(kOfxParamPropDisplayMax);
+    if (!mn.isEmpty() && !mx.isEmpty()) {
+        d.hasRange = true;
+        d.min = mn.front().toDouble();
+        d.max = mx.front().toDouble();
+    }
+    if (!dmn.isEmpty() && !dmx.isEmpty()) {
+        d.hasDisplayRange = true;
+        d.displayMin = dmn.front().toDouble();
+        d.displayMax = dmx.front().toDouble();
+    }
+    for (const QVariant &c : values(kOfxParamPropChoiceOption)) {
+        d.choices << c.toString();
+    }
+    const QVariantList anim = values(kOfxParamPropAnimates);
+    d.animates = anim.isEmpty() || anim.front().toInt() != 0;
+    return d;
+}
+
+} // namespace
+
 QVector<OfxContextReport> OfxHost::describeContexts(const QString &binaryPath, int pluginIndex)
 {
     QVector<OfxContextReport> out;
@@ -2551,8 +2658,15 @@ QVector<OfxContextReport> OfxHost::describeContexts(const QString &binaryPath, i
             for (const auto &ckv : ctxFx.clips) {
                 rep.clips << QString::fromStdString(ckv.first);
             }
+            std::vector<const ParamRec *> ordered;
             for (const auto &pkv : ctxFx.params) {
                 rep.params << QString::fromStdString(pkv.first);
+                ordered.push_back(&pkv.second);
+            }
+            std::sort(ordered.begin(), ordered.end(),
+                      [](const ParamRec *a, const ParamRec *b) { return a->order < b->order; });
+            for (const ParamRec *p : ordered) {
+                rep.descriptors.push_back(paramDescriptorOf(*p));
             }
             rep.clips.sort();
             rep.params.sort();
@@ -3072,7 +3186,15 @@ bool OfxHost::processFrame(int instanceId, QImage *rgba, double timeSec, const Q
             }
         }
 
-        *rgba = rgba->convertToFormat(QImage::Format_RGBA8888);
+        // OFX images run bottom-up — row 0 of the data is the bottom of the frame — and a
+        // QImage runs top-down. Every buffer a plug-in sees is therefore the frame upside
+        // down, and what it writes is turned back afterwards. Handing over QImage rows as
+        // they are made every plug-in draw upside down: VEGAS's SMPTE bars came out with the
+        // castellations on top and Letterhead's band at the bottom, the opposite of VEGAS.
+        // Premultiplied, as VEGAS's own frames are: its generators write premultiplied
+        // pixels whatever the image says — a blind fading to transparent black wrote
+        // (122, 85, 73, 122) — so a buffer read as straight colour darkened every soft edge.
+        *rgba = flippedVertically(rgba->convertToFormat(QImage::Format_RGBA8888_Premultiplied));
         fx->frameImage = rgba;
         fx->width = rgba->width();
         fx->height = rgba->height();
@@ -3085,11 +3207,12 @@ bool OfxHost::processFrame(int instanceId, QImage *rgba, double timeSec, const Q
         // one: a plug-in reads both clips over the same render window.
         QImage toFrame;
         if (fx->transitionTo && !fx->transitionTo->isNull()) {
-            toFrame = fx->transitionTo->convertToFormat(QImage::Format_RGBA8888);
+            toFrame = fx->transitionTo->convertToFormat(QImage::Format_RGBA8888_Premultiplied);
             if (toFrame.size() != rgba->size()) {
                 toFrame = toFrame.scaled(rgba->size(), Qt::IgnoreAspectRatio,
                                          Qt::SmoothTransformation);
             }
+            toFrame = flippedVertically(toFrame);
         }
 
         auto fillImageProps = [&](PropSet *ps, const char *role, QImage *img) {
@@ -3121,7 +3244,7 @@ bool OfxHost::processFrame(int instanceId, QImage *rgba, double timeSec, const Q
             setString(ps, kOfxImageEffectPropComponents, 0, kOfxImageComponentRGBA);
             setString(ps, kOfxImageEffectPropPixelOrder, 0, kOfxImagePixelOrderRGBA);
             setString(ps, kOfxImageEffectPropPixelDepth, 0, kOfxBitDepthByte);
-            setString(ps, kOfxImageEffectPropPreMultiplication, 0, kOfxImageUnPreMultiplied);
+            setString(ps, kOfxImageEffectPropPreMultiplication, 0, kOfxImagePreMultiplied);
             setDouble(ps, kOfxImagePropPixelAspectRatio, 0, 1.0);
             setString(ps, kOfxImagePropField, 0, kOfxImageFieldNone);
         };
@@ -3192,12 +3315,41 @@ bool OfxHost::processFrame(int instanceId, QImage *rgba, double timeSec, const Q
                                 .arg(timeSec)
                                 .arg(rgba->width())
                                 .arg(rgba->height()));
+        // Every render is a sequence of one frame, opened and closed as the OFX spec has a
+        // host do. Plug-ins set up what their render threads share in BeginSequenceRender:
+        // VEGAS Noise Texture, rendered without it, built its buffers inside the threads and
+        // corrupted the heap as soon as two of them ran (a GlobalFree on the other's block).
+        PropSet seqArgs;
+        setDouble(&seqArgs, kOfxImageEffectPropFrameRange, 0, timeSec);
+        setDouble(&seqArgs, kOfxImageEffectPropFrameRange, 1, timeSec);
+        setDouble(&seqArgs, kOfxImageEffectPropFrameStep, 0, 1.0);
+        setInt(&seqArgs, kOfxPropIsInteractive, 0, 0);
+        setDouble(&seqArgs, kOfxImageEffectPropRenderScale, 0, 1.0);
+        setDouble(&seqArgs, kOfxImageEffectPropRenderScale, 1, 1.0);
+        setInt(&seqArgs, kOfxImageEffectPropSequentialRenderStatus, 0, 0);
+        setInt(&seqArgs, kOfxImageEffectPropInteractiveRenderStatus, 0, 0);
+        setInt(&seqArgs, kOfxImageEffectPropViewsToRender, 0, 1);
+        setInt(&seqArgs, kOfxImageEffectPropRenderView, 0, 0);
+        g_renderWholeFrame.store(renderWholeFrame(fx->clips));
+        const OfxStatus beginSt =
+            fx->module->plugin->mainEntry(kOfxImageEffectActionBeginSequenceRender,
+                                          reinterpret_cast<OfxImageEffectHandle>(fx.get()),
+                                          reinterpret_cast<OfxPropertySetHandle>(&seqArgs),
+                                          nullptr);
+        OPENVEGAS_OFX_TRACE(QStringLiteral("BeginSequenceRender -> status %1").arg(beginSt));
         OfxStatus st =
             fx->module->plugin->mainEntry(kOfxImageEffectActionRender,
                                           reinterpret_cast<OfxImageEffectHandle>(fx.get()),
                                           reinterpret_cast<OfxPropertySetHandle>(&inArgs),
                                           nullptr);
         OPENVEGAS_OFX_TRACE(QStringLiteral("Render -> status %1").arg(st));
+        g_renderWholeFrame.store(false);
+        if (statusOk(beginSt)) {
+            fx->module->plugin->mainEntry(kOfxImageEffectActionEndSequenceRender,
+                                          reinterpret_cast<OfxImageEffectHandle>(fx.get()),
+                                          reinterpret_cast<OfxPropertySetHandle>(&seqArgs),
+                                          nullptr);
+        }
 
         for (auto &ckv : fx->clips) {
             ckv.second.activeImage = nullptr;
@@ -3216,7 +3368,7 @@ bool OfxHost::processFrame(int instanceId, QImage *rgba, double timeSec, const Q
             return false;
         }
 
-        *rgba = rgba->convertToFormat(QImage::Format_ARGB32);
+        *rgba = flippedVertically(*rgba).convertToFormat(QImage::Format_ARGB32);
         if (errorOut) {
             errorOut->clear();
         }
@@ -3249,7 +3401,7 @@ bool OfxHost::processTransition(int instanceId, const QImage &from, const QImage
     // The outgoing clip is the output buffer's starting content, the same arrangement a
     // filter uses: the plug-in gets it as SourceFrom and writes over the output.
     const QSize size = !from.isNull() ? from.size() : to.size();
-    *out = (from.isNull() ? to : from).convertToFormat(QImage::Format_RGBA8888);
+    *out = (from.isNull() ? to : from).convertToFormat(QImage::Format_RGBA8888_Premultiplied);
     if (out->size() != size) {
         *out = out->scaled(size, Qt::IgnoreAspectRatio, Qt::SmoothTransformation);
     }

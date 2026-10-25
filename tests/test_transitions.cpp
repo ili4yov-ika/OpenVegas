@@ -671,7 +671,7 @@ TEST_CASE("Every group VEGAS ships presets for takes them from the package",
     }
 }
 
-TEST_CASE("A page uncovers the corner VEGAS uncovers, not the one it is named after",
+TEST_CASE("A page uncovers the corner it is named after, as VEGAS's does",
           "[video][transitions]")
 {
     const QSize size(80, 80);
@@ -687,33 +687,29 @@ TEST_CASE("A page uncovers the corner VEGAS uncovers, not the one it is named af
         return qGreen(renderTransition(a, b, 0.4, t).pixel(x, y)) > 150;
     };
 
-    // The angle is read with y up, the ordinary mathematical convention, so it points at
-    // the corner *opposite* the one the preset is named after: "Top-Left" uncovers the
-    // bottom-left first, "Bottom-Right" the top-right, "Top" the bottom edge.
-    //
-    // Measured, not reasoned. The names invite the opposite reading, and that is what this
-    // file asserted until the plug-in could be hosted and asked: over the sixteen Peel and
-    // Roll presets, the corner VEGAS uncovers first agrees with the convention used here
-    // and disagrees with the other one wherever the angle has a vertical component. Where
-    // it has none ("Left"), the two readings coincide.
-    CHECK(uncovered(transitionPagePeelId(), QStringLiteral("Top-Left, Medium Fold"), 4, 76));
+    // The angle is read in screen coordinates, so the preset names read literally:
+    // "Top-Left" lifts the top-left corner first, "Bottom-Right" the bottom-right, "Top"
+    // the top edge. For a while this file asserted the opposite vertical corner, measured
+    // against the plug-in through a host that handed it every frame upside down; with the
+    // host fixed, VEGAS's own pages uncover these corners (see the [ofx] test below).
+    CHECK(uncovered(transitionPagePeelId(), QStringLiteral("Top-Left, Medium Fold"), 4, 4));
     CHECK_FALSE(
-        uncovered(transitionPagePeelId(), QStringLiteral("Top-Left, Medium Fold"), 76, 4));
+        uncovered(transitionPagePeelId(), QStringLiteral("Top-Left, Medium Fold"), 76, 76));
 
-    CHECK(uncovered(transitionPagePeelId(), QStringLiteral("Bottom-Right, Medium Fold"), 76, 4));
+    CHECK(uncovered(transitionPagePeelId(), QStringLiteral("Bottom-Right, Medium Fold"), 76, 76));
     CHECK_FALSE(
-        uncovered(transitionPagePeelId(), QStringLiteral("Bottom-Right, Medium Fold"), 4, 76));
+        uncovered(transitionPagePeelId(), QStringLiteral("Bottom-Right, Medium Fold"), 4, 4));
 
-    CHECK(uncovered(transitionPageRollId(), QStringLiteral("Bottom-Left, Medium Curl"), 4, 4));
+    CHECK(uncovered(transitionPageRollId(), QStringLiteral("Bottom-Left, Medium Curl"), 4, 76));
     CHECK_FALSE(
-        uncovered(transitionPageRollId(), QStringLiteral("Bottom-Left, Medium Curl"), 76, 76));
+        uncovered(transitionPageRollId(), QStringLiteral("Bottom-Left, Medium Curl"), 76, 4));
 
     // An edge rather than a corner: "Top" lifts along the whole width at once, so both
-    // bottom corners go together and neither top one moves.
-    CHECK(uncovered(transitionPageLoopId(), QStringLiteral("Top, Large Loop, Red Light"), 4, 76));
-    CHECK(uncovered(transitionPageLoopId(), QStringLiteral("Top, Large Loop, Red Light"), 76, 76));
+    // top corners go together and neither bottom one moves.
+    CHECK(uncovered(transitionPageLoopId(), QStringLiteral("Top, Large Loop, Red Light"), 4, 4));
+    CHECK(uncovered(transitionPageLoopId(), QStringLiteral("Top, Large Loop, Red Light"), 76, 4));
     CHECK_FALSE(
-        uncovered(transitionPageLoopId(), QStringLiteral("Top, Large Loop, Red Light"), 40, 4));
+        uncovered(transitionPageLoopId(), QStringLiteral("Top, Large Loop, Red Light"), 40, 76));
 }
 
 TEST_CASE("Peel, roll and loop are three different things at the same angle",
@@ -1191,4 +1187,39 @@ TEST_CASE("The light colour of a hosted transition is a colour, not a shade of g
     INFO("red lean " << redLean << ", blue lean " << blueLean);
     CHECK(redLean > 0);
     CHECK(blueLean > 0);
+}
+
+TEST_CASE("A hosted page transition uncovers its named corner: frames reach it upright",
+          "[video][transitions][ofx]")
+{
+    // OFX images run bottom-up; a host that passes QImage rows as they are hands every
+    // plug-in its frame upside down, and whatever it draws comes back mirrored. Page
+    // transitions show it at once: the corner a preset is named after has to come up first.
+    ensureQtGuiApp();
+    const QString root =
+        SamplePaths::resolveProjectPath(QStringLiteral("SAMPLES/VEGAS-PRO-22-PROGRAM-FILES"));
+    if (!QDir(root).exists()) {
+        SKIP("SAMPLES/VEGAS-PRO-22-PROGRAM-FILES not available");
+    }
+    const QSize size(80, 80);
+    QImage a(size, QImage::Format_ARGB32_Premultiplied);
+    a.fill(QColor(0, 0, 0));
+    QImage b(size, QImage::Format_ARGB32_Premultiplied);
+    b.fill(QColor(0, 255, 0));
+    OfxTransitionSource::install({root});
+    auto uncovered = [&](const QString &id, const QString &preset, int x, int y) {
+        const TransitionInstance t = makeTransitionInstance(id, preset);
+        REQUIRE(t.isValid());
+        return qGreen(renderTransition(a, b, 0.4, t).pixel(x, y)) > 150;
+    };
+    CHECK(uncovered(transitionPagePeelId(), QStringLiteral("Top-Left, Medium Fold"), 4, 4));
+    CHECK_FALSE(
+        uncovered(transitionPagePeelId(), QStringLiteral("Top-Left, Medium Fold"), 4, 76));
+    CHECK(uncovered(transitionPagePeelId(), QStringLiteral("Bottom-Right, Medium Fold"), 76, 76));
+    CHECK_FALSE(
+        uncovered(transitionPagePeelId(), QStringLiteral("Bottom-Right, Medium Fold"), 76, 4));
+    CHECK(uncovered(transitionPageRollId(), QStringLiteral("Bottom-Left, Medium Curl"), 4, 76));
+    CHECK_FALSE(
+        uncovered(transitionPageRollId(), QStringLiteral("Bottom-Left, Medium Curl"), 4, 4));
+    OfxTransitionSource::uninstall();
 }
