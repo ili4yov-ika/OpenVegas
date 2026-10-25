@@ -2,7 +2,9 @@
 // Run through tools/run_ui_stubs_smoke.py with a MinGW/Ninja build.
 #include "app/MainWindow.h"
 #include "ui/ProjectPropertiesDialog.h"
+#include "ui/MediaGeneratorDialog.h"
 #include "ui/MediaGeneratorPane.h"
+#include "ui/VegasColorPicker.h"
 #include "ui/MixingConsoleWindow.h"
 #include "model/ProjectSnapshot.h"
 #include <QApplication>
@@ -187,6 +189,67 @@ int main(int argc, char **argv) {
                 }
             }
             require(seen == expected.size(), "Every generator is listed");
+        }
+        {
+            // The Video Media Generators window, once per non-text generator: it opens on an
+            // event placed from a preset, shows that preset, and an edit on its page lands
+            // in the event's slot.
+            std::cout << "Checking the Video Media Generators window\n";
+            const QStringList names = {QStringLiteral("Checkerboard"), QStringLiteral("Color Gradient"),
+                                       QStringLiteral("Credit Roll"), QStringLiteral("Noise Texture"),
+                                       QStringLiteral("Solid Color"), QStringLiteral("Test Pattern")};
+            ProjectModel genModel;
+            for (const QString &name : names) {
+                const int id = genModel.addMediaGeneratorEvent(name, QString());
+                require(id > 0, qPrintable(name + QStringLiteral(" event")));
+                TrackEvent *ev = genModel.findEvent(id);
+                MediaGeneratorDialog dlg;
+                dlg.setEvent(ev, 1920, 1080, 29.97);
+                dlg.show();
+                app.processEvents();
+                auto *preset = dlg.findChild<QComboBox *>();
+                require(preset && !preset->currentText().isEmpty(), "Generator window shows a preset");
+                auto *page = dlg.findChild<GeneratorPage *>();
+                require(page, qPrintable(name + QStringLiteral(" page")));
+                const QByteArray before = ev->fxChain.first().state;
+                // Any number on the page will do: type a new one and commit it.
+                bool edited = false;
+                for (QLineEdit *e : page->findChildren<QLineEdit *>()) {
+                    if (!e->isEnabled() || e->isReadOnly()) {
+                        continue;
+                    }
+                    bool ok = false;
+                    const double v = e->text().toDouble(&ok);
+                    if (!ok) {
+                        continue;
+                    }
+                    e->setText(QString::number(v > 0.5 ? v * 0.5 : v + 0.25, 'f', 3));
+                    emit e->editingFinished();
+                    edited = ev->fxChain.first().state != before;
+                    if (edited) {
+                        break;
+                    }
+                }
+                if (!edited) {
+                    // Solid Color and Test Pattern have no number: a colour or a choice instead.
+                    if (auto *picker = page->findChild<VegasColorPicker *>()) {
+                        picker->findChild<QLineEdit *>()->setText(QStringLiteral("0.2, 0.4, 0.6, 1.0"));
+                        emit picker->findChild<QLineEdit *>()->editingFinished();
+                    } else if (auto *combo = page->findChild<QComboBox *>()) {
+                        combo->setCurrentIndex((combo->currentIndex() + 1) % combo->count());
+                    }
+                    edited = ev->fxChain.first().state != before;
+                }
+                require(edited, qPrintable(name + QStringLiteral(": an edit reaches the event")));
+                if (const QByteArray dump = qgetenv("OPENVGAS_DUMP_GENERATORS"); !dump.isEmpty()) {
+                    for (VegasColorPicker *p : dlg.findChildren<VegasColorPicker *>()) {
+                        p->setExpanded(true);
+                    }
+                    dlg.resize(560, 900);
+                    app.processEvents();
+                    dlg.grab().save(QStringLiteral("%1/window_%2.png").arg(QString::fromLocal8Bit(dump), name));
+                }
+            }
         }
         require(QThreadPool::globalInstance()->waitForDone(10000), "Preview jobs finish before test teardown");
         std::cout << "UI smoke passed: " << checks << " checks\n";

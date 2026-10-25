@@ -9,6 +9,8 @@
 #include <QHash>
 #include <QSet>
 
+#include <cmath>
+
 #include <catch2/catch_approx.hpp>
 #include <catch2/catch_test_macros.hpp>
 
@@ -25,6 +27,39 @@ const QString kGeneratorsSample =
     QStringLiteral("project_media-generators-without-titles-and-text.veg");
 
 } // namespace
+
+/** Two stored values alike: numbers within 1e-6, lists and maps member by member. */
+static bool sameValue(const QVariant &a, const QVariant &b)
+{
+    if (a.typeId() == QMetaType::QVariantList || b.typeId() == QMetaType::QVariantList) {
+        const QVariantList x = a.toList(), y = b.toList();
+        if (x.size() != y.size()) {
+            return false;
+        }
+        for (int i = 0; i < x.size(); ++i) {
+            if (!sameValue(x[i], y[i])) {
+                return false;
+            }
+        }
+        return true;
+    }
+    if (a.typeId() == QMetaType::QVariantMap || b.typeId() == QMetaType::QVariantMap) {
+        const QVariantMap x = a.toMap(), y = b.toMap();
+        if (x.keys() != y.keys()) {
+            return false;
+        }
+        for (auto it = x.constBegin(); it != x.constEnd(); ++it) {
+            if (!sameValue(it.value(), y.value(it.key()))) {
+                return false;
+            }
+        }
+        return true;
+    }
+    if (a.typeId() == QMetaType::QString || b.typeId() == QMetaType::QString) {
+        return a.toString() == b.toString();
+    }
+    return std::abs(a.toDouble() - b.toDouble()) <= 1e-6;
+}
 
 TEST_CASE("Every event names the pool media its take plays", "[veg][generators]")
 {
@@ -76,7 +111,7 @@ TEST_CASE("Generated media come out of the pool with their generator and preset"
     CHECK(count.value(QStringLiteral("{8B5DEABC-53BD-49F6-9803-367478307A59}")) == 18);
     CHECK(count.value(QStringLiteral("{02FD3B60-986B-11D4-9F6F-00485481BD31}")) == 8);
 
-    // OFX generators bring their stored parameters; the legacy two only their preset name.
+    // OFX generators bring their OFX parameter record; the legacy two their own block.
     const VegPoolMedia *checker = first.value(QStringLiteral("{Svfx:com.vegascreativesoftware:checkerboard}"));
     REQUIRE(checker);
     CHECK(checker->presetName == QStringLiteral("(Default)"));
@@ -86,9 +121,29 @@ TEST_CASE("Generated media come out of the pool with their generator and preset"
     CHECK(credit->displayName == QStringLiteral("VEGAS Credit Roll"));
     CHECK(credit->presetName == QStringLiteral("Plain Scrolling on Black"));
     CHECK(credit->ofx.params.isEmpty());
+    // Scrolling credits, the text area a tenth in from each side, black behind, and the
+    // sample text VEGAS starts every credit roll with: a header (leading space), an item
+    // and two two-column lines.
+    CHECK(credit->legacyParams.value(QStringLiteral("Effect")).toInt() == 0);
+    CHECK(credit->legacyParams.value(QStringLiteral("Left")).toDouble() == Catch::Approx(0.1));
+    CHECK(credit->legacyParams.value(QStringLiteral("Right")).toDouble() == Catch::Approx(0.9));
+    CHECK(credit->legacyParams.value(QStringLiteral("Text")).toString()
+          == QStringLiteral(" Title Text\r\nSubitem Text\r\nItem Left\tItem Right\r\n"
+                            "Longer Item Left\tLonger Item Right\r\n"));
+    CHECK(credit->legacyParams.value(QStringLiteral("Styles")).toList().size() == 5);
     const VegPoolMedia *gradient = first.value(QStringLiteral("{8B5DEABC-53BD-49F6-9803-367478307A59}"));
     REQUIRE(gradient);
     CHECK(gradient->presetName == QStringLiteral("Linear White to Black"));
+    // Linear, white at the left edge to black at the right, across the middle.
+    CHECK(gradient->legacyParams.value(QStringLiteral("GradientType")).toInt() == 0);
+    const QVariantList points = gradient->legacyParams.value(QStringLiteral("Points")).toList();
+    REQUIRE(points.size() == 2);
+    CHECK(points[0].toMap().value(QStringLiteral("X")).toDouble() == Catch::Approx(0.0));
+    CHECK(points[1].toMap().value(QStringLiteral("X")).toDouble() == Catch::Approx(1.0));
+    CHECK(points[0].toMap().value(QStringLiteral("Color")).toList()
+          == QVariantList{1.0, 1.0, 1.0, 1.0});
+    CHECK(points[1].toMap().value(QStringLiteral("Color")).toList()
+          == QVariantList{0.0, 0.0, 0.0, 1.0});
 }
 
 TEST_CASE("Generator events import as generators, not as empty clips with effects",
@@ -179,8 +234,8 @@ TEST_CASE("The generator browser offers every preset VEGAS ships", "[veg][genera
     CHECK(sizes.value(QStringLiteral("Solid Color")) == 10);
     CHECK(sizes.value(QStringLiteral("Test Pattern")) == 10);
 
-    // A project made in VEGAS 22 uses no preset name the table lacks, and for the OFX
-    // generators the values VEGAS saved are the table's values.
+    // A project made in VEGAS 22 uses no preset name the table lacks, and the values VEGAS
+    // saved are the table's values — the OFX generators' records and the legacy two's blocks.
     const QString path = samplePath(kGeneratorsSample);
     if (!QFileInfo::exists(path)) {
         SKIP("sample project not available");
@@ -190,20 +245,14 @@ TEST_CASE("The generator browser offers every preset VEGAS ships", "[veg][genera
         INFO(m.generatorId.toStdString() << " / " << m.presetName.toStdString());
         const StockGeneratorPreset *stock = stockGeneratorPreset(m.generatorId, m.presetName);
         REQUIRE(stock);
-        const QVariantMap saved = vegOfxParamMap(m.ofx);
+        const QVariantMap saved = m.isLegacyGenerator() ? m.legacyParams : vegOfxParamMap(m.ofx);
+        if (m.isLegacyGenerator()) {
+            REQUIRE_FALSE(saved.isEmpty());
+        }
         for (auto it = stock->params.constBegin(); it != stock->params.constEnd(); ++it) {
             INFO("parameter " << it.key().toStdString());
             REQUIRE(saved.contains(it.key()));
-            const QVariantList want = it.value().toList();
-            if (want.isEmpty()) {
-                CHECK(saved.value(it.key()).toDouble() == Catch::Approx(it.value().toDouble()).margin(1e-6));
-            } else {
-                const QVariantList got = saved.value(it.key()).toList();
-                REQUIRE(got.size() == want.size());
-                for (int k = 0; k < want.size(); ++k) {
-                    CHECK(got[k].toDouble() == Catch::Approx(want[k].toDouble()).margin(1e-6));
-                }
-            }
+            CHECK(sameValue(saved.value(it.key()), it.value()));
         }
     }
 }

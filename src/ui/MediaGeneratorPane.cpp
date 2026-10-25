@@ -1,5 +1,7 @@
 #include "ui/MediaGeneratorPane.h"
 
+#include "video/VegasGenerators.h"
+
 #include "io/MediaMime.h"
 #include "video/GeneratorPresetData.h"
 #include "video/MediaGeneratorApply.h"
@@ -19,6 +21,7 @@
 #include <QListView>
 #include <QMimeData>
 #include <QMouseEvent>
+#include <QHash>
 #include <QPainter>
 #include <QPersistentModelIndex>
 #include <QPixmap>
@@ -250,6 +253,7 @@ void MediaGeneratorPane::loadCatalog()
                 mediaGeneratorFromVegas(group.pluginId, stock.name, stock.params);
             Preset preset = makePreset(stock.name, gp.pattern, gp.c0, gp.c1, gp.tile);
             preset.vegasPluginId = group.pluginId;
+            preset.vegasParams = stock.params;
             p.presets.push_back(preset);
         }
         add(std::move(p));
@@ -631,14 +635,34 @@ QIcon MediaGeneratorPane::presetIcon(const Preset &p, double progress) const
         return QIcon(QPixmap::fromImage(img));
     }
 
-    // Same renderer the timeline uses for the real event (video/MediaGeneratorApply.h) —
-    // the thumbnail is guaranteed to match what a drag/drop actually produces.
-    MediaGeneratorParams gp;
-    gp.pattern = p.pattern;
+    // Drawn the way the placed event is (renderMediaGenerator(): VEGAS's own plug-in when
+    // installed, else our renderers), from the preset's VEGAS values — so every preset shows
+    // its own picture, as in VEGAS, rather than one stand-in pattern per generator. Drawn
+    // at four times the size and reduced, so thin tiles and small credit text survive, and
+    // over a checkerboard where the preset is transparent, as VEGAS shows it.
+    static QHash<QString, QPixmap> cache;
+    const QString key = p.vegasPluginId + QLatin1Char('|') + p.name;
+    if (const auto it = cache.constFind(key); it != cache.constEnd()) {
+        return QIcon(it.value());
+    }
+    const QSize thumb(100, 62);
+    const QSize big = thumb * 4;
+    MediaGeneratorParams gp = mediaGeneratorFromVegas(p.vegasPluginId, p.name, p.vegasParams);
     gp.c0 = p.c0;
     gp.c1 = p.c1;
+    gp.pattern = p.pattern;
     gp.tile = p.tile;
-    const QImage img = renderMediaGeneratorPattern(gp, QSize(100, 62));
+    QImage drawn = p.vegasPluginId.compare(QLatin1String("{02FD3B60-986B-11D4-9F6F-00485481BD31}"),
+                                           Qt::CaseInsensitive) == 0
+                       ? renderCreditRollStill(p.vegasParams, big)
+                       : renderMediaGenerator(gp, big);
+    QImage img = checkerboardBackground(thumb);
+    {
+        QPainter compositor(&img);
+        compositor.setRenderHint(QPainter::SmoothPixmapTransform, true);
+        compositor.drawImage(QRect(QPoint(0, 0), thumb),
+                             drawn.scaled(thumb, Qt::IgnoreAspectRatio, Qt::SmoothTransformation));
+    }
     QPixmap pm = QPixmap::fromImage(img);
 
     QPainter painter(&pm);
@@ -647,6 +671,7 @@ QIcon MediaGeneratorPane::presetIcon(const Preset &p, double progress) const
     painter.setBrush(Qt::NoBrush);
     painter.drawRect(0, 0, 99, 61);
     painter.end();
+    cache.insert(key, pm);
     return QIcon(pm);
 }
 

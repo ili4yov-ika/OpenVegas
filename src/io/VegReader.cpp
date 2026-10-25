@@ -1,4 +1,5 @@
 #include "io/VegReader.h"
+#include "io/VegLegacyGenerators.h"
 
 #include "io/VegRiff.h"
 #include "video/VideoKeyframeEval.h"
@@ -2489,9 +2490,15 @@ void VegReader::parseMediaPool(const QByteArray &data, VegOpenResult *result)
             }
         } else if (media.isLegacyGenerator() && displayIndex >= 0
                    && displayIndex + 1 < strings.size()) {
-            // The preset's name follows the display name; the parameters after it are not
-            // decoded, so the name is what can honestly be carried over.
+            // The preset's name follows the display name, and the plug-in's parameter block
+            // follows the name's terminator.
             media.presetName = strings[displayIndex + 1];
+            const int bodyStart =
+                stringOffsets[displayIndex + 1] + 2 * (media.presetName.size() + 1);
+            if (bodyStart < c.end) {
+                media.legacyParams = vegLegacyGeneratorParams(
+                    media.generatorId, data.mid(bodyStart, c.end - bodyStart));
+            }
         }
         if (media.path.isEmpty() && media.generatorId.isEmpty()) {
             continue; // nothing recognisable; better to omit than to invent an entry

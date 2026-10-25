@@ -23,53 +23,13 @@ QStringList g_preferredRoots;
 QStringList g_binaries;
 bool g_binariesScanned = false;
 
-/**
- * Every OFX bundle this machine has, in the order the plug-in search offers them.
- *
- * The search is the one the effect catalog already does — no second idea of where VEGAS
- * is — and it can turn up more than one install. That matters: a 2013 VEGAS has a Vfx1
- * too, and it does not carry the transition effects at all, so taking the first bundle
- * found would hand every transition to the oldest VEGAS on the machine. Every bundle is
- * listed, not just Vfx1, because a group can live elsewhere and a third-party transition
- * would live somewhere else entirely; Vfx1 is merely tried first, since all of VEGAS's
- * own groups are in it.
- */
 QStringList transitionBinaries()
 {
     if (g_binariesScanned) {
         return g_binaries;
     }
     g_binariesScanned = true;
-    QStringList roots = g_preferredRoots;
-    roots += PluginScanner().candidateRoots();
-    for (const QString &root : roots) {
-        for (const QString &sub : {QStringLiteral("OFX Video Plug-Ins"), QString()}) {
-            const QDir dir = sub.isEmpty() ? QDir(root) : QDir(QDir(root).filePath(sub));
-            if (!dir.exists()) {
-                continue;
-            }
-            // Vfx1 first: every one of VEGAS's own transition groups is in it, so the
-            // common case does not pay for opening the other bundles at all.
-            QStringList bundles = dir.entryList({QStringLiteral("*.ofx.bundle")}, QDir::Dirs);
-            std::stable_sort(bundles.begin(), bundles.end(),
-                             [](const QString &a, const QString &b) {
-                                 const bool av = a.startsWith(QStringLiteral("Vfx1"));
-                                 const bool bv = b.startsWith(QStringLiteral("Vfx1"));
-                                 return av && !bv;
-                             });
-            for (const QString &bundle : bundles) {
-                const QString name = bundle.section(QLatin1Char('.'), 0, 0);
-                for (const QString &arch : OfxHost::supportedArchFolderNames()) {
-                    const QString binary = dir.filePath(
-                        bundle + QStringLiteral("/Contents/") + arch + QLatin1Char('/') + name
-                        + QStringLiteral(".ofx"));
-                    if (QFileInfo::exists(binary) && !g_binaries.contains(binary)) {
-                        g_binaries << binary;
-                    }
-                }
-            }
-        }
-    }
+    g_binaries = vegasOfxBundleBinaries(g_preferredRoots);
     return g_binaries;
 }
 
@@ -177,6 +137,53 @@ bool renderThroughPlugin(const QString &groupKey, const QImage &from, const QIma
 }
 
 } // namespace
+
+/**
+ * Every OFX bundle this machine has, in the order the plug-in search offers them.
+ *
+ * The search is the one the effect catalog already does — no second idea of where VEGAS
+ * is — and it can turn up more than one install. That matters: a 2013 VEGAS has a Vfx1
+ * too, and it does not carry the transition effects at all, so taking the first bundle
+ * found would hand every transition to the oldest VEGAS on the machine. Every bundle is
+ * listed, not just Vfx1, because a group can live elsewhere and a third-party transition
+ * would live somewhere else entirely; Vfx1 is merely tried first, since all of VEGAS's
+ * own groups and generators are in it.
+ */
+QStringList vegasOfxBundleBinaries(const QStringList &preferredRoots)
+{
+    QStringList binaries;
+    QStringList roots = preferredRoots;
+    roots += PluginScanner().candidateRoots();
+    for (const QString &root : roots) {
+        for (const QString &sub : {QStringLiteral("OFX Video Plug-Ins"), QString()}) {
+            const QDir dir = sub.isEmpty() ? QDir(root) : QDir(QDir(root).filePath(sub));
+            if (!dir.exists()) {
+                continue;
+            }
+            // Vfx1 first: every one of VEGAS's own groups is in it, so the common case does
+            // not pay for opening the other bundles at all.
+            QStringList bundles = dir.entryList({QStringLiteral("*.ofx.bundle")}, QDir::Dirs);
+            std::stable_sort(bundles.begin(), bundles.end(),
+                             [](const QString &a, const QString &b) {
+                                 const bool av = a.startsWith(QStringLiteral("Vfx1"));
+                                 const bool bv = b.startsWith(QStringLiteral("Vfx1"));
+                                 return av && !bv;
+                             });
+            for (const QString &bundle : bundles) {
+                const QString name = bundle.section(QLatin1Char('.'), 0, 0);
+                for (const QString &arch : OfxHost::supportedArchFolderNames()) {
+                    const QString binary = dir.filePath(
+                        bundle + QStringLiteral("/Contents/") + arch + QLatin1Char('/') + name
+                        + QStringLiteral(".ofx"));
+                    if (QFileInfo::exists(binary) && !binaries.contains(binary)) {
+                        binaries << binary;
+                    }
+                }
+            }
+        }
+    }
+    return binaries;
+}
 
 void OfxTransitionSource::install(const QStringList &preferredRoots)
 {

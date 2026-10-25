@@ -996,6 +996,13 @@ public:
      */
     int addTitlesTextEvent(const QString &animationKey = QString(),
                            const QString &sampleText = QString());
+    /**
+     * Create a non-text Media Generator event (Checkerboard, Color Gradient, …) from one
+     * of VEGAS's presets, at the playhead on the first video track (created if absent),
+     * ten seconds long as VEGAS makes it. Returns the new event's id, or -1 when the
+     * generator or preset is unknown.
+     */
+    int addMediaGeneratorEvent(const QString &generatorName, const QString &presetName);
     bool removeTrackIfEmpty(int trackIndex);
     bool removeEvent(int eventId);
     /** Remove event; if grouped and grouping is honored, removes the whole group. */

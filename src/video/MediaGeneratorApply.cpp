@@ -1,5 +1,7 @@
 #include "video/MediaGeneratorApply.h"
+#include "video/GeneratorPluginHook.h"
 #include "video/GeneratorPresetData.h"
+#include "video/VegasGenerators.h"
 
 #include <QDataStream>
 #include <QHash>
@@ -165,6 +167,47 @@ QImage renderMediaGeneratorPattern(const MediaGeneratorParams &p, const QSize &s
 
     painter.end();
     return img;
+}
+
+QString mediaGeneratorVegasId(const MediaGeneratorParams &p)
+{
+    if (!p.vegasPluginId.isEmpty()) {
+        return p.vegasPluginId;
+    }
+    for (const StockGeneratorGroup &g : stockGeneratorPresets()) {
+        if (g.name.compare(p.pluginName, Qt::CaseInsensitive) == 0) {
+            return g.pluginId;
+        }
+    }
+    return {};
+}
+
+QImage renderMediaGenerator(const MediaGeneratorParams &p, const QSize &size, double timeSec,
+                            double lengthSec)
+{
+    const QString id = mediaGeneratorVegasId(p);
+    QVariantMap params = p.vegasParams;
+    if (params.isEmpty() && !id.isEmpty()) {
+        // A slot from before the VEGAS values were kept: the generator's own default.
+        if (const StockGeneratorGroup *g = stockGeneratorGroup(id); g && !g->presets.isEmpty()) {
+            const StockGeneratorPreset *named = stockGeneratorPreset(id, p.vegasPreset);
+            params = named ? named->params : g->presets.first().params;
+        }
+    }
+    if (id.startsWith(QLatin1String("{Svfx:"), Qt::CaseInsensitive)) {
+        const QString key = id.mid(6, id.size() - 7).section(QLatin1Char(':'), 1);
+        QImage drawn;
+        if (generatorPluginRender(key, params, timeSec, size, &drawn) && !drawn.isNull()) {
+            return drawn;
+        }
+    }
+    if (isVegasGeneratorId(id)) {
+        const QImage own = renderVegasGenerator(id, params, size, timeSec, lengthSec);
+        if (!own.isNull()) {
+            return own;
+        }
+    }
+    return renderMediaGeneratorPattern(p, size);
 }
 
 MediaGeneratorParams mediaGeneratorFromVegas(const QString &vegasPluginId, const QString &presetName,

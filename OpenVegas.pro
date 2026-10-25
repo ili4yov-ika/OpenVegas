@@ -77,6 +77,10 @@ HEADERS += \
     src/ui/CollapsibleSection.h \
     src/ui/ColorPickerWidget.h \
     src/ui/TitlesTextEditorDialog.h \
+    src/ui/MediaGeneratorDialog.h \
+    src/ui/ColorGradientPage.h \
+    src/ui/CreditRollPage.h \
+    src/ui/VegasColorPicker.h \
     src/ui/ContextMenuBuilder.h \
     src/ui/FadeCurvePopup.h \
     src/ui/ExplorerPane.h \
@@ -111,6 +115,7 @@ HEADERS += \
     src/model/ProjectSnapshot.h \
     src/model/SnapshotCommand.h \
     src/io/VegReader.h \
+    src/io/VegLegacyGenerators.h \
     src/io/VegOfxParams.h \
     src/io/VegRiffWriter.h \
     src/io/ProjectInterchange.h \
@@ -140,6 +145,7 @@ HEADERS += \
     src/plugins/OfxHost.h \
     src/plugins/FxParamCurves.h \
     src/plugins/OfxTransitionSource.h \
+    src/plugins/OfxGeneratorSource.h \
     src/plugins/OfxTrace.h \
     src/plugins/OfxPluginPaths.h \
     src/plugins/OfxVegasExtensions.h \
@@ -168,9 +174,12 @@ HEADERS += \
     src/video/TitlesTextApply.h \
     src/video/MediaGeneratorApply.h \
     src/video/GeneratorPresetData.h \
+    src/video/GeneratorParamSchema.h \
     src/video/TransitionApply.h \
     src/video/TransitionPresetData.h \
     src/video/TransitionPluginHook.h \
+    src/video/GeneratorPluginHook.h \
+    src/video/VegasGenerators.h \
     src/video/VideoCompositor.h \
     src/video/NestedFrameHook.h \
     src/video/NestedProjectSource.h
@@ -201,6 +210,10 @@ SOURCES += \
     src/ui/CollapsibleSection.cpp \
     src/ui/ColorPickerWidget.cpp \
     src/ui/TitlesTextEditorDialog.cpp \
+    src/ui/MediaGeneratorDialog.cpp \
+    src/ui/ColorGradientPage.cpp \
+    src/ui/CreditRollPage.cpp \
+    src/ui/VegasColorPicker.cpp \
     src/ui/ContextMenuBuilder.cpp \
     src/ui/FadeCurvePopup.cpp \
     src/ui/ExplorerPane.cpp \
@@ -233,6 +246,7 @@ SOURCES += \
     src/model/ProjectSnapshot.cpp \
     src/model/SnapshotCommand.cpp \
     src/io/VegReader.cpp \
+    src/io/VegLegacyGenerators.cpp \
     src/io/VegOfxParams.cpp \
     src/io/VegRiffWriter.cpp \
     src/io/ProjectInterchange.cpp \
@@ -261,6 +275,7 @@ SOURCES += \
     src/plugins/OfxHost.cpp \
     src/plugins/FxParamCurves.cpp \
     src/plugins/OfxTransitionSource.cpp \
+    src/plugins/OfxGeneratorSource.cpp \
     src/plugins/OfxTrace.cpp \
     src/plugins/OfxPluginPaths.cpp \
     src/plugins/BuiltinAudioCatalog.cpp \
@@ -287,9 +302,12 @@ SOURCES += \
     src/video/TitlesTextApply.cpp \
     src/video/MediaGeneratorApply.cpp \
     src/video/GeneratorPresetData.cpp \
+    src/video/GeneratorParamSchema.cpp \
     src/video/TransitionApply.cpp \
     src/video/TransitionPresetData.cpp \
     src/video/TransitionPluginHook.cpp \
+    src/video/GeneratorPluginHook.cpp \
+    src/video/VegasGenerators.cpp \
     src/video/VideoCompositor.cpp \
     src/video/NestedFrameHook.cpp \
     src/video/NestedProjectSource.cpp

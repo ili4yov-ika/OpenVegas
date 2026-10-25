@@ -5,6 +5,12 @@
 namespace openvegas {
 
 /**
+ * The binaries of every OFX bundle found, `preferredRoots` first, then the plug-in
+ * search's roots — Vfx1 first in each. Shared by the transition and generator sources.
+ */
+QStringList vegasOfxBundleBinaries(const QStringList &preferredRoots);
+
+/**
  * Draws transitions with VEGAS's own OFX plug-ins instead of the built-in geometry.
  *
  * Installs itself as the provider behind `video/TransitionPluginHook.h`, which is how the

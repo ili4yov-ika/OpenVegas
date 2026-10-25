@@ -62,6 +62,22 @@ struct MediaGeneratorParams {
 QImage renderMediaGeneratorPattern(const MediaGeneratorParams &p, const QSize &size);
 
 /**
+ * One frame of the generator, drawn the way VEGAS draws it.
+ *
+ * VEGAS's own OFX plug-in when one is installed (GeneratorPluginHook), else our renderers
+ * (VegasGenerators) from the values VEGAS stores — the slot's, or the generator's
+ * "(Default)"/first stock preset for a slot that predates them. Only a slot naming no VEGAS
+ * generator at all falls back to the stand-in pattern above.
+ *
+ * @param timeSec, lengthSec  the frame's place in the event (Credit Roll moves)
+ */
+QImage renderMediaGenerator(const MediaGeneratorParams &p, const QSize &size, double timeSec = 0.0,
+                            double lengthSec = 10.0);
+
+/** The VEGAS id behind a slot: its own, or the stock group of the same name. */
+QString mediaGeneratorVegasId(const MediaGeneratorParams &p);
+
+/**
  * A VEGAS generator — its id, preset and stored values — as params for this renderer.
  *
  * The one place both the .veg importer and the generator browser go through, so a preset

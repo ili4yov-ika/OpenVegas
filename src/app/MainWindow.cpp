@@ -25,6 +25,7 @@
 #include "ui/ExtractAudioFromCdDialog.h"
 #include "ui/RateSlider.h"
 #include "ui/VideoEventFxDialogExact.h"
+#include "ui/MediaGeneratorDialog.h"
 #include "ui/TitlesTextEditorDialog.h"
 #include "ui/TransitionPropertiesDialog.h"
 #include "ui/VideoTrackFxDialog.h"
@@ -1967,7 +1968,7 @@ void MainWindow::setupMediaGenerator()
             createTitlesTextEvent();
             return;
         }
-        statusBar()->showMessage(tr("Media Generator: %1").arg(name), 2500);
+        createMediaGeneratorEvent(name, QString());
     });
     connect(m_mediaGen, &MediaGeneratorPane::presetActivated, this,
             [this](const QString &gen, const QString &preset, const QString &animationKey) {
@@ -1975,7 +1976,7 @@ void MainWindow::setupMediaGenerator()
                     createTitlesTextEvent(animationKey, preset);
                     return;
                 }
-                statusBar()->showMessage(tr("Preset «%1» — %2").arg(preset, gen), 2500);
+                createMediaGeneratorEvent(gen, preset);
             });
 }
 
@@ -2397,7 +2398,7 @@ void MainWindow::setupTimeline()
     connect(m_timeline, &TimelineView::eventDoubleClicked, this, &MainWindow::openEventProperties);
     connect(m_timeline, &TimelineView::eventContextMenuRequested, this, &MainWindow::showEventContextMenu);
     connect(m_timeline, &TimelineView::eventGeneratorRequested, this, [this](int eventId) {
-        openTitlesTextEditor(m_project.findEvent(eventId));
+        openGeneratorEditor(m_project.findEvent(eventId));
     });
     connect(m_timeline, &TimelineView::eventFxRequested, this, [this](int eventId) {
         TrackEvent *ev = m_project.findEvent(eventId);
@@ -4398,6 +4399,64 @@ void MainWindow::openTitlesTextEditor(TrackEvent *ev)
     }
 }
 
+void MainWindow::openGeneratorEditor(TrackEvent *ev)
+{
+    if (!ev || ev->fxChain.isEmpty()) {
+        return;
+    }
+    if (isMediaGeneratorPluginId(ev->fxChain.first().pluginId)) {
+        openMediaGeneratorEditor(ev);
+    } else {
+        openTitlesTextEditor(ev);
+    }
+}
+
+void MainWindow::openMediaGeneratorEditor(TrackEvent *ev)
+{
+    if (!ev) {
+        return;
+    }
+    if (!m_mediaGeneratorEditor) {
+        m_mediaGeneratorEditor = new MediaGeneratorDialog(this);
+        connect(m_mediaGeneratorEditor, &MediaGeneratorDialog::previewInvalidated, this, [this] {
+            refreshPreviewFrame(m_project.playheadSec());
+            if (m_timeline) {
+                m_timeline->update();
+            }
+        });
+        connect(m_mediaGeneratorEditor, &MediaGeneratorDialog::durationChanged, this, [this] {
+            if (m_timeline) {
+                m_timeline->update();
+            }
+        });
+        connect(m_mediaGeneratorEditor, &QDialog::finished, this,
+                [this](int) { commitDocumentEdit(tr("Media Generator")); });
+    } else if (m_mediaGeneratorEditor->isVisible()) {
+        commitDocumentEdit(tr("Media Generator"));
+    }
+    beginDocumentEdit();
+    m_mediaGeneratorEditor->setEvent(ev, m_project.frameWidth(), m_project.frameHeight(),
+                                     m_project.frameRate());
+    m_mediaGeneratorEditor->show();
+    m_mediaGeneratorEditor->raise();
+    m_mediaGeneratorEditor->activateWindow();
+}
+
+void MainWindow::createMediaGeneratorEvent(const QString &generatorName, const QString &presetName)
+{
+    // As VEGAS does on a double-click in the Media Generators window: the preset goes onto
+    // the timeline at the cursor and its window opens on it.
+    int newEventId = -1;
+    runDocumentEdit(tr("Add Media Generator"), [&]() {
+        newEventId = m_project.addMediaGeneratorEvent(generatorName, presetName);
+    });
+    refreshTimeline();
+    if (TrackEvent *ev = m_project.findEvent(newEventId)) {
+        refreshPreviewFrame(m_project.playheadSec());
+        openMediaGeneratorEditor(ev);
+    }
+}
+
 void MainWindow::createTitlesTextEvent(const QString &animationKey, const QString &sampleText)
 {
     int newEventId = -1;
@@ -4794,6 +4853,10 @@ void MainWindow::openEventProperties(int eventId)
     }
     if (!ev->fxChain.isEmpty() && isTitlesTextName(ev->fxChain.first().displayName)) {
         openTitlesTextEditor(ev);
+        return;
+    }
+    if (!ev->fxChain.isEmpty() && isMediaGeneratorPluginId(ev->fxChain.first().pluginId)) {
+        openMediaGeneratorEditor(ev);
         return;
     }
     EventPropertiesDialog dlg(this);

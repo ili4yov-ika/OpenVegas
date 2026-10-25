@@ -247,6 +247,8 @@ struct VegPoolMedia {
     QString presetName;
     /** An OFX generator's stored parameters; empty for files and legacy generators. */
     VegOfxEffect ofx;
+    /** A legacy generator's stored parameters (vegLegacyGeneratorParams()); empty otherwise. */
+    QVariantMap legacyParams;
 
     bool isGenerated() const { return !generatorId.isEmpty(); }
     bool isLegacyGenerator() const

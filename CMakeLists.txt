@@ -59,6 +59,10 @@ endif()
     src/ui/CollapsibleSection.cpp
     src/ui/ColorPickerWidget.cpp
     src/ui/TitlesTextEditorDialog.cpp
+    src/ui/MediaGeneratorDialog.cpp
+    src/ui/ColorGradientPage.cpp
+    src/ui/CreditRollPage.cpp
+    src/ui/VegasColorPicker.cpp
     src/ui/ContextMenuBuilder.cpp
     src/ui/FadeCurvePopup.cpp
     src/ui/ExplorerPane.cpp
@@ -85,6 +89,7 @@ endif()
     src/model/ProjectSnapshot.cpp
     src/model/SnapshotCommand.cpp
     src/io/VegReader.cpp
+    src/io/VegLegacyGenerators.cpp
     src/io/VegRiff.cpp
     src/io/VegRiffWriter.cpp
     src/io/VegOfxParams.cpp
@@ -113,6 +118,7 @@ endif()
     src/plugins/OfxHost.cpp
     src/plugins/FxParamCurves.cpp
     src/plugins/OfxTransitionSource.cpp
+    src/plugins/OfxGeneratorSource.cpp
     src/plugins/OfxTrace.cpp
     src/plugins/OfxPluginPaths.cpp
     src/plugins/BuiltinAudioCatalog.cpp
@@ -139,8 +145,11 @@ endif()
     src/video/TitlesTextApply.cpp
     src/video/MediaGeneratorApply.cpp
     src/video/GeneratorPresetData.cpp
+    src/video/GeneratorParamSchema.cpp
     src/video/TransitionApply.cpp
     src/video/TransitionPluginHook.cpp
+    src/video/GeneratorPluginHook.cpp
+    src/video/VegasGenerators.cpp
     src/video/VideoCompositor.cpp
     src/video/TransitionPresetData.cpp
     src/video/NestedFrameHook.cpp
@@ -172,6 +181,10 @@ set(OPENVGAS_HEADERS
     src/ui/CollapsibleSection.h
     src/ui/ColorPickerWidget.h
     src/ui/TitlesTextEditorDialog.h
+    src/ui/MediaGeneratorDialog.h
+    src/ui/ColorGradientPage.h
+    src/ui/CreditRollPage.h
+    src/ui/VegasColorPicker.h
     src/ui/ContextMenuBuilder.h
     src/ui/FadeCurvePopup.h
     src/ui/ExplorerPane.h
@@ -200,6 +213,7 @@ set(OPENVGAS_HEADERS
     src/model/ProjectSnapshot.h
     src/model/SnapshotCommand.h
     src/io/VegReader.h
+    src/io/VegLegacyGenerators.h
     src/io/ProjectInterchange.h
     src/io/SamplePaths.h
     src/io/MediaMime.h
@@ -242,6 +256,7 @@ set(OPENVGAS_HEADERS
     src/video/TitlesTextApply.h
     src/video/MediaGeneratorApply.h
     src/video/GeneratorPresetData.h
+    src/video/GeneratorParamSchema.h
     src/video/TransitionApply.h
     src/video/VideoCompositor.h
     src/video/TransitionPresetData.h
@@ -510,6 +525,7 @@ if(OPENVGAS_BUILD_TESTS)
         src/plugins/OfxHost.cpp
         src/plugins/FxParamCurves.cpp
         src/plugins/OfxTransitionSource.cpp
+        src/plugins/OfxGeneratorSource.cpp
         src/plugins/OfxTrace.cpp
         src/plugins/OfxPluginPaths.cpp
         src/plugins/PluginScanner.cpp
@@ -522,8 +538,11 @@ if(OPENVGAS_BUILD_TESTS)
         src/video/TransitionPresetData.cpp
         src/video/TransitionApply.cpp
         src/video/TransitionPluginHook.cpp
+        src/video/GeneratorPluginHook.cpp
+        src/video/VegasGenerators.cpp
         src/video/MediaGeneratorApply.cpp
         src/video/GeneratorPresetData.cpp
+        src/video/GeneratorParamSchema.cpp
         src/video/VideoCompositor.cpp
         src/video/NestedFrameHook.cpp
         src/video/VideoFrameCache.cpp
@@ -579,6 +598,7 @@ if(OPENVGAS_BUILD_TESTS)
         tests/test_nested_project_audio.cpp
         tests/test_veg_generators.cpp
         tests/test_pancrop_reference.cpp
+        tests/test_generator_reference.cpp
         src/io/FFmpegEncoder.cpp
         src/io/FFmpegStreamDecoder.cpp
         src/io/MediaFilmstripCache.cpp
@@ -598,6 +618,7 @@ if(OPENVGAS_BUILD_TESTS)
         src/ui/GlobalHotkey.cpp
         src/io/SamplePaths.cpp
         src/io/VegReader.cpp
+        src/io/VegLegacyGenerators.cpp
         src/io/VegRiff.cpp
         src/io/VegRiffWriter.cpp
         src/io/VegOfxParams.cpp
@@ -613,6 +634,7 @@ if(OPENVGAS_BUILD_TESTS)
         src/plugins/OfxHost.cpp
         src/plugins/FxParamCurves.cpp
         src/plugins/OfxTransitionSource.cpp
+        src/plugins/OfxGeneratorSource.cpp
         src/plugins/OfxTrace.cpp
         src/plugins/OfxPluginPaths.cpp
         src/plugins/AudioPluginScanner.cpp
@@ -627,8 +649,11 @@ if(OPENVGAS_BUILD_TESTS)
         src/video/TransitionPresetData.cpp
         src/video/TransitionApply.cpp
         src/video/TransitionPluginHook.cpp
+        src/video/GeneratorPluginHook.cpp
+        src/video/VegasGenerators.cpp
         src/video/MediaGeneratorApply.cpp
         src/video/GeneratorPresetData.cpp
+        src/video/GeneratorParamSchema.cpp
         src/video/NestedFrameHook.cpp
         src/video/NestedProjectSource.cpp
         src/video/VideoCompositor.cpp

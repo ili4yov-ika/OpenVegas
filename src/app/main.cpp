@@ -1,6 +1,7 @@
 #include "app/MainWindow.h"
 #include "ui/FirstRunDialog.h"
 #include "ui/Theme.h"
+#include "plugins/OfxGeneratorSource.h"
 #include "plugins/OfxTransitionSource.h"
 #include "video/NestedProjectSource.h"
 #include "io/SamplePaths.h"
@@ -33,6 +34,7 @@ int main(int argc, char *argv[])
     // thing itself. With no VEGAS bundle around this installs nothing and they keep
     // drawing, so a machine without VEGAS still has every transition.
     openvegas::OfxTransitionSource::install();
+    openvegas::OfxGeneratorSource::install();
 
     openvegas::MainWindow window;
     window.setWindowIcon(appIcon);

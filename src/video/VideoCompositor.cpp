@@ -206,7 +206,8 @@ QImage VideoCompositor::compose(const ProjectModel &model, double t, const QSize
                         break;
                     }
                     if (isMediaGeneratorPluginId(slot.pluginId)) {
-                        src = renderMediaGeneratorPattern(mediaGeneratorFromSlot(slot), sz);
+                        src = renderMediaGenerator(mediaGeneratorFromSlot(slot), sz, eventLocal,
+                                                   ev.lengthSec);
                         break;
                     }
                 }

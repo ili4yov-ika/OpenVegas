@@ -9,6 +9,7 @@
 #include "plugins/VegasVideoPluginCatalog.h"
 #include "audio/BuiltinDsp.h"
 #include "plugins/FxParamCurves.h"
+#include "video/GeneratorPresetData.h"
 #include "video/MediaGeneratorApply.h"
 #include "video/TitlesTextApply.h"
 
@@ -30,7 +31,8 @@ namespace {
 MediaGeneratorParams generatorParamsFromVeg(const VegPoolMedia &media)
 {
     return mediaGeneratorFromVegas(media.generatorId, media.presetName,
-                                   media.ofx.isValid() ? vegOfxParamMap(media.ofx) : QVariantMap(),
+                                   media.ofx.isValid() ? vegOfxParamMap(media.ofx)
+                                                       : media.legacyParams,
                                    media.ofx.isValid() ? vegOfxCurveMap(media.ofx) : QVariantMap(),
                                    media.displayName);
 }
@@ -2514,6 +2516,38 @@ int ProjectModel::addTitlesTextEvent(const QString &animationKey, const QString 
     ev.lengthSec = 10.0;
     ev.mediaKind = EventMediaKind::Title;
     ev.fxChain = {slot};
+    m_tracks[vi].events.push_back(ev);
+    return ev.id;
+}
+
+int ProjectModel::addMediaGeneratorEvent(const QString &generatorName, const QString &presetName)
+{
+    const StockGeneratorGroup *group = nullptr;
+    for (const StockGeneratorGroup &g : stockGeneratorPresets()) {
+        if (g.name.compare(generatorName, Qt::CaseInsensitive) == 0) {
+            group = &g;
+        }
+    }
+    if (!group) {
+        return -1;
+    }
+    const StockGeneratorPreset *preset = stockGeneratorPreset(group->pluginId, presetName);
+    if (!preset && !group->presets.isEmpty()) {
+        preset = &group->presets.first();
+    }
+    if (!preset) {
+        return -1;
+    }
+    const MediaGeneratorParams gp =
+        mediaGeneratorFromVegas(group->pluginId, preset->name, preset->params, {}, group->name);
+    const int vi = ensureTrack(TrackKind::Video);
+    TrackEvent ev;
+    ev.id = m_nextEventId++;
+    ev.name = preset->name;
+    ev.startSec = std::max(0.0, m_playheadSec);
+    ev.lengthSec = 10.0;
+    ev.mediaKind = EventMediaKind::Title; // generated-media family — see isVideoFamily()
+    ev.fxChain = {mediaGeneratorSlotFor(gp)};
     m_tracks[vi].events.push_back(ev);
     return ev.id;
 }

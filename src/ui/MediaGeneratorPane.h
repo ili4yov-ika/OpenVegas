@@ -54,6 +54,8 @@ public:
          * for Titles & Text, which goes by animationKey.
          */
         QString vegasPluginId;
+        /** VEGAS's stored values for this preset — what its thumbnail is drawn from. */
+        QVariantMap vegasParams;
     };
 
     struct Plugin {
