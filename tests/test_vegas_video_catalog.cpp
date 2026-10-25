@@ -6,6 +6,7 @@
 #include "audio/BuiltinDsp.h"
 #include "io/MediaMime.h"
 #include "plugins/VegasVideoPluginCatalog.h"
+#include "TestQtApp.h"
 
 #include <QCoreApplication>
 #include <QDir>
@@ -19,12 +20,9 @@ using namespace openvegas;
 
 namespace {
 
-void ensureQtApp(int &argc, char **argv)
+void ensureQtApp(int &, char **)
 {
-    if (!QCoreApplication::instance()) {
-        static QCoreApplication app(argc, argv);
-        Q_UNUSED(app);
-    }
+    openvegas::test::ensureQtApp();
 }
 
 /**

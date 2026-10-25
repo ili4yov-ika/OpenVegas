@@ -1,5 +1,6 @@
 #include "io/FFmpegEncoder.h"
 #include "io/RenderTemplateCatalog.h"
+#include "TestQtApp.h"
 
 #include <QColor>
 #include <QCoreApplication>
@@ -57,13 +58,7 @@ void writeSilentWav(const QString &path, int sampleRate, double seconds)
 
 TEST_CASE("findFfmpeg checks application directory candidates", "[media][ffmpeg]")
 {
-    int argc = 1;
-    char arg0[] = "openvegas_media_tests";
-    char *argv[] = {arg0, nullptr};
-    if (!QCoreApplication::instance()) {
-        static QCoreApplication app(argc, argv);
-        Q_UNUSED(app);
-    }
+    openvegas::test::ensureQtApp();
 
     // If PATH already has ffmpeg, still OK — we only assert helper is callable.
     const QString ff = openvegas::FFmpegEncoder::findFfmpeg();

@@ -2,6 +2,7 @@
 
 #include "io/FFmpegStreamDecoder.h"
 #include "io/MediaFilmstripCache.h"
+#include "TestQtApp.h"
 
 #include <QCoreApplication>
 #include <QDir>
@@ -41,9 +42,7 @@ QString makeTinyMp4(QTemporaryDir &dir)
 
 TEST_CASE("videoEncodeCodecArgs always returns a video codec", "[ffmpeg][hw]")
 {
-    int argc = 0;
-    qputenv("QT_QPA_PLATFORM", "offscreen");
-    QCoreApplication app(argc, nullptr);
+    openvegas::test::ensureQtApp();
 
     const QStringList args = FFmpegStreamDecoder::videoEncodeCodecArgs(23);
     REQUIRE(args.contains(QStringLiteral("-c:v")));
@@ -54,9 +53,7 @@ TEST_CASE("videoEncodeCodecArgs always returns a video codec", "[ffmpeg][hw]")
 
 TEST_CASE("decodeSequence continuous raw pipe fills frames", "[ffmpeg][decode]")
 {
-    int argc = 0;
-    qputenv("QT_QPA_PLATFORM", "offscreen");
-    QCoreApplication app(argc, nullptr);
+    openvegas::test::ensureQtApp();
 
     QTemporaryDir dir;
     REQUIRE(dir.isValid());
@@ -95,9 +92,7 @@ TEST_CASE("linkedAvailable matches build flag", "[ffmpeg][decode]")
 TEST_CASE("Only an encoder that survives a trial run counts as usable",
           "[ffmpeg][hw][encoder-probe]")
 {
-    int argc = 0;
-    qputenv("QT_QPA_PLATFORM", "offscreen");
-    QCoreApplication app(argc, nullptr);
+    openvegas::test::ensureQtApp();
 
     if (MediaFilmstripCache::findFfmpeg().isEmpty()) {
         SKIP("ffmpeg unavailable");
@@ -123,9 +118,7 @@ TEST_CASE("Only an encoder that survives a trial run counts as usable",
 TEST_CASE("videoEncodeCodecArgs only names an encoder that actually runs here",
           "[ffmpeg][hw][encoder-probe]")
 {
-    int argc = 0;
-    qputenv("QT_QPA_PLATFORM", "offscreen");
-    QCoreApplication app(argc, nullptr);
+    openvegas::test::ensureQtApp();
 
     if (MediaFilmstripCache::findFfmpeg().isEmpty()) {
         SKIP("ffmpeg unavailable");
@@ -144,9 +137,7 @@ TEST_CASE("videoEncodeCodecArgs only names an encoder that actually runs here",
 TEST_CASE("An explicit hardware encoder that cannot run falls back to software",
           "[ffmpeg][hw][encoder-probe]")
 {
-    int argc = 0;
-    qputenv("QT_QPA_PLATFORM", "offscreen");
-    QCoreApplication app(argc, nullptr);
+    openvegas::test::ensureQtApp();
 
     if (MediaFilmstripCache::findFfmpeg().isEmpty()) {
         SKIP("ffmpeg unavailable");
@@ -168,9 +159,7 @@ TEST_CASE("An explicit hardware encoder that cannot run falls back to software",
 TEST_CASE("hwDecodeMethod rejects a method this ffmpeg does not offer",
           "[ffmpeg][hw][decode]")
 {
-    int argc = 0;
-    qputenv("QT_QPA_PLATFORM", "offscreen");
-    QCoreApplication app(argc, nullptr);
+    openvegas::test::ensureQtApp();
 
     if (MediaFilmstripCache::findFfmpeg().isEmpty()) {
         SKIP("ffmpeg unavailable");

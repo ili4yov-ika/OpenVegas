@@ -2,6 +2,7 @@
 #include <catch2/catch_test_macros.hpp>
 
 #include "video/TitlesTextApply.h"
+#include "TestQtApp.h"
 
 #include <QCoreApplication>
 #include <QGuiApplication>
@@ -12,22 +13,11 @@ using namespace openvegas;
 namespace {
 
 // titlesTextBoundingBox() touches QFont/QFontMetricsF, which qFatal()-crash the whole
-// process if used before any QGuiApplication exists — this test binary is otherwise a
-// plain Catch2 console app with no Qt application instance at all (nothing else in it
-// calls into the font database). -platform offscreen keeps it headless-safe.
+// process if used before any QGuiApplication exists. The shared helper makes the binary's
+// one application object, a QApplication, off screen (TestQtApp.h says why it is shared).
 void ensureQtGuiApp()
 {
-    if (QCoreApplication::instance()) {
-        return;
-    }
-    if (qEnvironmentVariableIsEmpty("QT_QPA_PLATFORM")) {
-        qputenv("QT_QPA_PLATFORM", "offscreen");
-    }
-    static int argc = 1;
-    static char appName[] = "openvegas_video_tests";
-    static char *argv[] = {appName, nullptr};
-    static QGuiApplication app(argc, argv);
-    Q_UNUSED(app);
+    openvegas::test::ensureQtApp();
 }
 
 } // namespace

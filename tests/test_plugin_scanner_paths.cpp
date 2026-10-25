@@ -1,6 +1,7 @@
 #include "plugins/PluginDiscovery.h"
 #include "plugins/PluginScanner.h"
 #include "plugins/VegasVideoPluginCatalog.h"
+#include "TestQtApp.h"
 
 #include <QCoreApplication>
 #include <QDir>
@@ -14,12 +15,9 @@
 
 namespace {
 
-void ensureQtApp(int &argc, char **argv)
+void ensureQtApp(int &, char **)
 {
-    if (!QCoreApplication::instance()) {
-        static QCoreApplication app(argc, argv);
-        Q_UNUSED(app);
-    }
+    openvegas::test::ensureQtApp();
 }
 
 } // namespace

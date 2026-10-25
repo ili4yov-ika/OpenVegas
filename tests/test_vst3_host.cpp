@@ -6,6 +6,7 @@
 #include "audio/Vst3Host.h"
 #include "plugins/AudioPluginScanner.h"
 #include "plugins/AudioPluginTypes.h"
+#include "TestQtApp.h"
 
 #include <QCoreApplication>
 #include <QDir>
@@ -67,9 +68,7 @@ TEST_CASE("AudioPluginScanner finds .vst3 bundles", "[vst3][scan]")
 
 TEST_CASE("Vst3Host create/process/state", "[vst3][host]")
 {
-    int argc = 0;
-    qputenv("QT_QPA_PLATFORM", "offscreen");
-    QCoreApplication app(argc, nullptr);
+    openvegas::test::ensureQtApp();
 
 #ifdef OPENVGAS_HAS_VST3_SDK
     REQUIRE(Vst3Host::hasSdk());
@@ -113,9 +112,7 @@ TEST_CASE("Vst3Host create/process/state", "[vst3][host]")
 
 TEST_CASE("Vst3Host process fixture module", "[vst3][host][fixture]")
 {
-    int argc = 0;
-    qputenv("QT_QPA_PLATFORM", "offscreen");
-    QCoreApplication app(argc, nullptr);
+    openvegas::test::ensureQtApp();
 
     if (!Vst3Host::hasSdk()) {
         SKIP("Built without OPENVGAS_HAS_VST3_SDK");

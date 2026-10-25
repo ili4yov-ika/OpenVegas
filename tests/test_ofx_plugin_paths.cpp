@@ -2,6 +2,7 @@
 #include "plugins/OfxPluginPaths.h"
 #include "plugins/PluginScanner.h"
 #include "plugins/VegasVideoPluginCatalog.h"
+#include "TestQtApp.h"
 
 #include <QCoreApplication>
 #include <QDir>
@@ -15,12 +16,9 @@ using openvegas::OfxPluginPaths;
 
 namespace {
 
-void ensureQtApp(int &argc, char **argv)
+void ensureQtApp(int &, char **)
 {
-    if (!QCoreApplication::instance()) {
-        static QCoreApplication app(argc, argv);
-        Q_UNUSED(app);
-    }
+    openvegas::test::ensureQtApp();
 }
 
 /** Arch directory name that is definitely *not* the one this build can load. */

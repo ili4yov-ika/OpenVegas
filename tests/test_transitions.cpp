@@ -7,6 +7,7 @@
 #include "video/TransitionPluginHook.h"
 #include "video/TransitionApply.h"
 #include "video/TransitionPresetData.h"
+#include "TestQtApp.h"
 
 #include <QCoreApplication>
 #include <QGuiApplication>
@@ -28,17 +29,7 @@ namespace {
 // database is touched (same reason test_titles_text.cpp has this helper).
 void ensureQtGuiApp()
 {
-    if (QCoreApplication::instance()) {
-        return;
-    }
-    if (qEnvironmentVariableIsEmpty("QT_QPA_PLATFORM")) {
-        qputenv("QT_QPA_PLATFORM", "offscreen");
-    }
-    static int argc = 1;
-    static char appName[] = "openvegas_video_tests";
-    static char *argv[] = {appName, nullptr};
-    static QGuiApplication app(argc, argv);
-    Q_UNUSED(app);
+    openvegas::test::ensureQtApp();
 }
 
 QImage solid(const QSize &size, QRgb color)
