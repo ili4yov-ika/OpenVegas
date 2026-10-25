@@ -174,7 +174,11 @@ int decodeSequenceCli(const QString &path, double startSec, double fps, int coun
     args << QStringLiteral("-ss") << QString::number(std::max(0.0, startSec), 'f', 3)
          << QStringLiteral("-i") << path << QStringLiteral("-t")
          << QString::number(dur, 'f', 3) << QStringLiteral("-an") << QStringLiteral("-vf")
-         << QStringLiteral("fps=%1,scale=%2:%3:force_original_aspect_ratio=increase,crop=%2:%3")
+         // Bilinear, as the linked decoder scales: of ffmpeg's filters it is the one that
+         // lands closest to VEGAS's own render of a 4K clip at 720p (0.55 of 255 against
+         // 0.59 for its default bicubic, 0.63 for lanczos — MARKDOWN/PANCROP_MASK_MORPH.md).
+         << QStringLiteral("fps=%1,scale=%2:%3:force_original_aspect_ratio=increase:flags=bilinear,"
+                           "crop=%2:%3")
                 .arg(useFps, 0, 'f', 4)
                 .arg(w)
                 .arg(h)
@@ -286,6 +290,29 @@ int decodeSequenceLibav(const QString &path, double startSec, double fps, int co
         avcodec_free_context(&ctx);
         avformat_close_input(&fmt);
         return 0;
+    }
+    // swscale converts with BT.601 unless told otherwise, which tints every HD and 4K clip
+    // (they are BT.709). Use the stream's own matrix and range, as the ffmpeg command line
+    // does, so both decode paths give the same colours.
+    {
+        int matrix = SWS_CS_ITU601;
+        switch (ctx->colorspace) {
+        case AVCOL_SPC_BT709:
+            matrix = SWS_CS_ITU709;
+            break;
+        case AVCOL_SPC_BT2020_NCL:
+        case AVCOL_SPC_BT2020_CL:
+            matrix = SWS_CS_BT2020;
+            break;
+        case AVCOL_SPC_SMPTE240M:
+            matrix = SWS_CS_SMPTE240M;
+            break;
+        default:
+            break;
+        }
+        const int fullRange = ctx->color_range == AVCOL_RANGE_JPEG ? 1 : 0;
+        sws_setColorspaceDetails(sws, sws_getCoefficients(matrix), fullRange,
+                                 sws_getCoefficients(SWS_CS_DEFAULT), 1, 0, 1 << 16, 1 << 16);
     }
 
     const double tb = av_q2d(st->time_base);

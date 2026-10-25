@@ -1,7 +1,9 @@
 #include "video/PanCropApply.h"
 
+#include <QLineF>
 #include <QPainter>
 #include <QPainterPath>
+#include <QTransform>
 
 #include <algorithm>
 #include <cmath>
@@ -9,30 +11,22 @@
 namespace openvegas {
 namespace {
 
-QImage fitSourceToFrame(const QImage &source, int frameW, int frameH, bool stretchToFill)
+/**
+ * The part of `source` that fills the frame, in source pixels: all of it when stretched,
+ * otherwise the centred window with the frame's shape (the source covers the frame and
+ * the overflow is cut off, as VEGAS's "Maintain aspect ratio" does).
+ */
+QRectF sourceWindow(const QImage &source, int frameW, int frameH, bool stretchToFill)
 {
-    QImage canvas(frameW, frameH, QImage::Format_ARGB32_Premultiplied);
-    canvas.fill(Qt::transparent);
-    if (source.isNull() || frameW < 1 || frameH < 1) {
-        return canvas;
-    }
-    QImage src = source;
-    if (src.format() != QImage::Format_ARGB32_Premultiplied) {
-        src = src.convertToFormat(QImage::Format_ARGB32_Premultiplied);
-    }
-    QPainter p(&canvas);
-    p.setRenderHint(QPainter::SmoothPixmapTransform, true);
+    const QRectF all(0.0, 0.0, source.width(), source.height());
     if (stretchToFill) {
-        p.drawImage(QRect(0, 0, frameW, frameH), src);
-    } else {
-        QImage scaled =
-            src.scaled(frameW, frameH, Qt::KeepAspectRatioByExpanding, Qt::SmoothTransformation);
-        const int x = (scaled.width() - frameW) / 2;
-        const int y = (scaled.height() - frameH) / 2;
-        p.drawImage(0, 0, scaled, x, y, frameW, frameH);
+        return all;
     }
-    p.end();
-    return canvas;
+    const double cover =
+        std::max(double(frameW) / source.width(), double(frameH) / source.height());
+    const double w = frameW / cover;
+    const double h = frameH / cover;
+    return QRectF((source.width() - w) * 0.5, (source.height() - h) * 0.5, w, h);
 }
 
 QPainterPath pathFromAnchors(const MaskPath &mp)
@@ -143,11 +137,6 @@ void applyMaskAlpha(QImage *layerArgbPremul, const MaskKeyframe &mask, int frame
     }
 }
 
-namespace {
-
-
-} // namespace
-
 QImage applyPanCrop(const QImage &source, const PanCropKeyframe &kfIn, int frameW, int frameH,
                     int outW, int outH, bool stretchToFill, const MaskKeyframe *maskHold)
 {
@@ -157,58 +146,78 @@ QImage applyPanCrop(const QImage &source, const PanCropKeyframe &kfIn, int frame
     frameH = std::max(1, frameH);
 
     const PanCropKeyframe &kf = kfIn;
-    const QImage fitted = fitSourceToFrame(source, frameW, frameH, stretchToFill);
 
     const double absW = std::max(1.0, std::abs(kf.width));
     const double absH = std::max(1.0, std::abs(kf.height));
     const bool flipH = kf.width < 0.0;
     const bool flipV = kf.height < 0.0;
 
-    QImage layer(frameW, frameH, QImage::Format_ARGB32_Premultiplied);
+    // Drawn straight at the output size, so the source is resampled once, as VEGAS does.
+    // This used to fit the (already output-sized) source to a frame-sized canvas, place it
+    // there and scale the result back down: three resamplings, the first an upscale of a
+    // 4K project's frame from 720p, which softened every Pan/Crop against VEGAS's render.
+    QImage layer(outW, outH, QImage::Format_ARGB32_Premultiplied);
     layer.fill(Qt::transparent);
-
-    QPainter p(&layer);
-    p.setRenderHint(QPainter::SmoothPixmapTransform, true);
-    p.setRenderHint(QPainter::Antialiasing, true);
-
-    const QPointF center(kf.xCenter, kf.yCenter);
-    const QPointF rotCenter(kf.rotationXCenter, kf.rotationYCenter);
+    if (source.isNull()) {
+        return layer;
+    }
+    QImage src = source;
+    if (src.format() != QImage::Format_ARGB32_Premultiplied) {
+        src = src.convertToFormat(QImage::Format_ARGB32_Premultiplied);
+    }
+    QRectF window = sourceWindow(src, frameW, frameH, stretchToFill);
 
     // The keyframe is a rectangle over the *source*, and what it frames is stretched to
     // fill the output. That is the whole of Pan/Crop: a smaller rectangle zooms in, a
     // larger one zooms out with the frame showing through around it, and moving it pans.
     //
-    // This used to draw the rectangle back onto its own coordinates
-    // (drawImage(crop, fitted, crop)), which is a mask, not a pan or a zoom: the picture
-    // never moved and never changed size, only got cut down. The identity case matched,
-    // which is why it looked plausible. A rectangle bigger than the frame could not be
-    // drawn that way at all, so it was first "normalised" back to frame size — turning
-    // the sample project's zoom-out keyframe into no zoom whatever.
-    //
-    // Read bottom-up, a source point is: un-rotated about the rotation centre, moved so
-    // the rectangle centre is the origin, scaled until the rectangle is frame-sized (and
-    // mirrored if a side is negative), then moved to the middle of the frame.
+    // Read bottom-up, a frame point is: un-rotated about the rotation centre, moved so the
+    // rectangle centre is the origin, scaled until the rectangle is frame-sized (and
+    // mirrored if a side is negative), then moved to the middle of the frame — and the
+    // frame is then scaled to the output.
     const double sx = double(frameW) / absW;
     const double sy = double(frameH) / absH;
-    p.translate(frameW * 0.5, frameH * 0.5);
-    p.scale(sx * (flipH ? -1.0 : 1.0), sy * (flipV ? -1.0 : 1.0));
-    p.translate(-center);
-    p.translate(rotCenter);
+    QTransform frameToOut;
+    frameToOut.scale(double(outW) / frameW, double(outH) / frameH);
+    frameToOut.translate(frameW * 0.5, frameH * 0.5);
+    frameToOut.scale(sx * (flipH ? -1.0 : 1.0), sy * (flipV ? -1.0 : 1.0));
+    frameToOut.translate(-kf.xCenter, -kf.yCenter);
+    frameToOut.translate(kf.rotationXCenter, kf.rotationYCenter);
     // Turning the rectangle one way turns what it frames the other way.
-    p.rotate(-kf.angleDeg);
-    p.translate(-rotCenter);
+    frameToOut.rotate(-kf.angleDeg);
+    frameToOut.translate(-kf.rotationXCenter, -kf.rotationYCenter);
 
-    p.drawImage(0, 0, fitted);
+    // Bilinear sampling only holds up to about a 2:1 reduction; a zoomed-out rectangle can
+    // shrink the source far more. Then reduce it first by averaging, to about the size it
+    // is drawn at, and draw that.
+    const QPointF o = frameToOut.map(QPointF(0.0, 0.0));
+    const double perFrameX = QLineF(o, frameToOut.map(QPointF(1.0, 0.0))).length();
+    const double perFrameY = QLineF(o, frameToOut.map(QPointF(0.0, 1.0))).length();
+    const double shrinkX = perFrameX * frameW / window.width();
+    const double shrinkY = perFrameY * frameH / window.height();
+    if (shrinkX < 0.5 || shrinkY < 0.5) {
+        const double fx = std::min(1.0, shrinkX * 1.5);
+        const double fy = std::min(1.0, shrinkY * 1.5);
+        const int w = std::max(1, int(std::lround(src.width() * fx)));
+        const int h = std::max(1, int(std::lround(src.height() * fy)));
+        const double kx = double(w) / src.width();
+        const double ky = double(h) / src.height();
+        src = src.scaled(w, h, Qt::IgnoreAspectRatio, Qt::SmoothTransformation);
+        window = QRectF(window.x() * kx, window.y() * ky, window.width() * kx,
+                        window.height() * ky);
+    }
+
+    QPainter p(&layer);
+    p.setRenderHint(QPainter::SmoothPixmapTransform, true);
+    p.setRenderHint(QPainter::Antialiasing, true);
+    p.setTransform(frameToOut);
+    p.drawImage(QRectF(0.0, 0.0, frameW, frameH), src, window);
     p.end();
 
     if (maskHold && !maskHold->paths.isEmpty()) {
         applyMaskAlpha(&layer, *maskHold, frameW, frameH);
     }
-
-    if (outW == frameW && outH == frameH) {
-        return layer;
-    }
-    return layer.scaled(outW, outH, Qt::IgnoreAspectRatio, Qt::SmoothTransformation);
+    return layer;
 }
 
 } // namespace openvegas

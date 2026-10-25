@@ -1752,19 +1752,27 @@ void VegReader::parsePanCrop(const QByteArray &data, VegOpenResult *result)
                             break;
                         }
                         const uchar *p = reinterpret_cast<const uchar *>(data.constData() + a + 8);
-                        // idx(u32) flags(u32) + 6 absolute doubles: x,y, in, out
+                        // id(u32) flags(u32) + 6 absolute doubles: x,y, in, out; then the
+                        // handle kind (int32). The id is the anchor's identity across
+                        // keyframes, not its index: it skips numbers where an anchor was
+                        // deleted and a new one takes the next free number wherever it is
+                        // inserted. sharedk.dll's Path::Interpolate pairs anchors by it.
                         auto rdAbs = [&](int i) {
                             double v = 0.0;
                             memcpy(&v, p + 8 + i * 8, sizeof(double));
                             return v;
                         };
                         MaskAnchor an;
+                        an.id = qFromLittleEndian<quint32>(p);
                         an.x = rdAbs(0);
                         an.y = rdAbs(1);
                         an.inX = rdAbs(2) - an.x;
                         an.inY = rdAbs(3) - an.y;
                         an.outX = rdAbs(4) - an.x;
                         an.outY = rdAbs(5) - an.y;
+                        if (asz >= 60) {
+                            an.type = qFromLittleEndian<qint32>(p + 56);
+                        }
                         path->anchors.push_back(an);
                         a += 8 + int(asz);
                     }
@@ -1781,6 +1789,8 @@ void VegReader::parsePanCrop(const QByteArray &data, VegOpenResult *result)
                             if (psz >= 44) {
                                 const uchar *b =
                                     reinterpret_cast<const uchar *>(data.constData() + p + 8);
+                                // The contour's id; Mask::Interpolate pairs contours by it.
+                                path.id = qint64(qFromLittleEndian<quint64>(b));
                                 const quint32 closed =
                                     qFromLittleEndian<quint32>(b + 40);
                                 path.closed = (closed != 0);

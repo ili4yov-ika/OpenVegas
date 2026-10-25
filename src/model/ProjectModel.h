@@ -247,11 +247,22 @@ struct MaskAnchor {
     double inY = 0.0;
     double outX = 0.0;
     double outY = 0.0;
+    /**
+     * The anchor's identity across keyframes, as VEGAS keeps it (`ANCP` +0). Morphing pairs
+     * anchors by this, not by position in the list: an anchor added between two others has
+     * a new id there, one removed leaves a gap. -1 when not known.
+     */
+    qint64 id = -1;
+    /**
+     * Handle kind as VEGAS stores it (`ANCP` +56): -1 none, 0 corner, 1 smooth, 2
+     * symmetric — a symmetric anchor's out handle mirrors its in handle.
+     */
+    int type = -1;
 
     bool operator==(const MaskAnchor &o) const
     {
         return x == o.x && y == o.y && inX == o.inX && inY == o.inY && outX == o.outX
-               && outY == o.outY;
+               && outY == o.outY && id == o.id && type == o.type;
     }
     bool operator!=(const MaskAnchor &o) const { return !(*this == o); }
 };
@@ -262,10 +273,12 @@ struct MaskPath {
     QVector<MaskAnchor> anchors;
     bool closed = true;
     MaskPathMode mode = MaskPathMode::Positive;
+    /** The contour's identity across keyframes (`PTHB` +0); contours pair by it. -1 unknown. */
+    qint64 id = -1;
 
     bool operator==(const MaskPath &o) const
     {
-        return anchors == o.anchors && closed == o.closed && mode == o.mode;
+        return anchors == o.anchors && closed == o.closed && mode == o.mode && id == o.id;
     }
     bool operator!=(const MaskPath &o) const { return !(*this == o); }
 };

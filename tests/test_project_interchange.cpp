@@ -433,6 +433,27 @@ TEST_CASE("OpenVegas project archive round-trips full state (fxChain, panCrop, m
     tev.panCrop.positionKeyframes.push_back(PanCropKeyframe{});
     tev.panCrop.positionKeyframes[0].timeSec = 0.0;
     tev.panCrop.positionKeyframes[0].xCenter = 500.0;
+    {
+        // A mask, ids and handle kinds included: morphing pairs contours and anchors by id.
+        MaskKeyframe mk;
+        mk.timeSec = 2.5;
+        mk.type = VideoKeyframeType::Hold;
+        MaskPath mp;
+        mp.id = 170;
+        mp.mode = MaskPathMode::Negative;
+        MaskAnchor a;
+        a.x = 100.0;
+        a.y = 200.0;
+        a.inX = -10.0;
+        a.outX = 10.0;
+        a.outY = 4.0;
+        a.id = 16;
+        a.type = 2;
+        mp.anchors = {a, MaskAnchor{}};
+        mk.paths = {mp};
+        tev.panCrop.maskKeyframes = {mk};
+        tev.panCrop.maskEnabled = true;
+    }
     tev.fadeInSec = 1.0;
     tev.transitionIn =
         makeTransitionInstance(transition3dBlindsId(), QStringLiteral("Slot Machine"));
@@ -490,6 +511,9 @@ TEST_CASE("OpenVegas project archive round-trips full state (fxChain, panCrop, m
     CHECK(backTp.scale == Catch::Approx(1.3));
     REQUIRE(backTev.panCrop.positionKeyframes.size() == 1);
     CHECK(backTev.panCrop.positionKeyframes[0].xCenter == Catch::Approx(500.0));
+    // The mask used to be dropped here: saved and reopened, a masked event came back bare.
+    CHECK(backTev.panCrop.maskEnabled);
+    CHECK(backTev.panCrop.maskKeyframes == tev.panCrop.maskKeyframes);
     // A transition on the fade must survive the archive — otherwise every transition a
     // user places would silently vanish on the next save/load.
     REQUIRE(backTev.transitionIn.isValid());

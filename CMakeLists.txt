@@ -578,6 +578,7 @@ if(OPENVGAS_BUILD_TESTS)
         tests/test_transitions_veg.cpp
         tests/test_nested_project_audio.cpp
         tests/test_veg_generators.cpp
+        tests/test_pancrop_reference.cpp
         src/io/FFmpegEncoder.cpp
         src/io/FFmpegStreamDecoder.cpp
         src/io/MediaFilmstripCache.cpp

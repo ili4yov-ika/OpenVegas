@@ -24,7 +24,7 @@ File → Save / Save As / Open, когда открывается не `.veg`, �
 - `mediaPath`, `mediaKind`, `mediaStartSec`/`mediaLengthSec`, `looped`/`reversed`, fade-кривые, `opacity`, `gainDb`,
   `firstChannel`/`channelCount` на событии.
 - `height`/`muted`/`solo`/`volumeDb`/`pan`/`busId`/`automationMode`/`displayColor` на треке.
-- Event Pan/Crop **позиционные** keyframes (`positionKeyframes`).
+- Event Pan/Crop: позиционные keyframes (`positionKeyframes`) и маска (`maskKeyframes`, `maskEnabled`) — контуры с id, якоря с id и видом ручек, то есть всё, по чему маска морфирует; плюс поля рабочей области окна Pan/Crop.
 - Маркеры таймлайна проекта (`ProjectModel::markers()`).
 - Парная функция чтения `ProjectInterchange::importProjectArchive()` — раньше отсутствовала вообще.
 
@@ -76,7 +76,14 @@ File → Save / Save As / Open, когда открывается не `.veg`, �
                         "xCenter":960.0,"yCenter":540.0,"angleDeg":0.0,
                         "rotationXCenter":960.0,"rotationYCenter":540.0,
                         "smoothness":0.0,"type":0} ],
-                        "maintainAspectRatio": true, "stretchToFillFrame": true }
+                        "maskKeyframes": [ {"timeSec":6.4,"type":0,"paths":[
+                          {"closed":true,"mode":0,"id":170,
+                           // x, y, inX, inY, outX, outY (ручки — относительно якоря), id, вид
+                           "anchors":[[2883.8,1146.1,-196.9,0.0,196.9,0.0,0,2]]} ]} ],
+                        "maskEnabled": true,
+                        "maintainAspectRatio": true, "stretchToFillFrame": true,
+                        "workspaceZoom": 30.9, "workspaceX": 0.0, "workspaceY": 0.0,
+                        "gridSpacing": 16 }
         }
       ]
     }
@@ -101,7 +108,6 @@ base64 туда и обратно. Именно поэтому Titles & Text / M
 | Track Motion (keyframes позиции/тени/свечения трека) | `Track::motion` (`TrackMotionState`) | Отдельная керфрейм-структура (`TrackMotionKeyframe`/`TrackFXKeyframe`) сравнимого объёма с Pan/Crop — не влезло в этот заход |
 | Mixing Console (Assignable FX bus, Mixer Bus, Input Bus) | `ProjectModel::assignableFxBuses()`/`mixerBuses()`/`mixerInputBuses()` (см. `hasMixerExtras()`) | Отдельная под-система, есть свой UI (`MixingConsoleWindow`) — требует отдельного захода |
 | Automation Lanes (track- и event-level) | `Track::automationLanes` / `TrackEvent::automationLanes` | Керфрейм-массивы с `AutomationPoint`, аналогично Track Motion |
-| Event Pan/Crop **mask** keyframes | `EventPanCropState::maskKeyframes` | Только позиционные keyframes вошли в v2; маска — отдельный `MaskKeyframe` тип |
 | Event Media Markers на `MediaItem` (Trimmer) | `MediaItem::markers` | Тайм-лайн маркеры (`ProjectModel::markers()`) сохраняются; per-media — нет |
 
 **Практическое следствие**: если в проекте использован Track Motion / Mixing Console / Automation — Save/Open вернёт
@@ -134,4 +140,4 @@ base64 туда и обратно. Именно поэтому Titles & Text / M
 | `src/model/ProjectModel.h` | `setProjectPath()` — новый public setter, нужен читателю архива (Track/MediaItem/markers уже были public-mutable) |
 | `src/app/MainWindow.{h,cpp}` | `onSaveProject()`/`onSaveProjectAs()`, `m_currentArchivePath`, ветка детекции архива в `openProjectPath()` |
 | `src/ui/MenuBuilder.cpp` | Save/Save As… больше не `addStub` |
-| `tests/test_project_interchange.cpp` | «OpenVegas project archive round-trips full state» — Titles & Text `fxChain` (через `titlesTextFromSlot` после round-trip), Pan/Crop keyframe, маркер, цвет/mute трека, gain события — все проверены byte-exact после export→import |
+| `tests/test_project_interchange.cpp` | «OpenVegas project archive round-trips full state» — Titles & Text `fxChain` (через `titlesTextFromSlot` после round-trip), Pan/Crop keyframe и маска (с id контуров и якорей), маркер, цвет/mute трека, gain события — все проверены byte-exact после export→import |

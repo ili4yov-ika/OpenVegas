@@ -1622,8 +1622,63 @@ QJsonArray fxChainToJson(const QVector<FxSlot> &chain)
     return arr;
 }
 
-// v1 archive scope covers position keyframes (the common case) but not mask keyframes —
-// see MARKDOWN doc for the full list of fields not yet in the archive format.
+QJsonObject maskKeyframeToJson(const MaskKeyframe &mk)
+{
+    QJsonObject ko;
+    ko.insert(QStringLiteral("timeSec"), mk.timeSec);
+    ko.insert(QStringLiteral("type"), static_cast<int>(mk.type));
+    QJsonArray paths;
+    for (const MaskPath &mp : mk.paths) {
+        QJsonObject po;
+        po.insert(QStringLiteral("closed"), mp.closed);
+        po.insert(QStringLiteral("mode"), static_cast<int>(mp.mode));
+        // Ids are what morphing pairs contours and anchors by; written as numbers, they
+        // stay exact well past any id VEGAS hands out.
+        po.insert(QStringLiteral("id"), double(mp.id));
+        QJsonArray anchors;
+        for (const MaskAnchor &a : mp.anchors) {
+            anchors.append(QJsonArray{a.x, a.y, a.inX, a.inY, a.outX, a.outY, double(a.id),
+                                      a.type});
+        }
+        po.insert(QStringLiteral("anchors"), anchors);
+        paths.append(po);
+    }
+    ko.insert(QStringLiteral("paths"), paths);
+    return ko;
+}
+
+MaskKeyframe maskKeyframeFromJson(const QJsonObject &ko)
+{
+    MaskKeyframe mk;
+    mk.timeSec = ko.value(QStringLiteral("timeSec")).toDouble();
+    mk.type = static_cast<VideoKeyframeType>(ko.value(QStringLiteral("type")).toInt());
+    for (const QJsonValue &pv : ko.value(QStringLiteral("paths")).toArray()) {
+        const QJsonObject po = pv.toObject();
+        MaskPath mp;
+        mp.closed = po.value(QStringLiteral("closed")).toBool(true);
+        mp.mode = static_cast<MaskPathMode>(po.value(QStringLiteral("mode")).toInt());
+        mp.id = qint64(po.value(QStringLiteral("id")).toDouble(-1.0));
+        for (const QJsonValue &av : po.value(QStringLiteral("anchors")).toArray()) {
+            const QJsonArray f = av.toArray();
+            if (f.size() < 6) {
+                continue;
+            }
+            MaskAnchor a;
+            a.x = f.at(0).toDouble();
+            a.y = f.at(1).toDouble();
+            a.inX = f.at(2).toDouble();
+            a.inY = f.at(3).toDouble();
+            a.outX = f.at(4).toDouble();
+            a.outY = f.at(5).toDouble();
+            a.id = qint64(f.at(6).toDouble(-1.0));
+            a.type = f.at(7).toInt(-1);
+            mp.anchors.push_back(a);
+        }
+        mk.paths.push_back(mp);
+    }
+    return mk;
+}
+
 QJsonObject eventPanCropToJson(const EventPanCropState &pc)
 {
     QJsonObject o;
@@ -1643,8 +1698,18 @@ QJsonObject eventPanCropToJson(const EventPanCropState &pc)
         kfs.append(ko);
     }
     o.insert(QStringLiteral("positionKeyframes"), kfs);
+    QJsonArray masks;
+    for (const MaskKeyframe &mk : pc.maskKeyframes) {
+        masks.append(maskKeyframeToJson(mk));
+    }
+    o.insert(QStringLiteral("maskKeyframes"), masks);
+    o.insert(QStringLiteral("maskEnabled"), pc.maskEnabled);
     o.insert(QStringLiteral("maintainAspectRatio"), pc.maintainAspectRatio);
     o.insert(QStringLiteral("stretchToFillFrame"), pc.stretchToFillFrame);
+    o.insert(QStringLiteral("workspaceZoom"), pc.workspaceZoom);
+    o.insert(QStringLiteral("workspaceX"), pc.workspaceX);
+    o.insert(QStringLiteral("workspaceY"), pc.workspaceY);
+    o.insert(QStringLiteral("gridSpacing"), pc.gridSpacing);
     return o;
 }
 
@@ -1666,8 +1731,17 @@ EventPanCropState eventPanCropFromJson(const QJsonObject &o)
         k.type = static_cast<VideoKeyframeType>(ko.value(QStringLiteral("type")).toInt());
         pc.positionKeyframes.push_back(k);
     }
+    for (const QJsonValue &v : o.value(QStringLiteral("maskKeyframes")).toArray()) {
+        pc.maskKeyframes.push_back(maskKeyframeFromJson(v.toObject()));
+    }
+    pc.maskEnabled = o.value(QStringLiteral("maskEnabled")).toBool(false);
     pc.maintainAspectRatio = o.value(QStringLiteral("maintainAspectRatio")).toBool(true);
     pc.stretchToFillFrame = o.value(QStringLiteral("stretchToFillFrame")).toBool(true);
+    const EventPanCropState defaults;
+    pc.workspaceZoom = o.value(QStringLiteral("workspaceZoom")).toDouble(defaults.workspaceZoom);
+    pc.workspaceX = o.value(QStringLiteral("workspaceX")).toDouble(defaults.workspaceX);
+    pc.workspaceY = o.value(QStringLiteral("workspaceY")).toDouble(defaults.workspaceY);
+    pc.gridSpacing = o.value(QStringLiteral("gridSpacing")).toInt(defaults.gridSpacing);
     return pc;
 }
 
@@ -1712,9 +1786,9 @@ QJsonObject ProjectInterchange::projectToJson(const ProjectModel &model,
     QJsonObject root;
     root.insert(QStringLiteral("format"), QStringLiteral("OpenVegasArchive"));
     // v2: full TrackEvent/Track/FxSlot round-trip (fxChain, media path, mediaKind, pan/crop
-    // position keyframes, markers) — v1 only kept timing, so re-opening a v1 archive lost
-    // every generator/effect. See MARKDOWN/PROJECT_ARCHIVE_FORMAT.md for exact coverage and
-    // known gaps (track motion, mixer console, automation lanes, mask keyframes: not yet).
+    // position and mask keyframes, markers) — v1 only kept timing, so re-opening a v1
+    // archive lost every generator/effect. See MARKDOWN/PROJECT_ARCHIVE_FORMAT.md for exact
+    // coverage and known gaps (track motion, mixer console, automation lanes: not yet).
     root.insert(QStringLiteral("version"), 2);
     root.insert(QStringLiteral("title"), model.projectTitle());
     root.insert(QStringLiteral("frameRate"), model.frameRate());

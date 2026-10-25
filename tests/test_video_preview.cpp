@@ -119,10 +119,12 @@ TEST_CASE("mask keyframes morph, and only a changed contour holds", "[video][kf]
     CHECK(mid.paths[0].anchors[0].x == Catch::Approx(190.0));
     CHECK(mid.paths[0].anchors[1].x == Catch::Approx(210.0));
 
-    // The contour whose anchor count changed keeps its earlier shape rather than
-    // freezing the rest of the mask along with it.
-    REQUIRE(mid.paths[1].anchors.size() == 4);
-    CHECK(mid.paths[1].anchors[0].x == Catch::Approx(490.0));
+    // The contour whose anchor count changed travels too, gaining its anchor on the way —
+    // VEGAS's render shows such a contour moving, and sharedk.dll's Path::Interpolate
+    // grows the new anchor out of the curve. (It used to hold, which left the mask in
+    // the reference project twelve seconds behind.)
+    REQUIRE(mid.paths[1].anchors.size() == 5);
+    CHECK(mid.paths[1].anchors[0].x == Catch::Approx(690.0));
 
     // Before the first keyframe and after the last, the ends hold.
     MaskKeyframe edge;
@@ -165,6 +167,197 @@ TEST_CASE("mask keyframes morph, and only a changed contour holds", "[video][kf]
     blank.maskEnabled = true;
     blank.maskKeyframes = {empty};
     CHECK_FALSE(maskAt(blank, 1.0, &unused));
+}
+
+TEST_CASE("Mask contours and anchors pair by id the way VEGAS morphs them", "[video][kf][mask]")
+{
+    // After sharedk.dll: Mask::Interpolate pairs contours by id, Path::Interpolate pairs
+    // anchors by id and builds partners for anchors only one keyframe has.
+    auto anchor = [](qint64 id, double x, double y) {
+        MaskAnchor a;
+        a.id = id;
+        a.x = x;
+        a.y = y;
+        return a;
+    };
+    auto path = [](qint64 id, QVector<MaskAnchor> anchors) {
+        MaskPath p;
+        p.id = id;
+        p.anchors = std::move(anchors);
+        return p;
+    };
+    // A square, corners 0..3 (straight sides: no handles).
+    const QVector<MaskAnchor> square = {anchor(0, 0, 0), anchor(1, 100, 0), anchor(2, 100, 100),
+                                        anchor(3, 0, 100)};
+
+    EventPanCropState st;
+    st.maskEnabled = true;
+    MaskKeyframe k0, k1;
+    k0.timeSec = 0.0;
+    k1.timeSec = 1.0;
+
+    SECTION("contours follow their id, not their place in the list")
+    {
+        QVector<MaskAnchor> moved = square;
+        for (MaskAnchor &a : moved) a.x += 1000;
+        k0.paths = {path(7, square), path(9, square)};
+        k1.paths = {path(9, square), path(7, moved)}; // swapped, and 7 moved
+        st.maskKeyframes = {k0, k1};
+        MaskKeyframe mid;
+        REQUIRE(maskAt(st, 0.5, &mid));
+        CHECK(mid.paths[0].id == 7);
+        CHECK(mid.paths[0].anchors[0].x == Catch::Approx(500.0));
+        CHECK(mid.paths[1].anchors[0].x == Catch::Approx(0.0));
+    }
+
+    SECTION("an added anchor grows out of the curve it was added to")
+    {
+        // Anchor 4 appears between 0 and 1, pulled up off the top edge.
+        QVector<MaskAnchor> grown = square;
+        grown.insert(1, anchor(4, 25, -40));
+        k0.paths = {path(1, square)};
+        k1.paths = {path(1, grown)};
+        st.maskKeyframes = {k0, k1};
+
+        MaskKeyframe start, mid, end;
+        REQUIRE(maskAt(st, 0.0, &start));
+        REQUIRE(maskAt(st, 0.5, &mid));
+        REQUIRE(maskAt(st, 1.0, &end));
+        REQUIRE(mid.paths[0].anchors.size() == 5);
+        // Half-way it is half-way between its place on the old edge and its own place. It
+        // starts on the edge where the share of length it has on the new outline
+        // (|0→4| = 47.2, |4→1| = 85.0: u = 0.357) falls as a Bezier parameter — VEGAS splits
+        // at the share itself, and on an edge whose handles sit on its anchors the cubic
+        // runs x = 100·(3u² − 2u³), not 100·u.
+        const double u = 47.17 / (47.17 + 85.0);
+        const double startX = 100.0 * (3 * u * u - 2 * u * u * u);
+        CHECK(mid.paths[0].anchors[1].x == Catch::Approx((startX + 25.0) / 2).margin(0.2));
+        CHECK(mid.paths[0].anchors[1].y == Catch::Approx(-20.0).margin(0.01));
+        CHECK(mid.paths[0].anchors[0].x == Catch::Approx(0.0));
+        CHECK(end.paths[0].anchors.size() == 5);
+    }
+
+    SECTION("a removed anchor flattens back into the curve it leaves")
+    {
+        QVector<MaskAnchor> notched = square;
+        notched.insert(1, anchor(4, 50, 40)); // a notch in the top edge
+        k0.paths = {path(1, notched)};
+        k1.paths = {path(1, square)};
+        st.maskKeyframes = {k0, k1};
+        MaskKeyframe almost;
+        REQUIRE(maskAt(st, 0.999, &almost));
+        REQUIRE(almost.paths[0].anchors.size() == 5);
+        // By the end it lies on the straight top edge of the square.
+        CHECK(almost.paths[0].anchors[1].y == Catch::Approx(0.0).margin(0.1));
+    }
+
+    SECTION("a lone unmatched anchor pairs towards the end it is nearer to")
+    {
+        // Between 0 and 1 the first keyframe has one anchor of its own, close to 1; the
+        // second has two others. Half the shorter run from each end is none, so the odd one
+        // goes by distance: it pairs with the second keyframe's last one, not its first.
+        QVector<MaskAnchor> one = square;
+        one.insert(1, anchor(5, 90, 0));
+        QVector<MaskAnchor> two = square;
+        two.insert(1, anchor(6, 30, -20));
+        two.insert(2, anchor(7, 70, -20));
+        k0.paths = {path(1, one)};
+        k1.paths = {path(1, two)};
+        st.maskKeyframes = {k0, k1};
+        MaskKeyframe mid;
+        REQUIRE(maskAt(st, 0.5, &mid));
+        REQUIRE(mid.paths[0].anchors.size() == 6);
+        CHECK(mid.paths[0].anchors[2].x == Catch::Approx(80.0));
+        CHECK(mid.paths[0].anchors[2].y == Catch::Approx(-10.0));
+    }
+
+    SECTION("a closed contour's first anchor keeps its in handle through the closing run")
+    {
+        // The first keyframe has anchor 3 on the run from 2 back round to 0; the second
+        // does not, so its curve 2 → 0 is split to give 3 a partner, which shortens 0's in
+        // handle to half. VEGAS blends anchor 0 from a copy taken before that split, so the
+        // shortening never reaches it.
+        auto corner = [&](qint64 id, double x, double y, double inX, double inY) {
+            MaskAnchor a = anchor(id, x, y);
+            a.type = 0;
+            a.inX = inX;
+            a.inY = inY;
+            a.outX = 40.0;
+            return a;
+        };
+        const QVector<MaskAnchor> three = {corner(0, 0, 0, 0, 40), corner(1, 100, 0, -40, 0),
+                                           corner(2, 100, 100, 0, -40)};
+        QVector<MaskAnchor> four = three;
+        four.push_back(corner(3, 0, 100, 40, 0));
+        k0.paths = {path(1, four)};
+        k1.paths = {path(1, three)};
+        st.maskKeyframes = {k0, k1};
+        MaskKeyframe mid;
+        REQUIRE(maskAt(st, 0.5, &mid));
+        REQUIRE(mid.paths[0].anchors.size() == 4);
+        CHECK(mid.paths[0].anchors[0].inY == Catch::Approx(40.0));
+    }
+}
+
+TEST_CASE("A mask anchor's handles turn in between keyframes the way VEGAS turns them",
+          "[video][kf][mask]")
+{
+    // FUN_18020b960 in sharedk.dll.
+    MaskAnchor a;
+    a.x = 0.0;
+    a.y = 0.0;
+    a.type = 1;
+    a.inX = -50.0; // smooth, pointing left and right
+    a.outX = 50.0;
+    MaskAnchor b = a;
+    EventPanCropState st;
+    st.maskEnabled = true;
+    MaskKeyframe k0, k1;
+    k0.timeSec = 0.0;
+    k1.timeSec = 1.0;
+    MaskPath p;
+    p.closed = false;
+
+    SECTION("a handle turns by angle and length, not by sliding its tip")
+    {
+        b.inX = 0.0; // turned a quarter round, to point up and down
+        b.inY = -50.0;
+        b.outX = 0.0;
+        b.outY = 50.0;
+        p.anchors = {a};
+        k0.paths = {p};
+        p.anchors = {b};
+        k1.paths = {p};
+        st.maskKeyframes = {k0, k1};
+        MaskKeyframe mid;
+        REQUIRE(maskAt(st, 0.5, &mid));
+        const MaskAnchor &m = mid.paths[0].anchors[0];
+        // Sliding would leave it 35 long; turning keeps it 50.
+        CHECK(std::hypot(m.inX, m.inY) == Catch::Approx(50.0));
+        CHECK(std::hypot(m.outX, m.outY) == Catch::Approx(50.0));
+        // A smooth anchor's out handle carries straight on from its in handle.
+        CHECK(m.outX == Catch::Approx(-m.inX));
+        CHECK(m.outY == Catch::Approx(-m.inY));
+    }
+
+    SECTION("a handle on its anchor grows out opposite the other one")
+    {
+        b.inX = 0.0; // the in handle pulled onto the anchor
+        b.outX = 0.0;
+        b.outY = 50.0; // the out handle turned to point down
+        p.anchors = {a};
+        k0.paths = {p};
+        p.anchors = {b};
+        k1.paths = {p};
+        st.maskKeyframes = {k0, k1};
+        MaskKeyframe mid;
+        REQUIRE(maskAt(st, 0.5, &mid));
+        const MaskAnchor &m = mid.paths[0].anchors[0];
+        // b's in handle has no direction; it counts as pointing up, opposite its out handle,
+        // so a's left-pointing in handle turns from left towards up while it shrinks.
+        CHECK(std::hypot(m.inX, m.inY) == Catch::Approx(25.0));
+        CHECK(std::atan2(m.inY, m.inX) * 180.0 / 3.14159265358979 == Catch::Approx(-135.0));
+    }
 }
 
 TEST_CASE("evaluateTrackMotion interpolates position", "[video][kf]")
