@@ -167,6 +167,7 @@ HEADERS += \
     src/video/ColorCorrectorApply.h \
     src/video/TitlesTextApply.h \
     src/video/MediaGeneratorApply.h \
+    src/video/GeneratorPresetData.h \
     src/video/TransitionApply.h \
     src/video/TransitionPresetData.h \
     src/video/TransitionPluginHook.h \
@@ -285,6 +286,7 @@ SOURCES += \
     src/video/ColorCorrectorApply.cpp \
     src/video/TitlesTextApply.cpp \
     src/video/MediaGeneratorApply.cpp \
+    src/video/GeneratorPresetData.cpp \
     src/video/TransitionApply.cpp \
     src/video/TransitionPresetData.cpp \
     src/video/TransitionPluginHook.cpp \

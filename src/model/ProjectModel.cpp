@@ -26,6 +26,15 @@
 namespace openvegas {
 namespace {
 
+/** A generated pool media as Media Generator params — see mediaGeneratorFromVegas(). */
+MediaGeneratorParams generatorParamsFromVeg(const VegPoolMedia &media)
+{
+    return mediaGeneratorFromVegas(media.generatorId, media.presetName,
+                                   media.ofx.isValid() ? vegOfxParamMap(media.ofx) : QVariantMap(),
+                                   media.ofx.isValid() ? vegOfxCurveMap(media.ofx) : QVariantMap(),
+                                   media.displayName);
+}
+
 /** Attach best-effort VEG FX state chunk when present. */
 FxSlot fxSlotFromVegWithState(const QString &raw, const VegOpenResult &veg)
 {
@@ -1848,8 +1857,35 @@ bool ProjectModel::applyVegImport(const VegOpenResult &veg, const QString &opene
             }
             return false;
         };
+        // Generated media by pool id, so an event's take resolves to its generator. Titles &
+        // Text is left out: applyTitlesTextFromVeg() places those from their own records.
+        QHash<qint64, const VegPoolMedia *> generatorsById;
+        for (const VegPoolMedia &m : veg.mediaPool) {
+            if (m.isGenerated()
+                && !m.generatorId.contains(QLatin1String("titlesandtext"), Qt::CaseInsensitive)) {
+                generatorsById.insert(m.mediaId, &m);
+            }
+        }
+
         for (int vi = 0; vi < videoEv.size(); ++vi) {
             const VegEventInfo &ve = videoEv[vi];
+            if (const VegPoolMedia *gen = generatorsById.value(ve.mediaRef, nullptr)) {
+                // A Media Generator event: no file and no paired audio, its generator in
+                // the chain the way one placed from the browser has it.
+                const MediaGeneratorParams gp = generatorParamsFromVeg(*gen);
+                const int track = ensureTrack(TrackKind::Video);
+                TrackEvent te;
+                te.id = m_nextEventId++;
+                te.name = gen->displayName.isEmpty() ? gp.pluginName : gen->displayName;
+                te.startSec = ve.startSec;
+                te.lengthSec = std::max(0.05, ve.lengthSec);
+                te.fadeInSec = vFadeIn[vi];
+                te.fadeOutSec = vFadeOut[vi];
+                te.mediaKind = EventMediaKind::Title; // generated-media family
+                te.fxChain = {mediaGeneratorSlotFor(gp)};
+                m_tracks[track].events.push_back(te);
+                continue;
+            }
             int matchAi = -1;
             for (int ai = 0; ai < audioEv.size(); ++ai) {
                 if (audioUsed[ai]) {

@@ -90,6 +90,24 @@ inline QString fxRecord()
 {
     return QStringLiteral("cf3b2bfc8579d211871100c04f8edb8a");
 }
+/**
+ * An event's take, {168D206D-…}, nested in the event. The uint32 at payload+36 is the
+ * media-pool id of what the take plays — checked on every event of three projects, files
+ * and generators alike.
+ */
+inline QString take()
+{
+    return QStringLiteral("6d208d162123d21186b000c04f8edb8a");
+}
+/**
+ * One media-pool entry, {B28F2D5D-…}, inside the {B28F2D5B-…} list. The uint32 at
+ * payload+60 is the id takes refer to. The "(n)" VEGAS prints in a generated media's path
+ * is a label, not this id: the two drift apart once media is removed from the pool.
+ */
+inline QString mediaEntry()
+{
+    return QStringLiteral("5d2d8fb20f23d21186af00c04f8edb8a");
+}
 /** A timeline marker: position in 100-ns units, then a UTF-16 label. */
 inline QString marker()
 {

@@ -471,6 +471,25 @@ void VegReader::recoverVideoEventFxNames(const QByteArray &data, VegOpenResult *
     const QByteArray svfxPrefix = utf16LeBytes(QStringLiteral("{Svfx:"));
     const QByteArray ofxPrefix = utf16LeBytes(QStringLiteral("OFX:"));
 
+    // A generated media's own record — Checkerboard, Solid Color, … — carries the same
+    // "{Svfx:…}" identifier and parameter block as an effect does, but it lives in the
+    // media pool and belongs to the media, not to any event's chain. Taken for effects,
+    // every generator in a project landed on the first event as an Event FX.
+    QVector<QPair<int, int>> poolEntries;
+    for (const VegChunk &c : vegRiffChunks(data)) {
+        if (!c.isList && c.id == VegChunkIds::mediaEntry()) {
+            poolEntries.push_back({c.offset, c.end});
+        }
+    }
+    auto insidePoolEntry = [&](int offset) {
+        for (const auto &range : poolEntries) {
+            if (offset >= range.first && offset < range.second) {
+                return true;
+            }
+        }
+        return false;
+    };
+
     auto pluginKey = [](QString raw) {
         raw = raw.trimmed();
         if (raw.startsWith(QLatin1String("{Svfx:"), Qt::CaseInsensitive)) {
@@ -508,6 +527,9 @@ void VegReader::recoverVideoEventFxNames(const QByteArray &data, VegOpenResult *
             const QString raw = decodeUtf16zAt(data, pos);
             pos += qMax(2, raw.size() * 2);
             if (raw.size() < 5) {
+                continue;
+            }
+            if (insidePoolEntry(pos - raw.size() * 2)) {
                 continue;
             }
             if (raw.contains(QLatin1String("colorgrading"), Qt::CaseInsensitive)) {
@@ -903,6 +925,30 @@ void VegReader::parseTimelineEvents(const QByteArray &data, VegOpenResult *resul
     if (!result->hasTimelineTimings) {
         result->warnings << QStringLiteral(
             "No binary timeline timing blocks found — using heuristic event lengths.");
+    }
+
+    // Which media each event plays. The take is nested in the event, so the container says
+    // it outright; without this the importer could only pair events with pooled file names
+    // by order, which has no answer at all for generated media.
+    const QVector<VegChunk> chunks = vegRiffChunks(data);
+    if (chunks.isEmpty()) {
+        return;
+    }
+    const QString takeId = VegChunkIds::take();
+    for (VegEventInfo &ev : result->events) {
+        const VegChunk *event = vegRiffEnclosing(chunks, ev.offset, VegChunkIds::event());
+        if (!event) {
+            continue;
+        }
+        for (const VegChunk &c : chunks) {
+            if (c.offset <= event->offset || c.offset >= event->end) {
+                continue;
+            }
+            if (!c.isList && c.id == takeId && c.payload + 40 <= c.end) {
+                ev.mediaRef = qFromLittleEndian<quint32>(base + c.payload + 36);
+                break;
+            }
+        }
     }
 }
 
@@ -2353,12 +2399,13 @@ void VegReader::parseMediaPool(const QByteArray &data, VegOpenResult *result)
     }
     // {B28F2D5D-230F-11D2-86AF-00C04F8EDB8A} inside the {B28F2D5B-…} list, one per entry.
     // See MARKDOWN/VEG_CONTAINER_FORMAT.md.
-    static const QString kEntryId = QStringLiteral("5d2d8fb20f23d21186af00c04f8edb8a");
+    const QString kEntryId = VegChunkIds::mediaEntry();
     const QVector<VegChunk> chunks = vegRiffChunks(data);
     if (chunks.isEmpty()) {
         return;
     }
     const uchar *base = reinterpret_cast<const uchar *>(data.constData());
+    static const QString kGeneratorPrefix = QStringLiteral("META:\\Video Generator\\");
 
     for (const VegChunk &c : chunks) {
         if (c.isList || c.id != kEntryId) {
@@ -2368,6 +2415,7 @@ void VegReader::parseMediaPool(const QByteArray &data, VegOpenResult *result)
         // not decoded, so the strings are picked out by what they say rather than by where
         // they sit — a path has a separator in it, a generator names itself "{Svfx:…}".
         QStringList strings;
+        QVector<int> stringOffsets;
         int i = c.payload;
         while (i + 2 <= c.end) {
             QString text;
@@ -2387,21 +2435,53 @@ void VegReader::parseMediaPool(const QByteArray &data, VegOpenResult *result)
             }
             if (clean && text.size() >= 3) {
                 strings << text;
+                stringOffsets << i;
             }
             i = (j > i) ? j + 2 : i + 2;
         }
 
         VegPoolMedia media;
-        for (const QString &s : strings) {
+        if (c.payload + 64 <= c.end) {
+            media.mediaId = qFromLittleEndian<quint32>(base + c.payload + 60);
+        }
+        int generatorIdPos = -1;
+        int displayIndex = -1;
+        for (int k = 0; k < strings.size(); ++k) {
+            const QString &s = strings[k];
             if (s.startsWith(QLatin1String("{Svfx:"), Qt::CaseInsensitive)) {
+                // The identifier on its own, after the names: the OFX parameter record
+                // follows it, the same record an event's effect carries.
                 media.generatorId = s;
+                generatorIdPos = stringOffsets[k];
             } else if (media.path.isEmpty()
                        && (s.contains(QLatin1Char('\\')) || s.contains(QLatin1Char('/')))) {
                 media.path = s;
             } else if (media.displayName.isEmpty() && !s.contains(QLatin1Char('\\'))
                        && !s.startsWith(QLatin1String("META:"))) {
                 media.displayName = s;
+                displayIndex = k;
             }
+        }
+        // A legacy DirectX generator has no "{Svfx:…}" at all — VEGAS 22 still writes Color
+        // Gradient and Credit Roll under the plug-in's CLSID: "META:\Video Generator\{CLSID} (n)".
+        if (media.generatorId.isEmpty() && media.path.startsWith(kGeneratorPrefix)) {
+            const QString rest = media.path.mid(kGeneratorPrefix.size());
+            const int close = rest.indexOf(QLatin1Char('}'));
+            if (rest.startsWith(QLatin1Char('{')) && close > 0) {
+                media.generatorId = rest.left(close + 1).toUpper();
+            }
+        }
+        if (generatorIdPos >= 0) {
+            VegOfxEffect effect;
+            if (vegOfxDecodeEffect(data, generatorIdPos, &effect)) {
+                media.ofx = effect;
+                media.presetName = effect.presetName;
+            }
+        } else if (media.isLegacyGenerator() && displayIndex >= 0
+                   && displayIndex + 1 < strings.size()) {
+            // The preset's name follows the display name; the parameters after it are not
+            // decoded, so the name is what can honestly be carried over.
+            media.presetName = strings[displayIndex + 1];
         }
         if (media.path.isEmpty() && media.generatorId.isEmpty()) {
             continue; // nothing recognisable; better to omit than to invent an entry

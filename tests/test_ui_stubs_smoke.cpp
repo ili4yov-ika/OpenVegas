@@ -2,6 +2,7 @@
 // Run through tools/run_ui_stubs_smoke.py with a MinGW/Ninja build.
 #include "app/MainWindow.h"
 #include "ui/ProjectPropertiesDialog.h"
+#include "ui/MediaGeneratorPane.h"
 #include "ui/MixingConsoleWindow.h"
 #include "model/ProjectSnapshot.h"
 #include <QApplication>
@@ -10,8 +11,10 @@
 #include <QComboBox>
 #include <QDialogButtonBox>
 #include <QDir>
+#include <QHash>
 #include <QInputDialog>
 #include <QLineEdit>
+#include <QListWidget>
 #include <QPlainTextEdit>
 #include <QProgressBar>
 #include <QPushButton>
@@ -157,6 +160,34 @@ int main(int argc, char **argv) {
         action(mixer, QStringLiteral("Audio Properties..."))->trigger();
         require(propertiesRequested, "Mixer properties action");
         require(!action(mixer, QStringLiteral("Preview Bus"))->isEnabled(), "Unavailable preview bus is disabled");
+        // The generator browser offers every preset VEGAS ships, not one invented each.
+        {
+            MediaGeneratorPane generators;
+            auto *plugins = generators.findChild<QListWidget *>(QStringLiteral("fxPluginList"));
+            auto *presets = generators.findChild<QListWidget *>(QStringLiteral("fxPresetGrid"));
+            require(plugins && presets, "Generator browser lists exist");
+            const QHash<QString, int> expected = {
+                {QStringLiteral("Checkerboard"), 13}, {QStringLiteral("Color Gradient"), 18},
+                {QStringLiteral("Credit Roll"), 8},   {QStringLiteral("Noise Texture"), 20},
+                {QStringLiteral("Solid Color"), 10},  {QStringLiteral("Test Pattern"), 10},
+            };
+            int seen = 0;
+            for (int row = 0; row < plugins->count(); ++row) {
+                // Rows read "☆  Checkerboard": the favourite star, then the name.
+                const QString name = plugins->item(row)->text().mid(1).trimmed();
+                if (!expected.contains(name)) continue;
+                plugins->setCurrentRow(row);
+                require(presets->count() == expected.value(name),
+                        qPrintable(QStringLiteral("%1 preset count").arg(name)));
+                ++seen;
+                if (const QByteArray dump = qgetenv("OPENVGAS_DUMP_GENERATORS"); !dump.isEmpty()) {
+                    generators.resize(1200, 700);
+                    generators.grab().save(QStringLiteral("%1/generators_%2.png")
+                                               .arg(QString::fromLocal8Bit(dump), name));
+                }
+            }
+            require(seen == expected.size(), "Every generator is listed");
+        }
         require(QThreadPool::globalInstance()->waitForDone(10000), "Preview jobs finish before test teardown");
         std::cout << "UI smoke passed: " << checks << " checks\n";
     } catch (const std::exception &e) {

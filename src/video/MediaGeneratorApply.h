@@ -6,6 +6,7 @@
 #include <QImage>
 #include <QSize>
 #include <QString>
+#include <QVariantMap>
 
 namespace openvegas {
 
@@ -40,6 +41,17 @@ struct MediaGeneratorParams {
     QColor c0 = QColor(0x20, 0x40, 0x80);
     QColor c1 = QColor(0xc0, 0x60, 0x30);
     int tile = 8;
+    /**
+     * What a VEGAS project actually said, kept whole for the real generator: the plug-in
+     * ("{Svfx:…}", or a legacy CLSID in braces), its preset, and its stored parameters and
+     * curves (`vegOfxParamMap()` / `vegOfxCurveMap()` shapes). The pattern fields above
+     * are only what the stand-in renderer can show of them. Empty when the generator was
+     * placed from OpenVegas's own browser.
+     */
+    QString vegasPluginId;
+    QString vegasPreset;
+    QVariantMap vegasParams;
+    QVariantMap vegasCurves;
 };
 
 /**
@@ -48,6 +60,20 @@ struct MediaGeneratorParams {
  * preset thumbnail) and scale proportionally with size.
  */
 QImage renderMediaGeneratorPattern(const MediaGeneratorParams &p, const QSize &size);
+
+/**
+ * A VEGAS generator — its id, preset and stored values — as params for this renderer.
+ *
+ * The one place both the .veg importer and the generator browser go through, so a preset
+ * placed from the browser and the same preset opened from a project are the same thing.
+ * Everything VEGAS said is kept in the vegas* fields; the pattern fields get what the
+ * stand-in renderer can show of it: the generator's pattern, its colours where named, and
+ * Checkerboard's tile width. Unknown ids keep `displayName` and the stand-in defaults.
+ */
+MediaGeneratorParams mediaGeneratorFromVegas(const QString &vegasPluginId, const QString &presetName,
+                                             const QVariantMap &params,
+                                             const QVariantMap &curves = {},
+                                             const QString &displayName = {});
 
 /** Build a builtin FxSlot carrying p (see isMediaGeneratorPluginId()). */
 FxSlot mediaGeneratorSlotFor(const MediaGeneratorParams &p);

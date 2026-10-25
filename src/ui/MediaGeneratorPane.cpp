@@ -1,6 +1,7 @@
 #include "ui/MediaGeneratorPane.h"
 
 #include "io/MediaMime.h"
+#include "video/GeneratorPresetData.h"
 #include "video/MediaGeneratorApply.h"
 #include "video/TitlesTextApply.h"
 
@@ -209,60 +210,50 @@ void MediaGeneratorPane::loadCatalog()
 
     auto add = [this](Plugin p) { m_plugins.push_back(std::move(p)); };
 
-    {
+    // The six non-text generators and every preset VEGAS ships for them, from the stock
+    // table (tools/gen_generator_presets.py): names and values are VEGAS's, and each preset
+    // goes through mediaGeneratorFromVegas() — the same mapping a project's generator takes
+    // on import — so what is placed from here and what is opened from a .veg agree.
+    struct Listing {
+        const char *name;
+        QStringList categories;
+        const char *description;
+        bool gpu;
+    };
+    static const Listing kListings[] = {
+        {"Checkerboard", {QStringLiteral("Utility"), QStringLiteral("Creative")},
+         "From Magix Computer Products Intl. Co.", true},
+        {"Color Gradient", {QStringLiteral("Creative"), QStringLiteral("Utility")},
+         "Linear and radial color gradients.", true},
+        {"Credit Roll", {QStringLiteral("Titles and Text")}, "Scrolling credit / title roll.",
+         false},
+        {"Noise Texture", {QStringLiteral("Creative"), QStringLiteral("Utility")},
+         "Procedural noise texture generator.", true},
+        {"Solid Color", {QStringLiteral("Utility")}, "Solid color media event.", false},
+        {"Test Pattern", {QStringLiteral("Utility")}, "Broadcast / calibration test patterns.",
+         false},
+    };
+    for (const StockGeneratorGroup &group : stockGeneratorPresets()) {
         Plugin p;
-        p.name = QStringLiteral("Checkerboard");
-        p.categories = {QStringLiteral("Utility"), QStringLiteral("Creative")};
+        p.name = group.name;
         p.grouping = QStringLiteral("OpenVegas");
         p.version = QStringLiteral("1.0");
-        p.description = QStringLiteral("From Magix Computer Products Intl. Co.");
-        p.gpu = true;
-        p.presets = {
-            makePreset(QStringLiteral("(Default)"), MediaGeneratorPattern::Checker, c(0x11, 0x11, 0x11), c(0xee, 0xee, 0xee), 12),
-            makePreset(QStringLiteral("Large Tiles"), MediaGeneratorPattern::Checker, c(0x11, 0x11, 0x11), c(0xee, 0xee, 0xee), 20),
-            makePreset(QStringLiteral("Small Tiles"), MediaGeneratorPattern::Checker, c(0x11, 0x11, 0x11), c(0xee, 0xee, 0xee), 6),
-            makePreset(QStringLiteral("Horizontal Blinds"), MediaGeneratorPattern::HBlinds),
-            makePreset(QStringLiteral("Vertical Blinds"), MediaGeneratorPattern::VBlinds),
-            makePreset(QStringLiteral("Grille"), MediaGeneratorPattern::Grille),
-            makePreset(QStringLiteral("Fence"), MediaGeneratorPattern::Fence),
-            makePreset(QStringLiteral("Ridges"), MediaGeneratorPattern::Ridges),
-            makePreset(QStringLiteral("Bumps"), MediaGeneratorPattern::Bumps),
-            makePreset(QStringLiteral("Plaid"), MediaGeneratorPattern::Plaid),
-            makePreset(QStringLiteral("Letterbox"), MediaGeneratorPattern::Letterbox),
-            makePreset(QStringLiteral("Split Screen"), MediaGeneratorPattern::SplitScreen),
-            makePreset(QStringLiteral("Horizon"), MediaGeneratorPattern::Horizon),
-        };
+        for (const Listing &l : kListings) {
+            if (group.name == QLatin1String(l.name)) {
+                p.categories = l.categories;
+                p.description = QString::fromLatin1(l.description);
+                p.gpu = l.gpu;
+            }
+        }
+        for (const StockGeneratorPreset &stock : group.presets) {
+            const MediaGeneratorParams gp =
+                mediaGeneratorFromVegas(group.pluginId, stock.name, stock.params);
+            Preset preset = makePreset(stock.name, gp.pattern, gp.c0, gp.c1, gp.tile);
+            preset.vegasPluginId = group.pluginId;
+            p.presets.push_back(preset);
+        }
         add(std::move(p));
     }
-
-    auto simple = [&](const QString &name, const QStringList &cats, const QString &desc,
-                      MediaGeneratorPattern pat, QColor a, QColor b, bool gpu = false) {
-        Plugin p;
-        p.name = name;
-        p.categories = cats;
-        p.grouping = QStringLiteral("OpenVegas");
-        p.version = QStringLiteral("1.0");
-        p.description = desc;
-        p.gpu = gpu;
-        p.presets = {makePreset(QStringLiteral("(Default)"), pat, a, b)};
-        add(std::move(p));
-    };
-
-    simple(QStringLiteral("Color Gradient"), {QStringLiteral("Creative"), QStringLiteral("Utility")},
-           QStringLiteral("Linear and radial color gradients."), MediaGeneratorPattern::Gradient,
-           c(0x20, 0x40, 0x80), c(0xc0, 0x60, 0x30), true);
-    simple(QStringLiteral("Credit Roll"), {QStringLiteral("Titles and Text")},
-           QStringLiteral("Scrolling credit / title roll."), MediaGeneratorPattern::Gradient,
-           c(0x10, 0x10, 0x10), c(0x40, 0x40, 0x50));
-    simple(QStringLiteral("Noise Texture"), {QStringLiteral("Creative"), QStringLiteral("Utility")},
-           QStringLiteral("Procedural noise texture generator."), MediaGeneratorPattern::Bumps,
-           c(0x30, 0x30, 0x30), c(0x90, 0x90, 0x90), true);
-    simple(QStringLiteral("Solid Color"), {QStringLiteral("Utility")},
-           QStringLiteral("Solid color media event."), MediaGeneratorPattern::Gradient,
-           c(0x00, 0x78, 0xd7), c(0x00, 0x78, 0xd7));
-    simple(QStringLiteral("Test Pattern"), {QStringLiteral("Utility")},
-           QStringLiteral("Broadcast / calibration test patterns."), MediaGeneratorPattern::Grille,
-           c(0x11, 0x11, 0x11), c(0xee, 0xee, 0xee));
     {
         Plugin p;
         p.name = QStringLiteral("Titles & Text");
@@ -702,6 +693,8 @@ void MediaGeneratorPane::applySearchAndCategory()
                 gp.c0 = def.c0;
                 gp.c1 = def.c1;
                 gp.tile = def.tile;
+                gp.vegasPluginId = def.vegasPluginId;
+                gp.vegasPreset = def.name;
                 item->setData(kDragKindRole, QStringLiteral("generator"));
                 item->setData(kDragNameRole, QString());
                 item->setData(kDragExtraRole, mediaGeneratorParamsToPayload(gp));
@@ -754,6 +747,8 @@ void MediaGeneratorPane::showPlugin(int catalogIndex)
             gp.c0 = pr.c0;
             gp.c1 = pr.c1;
             gp.tile = pr.tile;
+            gp.vegasPluginId = pr.vegasPluginId;
+            gp.vegasPreset = pr.name;
             item->setData(kDragKindRole, QStringLiteral("generator"));
             item->setData(kDragNameRole, pr.name);
             item->setData(kDragExtraRole, mediaGeneratorParamsToPayload(gp));
@@ -764,8 +759,13 @@ void MediaGeneratorPane::showPlugin(int catalogIndex)
         m_presetGrid->setCurrentRow(0);
     }
 
-    QString tech = tr("%1: OFX, 32-bit floating point").arg(p.name);
-    if (p.gpu) {
+    // Color Gradient and Credit Roll are still DirectX plug-ins in VEGAS 22 — their id is a
+    // CLSID rather than "{Svfx:…}" — and calling them OFX would be wrong.
+    const bool legacy = !p.presets.isEmpty() && !p.presets.first().vegasPluginId.isEmpty()
+                        && !p.presets.first().vegasPluginId.startsWith(QLatin1String("{Svfx:"));
+    QString tech = legacy ? tr("%1: DirectX (legacy plug-in)").arg(p.name)
+                          : tr("%1: OFX, 32-bit floating point").arg(p.name);
+    if (p.gpu && !legacy) {
         tech += QStringLiteral(", GPU Accelerated");
     }
     tech += tr(", Grouping: %1, Version %2").arg(p.grouping, p.version);

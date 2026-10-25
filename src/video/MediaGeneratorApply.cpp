@@ -1,6 +1,8 @@
 #include "video/MediaGeneratorApply.h"
+#include "video/GeneratorPresetData.h"
 
 #include <QDataStream>
+#include <QHash>
 #include <QIODevice>
 #include <QLinearGradient>
 #include <QPainter>
@@ -165,6 +167,101 @@ QImage renderMediaGeneratorPattern(const MediaGeneratorParams &p, const QSize &s
     return img;
 }
 
+MediaGeneratorParams mediaGeneratorFromVegas(const QString &vegasPluginId, const QString &presetName,
+                                             const QVariantMap &params, const QVariantMap &curves,
+                                             const QString &displayName)
+{
+    struct Stand {
+        const char *id;
+        const char *name;
+        MediaGeneratorPattern pattern;
+        QColor c0, c1;
+    };
+    static const Stand kStands[] = {
+        {"{Svfx:com.vegascreativesoftware:checkerboard}", "Checkerboard",
+         MediaGeneratorPattern::Checker, QColor(0x11, 0x11, 0x11), QColor(0xee, 0xee, 0xee)},
+        {"{Svfx:com.vegascreativesoftware:noisetexture}", "Noise Texture",
+         MediaGeneratorPattern::Bumps, QColor(0x30, 0x30, 0x30), QColor(0x90, 0x90, 0x90)},
+        {"{Svfx:com.vegascreativesoftware:solidcolor}", "Solid Color",
+         MediaGeneratorPattern::Gradient, QColor(0x00, 0x78, 0xd7), QColor(0x00, 0x78, 0xd7)},
+        {"{Svfx:com.vegascreativesoftware:testpattern}", "Test Pattern",
+         MediaGeneratorPattern::Grille, QColor(0x11, 0x11, 0x11), QColor(0xee, 0xee, 0xee)},
+        {"{8B5DEABC-53BD-49F6-9803-367478307A59}", "Color Gradient",
+         MediaGeneratorPattern::Gradient, QColor(0x20, 0x40, 0x80), QColor(0xc0, 0x60, 0x30)},
+        {"{02FD3B60-986B-11D4-9F6F-00485481BD31}", "Credit Roll",
+         MediaGeneratorPattern::Gradient, QColor(0x10, 0x10, 0x10), QColor(0x40, 0x40, 0x50)},
+    };
+    MediaGeneratorParams p;
+    if (!displayName.isEmpty()) {
+        p.pluginName = displayName;
+    }
+    for (const Stand &s : kStands) {
+        if (vegasPluginId.compare(QLatin1String(s.id), Qt::CaseInsensitive) == 0) {
+            p.pluginName = QString::fromLatin1(s.name);
+            p.pattern = s.pattern;
+            p.c0 = s.c0;
+            p.c1 = s.c1;
+            break;
+        }
+    }
+    p.vegasPluginId = vegasPluginId;
+    p.vegasPreset = presetName;
+    p.vegasParams = params;
+    p.vegasCurves = curves;
+
+    auto colour = [&](const QString &name) -> QColor {
+        const QVariantList c = params.value(name).toList();
+        if (c.size() < 3) {
+            return {};
+        }
+        auto channel = [](const QVariant &v) { return std::clamp(v.toDouble(), 0.0, 1.0); };
+        return QColor::fromRgbF(float(channel(c[0])), float(channel(c[1])), float(channel(c[2])),
+                                c.size() > 3 ? float(channel(c[3])) : 1.0f);
+    };
+    if (const QColor c = colour(QStringLiteral("Color")); c.isValid()) {
+        p.c0 = c;
+        p.c1 = c;
+    }
+    if (const QColor c = colour(QStringLiteral("Color1")); c.isValid()) {
+        p.c0 = c;
+    }
+    if (const QColor c = colour(QStringLiteral("Color2")); c.isValid()) {
+        p.c1 = c;
+    }
+    // The stand-in draws square tiles only. Checkerboard's stripe and frame presets are
+    // tiles of very different widths and heights (Horizontal Blinds is 1.0 by 0.07), which
+    // as squares would be a few giant cells; their own stand-in patterns look like them.
+    if (p.pattern == MediaGeneratorPattern::Checker) {
+        static const QHash<QString, MediaGeneratorPattern> kLooks = {
+            {QStringLiteral("horizontal blinds"), MediaGeneratorPattern::HBlinds},
+            {QStringLiteral("vertical blinds"), MediaGeneratorPattern::VBlinds},
+            {QStringLiteral("grate"), MediaGeneratorPattern::Grille},
+            {QStringLiteral("fence"), MediaGeneratorPattern::Fence},
+            {QStringLiteral("ridges"), MediaGeneratorPattern::Ridges},
+            {QStringLiteral("bumps"), MediaGeneratorPattern::Bumps},
+            {QStringLiteral("plaid"), MediaGeneratorPattern::Plaid},
+            {QStringLiteral("letterhead"), MediaGeneratorPattern::Letterbox},
+            {QStringLiteral("split screen"), MediaGeneratorPattern::SplitScreen},
+            {QStringLiteral("horizon"), MediaGeneratorPattern::Horizon},
+        };
+        p.pattern = kLooks.value(presetName.toLower(), MediaGeneratorPattern::Checker);
+    }
+    // Checkerboard's tile is one cell, as a fraction of the frame, with its own width and
+    // height. A blind is long one way and thin the other — Horizontal Blinds is 1.0 by
+    // 0.07 — so the size the eye reads is the smaller of the two; and the stand-in's
+    // blinds draw a stripe as half their tile, so those get it doubled.
+    bool okW = false, okH = false;
+    const double w = params.value(QStringLiteral("TileDimensionsWidth")).toDouble(&okW);
+    const double h = params.value(QStringLiteral("TileDimensionsHeight")).toDouble(&okH);
+    const double cell = okW && okH ? std::min(w, h) : okW ? w : okH ? h : 0.0;
+    if (cell > 0.0) {
+        const bool blinds = p.pattern == MediaGeneratorPattern::HBlinds
+                            || p.pattern == MediaGeneratorPattern::VBlinds;
+        p.tile = std::clamp(int(std::lround(cell * 100.0 * (blinds ? 2.0 : 1.0))), 2, 64);
+    }
+    return p;
+}
+
 FxSlot mediaGeneratorSlotFor(const MediaGeneratorParams &p)
 {
     const QString name = p.pluginName.isEmpty() ? QStringLiteral("Media Generator") : p.pluginName;
@@ -190,35 +287,57 @@ MediaGeneratorParams mediaGeneratorFromSlot(const FxSlot &slot)
         p.c1 = c1.value<QColor>();
     }
     p.tile = std::clamp(m.value(QStringLiteral("tile"), p.tile).toInt(), 2, 64);
+    p.vegasPluginId = m.value(QStringLiteral("vegasPluginId")).toString();
+    p.vegasPreset = m.value(QStringLiteral("vegasPreset")).toString();
+    p.vegasParams = m.value(QStringLiteral("vegasParams")).toMap();
+    p.vegasCurves = m.value(QStringLiteral("vegasCurves")).toMap();
     return p;
 }
 
 void mediaGeneratorSaveToSlot(FxSlot *slot, const MediaGeneratorParams &p)
 {
-    saveParams(slot,
-              QVariantMap{
-                  {QStringLiteral("pluginName"), p.pluginName},
-                  {QStringLiteral("pattern"), int(p.pattern)},
-                  {QStringLiteral("c0"), p.c0},
-                  {QStringLiteral("c1"), p.c1},
-                  {QStringLiteral("tile"), p.tile},
-              });
+    QVariantMap m{
+        {QStringLiteral("pluginName"), p.pluginName},
+        {QStringLiteral("pattern"), int(p.pattern)},
+        {QStringLiteral("c0"), p.c0},
+        {QStringLiteral("c1"), p.c1},
+        {QStringLiteral("tile"), p.tile},
+    };
+    // Only when there is something: a generator placed from the browser stays as small as
+    // it was.
+    if (!p.vegasPluginId.isEmpty()) {
+        m.insert(QStringLiteral("vegasPluginId"), p.vegasPluginId);
+        m.insert(QStringLiteral("vegasPreset"), p.vegasPreset);
+        m.insert(QStringLiteral("vegasParams"), p.vegasParams);
+        if (!p.vegasCurves.isEmpty()) {
+            m.insert(QStringLiteral("vegasCurves"), p.vegasCurves);
+        }
+    }
+    saveParams(slot, m);
 }
 
 QString mediaGeneratorParamsToPayload(const MediaGeneratorParams &p)
 {
-    return QStringLiteral("%1|%2|%3|%4|%5")
+    // The VEGAS generator and preset ride along by name: the values are VEGAS's stock ones
+    // and come back from the stock table, rather than being squeezed into a drag string.
+    return QStringLiteral("%1|%2|%3|%4|%5|%6|%7")
         .arg(p.pluginName)
         .arg(int(p.pattern))
         .arg(p.c0.name(QColor::HexArgb))
         .arg(p.c1.name(QColor::HexArgb))
-        .arg(p.tile);
+        .arg(p.tile)
+        .arg(p.vegasPluginId, p.vegasPreset);
 }
 
 MediaGeneratorParams mediaGeneratorParamsFromPayload(const QString &payload)
 {
     MediaGeneratorParams p;
     const QStringList parts = payload.split(QLatin1Char('|'));
+    if (parts.size() >= 7 && !parts[5].isEmpty()) {
+        const StockGeneratorPreset *stock = stockGeneratorPreset(parts[5], parts[6]);
+        return mediaGeneratorFromVegas(parts[5], parts[6], stock ? stock->params : QVariantMap(),
+                                       {}, parts[0]);
+    }
     if (parts.size() >= 1 && !parts[0].isEmpty()) {
         p.pluginName = parts[0];
     }

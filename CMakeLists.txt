@@ -138,6 +138,7 @@ endif()
     src/video/ColorCorrectorApply.cpp
     src/video/TitlesTextApply.cpp
     src/video/MediaGeneratorApply.cpp
+    src/video/GeneratorPresetData.cpp
     src/video/TransitionApply.cpp
     src/video/TransitionPluginHook.cpp
     src/video/VideoCompositor.cpp
@@ -240,6 +241,7 @@ set(OPENVGAS_HEADERS
     src/video/ColorCorrectorApply.h
     src/video/TitlesTextApply.h
     src/video/MediaGeneratorApply.h
+    src/video/GeneratorPresetData.h
     src/video/TransitionApply.h
     src/video/VideoCompositor.h
     src/video/TransitionPresetData.h
@@ -521,6 +523,7 @@ if(OPENVGAS_BUILD_TESTS)
         src/video/TransitionApply.cpp
         src/video/TransitionPluginHook.cpp
         src/video/MediaGeneratorApply.cpp
+        src/video/GeneratorPresetData.cpp
         src/video/VideoCompositor.cpp
         src/video/NestedFrameHook.cpp
         src/video/VideoFrameCache.cpp
@@ -574,6 +577,7 @@ if(OPENVGAS_BUILD_TESTS)
         tests/test_veg_riff_writer.cpp
         tests/test_transitions_veg.cpp
         tests/test_nested_project_audio.cpp
+        tests/test_veg_generators.cpp
         src/io/FFmpegEncoder.cpp
         src/io/FFmpegStreamDecoder.cpp
         src/io/MediaFilmstripCache.cpp
@@ -623,6 +627,7 @@ if(OPENVGAS_BUILD_TESTS)
         src/video/TransitionApply.cpp
         src/video/TransitionPluginHook.cpp
         src/video/MediaGeneratorApply.cpp
+        src/video/GeneratorPresetData.cpp
         src/video/NestedFrameHook.cpp
         src/video/NestedProjectSource.cpp
         src/video/VideoCompositor.cpp

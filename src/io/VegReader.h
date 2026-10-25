@@ -36,6 +36,13 @@ struct VegEventInfo {
     QString name;
     /** Byte offset of the kindCode field this record was matched at; -1 if not tracked. */
     int offset = -1;
+    /**
+     * Media-pool id the event's take plays (`VegPoolMedia::mediaId`), or -1 when the event
+     * has no take the reader could find. Read from the take chunk nested in the event, so
+     * it names the media outright instead of leaving it to be guessed from the order of
+     * file names.
+     */
+    qint64 mediaRef = -1;
 };
 
 /**
@@ -226,12 +233,26 @@ struct VegPoolMedia {
      * `META:\Video Generator\{Svfx:com.vegascreativesoftware:titlesandtext}`.
      */
     QString path;
-    /** Generator identifier for generated media, empty for a file. */
+    /**
+     * Generator identifier for generated media, empty for a file: `{Svfx:…}` for an OFX
+     * generator, or the plug-in's CLSID in braces for a legacy DirectX one (Color Gradient,
+     * Credit Roll), which VEGAS 22 still writes that way.
+     */
     QString generatorId;
     /** What the media pool shows — "VEGAS Titles & Text" — when the project says. */
     QString displayName;
+    /** The id events' takes refer to (`VegEventInfo::mediaRef`); 0 when not read. */
+    quint32 mediaId = 0;
+    /** The generator's preset as saved, e.g. "Linear White to Black". */
+    QString presetName;
+    /** An OFX generator's stored parameters; empty for files and legacy generators. */
+    VegOfxEffect ofx;
 
     bool isGenerated() const { return !generatorId.isEmpty(); }
+    bool isLegacyGenerator() const
+    {
+        return isGenerated() && !generatorId.startsWith(QLatin1String("{Svfx:"), Qt::CaseInsensitive);
+    }
 };
 
 struct VegMixerBus {

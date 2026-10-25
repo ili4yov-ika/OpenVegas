@@ -48,6 +48,12 @@ public:
          * where the caption already equals its real sample text).
          */
         QString sampleText;
+        /**
+         * The VEGAS generator this preset belongs to ("{Svfx:…}" or a legacy CLSID), so a
+         * placed preset carries VEGAS's own values (see mediaGeneratorFromVegas()). Empty
+         * for Titles & Text, which goes by animationKey.
+         */
+        QString vegasPluginId;
     };
 
     struct Plugin {
