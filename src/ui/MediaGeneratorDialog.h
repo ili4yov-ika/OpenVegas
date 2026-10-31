@@ -5,6 +5,8 @@
 #include <QDialog>
 #include <QVariantMap>
 
+#include <functional>
+
 class QComboBox;
 class QLabel;
 class QLineEdit;
@@ -25,9 +27,19 @@ class GeneratorPage : public QWidget {
 public:
     using QWidget::QWidget;
     virtual void setParams(const QVariantMap &params) = 0;
+    /**
+     * Animation, for a page that offers it: `{parameter: [t0, v0, t1, v1, …]}` and where
+     * the timeline cursor is in the event, in seconds. A page without keyframes ignores it.
+     */
+    virtual void setAnimation(const QVariantMap &curves, double timeSec)
+    {
+        Q_UNUSED(curves);
+        Q_UNUSED(timeSec);
+    }
 
 signals:
     void paramsEdited(const QVariantMap &params);
+    void curvesEdited(const QVariantMap &curves);
 };
 
 /**
@@ -35,7 +47,7 @@ signals:
  * Color Gradient, Credit Roll, Noise Texture, Solid Color, Test Pattern (Titles & Text has
  * its own editor). What VEGAS shows, from the top:
  *
- *   Video Media Generator: VEGAS <name>
+ *   Video Media Generator: <name>
  *   Frame Size: <w> x <h>        Duration: <timecode>
  *   Preset: [stock and saved presets]  [save] [delete]
  *   the generator's page
@@ -55,6 +67,10 @@ public:
 
     /** Show `ev`'s generator; nothing when its first slot is not a Media Generator. */
     void setEvent(TrackEvent *ev, int frameWidth, int frameHeight, double frameRateFps);
+    /** Where the timeline cursor is, in project seconds — what keyframes are set at. */
+    void setCursorSource(std::function<double()> cursorSec) { m_cursorSec = std::move(cursorSec); }
+    /** The cursor moved: show the animated values where it now is. */
+    void cursorMoved();
     TrackEvent *trackEvent() const { return m_event; }
 
 signals:
@@ -71,10 +87,14 @@ private:
     void saveUserPreset();
     void deleteUserPreset();
     void storeParams(const QVariantMap &params);
+    void storeCurves(const QVariantMap &curves);
+    double eventTime() const;
     void applyDuration();
+    void openMediaProperties();
     QString durationText() const;
 
     TrackEvent *m_event = nullptr;
+    std::function<double()> m_cursorSec;
     MediaGeneratorParams m_gen;
     QString m_id;
     int m_frameWidth = 1920;
@@ -88,6 +108,7 @@ private:
     QComboBox *m_preset = nullptr;
     QToolButton *m_savePreset = nullptr;
     QToolButton *m_deletePreset = nullptr;
+    QToolButton *m_mediaProps = nullptr;
     QLabel *m_pageTitle = nullptr;
     QScrollArea *m_scroll = nullptr;
     GeneratorPage *m_page = nullptr;

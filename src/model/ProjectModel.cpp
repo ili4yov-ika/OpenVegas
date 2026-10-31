@@ -1023,16 +1023,9 @@ int ProjectModel::addMediaAt(const QString &name, const QString &kind, double st
         } else if (vi < 0 || vi >= m_tracks.size() || m_tracks[vi].kind != TrackKind::Video) {
             vi = ensureTrack(TrackKind::Video);
         }
-        TitlesTextParams p; // defaults: "Sample Text", Verdana 48pt, white, centered, no animation
-        if (!extra.isEmpty()) {
-            p.animationName = extra;
-            // Real Vegas starting text/background color / scale for this preset (see
-            // video/TitlesTextApply.h's titlesTextPresetVisuals()).
-            const TitlesTextPresetVisuals visuals = titlesTextPresetVisuals(extra);
-            p.textColor = visuals.textColor;
-            p.backgroundColor = visuals.backgroundColor;
-            p.scale = visuals.scale;
-        }
+        // `extra` names the VEGAS preset (or, from older drags, its animation key): the
+        // event starts with everything that preset sets (titlesTextPresetParams()).
+        TitlesTextParams p = extra.isEmpty() ? TitlesTextParams{} : titlesTextPresetParams(extra);
         if (!name.isEmpty()) {
             p.text = name;
         }
@@ -1040,7 +1033,7 @@ int ProjectModel::addMediaAt(const QString &name, const QString &kind, double st
         te.id = m_nextEventId++;
         // Track/tooltip label stays single-line even when the preset's real sample text
         // (e.g. a Title-N marketing line) spans multiple lines.
-        te.name = name.isEmpty() ? QStringLiteral("VEGAS Titles & Text")
+        te.name = name.isEmpty() ? QStringLiteral("Titles & Text")
                                  : name.section(QLatin1Char('\n'), 0, 0).left(60);
         te.startSec = std::max(0.0, startSec);
         te.lengthSec = std::max(0.05, resolvedLen);
@@ -2191,6 +2184,7 @@ TitlesTextParams titlesTextParamsFromVeg(const VegTitleTextInfo &src)
     p.bold = src.bold;
     p.italic = src.italic;
     p.alignment = static_cast<TitlesTextAlignment>(std::clamp(src.alignment, 0, 2));
+    p.anchor = static_cast<TitlesTextAnchor>(std::clamp(src.anchor, 0, 8));
     p.textColor = src.textColor;
     p.animationName = src.animationName;
     p.scale = src.scale;
@@ -2212,7 +2206,7 @@ TitlesTextParams titlesTextParamsFromVeg(const VegTitleTextInfo &src)
 
 FxSlot titlesTextSlotFor(const TitlesTextParams &p)
 {
-    FxSlot slot = makeFxSlot(QStringLiteral("VEGAS Titles & Text"), PluginFormat::Builtin,
+    FxSlot slot = makeFxSlot(QStringLiteral("Titles & Text"), PluginFormat::Builtin,
                              QStringLiteral("{Svfx:com.vegascreativesoftware:titlesandtext}"));
     titlesTextSaveToSlot(&slot, p);
     return slot;
@@ -2461,7 +2455,7 @@ void ProjectModel::applyTitlesTextFromVeg(const VegOpenResult &veg)
         ev.id = m_nextEventId++;
         ev.name = p.text.section(QLatin1Char('\n'), 0, 0).left(60);
         if (ev.name.isEmpty()) {
-            ev.name = QStringLiteral("VEGAS Titles & Text");
+            ev.name = QStringLiteral("Titles & Text");
         }
         ev.startSec = src.startSec;
         ev.lengthSec = std::max(0.05, src.lengthSec);
@@ -2471,7 +2465,7 @@ void ProjectModel::applyTitlesTextFromVeg(const VegOpenResult &veg)
     }
 }
 
-int ProjectModel::addTitlesTextEvent(const QString &animationKey, const QString &sampleText)
+int ProjectModel::addTitlesTextEvent(const QString &presetName, const QString &sampleText)
 {
     int vi = -1;
     for (int i = 0; i < m_tracks.size(); ++i) {
@@ -2494,18 +2488,12 @@ int ProjectModel::addTitlesTextEvent(const QString &animationKey, const QString 
     }
     const double startSec = std::max(m_playheadSec, trackEnd);
 
-    TitlesTextParams p; // defaults: "Sample Text", Verdana 48pt, white, centered, no animation
-    if (!animationKey.isEmpty()) {
-        p.animationName = animationKey;
-        const TitlesTextPresetVisuals visuals = titlesTextPresetVisuals(animationKey);
-        p.textColor = visuals.textColor;
-        p.backgroundColor = visuals.backgroundColor;
-        p.scale = visuals.scale;
-    }
+    TitlesTextParams p =
+        presetName.isEmpty() ? TitlesTextParams{} : titlesTextPresetParams(presetName);
     if (!sampleText.isEmpty()) {
         p.text = sampleText;
     }
-    FxSlot slot = makeFxSlot(QStringLiteral("VEGAS Titles & Text"), PluginFormat::Builtin,
+    FxSlot slot = makeFxSlot(QStringLiteral("Titles & Text"), PluginFormat::Builtin,
                              QStringLiteral("{Svfx:com.vegascreativesoftware:titlesandtext}"));
     titlesTextSaveToSlot(&slot, p);
 

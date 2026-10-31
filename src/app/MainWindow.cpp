@@ -455,12 +455,13 @@ private:
             const double dx = double(pos.x() - m_pressPos.x()) / std::max(1, width());
             const double dy = double(pos.y() - m_pressPos.y()) / std::max(1, height());
             p.locationX = std::clamp(m_pressParams.locationX + dx, -2.0, 3.0);
-            p.locationY = std::clamp(m_pressParams.locationY + dy, -2.0, 3.0);
+            // Location's Y counts up from the bottom, so dragging down lowers it.
+            p.locationY = std::clamp(m_pressParams.locationY - dy, -2.0, 3.0);
         } else {
             // Uniform scale about the anchor point (locationX/Y): compare the drag
             // point's distance from the anchor to the same corner's original distance.
             const QPointF anchorPt(m_pressParams.locationX * width(),
-                                   m_pressParams.locationY * height());
+                                   (1.0 - m_pressParams.locationY) * height());
             QPointF corner;
             switch (m_hit) {
             case Hit::TopLeft:
@@ -1971,9 +1972,9 @@ void MainWindow::setupMediaGenerator()
         createMediaGeneratorEvent(name, QString());
     });
     connect(m_mediaGen, &MediaGeneratorPane::presetActivated, this,
-            [this](const QString &gen, const QString &preset, const QString &animationKey) {
+            [this](const QString &gen, const QString &preset) {
                 if (gen.compare(QStringLiteral("Titles & Text"), Qt::CaseInsensitive) == 0) {
-                    createTitlesTextEvent(animationKey, preset);
+                    createTitlesTextEvent(preset);
                     return;
                 }
                 createMediaGeneratorEvent(gen, preset);
@@ -2699,6 +2700,9 @@ void MainWindow::refreshPreviewFrame(double sec)
 {
     if (!ui->previewLabel) {
         return;
+    }
+    if (m_mediaGeneratorEditor) {
+        m_mediaGeneratorEditor->cursorMoved();
     }
 
     const bool playing = m_timeline && m_timeline->isPlaying();
@@ -4418,6 +4422,7 @@ void MainWindow::openMediaGeneratorEditor(TrackEvent *ev)
     }
     if (!m_mediaGeneratorEditor) {
         m_mediaGeneratorEditor = new MediaGeneratorDialog(this);
+        m_mediaGeneratorEditor->setCursorSource([this] { return m_project.playheadSec(); });
         connect(m_mediaGeneratorEditor, &MediaGeneratorDialog::previewInvalidated, this, [this] {
             refreshPreviewFrame(m_project.playheadSec());
             if (m_timeline) {
@@ -4457,11 +4462,11 @@ void MainWindow::createMediaGeneratorEvent(const QString &generatorName, const Q
     }
 }
 
-void MainWindow::createTitlesTextEvent(const QString &animationKey, const QString &sampleText)
+void MainWindow::createTitlesTextEvent(const QString &presetName, const QString &sampleText)
 {
     int newEventId = -1;
-    runDocumentEdit(tr("Add Titles & Text"), [this, &newEventId, &animationKey, &sampleText]() {
-        newEventId = m_project.addTitlesTextEvent(animationKey, sampleText);
+    runDocumentEdit(tr("Add Titles & Text"), [this, &newEventId, &presetName, &sampleText]() {
+        newEventId = m_project.addTitlesTextEvent(presetName, sampleText);
     });
     refreshTimeline();
     TrackEvent *ev = m_project.findEvent(newEventId);

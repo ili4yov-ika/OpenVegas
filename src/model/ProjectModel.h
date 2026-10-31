@@ -990,11 +990,12 @@ public:
     int addTrack(TrackKind kind);
     /**
      * Create a VEGAS Titles & Text generator event at the playhead on the topmost
-     * "Titles & Text" video track (created if absent). animationKey/sampleText
-     * default to "_None"/"Sample Text" (the "(Default)" preset) when empty. Returns
-     * the new event's id.
+     * "Titles & Text" video track (created if absent), starting with everything the VEGAS
+     * preset `presetName` sets ("Title03", "Bounce"; an animation key such as "_Bounce"
+     * works too) — the "(Default)" preset when empty. A non-empty sampleText replaces the
+     * preset's text. Returns the new event's id.
      */
-    int addTitlesTextEvent(const QString &animationKey = QString(),
+    int addTitlesTextEvent(const QString &presetName = QString(),
                            const QString &sampleText = QString());
     /**
      * Create a non-text Media Generator event (Checkerboard, Color Gradient, …) from one
@@ -1096,7 +1097,8 @@ public:
      *  @param lengthSec 0 = use Vegas-style default for the kind (still 5 s, titles/generator 10 s,
      *  else 8 s).
      *  @param preferTrack track index, -1 = first matching / create, -2 = always create new track(s).
-     *  @param extra kind == "titles": animation key (name doubles as the sample text).
+     *  @param extra kind == "titles": the VEGAS preset's name, or an animation key from
+     *         older drags (name doubles as the text).
      *  kind == "generator": MediaGeneratorParams payload (mediaGeneratorParamsToPayload()). */
     int addMediaAt(const QString &name, const QString &kind, double startSec, double lengthSec = 0.0,
                    int preferTrack = -1, const QString &mediaPath = {}, const QString &extra = {});

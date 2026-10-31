@@ -4,6 +4,7 @@
 // Motion so a Titles & Text keyframe means the same thing as every other keyframe.
 #include "model/ProjectModel.h"
 #include "plugins/AudioPluginTypes.h"
+#include "video/GeneratorMediaProps.h"
 
 #include <QColor>
 #include <QImage>
@@ -27,39 +28,6 @@ enum class TitlesTextAnchor {
     BottomLeft,
     BottomCenter,
     BottomRight
-};
-
-/** Vegas Media Properties → Field order. */
-enum class MediaFieldOrder { ProgressiveScan, UpperFieldFirst, LowerFieldFirst };
-
-/** Vegas Media Properties → Alpha channel. */
-enum class MediaAlphaChannel { Undefined, None, Straight, Premultiplied, PremultipliedDirty };
-
-/** Vegas Media Properties → Rotation. */
-enum class MediaRotation { Deg0, Deg90Clockwise, Deg180, Deg90CounterClockwise };
-
-/**
- * Vegas "Media Properties" for a generated (file-less) media event — what the Properties
- * dialog reached from the generator window's toolbar edits. Kept as a member of the
- * generator's own params so it round-trips through the same opaque FxSlot state blob as
- * everything else (project archive, undo snapshots) with no extra plumbing.
- *
- * Frame rate and length are deliberately NOT here: they belong to the project and to the
- * TrackEvent respectively, and the dialog reads/writes them there.
- */
-struct GeneratorMediaProps {
-    QString tapeName;
-    bool useCustomTimecode = false;
-    /** Start timecode (seconds from zero) used when useCustomTimecode. */
-    double customTimecodeSec = 0.0;
-    /** 0 = follow the project frame size, which is what a fresh generator shows. */
-    int frameWidth = 0;
-    int frameHeight = 0;
-    MediaFieldOrder fieldOrder = MediaFieldOrder::ProgressiveScan;
-    double pixelAspect = 1.0;
-    MediaAlphaChannel alphaChannel = MediaAlphaChannel::Premultiplied;
-    QColor backgroundColor = QColor(0, 0, 0, 255);
-    MediaRotation rotation = MediaRotation::Deg0;
 };
 
 /** One keyframe on a Titles & Text parameter lane. */
@@ -104,7 +72,7 @@ struct TitlesTextParams {
 
     double scale = 1.0;
     double locationX = 0.5; // normalized, 0..1 (anchor position in frame)
-    double locationY = 0.5;
+    double locationY = 0.5; // normalized, counted up from the bottom, as VEGAS's is
     TitlesTextAnchor anchor = TitlesTextAnchor::MiddleCenter;
 
     bool cropBackgroundToText = false;
@@ -222,6 +190,27 @@ struct TitlesTextPresetVisuals {
     double scale = 1.0;
 };
 TitlesTextPresetVisuals titlesTextPresetVisuals(const QString &animationKey);
+
+/**
+ * One of VEGAS's stock Titles & Text presets as the Media Generators browser lists them —
+ * "(Default)" first, then Title01–25, the named animations, Placeholder and Subtitles —
+ * with every value VEGAS's preset sets: text and font, colours, location, anchor, tracking,
+ * line spacing, outline and shadow. Generated from VEGAS's PresetPackage.xml by
+ * tools/gen_titles_presets.py (TitlesTextPresetData.cpp).
+ */
+struct TitlesTextStockPreset {
+    QString name;
+    TitlesTextParams params;
+};
+const QVector<TitlesTextStockPreset> &titlesTextStockPresets();
+
+/**
+ * What placing a preset gives: the stock preset of that name, or — for an animation key
+ * such as "_Bounce", as older drags carry — the first stock preset with that animation.
+ * Anything else gives the plug-in's defaults with `nameOrKey` as the animation when it
+ * names one.
+ */
+TitlesTextParams titlesTextPresetParams(const QString &nameOrKey);
 
 /** Offsets/scale/opacity/rotation added on top of the static layout for one instant. */
 struct TitlesTextAnimKeyframe {

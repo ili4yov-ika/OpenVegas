@@ -143,6 +143,7 @@ endif()
     src/video/TrackMotionApply.cpp
     src/video/ColorCorrectorApply.cpp
     src/video/TitlesTextApply.cpp
+    src/video/TitlesTextPresetData.cpp
     src/video/MediaGeneratorApply.cpp
     src/video/GeneratorPresetData.cpp
     src/video/GeneratorParamSchema.cpp
@@ -166,6 +167,7 @@ set(OPENVGAS_HEADERS
     src/ui/ProjectPropertiesDialog.h
     src/ui/MatchMediaVideoSettingsDialog.h
     src/ui/MediaPropertiesDialog.h
+    src/video/GeneratorMediaProps.h
     src/ui/TitlesTextKeyframePane.h
     src/ui/TransitionPropertiesDialog.h
     src/ui/MissingFileDialog.h
@@ -535,6 +537,7 @@ if(OPENVGAS_BUILD_TESTS)
         src/video/TrackMotionApply.cpp
         src/video/ColorCorrectorApply.cpp
         src/video/TitlesTextApply.cpp
+        src/video/TitlesTextPresetData.cpp
         src/video/TransitionPresetData.cpp
         src/video/TransitionApply.cpp
         src/video/TransitionPluginHook.cpp
@@ -646,6 +649,7 @@ if(OPENVGAS_BUILD_TESTS)
         src/audio/FadeCurves.cpp
         src/video/VideoKeyframeEval.cpp
         src/video/TitlesTextApply.cpp
+        src/video/TitlesTextPresetData.cpp
         src/video/TransitionPresetData.cpp
         src/video/TransitionApply.cpp
         src/video/TransitionPluginHook.cpp

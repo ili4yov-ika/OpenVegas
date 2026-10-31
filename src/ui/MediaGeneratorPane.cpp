@@ -39,12 +39,10 @@ namespace openvegas {
 
 namespace {
 
-QColor c(int r, int g, int b) { return QColor(r, g, b); }
-
 /**
  * Drag-out payload roles for the plugin list / preset grid (see
  * GeneratorDragListWidget below). Every plugin row / preset tile carries a
- * payload — kind "titles" for Titles & Text (extra = animation key), kind
+ * payload — kind "titles" for Titles & Text (extra = the VEGAS preset's name), kind
  * "generator" for everything else (extra = MediaGeneratorParams payload, see
  * mediaGeneratorParamsToPayload()).
  */
@@ -142,8 +140,7 @@ private:
 };
 
 MediaGeneratorPane::Preset makePreset(const QString &name, MediaGeneratorPattern pat,
-                                      QColor a = c(0x22, 0x22, 0x22), QColor b = c(0xee, 0xee, 0xee),
-                                      int tile = 8)
+                                      QColor a, QColor b, int tile)
 {
     MediaGeneratorPane::Preset p;
     p.name = name;
@@ -151,45 +148,6 @@ MediaGeneratorPane::Preset makePreset(const QString &name, MediaGeneratorPattern
     p.c0 = a;
     p.c1 = b;
     p.tile = tile;
-    return p;
-}
-
-/** Looks up the real preset key by label so callers only need to type the human-
- *  readable name — never a hand-typed (and possibly wrong) internal key. */
-QString animationKeyForLabel(const QString &label)
-{
-    for (const TitlesTextPresetEntry &e : titlesTextAnimationPresets()) {
-        if (e.label.compare(label, Qt::CaseInsensitive) == 0) {
-            return e.key;
-        }
-    }
-    return {};
-}
-
-/**
- * fg = text color; presetIcon() renders real animated text for these (see the
- * animationKey doc on MediaGeneratorPane::Preset). Background comes from
- * titlesTextPresetVisuals() (real recovered data), not a caller-supplied argument, so
- * the catalog can never drift from the same source video/TitlesTextApply.cpp uses to
- * build the actual placed event: transparent for 48 of the 51 presets, real opaque
- * fills for Drop Split (#00FFFF)/Menace (#FFFFFF)/Rough Day (#FFFF00) — presetIcon()
- * shows either honestly, via a checkerboard for the transparent ones. animationLabel
- * defaults to displayName when omitted (the common case: a preset named "Bounce" uses
- * the "Bounce" animation) — pass it explicitly for the default preset, which Vegas
- * displays as "Sample Text" in the grid but maps to the "None" animation. sampleText is
- * for the 25 Title-N presets only, whose caption ("Title01") differs from their real
- * placed text — see Preset::sampleText.
- */
-MediaGeneratorPane::Preset makeTitlesTextPreset(const QString &displayName, QColor fg,
-                                                const QString &animationLabel = QString(),
-                                                const QString &sampleText = QString())
-{
-    MediaGeneratorPane::Preset p;
-    p.name = displayName;
-    p.animationKey = animationKeyForLabel(animationLabel.isEmpty() ? displayName : animationLabel);
-    p.c0 = titlesTextPresetVisuals(p.animationKey).backgroundColor;
-    p.c1 = fg;
-    p.sampleText = sampleText;
     return p;
 }
 
@@ -266,105 +224,19 @@ void MediaGeneratorPane::loadCatalog()
         p.version = QStringLiteral("1.0");
         p.description = QStringLiteral("Titles and text overlays.");
         p.gpu = true;
-        // All 53 real Vegas presets (catalog grid order: Default, Title01–25, then the 25
-        // named animations alphabetically, then Placeholder/Subtitles) — recovered from
-        // SAMPLES/veg_projects/project_titles-and-text.veg (real AnimationName + TextColor
-        // + Background + Scale + sample text per instance; see
-        // video/TitlesTextApply.cpp's presetTable() for the same data feeding the actual
-        // placed event, and makeTitlesTextPreset() for where the background comes from —
-        // no bg argument here: transparent for 48 of the 51 presets (shown via a real
-        // checkerboard, not an invented solid fill), real opaque fills for Drop
-        // Split/Menace/Rough Day.
-        p.presets = {
-            makeTitlesTextPreset(QStringLiteral("Sample Text"), c(0xff, 0xff, 0xff),
-                                 QStringLiteral("None")),
-            makeTitlesTextPreset(QStringLiteral("Title01"), c(0xff, 0xff, 0xff), {},
-                                 QStringLiteral("UNIQUE\n\nTYPOGRAPHY")),
-            makeTitlesTextPreset(QStringLiteral("Title02"), c(0xff, 0xff, 0xff), {},
-                                 QStringLiteral("DREAM BIG\n\nAND DARE\n\nTO FAIL")),
-            makeTitlesTextPreset(QStringLiteral("Title03"), c(0xff, 0xff, 0xff), {},
-                                 QStringLiteral("FREE CUSTOMER\n\nSUPPORT")),
-            makeTitlesTextPreset(
-                QStringLiteral("Title04"), c(0xff, 0xff, 0xff), {},
-                QStringLiteral("The timeline editing tools make editing fast and easy.\n\n"
-                               "But more importantly, they bring out your creativity,\n\n"
-                               "because ideas flow freely when you're not\n\n"
-                               "preoccupied by clumsy editing tools.")),
-            makeTitlesTextPreset(QStringLiteral("Title05"), c(0xff, 0xff, 0xff), {},
-                                 QStringLiteral("THE\n\nWORLD\n\nFASHION\n\nFESTIVAL 2022")),
-            makeTitlesTextPreset(QStringLiteral("Title06"), c(0xff, 0xff, 0xff), {},
-                                 QStringLiteral("VERY\n\nEASY\nTO USE")),
-            makeTitlesTextPreset(QStringLiteral("Title07"), c(0xff, 0xff, 0xff), {},
-                                 QStringLiteral("VEGAS TITLES\n\n TITLES & TEXT PACK")),
-            makeTitlesTextPreset(QStringLiteral("Title08"), c(0xff, 0xff, 0xff), {},
-                                 QStringLiteral("20:00\n\nLIVE\n\nSTREAM")),
-            makeTitlesTextPreset(QStringLiteral("Title09"), c(0xff, 0xff, 0xff), {},
-                                 QStringLiteral("WELL\nORGANIZED\nPRESETS")),
-            makeTitlesTextPreset(QStringLiteral("Title10"), c(0xff, 0xff, 0xff), {},
-                                 QStringLiteral("BUSINESS CORPORATE\nTitle Presets Pack")),
-            makeTitlesTextPreset(QStringLiteral("Title11"), c(0xff, 0xff, 0xff), {},
-                                 QStringLiteral("AWESOME\nTYPOGRAPHY\nfor Titles & Text")),
-            makeTitlesTextPreset(QStringLiteral("Title12"), c(0xff, 0xff, 0xff), {},
-                                 QStringLiteral("SMOOTH\nMOVEMENT\n\nAND CLEAN\n  DESIGN")),
-            makeTitlesTextPreset(
-                QStringLiteral("Title13"), c(0xff, 0xff, 0xff), {},
-                QStringLiteral("HAPPY          \nHOLIDAYS\n   CELEBRATION\n OPEN NOW!")),
-            makeTitlesTextPreset(QStringLiteral("Title14"), c(0xff, 0xff, 0xff), {},
-                                 QStringLiteral("SMOOTH TITLE\nANIMATION\nPACKAGE")),
-            makeTitlesTextPreset(QStringLiteral("Title15"), c(0xff, 0xff, 0xff), {},
-                                 QStringLiteral("#ONLY ON\n\nTitles & Text")),
-            makeTitlesTextPreset(QStringLiteral("Title16"), c(0xff, 0xff, 0xff), {},
-                                 QStringLiteral("UNIQUE TITLES\nFOR YOUR PROJECTS")),
-            makeTitlesTextPreset(QStringLiteral("Title17"), c(0xff, 0xff, 0xff), {},
-                                 QStringLiteral("VEGAS MARKET\nCREATIVE COMMUNITY")),
-            makeTitlesTextPreset(QStringLiteral("Title18"), c(0xff, 0xff, 0xff), {},
-                                 QStringLiteral("VEGAS LIBRARY\nTitles & Text Pack")),
-            makeTitlesTextPreset(QStringLiteral("Title19"), c(0xff, 0xff, 0xff), {},
-                                 QStringLiteral("DREAM BIG\n\nAND DARE\n\nTO FAIL")),
-            makeTitlesTextPreset(QStringLiteral("Title20"), c(0xff, 0xff, 0xff), {},
-                                 QStringLiteral("TITLES & TEXT\nPACK FOR\nYOUR PROJECTS")),
-            makeTitlesTextPreset(QStringLiteral("Title21"), c(0xff, 0xff, 0xff), {},
-                                 QStringLiteral("The Good\n\nDesign\n\nAwards\n\n2022")),
-            makeTitlesTextPreset(QStringLiteral("Title22"), c(0xff, 0xff, 0xff), {},
-                                 QStringLiteral("VEGAS\n\nPRESENTS")),
-            makeTitlesTextPreset(QStringLiteral("Title23"), c(0xff, 0xff, 0xff), {},
-                                 QStringLiteral("MODERN\n\nUNIQUE\n\nDESIGN")),
-            makeTitlesTextPreset(QStringLiteral("Title24"), c(0xff, 0xff, 0xff), {},
-                                 QStringLiteral("FOR YOUR\nPROMO")),
-            makeTitlesTextPreset(QStringLiteral("Title25"), c(0xff, 0xff, 0xff), {},
-                                 QStringLiteral("EVENT")),
-            makeTitlesTextPreset(QStringLiteral("Action Flip"), c(0xff, 0x00, 0x00)),
-            makeTitlesTextPreset(QStringLiteral("Bounce"), c(0x00, 0x80, 0x00)),
-            makeTitlesTextPreset(QStringLiteral("Coming at You"), c(0xff, 0xff, 0x00)),
-            makeTitlesTextPreset(QStringLiteral("Double Flash Glow"), c(0xff, 0x00, 0xff)),
-            makeTitlesTextPreset(QStringLiteral("Drop Split"), c(0x00, 0x00, 0x00)),
-            makeTitlesTextPreset(QStringLiteral("Dropping Words"), c(0xff, 0xff, 0xff)),
-            makeTitlesTextPreset(QStringLiteral("Earthquake"), c(0x27, 0x10, 0xe7)),
-            makeTitlesTextPreset(QStringLiteral("Fall Down"), c(0x00, 0xff, 0xff)),
-            makeTitlesTextPreset(QStringLiteral("Float and Pop"), c(0xff, 0x00, 0x80)),
-            makeTitlesTextPreset(QStringLiteral("Fly In"), c(0xff, 0xff, 0xff)),
-            makeTitlesTextPreset(QStringLiteral("Fly in from Right"), c(0x80, 0x00, 0x80)),
-            makeTitlesTextPreset(QStringLiteral("Jump"), c(0xff, 0x00, 0xff)),
-            makeTitlesTextPreset(QStringLiteral("Menace"), c(0x00, 0x00, 0x00)),
-            makeTitlesTextPreset(QStringLiteral("Popup"), c(0xff, 0xff, 0xff)),
-            makeTitlesTextPreset(QStringLiteral("Rolling Glow and Enlarge"), c(0x00, 0x80, 0x00)),
-            // Real recovered TextColor came back fully transparent (alpha 0) — approximated
-            // black like its Menace/Drop Split shake/drop siblings (see TitlesTextApply.cpp).
-            makeTitlesTextPreset(QStringLiteral("Rough Day"), c(0x00, 0x00, 0x00)),
-            makeTitlesTextPreset(QStringLiteral("Scroll"), c(0xff, 0xff, 0xff)),
-            makeTitlesTextPreset(QStringLiteral("Scroll Left"), c(0xff, 0x40, 0x40)),
-            makeTitlesTextPreset(QStringLiteral("Slide"), c(0x00, 0xff, 0xff)),
-            makeTitlesTextPreset(QStringLiteral("Slide Down"), c(0x00, 0x80, 0xff)),
-            makeTitlesTextPreset(QStringLiteral("Slide Left"), c(0x00, 0x80, 0x80)),
-            makeTitlesTextPreset(QStringLiteral("Slide Right"), c(0x00, 0x00, 0xff)),
-            makeTitlesTextPreset(QStringLiteral("Slide Up"), c(0x00, 0x00, 0x80)),
-            makeTitlesTextPreset(QStringLiteral("Speedy"), c(0xff, 0xff, 0x00)),
-            makeTitlesTextPreset(QStringLiteral("Twist In"), c(0xff, 0xff, 0x00)),
-            makeTitlesTextPreset(QStringLiteral("Placeholder"), c(0xff, 0x00, 0x00),
-                                 QStringLiteral("None")),
-            makeTitlesTextPreset(QStringLiteral("Subtitles"), c(0xff, 0xff, 0xff),
-                                 QStringLiteral("None")),
-        };
+        // VEGAS's own presets in its browser's order — "(Default)" (captioned "Sample Text"
+        // in its thumbnail), Title01–25, the named animations, Placeholder, Subtitles — with
+        // the values VEGAS's preset package gives them (titlesTextStockPresets()).
+        for (const TitlesTextStockPreset &stock : titlesTextStockPresets()) {
+            Preset preset;
+            preset.name = stock.name;
+            preset.animationKey = stock.params.animationName;
+            preset.c0 = stock.params.backgroundColor;
+            preset.c1 = stock.params.textColor;
+            preset.sampleText = stock.params.text;
+            preset.titlesParams = stock.params;
+            p.presets.push_back(preset);
+        }
         add(std::move(p));
     }
 }
@@ -537,13 +409,8 @@ void MediaGeneratorPane::buildUi()
         const int row = m_presetGrid->row(item);
         const QVector<Preset> &presets = m_plugins[m_currentIndex].presets;
         const bool valid = row >= 0 && row < presets.size();
-        const QString animationKey = valid ? presets[row].animationKey : QString();
-        // Title-N presets place their real (possibly multi-line) sample text, not the
-        // "Title01" catalog caption — see Preset::sampleText.
-        const QString content = (valid && !presets[row].sampleText.isEmpty())
-                                    ? presets[row].sampleText
-                                    : item->text();
-        emit presetActivated(m_plugins[m_currentIndex].name, content, animationKey);
+        emit presetActivated(m_plugins[m_currentIndex].name,
+                             valid ? presets[row].name : item->text());
     });
     // The row's leading character is its favourite star, so a press in that column toggles it,
     // the way Vegas's own dock does. There is no separate star widget to click, hence the hit
@@ -597,41 +464,29 @@ void MediaGeneratorPane::buildUi()
 QIcon MediaGeneratorPane::presetIcon(const Preset &p, double progress) const
 {
     if (!p.animationKey.isEmpty()) {
-        const QString previewText = p.sampleText.isEmpty() ? p.name : p.sampleText;
-        TitlesTextParams tp;
-        tp.text = previewText;
-        tp.fontFamily = QStringLiteral("Verdana");
-        // Authored against a 1080-tall reference frame (see renderTitlesText) — scale
-        // inversely with both the longest line (width) and the line count (height) so
-        // preset text stays small with real margin around it, like Vegas's own preset
-        // grid, instead of stretching edge-to-edge.
-        int longestLine = 4;
-        int lineCount = 0;
-        for (const QString &line : previewText.split(QLatin1Char('\n'))) {
-            longestLine = std::max(longestLine, int(line.size()));
-            ++lineCount;
+        // Use the complete package entry. VEGAS lays each thumbnail out using the preset's
+        // own font, anchor, location, tracking, line spacing and effects; synthesising a
+        // centered Verdana label made the browser disagree with both VEGAS and placement.
+        TitlesTextParams tp = p.titlesParams;
+        if (tp.text.isEmpty()) {
+            tp.text = p.sampleText.isEmpty() ? p.name : p.sampleText;
         }
-        lineCount = std::max(1, lineCount);
-        tp.fontSize = std::clamp(std::min(1400.0 / longestLine, 620.0 / lineCount), 40.0, 170.0);
-        tp.bold = true;
-        tp.alignment = TitlesTextAlignment::Center;
-        tp.anchor = TitlesTextAnchor::MiddleCenter;
-        tp.locationX = 0.5;
-        tp.locationY = 0.5;
-        tp.textColor = p.c1;
-        // p.c0 is real recovered data (titlesTextPresetVisuals(), via makeTitlesTextPreset())
-        // — opaque only for Drop Split/Menace/Rough Day, so renderTitlesText() paints that
-        // fill itself below; the other 48 presets are genuinely transparent, composited
-        // over a checkerboard here so the preview shows that honestly.
-        tp.backgroundColor = p.c0;
-        tp.animationName = p.animationKey;
-        if (p.c0.alpha() > 0) {
-            return QIcon(QPixmap::fromImage(renderTitlesText(tp, QSize(100, 62), progress)));
+        if (tp.animationName.isEmpty()) {
+            tp.animationName = p.animationKey;
         }
-        QImage img = checkerboardBackground(QSize(100, 62));
-        QPainter compositor(&img);
-        compositor.drawImage(0, 0, renderTitlesText(tp, QSize(100, 62), progress));
-        compositor.end();
+        const QSize thumb(100, 62);
+        const QSize big = thumb * 4;
+        const QImage rendered = renderTitlesText(tp, big, progress);
+        QImage img = tp.backgroundColor.alpha() > 0
+                         ? rendered.scaled(thumb, Qt::IgnoreAspectRatio, Qt::SmoothTransformation)
+                         : checkerboardBackground(thumb);
+        if (tp.backgroundColor.alpha() <= 0) {
+            QPainter compositor(&img);
+            compositor.setRenderHint(QPainter::SmoothPixmapTransform, true);
+            compositor.drawImage(QRect(QPoint(0, 0), thumb),
+                                 rendered.scaled(thumb, Qt::IgnoreAspectRatio,
+                                                 Qt::SmoothTransformation));
+        }
         return QIcon(QPixmap::fromImage(img));
     }
 
@@ -710,7 +565,7 @@ void MediaGeneratorPane::applySearchAndCategory()
             if (!def.animationKey.isEmpty()) {
                 item->setData(kDragKindRole, QStringLiteral("titles"));
                 item->setData(kDragNameRole, def.sampleText.isEmpty() ? def.name : def.sampleText);
-                item->setData(kDragExtraRole, def.animationKey);
+                item->setData(kDragExtraRole, def.name); // the VEGAS preset
             } else {
                 MediaGeneratorParams gp;
                 gp.pluginName = p.name;
@@ -764,7 +619,7 @@ void MediaGeneratorPane::showPlugin(int catalogIndex)
         if (!pr.animationKey.isEmpty()) {
             item->setData(kDragKindRole, QStringLiteral("titles"));
             item->setData(kDragNameRole, pr.sampleText.isEmpty() ? pr.name : pr.sampleText);
-            item->setData(kDragExtraRole, pr.animationKey);
+            item->setData(kDragExtraRole, pr.name); // the VEGAS preset
         } else {
             MediaGeneratorParams gp;
             gp.pluginName = p.name;

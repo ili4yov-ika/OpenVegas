@@ -14,6 +14,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <utility>
 
 namespace openvegas {
 namespace {
@@ -182,11 +183,67 @@ QString mediaGeneratorVegasId(const MediaGeneratorParams &p)
     return {};
 }
 
+QVariantMap mediaGeneratorParamsAt(const MediaGeneratorParams &p, double timeSec)
+{
+    QVariantMap params = p.vegasParams;
+    for (auto it = p.vegasCurves.constBegin(); it != p.vegasCurves.constEnd(); ++it) {
+        const QVariantList flat = it.value().toList();
+        const int pairs = int(flat.size() / 2);
+        if (pairs == 0) {
+            continue;
+        }
+        // Flat [t0, v0, t1, v1, …], straight between keys and held beyond the ends, as
+        // VEGAS's own keys read (their handles sit on the key's value).
+        double v = flat[1].toDouble();
+        if (timeSec >= flat[(pairs - 1) * 2].toDouble()) {
+            v = flat[(pairs - 1) * 2 + 1].toDouble();
+        } else {
+            for (int i = 1; i < pairs; ++i) {
+                const double t0 = flat[(i - 1) * 2].toDouble(), t1 = flat[i * 2].toDouble();
+                if (timeSec <= t1) {
+                    const double v0 = flat[(i - 1) * 2 + 1].toDouble(), v1 = flat[i * 2 + 1].toDouble();
+                    v = timeSec <= t0 ? v0 : (t1 > t0 ? v0 + (v1 - v0) * (timeSec - t0) / (t1 - t0) : v1);
+                    break;
+                }
+            }
+        }
+        // A key holds one number (VegOfxKeyframe); a colour or a point has several, and
+        // which of them such a curve would move is not known, so those keep their value.
+        if (params.value(it.key()).typeId() != QMetaType::QVariantList) {
+            params.insert(it.key(), v);
+        }
+    }
+    return params;
+}
+
 QImage renderMediaGenerator(const MediaGeneratorParams &p, const QSize &size, double timeSec,
                             double lengthSec)
 {
     const QString id = mediaGeneratorVegasId(p);
-    QVariantMap params = p.vegasParams;
+    QVariantMap params = mediaGeneratorParamsAt(p, timeSec);
+    const QSize nativeSize = p.media.frameWidth > 0 && p.media.frameHeight > 0
+                                 ? QSize(p.media.frameWidth, p.media.frameHeight)
+                                 : size;
+    auto finish = [&](QImage drawn) {
+        if (drawn.isNull()) {
+            return drawn;
+        }
+        if (p.media.rotation != MediaRotation::Deg0) {
+            QTransform rotation;
+            if (p.media.rotation == MediaRotation::Deg90Clockwise) {
+                rotation.rotate(90.0);
+            } else if (p.media.rotation == MediaRotation::Deg180) {
+                rotation.rotate(180.0);
+            } else {
+                rotation.rotate(270.0);
+            }
+            drawn = drawn.transformed(rotation, Qt::SmoothTransformation);
+        }
+        if (drawn.size() != size) {
+            drawn = drawn.scaled(size, Qt::IgnoreAspectRatio, Qt::SmoothTransformation);
+        }
+        return drawn;
+    };
     if (params.isEmpty() && !id.isEmpty()) {
         // A slot from before the VEGAS values were kept: the generator's own default.
         if (const StockGeneratorGroup *g = stockGeneratorGroup(id); g && !g->presets.isEmpty()) {
@@ -197,17 +254,17 @@ QImage renderMediaGenerator(const MediaGeneratorParams &p, const QSize &size, do
     if (id.startsWith(QLatin1String("{Svfx:"), Qt::CaseInsensitive)) {
         const QString key = id.mid(6, id.size() - 7).section(QLatin1Char(':'), 1);
         QImage drawn;
-        if (generatorPluginRender(key, params, timeSec, size, &drawn) && !drawn.isNull()) {
-            return drawn;
+        if (generatorPluginRender(key, params, timeSec, nativeSize, &drawn) && !drawn.isNull()) {
+            return finish(std::move(drawn));
         }
     }
     if (isVegasGeneratorId(id)) {
-        const QImage own = renderVegasGenerator(id, params, size, timeSec, lengthSec);
+        const QImage own = renderVegasGenerator(id, params, nativeSize, timeSec, lengthSec);
         if (!own.isNull()) {
-            return own;
+            return finish(own);
         }
     }
-    return renderMediaGeneratorPattern(p, size);
+    return finish(renderMediaGeneratorPattern(p, nativeSize));
 }
 
 MediaGeneratorParams mediaGeneratorFromVegas(const QString &vegasPluginId, const QString &presetName,
@@ -334,6 +391,21 @@ MediaGeneratorParams mediaGeneratorFromSlot(const FxSlot &slot)
     p.vegasPreset = m.value(QStringLiteral("vegasPreset")).toString();
     p.vegasParams = m.value(QStringLiteral("vegasParams")).toMap();
     p.vegasCurves = m.value(QStringLiteral("vegasCurves")).toMap();
+    p.media.tapeName = m.value(QStringLiteral("media.tapeName")).toString();
+    p.media.useCustomTimecode = m.value(QStringLiteral("media.useCustomTimecode")).toBool();
+    p.media.customTimecodeSec = std::max(0.0, m.value(QStringLiteral("media.customTimecodeSec")).toDouble());
+    p.media.frameWidth = std::max(0, m.value(QStringLiteral("media.frameWidth")).toInt());
+    p.media.frameHeight = std::max(0, m.value(QStringLiteral("media.frameHeight")).toInt());
+    p.media.fieldOrder = static_cast<MediaFieldOrder>(std::clamp(
+        m.value(QStringLiteral("media.fieldOrder")).toInt(), 0, 2));
+    p.media.pixelAspect = std::clamp(m.value(QStringLiteral("media.pixelAspect"), 1.0).toDouble(), 0.01, 10.0);
+    p.media.alphaChannel = static_cast<MediaAlphaChannel>(std::clamp(
+        m.value(QStringLiteral("media.alphaChannel"), int(p.media.alphaChannel)).toInt(), 0, 4));
+    if (m.contains(QStringLiteral("media.backgroundColor"))) {
+        p.media.backgroundColor = m.value(QStringLiteral("media.backgroundColor")).value<QColor>();
+    }
+    p.media.rotation = static_cast<MediaRotation>(std::clamp(
+        m.value(QStringLiteral("media.rotation"), int(p.media.rotation)).toInt(), 0, 3));
     return p;
 }
 
@@ -356,6 +428,16 @@ void mediaGeneratorSaveToSlot(FxSlot *slot, const MediaGeneratorParams &p)
             m.insert(QStringLiteral("vegasCurves"), p.vegasCurves);
         }
     }
+    m.insert(QStringLiteral("media.tapeName"), p.media.tapeName);
+    m.insert(QStringLiteral("media.useCustomTimecode"), p.media.useCustomTimecode);
+    m.insert(QStringLiteral("media.customTimecodeSec"), p.media.customTimecodeSec);
+    m.insert(QStringLiteral("media.frameWidth"), p.media.frameWidth);
+    m.insert(QStringLiteral("media.frameHeight"), p.media.frameHeight);
+    m.insert(QStringLiteral("media.fieldOrder"), int(p.media.fieldOrder));
+    m.insert(QStringLiteral("media.pixelAspect"), p.media.pixelAspect);
+    m.insert(QStringLiteral("media.alphaChannel"), int(p.media.alphaChannel));
+    m.insert(QStringLiteral("media.backgroundColor"), p.media.backgroundColor);
+    m.insert(QStringLiteral("media.rotation"), int(p.media.rotation));
     saveParams(slot, m);
 }
 

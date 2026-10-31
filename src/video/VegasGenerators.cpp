@@ -596,6 +596,43 @@ void drawCreditLine(QPainter &p, const CreditLine &l, const QVariantList &styles
 }
 
 /**
+ * A Timed Sequence's groups, as its Display list words them (sftrans1 strings 1887–1890):
+ * 0 Up to Next Header, 1 One at a Time, 2 Header and Single Subitem, 3 Up to Next Header or
+ * Single Item.
+ */
+QVector<QVector<CreditLine>> creditGroups(const QVector<CreditLine> &lines, int display)
+{
+    QVector<QVector<CreditLine>> groups;
+    for (int i = 0; i < lines.size(); ++i) {
+        const CreditLine &l = lines[i];
+        const bool startsGroup = groups.isEmpty() || display == 1 || l.kind == 0
+                                 || (display == 2 && groups.back().size() >= 2)
+                                 || (display == 2 && groups.back().first().kind != 0)
+                                 || (display == 3 && groups.back().last().kind == 1);
+        if (startsGroup) {
+            groups.push_back({});
+        }
+        groups.back().push_back(l);
+    }
+    return groups;
+}
+
+/**
+ * How much of a group's share an In or Out effect takes (the lists, strings 1891–1921):
+ * the plain ones a fifth, "Fast" fades half that, "Slow" slides twice as long.
+ */
+double creditEffectLength(int effect)
+{
+    if (effect == 2) {
+        return 0.1;
+    }
+    if (effect >= 7 && effect <= 10) {
+        return 0.35;
+    }
+    return 0.2;
+}
+
+/**
  * VEGAS Credit Roll (legacy sftrans1.dll): the text laid out line by line between Left
  * and Right, headers, single items and two-column items each in their own style, over the
  * background colour. Scrolling Credits move the whole block up through the frame over the
@@ -622,13 +659,23 @@ QImage creditRoll(const QVariantMap &p, const QSize &size, double timeSec, doubl
     painter.setRenderHint(QPainter::Antialiasing, true);
     painter.setRenderHint(QPainter::TextAntialiasing, true);
 
-    if (!timed || still) {
+    if (still && timed) {
+        // A thumbnail of a Timed Sequence shows its first group in place, as VEGAS's do.
+        const QVector<QVector<CreditLine>> groups = creditGroups(lines, int(num(p, "Display", 0.0)));
+        double y = topY;
+        for (const CreditLine &l : groups.value(0)) {
+            drawCreditLine(painter, l, styles, y, left, right, h, 1.0, connector);
+            y += creditLineHeight(l, styles, h);
+        }
+        return img;
+    }
+    if (!timed) {
         double block = 0.0;
         for (const CreditLine &l : lines) {
             block += creditLineHeight(l, styles, h);
         }
         double y = topY;
-        if (!still && !timed) {
+        if (!still) {
             // Up through the frame: from just below it to just above it.
             const bool backward = num(p, "ScrollDirection", 0.0) >= 0.5;
             const double travel = progress * (h + block);
@@ -641,33 +688,94 @@ QImage creditRoll(const QVariantMap &p, const QSize &size, double timeSec, doubl
         return img;
     }
 
-    // Timed sequence: groups of a header and what follows it, an equal share of the event each.
-    QVector<QVector<CreditLine>> groups;
-    for (const CreditLine &l : lines) {
-        if (groups.isEmpty() || l.kind == 0) {
-            groups.push_back({});
-        }
-        groups.back().push_back(l);
-    }
+    const QVector<QVector<CreditLine>> groups =
+        creditGroups(lines, int(num(p, "Display", 0.0)));
     if (groups.isEmpty()) {
         return img;
     }
+    // Each group gets an equal share of the event: in, held, out.
     const int n = int(groups.size());
     const int g = std::min(n - 1, int(progress * n));
-    const double local = progress * n - g; // 0..1 within the group's slot
-    double opacity = 1.0;
+    const double local = progress * n - g;
     const int in = int(num(p, "InEffect", 0.0)), out = int(num(p, "OutEffect", 0.0));
-    if ((in == 1 || in == 2) && local < 0.2) {
-        opacity = local / 0.2;
-    } else if ((out == 1 || out == 2) && local > 0.8) {
-        opacity = (1.0 - local) / 0.2;
+    const double inLen = creditEffectLength(in), outLen = creditEffectLength(out);
+
+    // The group drawn on its own layer, then moved, scaled, faded or wiped onto the frame.
+    QImage layer = blank(size);
+    double blockH = 0.0;
+    {
+        QPainter lp(&layer);
+        lp.setRenderHint(QPainter::Antialiasing, true);
+        lp.setRenderHint(QPainter::TextAntialiasing, true);
+        double y = topY;
+        for (const CreditLine &l : groups[g]) {
+            drawCreditLine(lp, l, styles, y, left, right, h, 1.0, connector);
+            const double lh = creditLineHeight(l, styles, h);
+            y += lh;
+            blockH += lh;
+        }
     }
-    double y = topY;
-    for (const CreditLine &l : groups[g]) {
-        drawCreditLine(painter, l, styles, y, left, right, h, std::clamp(opacity, 0.0, 1.0),
-                       connector);
-        y += creditLineHeight(l, styles, h);
+    int effect = 0;
+    double e = 1.0; // how far into place the group is: 0 gone, 1 settled
+    bool leaving = false;
+    if (in != 0 && local < inLen) {
+        effect = in;
+        e = local / inLen;
+    } else if (out != 0 && local > 1.0 - outLen) {
+        effect = out;
+        e = (1.0 - local) / outLen;
+        leaving = true;
     }
+    e = std::clamp(e, 0.0, 1.0);
+    const double ease = e * e * (3.0 - 2.0 * e);
+    const QRectF block(left, topY, right - left, blockH);
+    painter.save();
+    switch (effect) {
+    case 1: // fade in / fade out
+    case 2: // fast
+        painter.setOpacity(e);
+        break;
+    case 3: case 7: // enter from / exit to the left
+        painter.translate(-(1.0 - ease) * block.right(), 0);
+        break;
+    case 4: case 8: // the right
+        painter.translate((1.0 - ease) * (w - block.left()), 0);
+        break;
+    case 5: case 9: // the top
+        painter.translate(0, -(1.0 - ease) * block.bottom());
+        break;
+    case 6: case 10: // the bottom
+        painter.translate(0, (1.0 - ease) * (h - block.top()));
+        break;
+    case 11: { // zoom in / zoom out, about the group's centre
+        const QPointF c = block.center();
+        painter.translate(c);
+        painter.scale(std::max(1e-3, ease), std::max(1e-3, ease));
+        painter.translate(-c);
+        break;
+    }
+    case 12: case 13: case 14: case 15: {
+        // Wipes: the edge travels the way the name says — "Wipe In Right" shows the left
+        // first and moves right; "Wipe Out Right" hides the left first, the same way.
+        QRectF shown = block.adjusted(-4, -4, 4, 4);
+        const bool fromLeftOrTop = (effect == 13 || effect == 15) != leaving;
+        if (effect == 12 || effect == 13) {
+            const double cut = shown.width() * ease;
+            shown = fromLeftOrTop ? QRectF(shown.left(), shown.top(), cut, shown.height())
+                                  : QRectF(shown.right() - cut, shown.top(), cut, shown.height());
+        } else {
+            const double cut = shown.height() * ease;
+            shown = fromLeftOrTop ? QRectF(shown.left(), shown.top(), shown.width(), cut)
+                                  : QRectF(shown.left(), shown.bottom() - cut, shown.width(), cut);
+        }
+        painter.setClipRect(shown);
+        break;
+    }
+    default:
+        break;
+    }
+    painter.drawImage(0, 0, layer);
+    painter.restore();
     return img;
 }
 

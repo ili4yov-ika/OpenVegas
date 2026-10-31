@@ -4,6 +4,7 @@
 #include <QFile>
 #include <QImage>
 #include <QTemporaryDir>
+#include <QCoreApplication>
 
 #include <catch2/catch_test_macros.hpp>
 
@@ -112,4 +113,34 @@ TEST_CASE("OfxHost load+process Gain.ofx fixture", "[media][ofx][plugins]")
     REQUIRE(qBlue(img.pixel(0, 0)) == 200);
 
     openvegas::OfxHost::instance().destroyInstance(id);
+}
+
+TEST_CASE("OfxHost excludes OFX binary before loading", "[media][ofx][policy]")
+{
+    const QString path = fixtureGainOfx();
+    if (path.isEmpty() || !QFileInfo::exists(path)) {
+        SKIP("Gain.ofx fixture not built (OPENVGAS_OFX_FIXTURE_DIR)");
+    }
+
+    qputenv("OPENVEGAS_OFX_EXCLUDED", QFileInfo(path).fileName().toUtf8());
+    const auto indexes = openvegas::OfxHost::effectIndexMap(path);
+    const auto effects = openvegas::OfxHost::enumerateEffects(path);
+    qunsetenv("OPENVEGAS_OFX_EXCLUDED");
+
+    REQUIRE(indexes.isEmpty());
+    REQUIRE(effects.isEmpty());
+}
+
+TEST_CASE("OfxHost excludes one OFX effect by identifier", "[media][ofx][policy]")
+{
+    const QString path = fixtureGainOfx();
+    if (path.isEmpty() || !QFileInfo::exists(path)) {
+        SKIP("Gain.ofx fixture not built (OPENVGAS_OFX_FIXTURE_DIR)");
+    }
+
+    qputenv("OPENVEGAS_OFX_EXCLUDED", "com.openvegas.gain");
+    const auto indexes = openvegas::OfxHost::effectIndexMap(path);
+    qunsetenv("OPENVEGAS_OFX_EXCLUDED");
+
+    REQUIRE(indexes.isEmpty());
 }

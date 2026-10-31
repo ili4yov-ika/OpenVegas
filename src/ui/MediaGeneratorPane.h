@@ -1,6 +1,7 @@
 #pragma once
 
 #include "video/MediaGeneratorApply.h"
+#include "video/TitlesTextApply.h"
 
 #include <QWidget>
 #include <QString>
@@ -41,13 +42,12 @@ public:
          */
         QString animationKey;
         /**
-         * Real placed/preview text when it differs from the catalog caption `name`
-         * (only the 25 Title-N presets — Vegas captions them "Title01" etc. but each
-         * places its own real marketing sample line, e.g. "UNIQUE\n\nTYPOGRAPHY").
-         * Empty ⇒ falls back to `name` (true for every other Titles & Text preset,
-         * where the caption already equals its real sample text).
+         * A Titles & Text preset's own text, which its thumbnail shows and its event starts
+         * with — not always its caption: "Title01" is "UNIQUE / TYPOGRAPHY".
          */
         QString sampleText;
+        /** Complete VEGAS-authored Titles & Text values used for placement and preview. */
+        TitlesTextParams titlesParams;
         /**
          * The VEGAS generator this preset belongs to ("{Svfx:…}" or a legacy CLSID), so a
          * placed preset carries VEGAS's own values (see mediaGeneratorFromVegas()). Empty
@@ -71,9 +71,8 @@ public:
 
 signals:
     void generatorActivated(const QString &name);
-    /** animationKey is non-empty only for a real Titles & Text preset (see Preset::animationKey). */
-    void presetActivated(const QString &generatorName, const QString &presetName,
-                         const QString &animationKey = QString());
+    /** A preset double-clicked: its generator and the preset's name, as VEGAS names it. */
+    void presetActivated(const QString &generatorName, const QString &presetName);
 
 private:
     void buildUi();

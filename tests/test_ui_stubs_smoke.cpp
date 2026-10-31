@@ -15,6 +15,7 @@
 #include <QDir>
 #include <QHash>
 #include <QInputDialog>
+#include <QLabel>
 #include <QLineEdit>
 #include <QListWidget>
 #include <QPlainTextEdit>
@@ -172,6 +173,7 @@ int main(int argc, char **argv) {
                 {QStringLiteral("Checkerboard"), 13}, {QStringLiteral("Color Gradient"), 18},
                 {QStringLiteral("Credit Roll"), 8},   {QStringLiteral("Noise Texture"), 20},
                 {QStringLiteral("Solid Color"), 10},  {QStringLiteral("Test Pattern"), 10},
+                {QStringLiteral("Titles & Text"), 53},
             };
             int seen = 0;
             for (int row = 0; row < plugins->count(); ++row) {
@@ -181,6 +183,10 @@ int main(int argc, char **argv) {
                 plugins->setCurrentRow(row);
                 require(presets->count() == expected.value(name),
                         qPrintable(QStringLiteral("%1 preset count").arg(name)));
+                if (name == QLatin1String("Titles & Text")) {
+                    require(presets->item(0)->text() == QStringLiteral("(Default)"),
+                            "Titles & Text lists \"(Default)\" first, as VEGAS does");
+                }
                 ++seen;
                 if (const QByteArray dump = qgetenv("OPENVGAS_DUMP_GENERATORS"); !dump.isEmpty()) {
                     generators.resize(1200, 700);
@@ -209,6 +215,19 @@ int main(int argc, char **argv) {
                 app.processEvents();
                 auto *preset = dlg.findChild<QComboBox *>();
                 require(preset && !preset->currentText().isEmpty(), "Generator window shows a preset");
+                QLabel *nameLabel = nullptr;
+                for (QLabel *label : dlg.findChildren<QLabel *>()) {
+                    if (label->text().startsWith(QStringLiteral("<b>Video Media Generator:"))) {
+                        nameLabel = label;
+                        break;
+                    }
+                }
+                require(nameLabel && !nameLabel->text().contains(QStringLiteral("VEGAS ")),
+                        qPrintable(name + QStringLiteral(": visible generator name has no VEGAS prefix")));
+                require(dlg.findChild<QToolButton *>(QString(), Qt::FindDirectChildrenOnly) != nullptr,
+                        "Generator window has toolbar controls");
+                require(dlg.findChildren<QToolButton *>().size() >= 3,
+                        "Generator window exposes properties and preset actions");
                 auto *page = dlg.findChild<GeneratorPage *>();
                 require(page, qPrintable(name + QStringLiteral(" page")));
                 const QByteArray before = ev->fxChain.first().state;

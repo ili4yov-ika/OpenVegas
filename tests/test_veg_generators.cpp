@@ -1,10 +1,17 @@
+#include "TestQtApp.h"
+
 #include "io/SamplePaths.h"
 #include "io/VegReader.h"
 #include "model/ProjectModel.h"
 #include "video/GeneratorPresetData.h"
 #include "video/MediaGeneratorApply.h"
+#include "video/TitlesTextApply.h"
+#include "video/VegasGenerators.h"
 
 #include <QColor>
+#include <QXmlStreamReader>
+#include <QFile>
+#include <QDir>
 #include <QFileInfo>
 #include <QHash>
 #include <QSet>
@@ -278,4 +285,189 @@ TEST_CASE("A preset dragged from the browser arrives with VEGAS's values", "[veg
     CHECK(old.pluginName == QStringLiteral("Checkerboard"));
     CHECK(old.tile == 12);
     CHECK(old.vegasPluginId.isEmpty());
+}
+
+TEST_CASE("An animated generator parameter is read off its curve at each frame",
+          "[veg][generators]")
+{
+    const StockGeneratorPreset *def = stockGeneratorPreset(
+        QStringLiteral("{Svfx:com.vegascreativesoftware:checkerboard}"), QStringLiteral("(Default)"));
+    REQUIRE(def);
+    MediaGeneratorParams p = mediaGeneratorFromVegas(
+        QStringLiteral("{Svfx:com.vegascreativesoftware:checkerboard}"), def->name, def->params);
+    // Tiles from a tenth of the frame at 1 s to half of it at 3 s; colours stay put.
+    p.vegasCurves.insert(QStringLiteral("TileDimensionsWidth"), QVariantList{1.0, 0.1, 3.0, 0.5});
+    p.vegasCurves.insert(QStringLiteral("Color1"), QVariantList{0.0, 0.0, 3.0, 1.0});
+    auto width = [&](double t) {
+        return mediaGeneratorParamsAt(p, t).value(QStringLiteral("TileDimensionsWidth")).toDouble();
+    };
+    CHECK(width(0.0) == Catch::Approx(0.1));
+    CHECK(width(2.0) == Catch::Approx(0.3));
+    CHECK(width(5.0) == Catch::Approx(0.5));
+    CHECK(mediaGeneratorParamsAt(p, 2.0).value(QStringLiteral("Color1")).toList().size() == 4);
+    // And the picture follows: bigger tiles at the end than at the start.
+    const QImage early = renderMediaGenerator(p, QSize(200, 100), 0.0);
+    const QImage late = renderMediaGenerator(p, QSize(200, 100), 3.0);
+    CHECK(early != late);
+}
+
+TEST_CASE("A timed credit roll brings each group in and out with its effect", "[veg][generators]")
+{
+    openvegas::test::ensureQtApp(); // text needs the font database
+    const QString credits = QStringLiteral("{02FD3B60-986B-11D4-9F6F-00485481BD31}");
+    const StockGeneratorPreset *fade = stockGeneratorPreset(credits, QStringLiteral("Timed, Fade on Black"));
+    REQUIRE(fade);
+    const QSize size(160, 90);
+    const QImage background = renderVegasGenerator(credits, QVariantMap{{QStringLiteral("Background"),
+                                                                         QVariantList{0.0, 0.0, 0.0, 1.0}}},
+                                                   size, 0.0, 9.0);
+    // Three groups over nine seconds; the first fades in from nothing.
+    CHECK(renderVegasGenerator(credits, fade->params, size, 0.0, 9.0) == background);
+    CHECK(renderVegasGenerator(credits, fade->params, size, 1.5, 9.0) != background);
+    // Wipes cover part of the group on the way in: half-way through the wipe, only some of it.
+    const StockGeneratorPreset *wipe =
+        stockGeneratorPreset(credits, QStringLiteral("Timed, Wipe In/Out, on Black"));
+    REQUIRE(wipe);
+    const QImage held = renderVegasGenerator(credits, wipe->params, size, 1.5, 9.0);
+    const QImage wiping = renderVegasGenerator(credits, wipe->params, size, 0.3, 9.0);
+    CHECK(wiping != held);
+}
+
+TEST_CASE("Titles & Text imports the anchor and every shadow field VEGAS's presets set",
+          "[veg][titles-and-text]")
+{
+    // project_big--buck-bunny_titles-and-text.veg is built from VEGAS's stock presets, so each
+    // instance has to carry the values its preset ships with in PresetPackage.xml. The
+    // anchor was not read at all, and shadow fields past 2000 bytes into a long text's
+    // record came back as their defaults.
+    const QString veg = samplePath(QStringLiteral("project_big--buck-bunny_titles-and-text.veg"));
+    const QString pkg = QDir(SamplePaths::samplesDir())
+                            .filePath(QStringLiteral("VEGAS-PRO-22-PROGRAM-FILES/OFX Video Plug-Ins/"
+                                                     "TitlesAndText.ofx.bundle/Contents/Presets/"
+                                                     "PresetPackage.xml"));
+    if (!QFileInfo::exists(veg) || !QFileInfo::exists(pkg)) {
+        SKIP("sample project or VEGAS preset package not available");
+    }
+    // AnimationName -> parameter -> first value, for presets with an animation of their own.
+    QHash<QString, QHash<QString, QString>> presets;
+    QSet<QString> shared;
+    {
+        QFile f(pkg);
+        REQUIRE(f.open(QIODevice::ReadOnly));
+        QXmlStreamReader xml(&f);
+        QHash<QString, QString> current;
+        QString param;
+        while (!xml.atEnd()) {
+            xml.readNext();
+            if (xml.isStartElement() && xml.name() == QLatin1String("OfxPreset")) {
+                current.clear();
+            } else if (xml.isStartElement() && xml.name().startsWith(QLatin1String("OfxParamType"))) {
+                param = xml.attributes().value(QLatin1String("name")).toString();
+            } else if (xml.isStartElement() && xml.name() == QLatin1String("OfxParamValue")) {
+                current.insert(param, xml.readElementText().trimmed());
+            } else if (xml.isEndElement() && xml.name() == QLatin1String("OfxPreset")) {
+                const QString anim = current.value(QStringLiteral("AnimationName"));
+                if (presets.contains(anim)) {
+                    shared.insert(anim);
+                }
+                presets.insert(anim, current);
+            }
+        }
+    }
+    const VegOpenResult result = VegReader::open(veg);
+    int compared = 0;
+    for (const VegTitleTextInfo &t : result.titlesAndText) {
+        if (!presets.contains(t.animationName) || shared.contains(t.animationName)) {
+            continue; // "_None" and the like: several presets, no way to tell which
+        }
+        const QHash<QString, QString> &ref = presets.value(t.animationName);
+        INFO(t.animationName.toStdString());
+        const QStringList loc = ref.value(QStringLiteral("Location")).split(QLatin1Char(' '), Qt::SkipEmptyParts);
+        CHECK(t.anchor == ref.value(QStringLiteral("Alignment"), QStringLiteral("4")).toInt());
+        CHECK(t.locationX == Catch::Approx(loc.value(0).toDouble()).margin(1e-4));
+        CHECK(t.locationY == Catch::Approx(loc.value(1).toDouble()).margin(1e-4));
+        CHECK(t.shadowEnable == (ref.value(QStringLiteral("ShadowEnable")) == QLatin1String("true")));
+        CHECK(t.shadowOffsetX == Catch::Approx(ref.value(QStringLiteral("ShadowOffsetX")).toDouble()).margin(1e-4));
+        CHECK(t.shadowOffsetY == Catch::Approx(ref.value(QStringLiteral("ShadowOffsetY")).toDouble()).margin(1e-4));
+        CHECK(t.shadowBlur == Catch::Approx(ref.value(QStringLiteral("ShadowBlur")).toDouble()).margin(1e-4));
+        ++compared;
+    }
+    CHECK(compared >= 40);
+}
+
+TEST_CASE("Titles & Text presets place everything VEGAS's preset sets", "[veg][titles-and-text]")
+{
+    openvegas::test::ensureQtApp();
+    const QVector<TitlesTextStockPreset> &stock = titlesTextStockPresets();
+    // "(Default)" and the 52 presets of the package, in VEGAS's browser order.
+    REQUIRE(stock.size() == 53);
+    CHECK(stock.first().name == QStringLiteral("(Default)"));
+    CHECK(stock.first().params.text == QStringLiteral("Sample Text"));
+    CHECK(stock[1].name == QStringLiteral("Title01"));
+    CHECK(stock.last().name == QStringLiteral("Subtitles"));
+
+    const TitlesTextParams title03 = titlesTextPresetParams(QStringLiteral("Title03"));
+    CHECK(title03.text == QStringLiteral("FREE CUSTOMER\nSUPPORT"));
+    CHECK(title03.fontFamily == QStringLiteral("Arial"));
+    CHECK(title03.locationX == Catch::Approx(0.52));
+    CHECK(title03.locationY == Catch::Approx(0.589474));
+    CHECK(title03.lineSpacing == Catch::Approx(0.8));
+    CHECK(title03.scale == Catch::Approx(1.3));
+
+    // Placeholder and Subtitles share "_None" with "(Default)" and differ in everything else.
+    const TitlesTextParams placeholder = titlesTextPresetParams(QStringLiteral("Placeholder"));
+    CHECK(placeholder.textColor == QColor(255, 0, 0));
+    CHECK(placeholder.fontFamily == QStringLiteral("Tahoma"));
+    const TitlesTextParams subtitles = titlesTextPresetParams(QStringLiteral("Subtitles"));
+    CHECK(subtitles.shadowEnable);
+    CHECK(subtitles.locationY == Catch::Approx(0.1));
+    CHECK(titlesTextPresetParams(QStringLiteral("_None")).text == QStringLiteral("Sample Text"));
+    // An animation key, as older drags carry, still finds its preset.
+    CHECK(titlesTextPresetParams(QStringLiteral("_Bounce")).outlineWidth == Catch::Approx(6.0));
+
+    // Location's Y counts up from the bottom: Subtitles sits low in the frame, as in VEGAS.
+    const QRectF box = titlesTextBoundingBox(subtitles, QSize(1920, 1080));
+    CHECK(box.center().y() > 1080 * 0.8);
+
+    ProjectModel model;
+    const int id = model.addTitlesTextEvent(QStringLiteral("Subtitles"));
+    const TrackEvent *ev = model.findEvent(id);
+    REQUIRE(ev);
+    REQUIRE_FALSE(ev->fxChain.isEmpty());
+    CHECK(ev->fxChain.first().displayName == QStringLiteral("Titles & Text"));
+    const TitlesTextParams placed = titlesTextFromSlot(ev->fxChain.first());
+    CHECK(placed.text == QStringLiteral("Subtitles"));
+    CHECK(placed.shadowEnable);
+    CHECK(placed.locationY == Catch::Approx(0.1));
+    CHECK(placed.lineSpacing == Catch::Approx(0.8));
+}
+
+TEST_CASE("A Titles & Text preset opened from a project matches the same preset placed",
+          "[veg][titles-and-text]")
+{
+    // The project is built from VEGAS's stock presets, so each instance with an animation of
+    // its own should read back as that preset does from the table — text included, which the
+    // importer used to break into a line per paragraph plus an empty one.
+    const QString veg = samplePath(QStringLiteral("project_big--buck-bunny_titles-and-text.veg"));
+    if (!QFileInfo::exists(veg)) {
+        SKIP("sample project not available");
+    }
+    const VegOpenResult result = VegReader::open(veg);
+    int compared = 0;
+    for (const VegTitleTextInfo &t : result.titlesAndText) {
+        if (t.animationName == QLatin1String("_None") || !t.animationName.startsWith(QLatin1Char('_'))) {
+            continue;
+        }
+        const TitlesTextParams ref = titlesTextPresetParams(t.animationName);
+        INFO(t.animationName.toStdString());
+        CHECK(t.text.toStdString() == ref.text.toStdString());
+        CHECK(t.fontFamily == ref.fontFamily);
+        CHECK(t.fontSize == Catch::Approx(ref.fontSize));
+        CHECK(t.italic == ref.italic);
+        CHECK(t.lineSpacing == Catch::Approx(ref.lineSpacing).margin(1e-4));
+        CHECK(t.tracking == Catch::Approx(ref.tracking).margin(1e-4));
+        CHECK(t.outlineWidth == Catch::Approx(ref.outlineWidth).margin(1e-4));
+        ++compared;
+    }
+    CHECK(compared >= 40);
 }

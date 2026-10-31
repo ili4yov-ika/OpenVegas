@@ -118,7 +118,7 @@ public slots:
     /** Transition strip button on the timeline → its properties window. */
     void openTransitionProperties(int eventId, bool fadeIn);
     /** Create a new Titles & Text generator event at the playhead and open its editor. */
-    void createTitlesTextEvent(const QString &animationKey = QString(),
+    void createTitlesTextEvent(const QString &presetName = QString(),
                                const QString &sampleText = QString());
     void onAudioEventFx(int eventId);
     void onTrackFx(int trackIndex);

@@ -158,6 +158,11 @@ struct VegTitleTextInfo {
     bool italic = false;
     /** 0=Left, 1=Center, 2=Right — best-effort guess, see .cpp. */
     int alignment = 0;
+    /**
+     * The anchor point — VEGAS's "Alignment" parameter, whatever its name suggests: 0 Top
+     * Left, 1 Top Center, 2 Top Right, 3 Center Left, 4 Center … 8 Bottom Right.
+     */
+    int anchor = 4;
     QColor textColor = QColor(255, 255, 255, 255);
     QString animationName = QStringLiteral("_None");
     double scale = 1.0;

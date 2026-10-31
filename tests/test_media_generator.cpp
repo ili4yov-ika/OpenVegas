@@ -2,11 +2,14 @@
 #include <catch2/catch_test_macros.hpp>
 
 #include "io/MediaProbe.h"
+#include "io/MediaMime.h"
 #include "model/ProjectModel.h"
 #include "plugins/AudioPluginTypes.h"
 #include "video/MediaGeneratorApply.h"
 
 #include <cstdlib>
+#include <memory>
+#include <QMimeData>
 
 using namespace openvegas;
 
@@ -44,6 +47,25 @@ TEST_CASE("MediaGeneratorParams round-trips through the drag payload encoding",
     REQUIRE(back.tile == p.tile);
 }
 
+TEST_CASE("Titles & Text drag payload preserves multiline sample and preset name",
+          "[video][media-generator][titles-and-text][dnd]")
+{
+    const QString sample = QStringLiteral("UNIQUE\nTYPOGRAPHY");
+    std::unique_ptr<QMimeData> md(MediaMime::fromSynthetic(QStringLiteral("titles"), sample,
+                                                            QStringLiteral("Title01")));
+    QStringList names;
+    QStringList kinds;
+    QStringList paths;
+    QVector<double> lengths;
+    QStringList extras;
+    MediaMime::parse(md.get(), &names, &kinds, &paths, &lengths, &extras);
+
+    REQUIRE(names == QStringList{sample});
+    REQUIRE(kinds == QStringList{QStringLiteral("titles")});
+    REQUIRE(paths == QStringList{QString()});
+    REQUIRE(extras == QStringList{QStringLiteral("Title01")});
+}
+
 TEST_CASE("MediaGeneratorParams round-trips through an FxSlot's state chunk",
           "[video][media-generator]")
 {
@@ -53,6 +75,16 @@ TEST_CASE("MediaGeneratorParams round-trips through an FxSlot's state chunk",
     p.c0 = QColor(0x20, 0x40, 0x80);
     p.c1 = QColor(0xc0, 0x60, 0x30);
     p.tile = 8;
+    p.media.tapeName = QStringLiteral("Generated gradient");
+    p.media.useCustomTimecode = true;
+    p.media.customTimecodeSec = 12.5;
+    p.media.frameWidth = 1280;
+    p.media.frameHeight = 720;
+    p.media.fieldOrder = MediaFieldOrder::UpperFieldFirst;
+    p.media.pixelAspect = 1.2121;
+    p.media.alphaChannel = MediaAlphaChannel::Straight;
+    p.media.backgroundColor = QColor(12, 34, 56, 255);
+    p.media.rotation = MediaRotation::Deg90Clockwise;
 
     const FxSlot slot = mediaGeneratorSlotFor(p);
     REQUIRE(slot.displayName == p.pluginName);
@@ -65,6 +97,16 @@ TEST_CASE("MediaGeneratorParams round-trips through an FxSlot's state chunk",
     REQUIRE(back.c0 == p.c0);
     REQUIRE(back.c1 == p.c1);
     REQUIRE(back.tile == p.tile);
+    REQUIRE(back.media.tapeName == p.media.tapeName);
+    REQUIRE(back.media.useCustomTimecode == p.media.useCustomTimecode);
+    REQUIRE(back.media.customTimecodeSec == Catch::Approx(p.media.customTimecodeSec));
+    REQUIRE(back.media.frameWidth == p.media.frameWidth);
+    REQUIRE(back.media.frameHeight == p.media.frameHeight);
+    REQUIRE(back.media.fieldOrder == p.media.fieldOrder);
+    REQUIRE(back.media.pixelAspect == Catch::Approx(p.media.pixelAspect));
+    REQUIRE(back.media.alphaChannel == p.media.alphaChannel);
+    REQUIRE(back.media.backgroundColor == p.media.backgroundColor);
+    REQUIRE(back.media.rotation == p.media.rotation);
 }
 
 TEST_CASE("renderMediaGeneratorPattern renders the requested size with the right colors",
@@ -87,6 +129,21 @@ TEST_CASE("renderMediaGeneratorPattern renders the requested size with the right
     const QImage flat = renderMediaGeneratorPattern(solid, QSize(64, 36));
     REQUIRE(colorsClose(QColor(flat.pixel(0, 0)), solid.c0));
     REQUIRE(colorsClose(QColor(flat.pixel(63, 35)), solid.c0));
+}
+
+TEST_CASE("Media Generator media properties affect generated output",
+          "[video][media-generator]")
+{
+    MediaGeneratorParams p;
+    p.pluginName = QStringLiteral("Solid Color");
+    p.vegasPluginId = QStringLiteral("{Svfx:com.vegascreativesoftware:solidcolor}");
+    p.vegasParams.insert(QStringLiteral("Color"), QVariantList{1.0, 0.0, 0.0, 1.0});
+    p.media.frameWidth = 32;
+    p.media.frameHeight = 16;
+    p.media.rotation = MediaRotation::Deg90Clockwise;
+    const QImage out = renderMediaGenerator(p, QSize(64, 64));
+    REQUIRE(out.size() == QSize(64, 64));
+    REQUIRE(QColor(out.pixel(32, 32)).red() > 200);
 }
 
 TEST_CASE("MediaProbe defaults a path-less generator drop to 10 seconds",

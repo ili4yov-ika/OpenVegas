@@ -208,12 +208,6 @@ void MediaPropertiesDialog::buildUi()
             updateBackgroundSwatch();
         }
     });
-    for (QWidget *control : QList<QWidget *>{m_frameWidthSpin, m_frameHeightSpin, m_fieldOrderCombo,
-                                            m_pixelAspectCombo, m_alphaChannelCombo, m_rotationCombo,
-                                            m_backgroundColorBtn}) {
-        control->setEnabled(false);
-        control->setToolTip(tr("This generator property is stored but not processed yet"));
-    }
     syncEnabled();
 }
 

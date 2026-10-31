@@ -107,8 +107,14 @@ QMimeData *MediaMime::fromLocalPaths(const QStringList &paths)
 
 QMimeData *MediaMime::fromSynthetic(const QString &kind, const QString &name, const QString &extra)
 {
+    // Synthetic fields are line-oriented for compatibility with the file-drop format, but
+    // Titles & Text samples routinely contain newlines. Encode both fields so a multiline
+    // preset cannot shift the path/length/extra columns while it crosses the MIME boundary.
+    const auto encode = [](const QString &value) {
+        return QStringLiteral("b64:") + QString::fromLatin1(value.toUtf8().toBase64());
+    };
     auto *md = new QMimeData;
-    md->setData(mimeType(), QStringLiteral("%1\n%2\n\n0\n%3").arg(kind, name, extra).toUtf8());
+    md->setData(mimeType(), QStringLiteral("%1\n%2\n\n0\n%3").arg(kind, encode(name), encode(extra)).toUtf8());
     md->setText(name);
     return md;
 }
@@ -136,6 +142,14 @@ void MediaMime::parse(const QMimeData *md, QStringList *names, QStringList *kind
     QStringList rawPaths;
 
     if (md->hasFormat(mimeType())) {
+        const auto decode = [](const QString &raw) {
+            const QString value = raw.trimmed();
+            if (!value.startsWith(QStringLiteral("b64:"))) {
+                return value; // payloads made by older builds remain readable
+            }
+            const QByteArray bytes = QByteArray::fromBase64(value.mid(4).toLatin1());
+            return QString::fromUtf8(bytes);
+        };
         const QString payload = QString::fromUtf8(md->data(mimeType()));
         const QStringList blocks = payload.split(QStringLiteral("\n---\n"), Qt::SkipEmptyParts);
         for (const QString &block : blocks) {
@@ -147,7 +161,7 @@ void MediaMime::parse(const QMimeData *md, QStringList *names, QStringList *kind
             QString extra;
             if (parts.size() >= 2) {
                 kind = parts[0].trimmed();
-                name = parts[1].trimmed();
+                name = decode(parts[1]);
             }
             if (parts.size() >= 3) {
                 path = parts[2].trimmed();
@@ -156,7 +170,7 @@ void MediaMime::parse(const QMimeData *md, QStringList *names, QStringList *kind
                 len = parts[3].trimmed().toDouble();
             }
             if (parts.size() >= 5) {
-                extra = parts[4].trimmed();
+                extra = decode(parts[4]);
             }
             if (!path.isEmpty()) {
                 rawPaths << path;

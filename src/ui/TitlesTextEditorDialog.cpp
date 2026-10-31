@@ -32,7 +32,10 @@
 
 namespace openvegas {
 
-/** Draggable position pad bound to normalized (0..1, 0..1) frame coordinates. */
+/**
+ * Draggable position pad bound to normalized (0..1, 0..1) frame coordinates, Y counted
+ * from the bottom as VEGAS's Location is; the pad itself is drawn the frame's way up.
+ */
 class LocationPad : public QWidget {
 public:
     explicit LocationPad(QWidget *parent = nullptr)
@@ -46,7 +49,7 @@ public:
     void setPosition(double x, double y)
     {
         m_x = x;
-        m_y = y;
+        m_y = 1.0 - y;
         update();
     }
 
@@ -82,7 +85,7 @@ private:
         m_y = std::clamp(double(pos.y()) / std::max(1, height()), 0.0, 1.0);
         update();
         if (m_onPick) {
-            m_onPick(m_x, m_y);
+            m_onPick(m_x, 1.0 - m_y);
         }
     }
 
@@ -128,7 +131,7 @@ void TitlesTextEditorDialog::buildUi()
             &TitlesTextEditorDialog::openMediaProperties);
     header->addWidget(m_mediaPropsBtn);
     root->addLayout(header);
-    root->addWidget(new QLabel(QStringLiteral("<b>VEGAS Titles &amp; Text</b>"), this));
+    root->addWidget(new QLabel(QStringLiteral("<b>Titles &amp; Text</b>"), this));
 
     // Built before the parameter rows so their clock buttons can bind to it.
     m_keyframePane = new TitlesTextKeyframePane(this);
@@ -263,8 +266,8 @@ void TitlesTextEditorDialog::buildUi()
 
     auto *anchorRow = new QFormLayout();
     m_anchorCombo = new QComboBox(body);
-    for (const char *n : {"Top Left", "Top Center", "Top Right", "Middle Left", "Center",
-                          "Middle Right", "Bottom Left", "Bottom Center", "Bottom Right"}) {
+    for (const char *n : {"Top Left", "Top Center", "Top Right", "Center Left", "Center",
+                          "Center Right", "Bottom Left", "Bottom Center", "Bottom Right"}) {
         m_anchorCombo->addItem(QString::fromLatin1(n));
     }
     anchorRow->addRow(tr("Anchor Point:"), m_anchorCombo);

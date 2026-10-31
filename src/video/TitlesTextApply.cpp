@@ -336,6 +336,29 @@ TitlesTextPresetVisuals titlesTextPresetVisuals(const QString &animationKey)
     return {};
 }
 
+TitlesTextParams titlesTextPresetParams(const QString &nameOrKey)
+{
+    for (const TitlesTextStockPreset &s : titlesTextStockPresets()) {
+        if (s.name == nameOrKey) {
+            return s.params;
+        }
+    }
+    for (const TitlesTextStockPreset &s : titlesTextStockPresets()) {
+        if (s.params.animationName == nameOrKey) {
+            return s.params;
+        }
+    }
+    TitlesTextParams p;
+    if (nameOrKey.startsWith(QLatin1Char('_'))) {
+        p.animationName = nameOrKey;
+        const TitlesTextPresetVisuals visuals = titlesTextPresetVisuals(nameOrKey);
+        p.textColor = visuals.textColor;
+        p.backgroundColor = visuals.backgroundColor;
+        p.scale = visuals.scale;
+    }
+    return p;
+}
+
 TitlesTextAnimKeyframe evaluateTitlesTextAnimation(const TitlesTextMotionSpec &spec, double progress)
 {
     TitlesTextAnimKeyframe kf;
@@ -637,8 +660,10 @@ QImage renderTitlesText(const TitlesTextParams &p, const QSize &size, double pro
 
         const double originX =
             p.locationX * size.width() - anchorFracX(p.anchor) * blockW + anim.offsetX * size.width();
-        const double originY = p.locationY * size.height() - anchorFracY(p.anchor) * blockH
-                               + anim.offsetY * size.height();
+        // Location's Y counts up from the bottom of the frame, as in VEGAS (its Subtitles
+        // preset sits at 0.1); the animation's offsets are in screen terms.
+        const double originY = (1.0 - p.locationY) * size.height()
+                               - anchorFracY(p.anchor) * blockH + anim.offsetY * size.height();
 
         for (int i = 0; i < lines.size(); ++i) {
             const QString &line = lines[i];
@@ -921,7 +946,7 @@ QRectF titlesTextBoundingBox(const TitlesTextParams &p, const QSize &size)
     const double blockH = lineHeight * lines.size();
 
     const double originX = p.locationX * size.width() - anchorFracX(p.anchor) * blockW;
-    const double originY = p.locationY * size.height() - anchorFracY(p.anchor) * blockH;
+    const double originY = (1.0 - p.locationY) * size.height() - anchorFracY(p.anchor) * blockH;
     return QRectF(originX, originY, blockW, blockH);
 }
 

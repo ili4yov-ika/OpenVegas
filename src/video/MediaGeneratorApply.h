@@ -1,6 +1,7 @@
 #pragma once
 
 #include "plugins/AudioPluginTypes.h"
+#include "video/GeneratorMediaProps.h"
 
 #include <QColor>
 #include <QImage>
@@ -52,6 +53,7 @@ struct MediaGeneratorParams {
     QString vegasPreset;
     QVariantMap vegasParams;
     QVariantMap vegasCurves;
+    GeneratorMediaProps media;
 };
 
 /**
@@ -73,6 +75,12 @@ QImage renderMediaGeneratorPattern(const MediaGeneratorParams &p, const QSize &s
  */
 QImage renderMediaGenerator(const MediaGeneratorParams &p, const QSize &size, double timeSec = 0.0,
                             double lengthSec = 10.0);
+
+/**
+ * The generator's values at `timeSec` (seconds into the event): its stored values with
+ * every animated parameter read off its curve (`vegasCurves`, flat [t0, v0, t1, v1, …]).
+ */
+QVariantMap mediaGeneratorParamsAt(const MediaGeneratorParams &p, double timeSec);
 
 /** The VEGAS id behind a slot: its own, or the stock group of the same name. */
 QString mediaGeneratorVegasId(const MediaGeneratorParams &p);

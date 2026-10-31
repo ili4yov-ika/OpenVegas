@@ -13,6 +13,8 @@
 #include <QMutex>
 #include <QMutexLocker>
 #include <QStandardPaths>
+#include <QSettings>
+#include <QRegularExpression>
 
 #include <algorithm>
 #include <atomic>
@@ -152,6 +154,113 @@ bool checkArchLoadable(const QString &binaryPath, QString *errorOut)
                         .arg(QFileInfo(binaryPath).fileName(), reason);
     }
     return false;
+}
+
+QString tidyNameFromBundle(const QString &bundleName);
+
+struct OfxPolicyDecision {
+    bool allowed = true;
+    QString reason;
+};
+
+QStringList ofxPolicyValues(const QString &settingKey, const char *environmentKey)
+{
+    QStringList values;
+    const QSettings settings(QStringLiteral("OpenVegas"), QStringLiteral("OpenVegas"));
+    const QVariant configured = settings.value(settingKey);
+    if (configured.canConvert<QStringList>()) {
+        values.append(configured.toStringList());
+    } else if (configured.isValid()) {
+        values.append(configured.toString());
+    }
+    const QByteArray env = qgetenv(environmentKey);
+    if (!env.isEmpty()) {
+        values.append(QString::fromUtf8(env).split(
+            QRegularExpression(QStringLiteral("[;,]\\s*")), Qt::SkipEmptyParts));
+    }
+    for (QString &value : values) {
+        value = value.trimmed();
+    }
+    values.removeAll(QString());
+    return values;
+}
+
+QString normalizedOfxPolicyPath(const QString &path)
+{
+    if (path.isEmpty()) {
+        return {};
+    }
+    QFileInfo info(path);
+    const QString absolute = info.absoluteFilePath();
+    return QDir::fromNativeSeparators(absolute).toLower();
+}
+
+bool ofxPolicyTokenMatches(const QString &token, const QStringList &aliases)
+{
+    const QString trimmed = token.trimmed();
+    if (trimmed.isEmpty()) {
+        return false;
+    }
+    const QString pathToken = QDir::fromNativeSeparators(trimmed).toLower();
+    for (const QString &alias : aliases) {
+        if (pathToken == alias.toLower()) {
+            return true;
+        }
+    }
+    return false;
+}
+
+OfxPolicyDecision ofxPolicyFor(const QString &binaryPath, const QString &effectId = {})
+{
+    const QFileInfo info(binaryPath);
+    QStringList aliases;
+    aliases << normalizedOfxPolicyPath(binaryPath);
+    aliases << QDir::fromNativeSeparators(info.fileName()).toLower();
+    QDir ancestor = info.dir();
+    for (int level = 0; level < 4; ++level) {
+        const QString bundleName = ancestor.dirName();
+        if (bundleName.endsWith(QStringLiteral(".ofx.bundle"), Qt::CaseInsensitive)
+            || bundleName.endsWith(QStringLiteral(".bundle"), Qt::CaseInsensitive)) {
+            aliases << QDir::fromNativeSeparators(bundleName).toLower();
+            aliases << tidyNameFromBundle(bundleName).toLower();
+            break;
+        }
+        if (!ancestor.cdUp()) {
+            break;
+        }
+    }
+    if (!effectId.trimmed().isEmpty()) {
+        aliases << effectId.trimmed().toLower();
+    }
+
+    for (const QString &token : ofxPolicyValues(QStringLiteral("plugins/ofxExcluded"),
+                                                  "OPENVEGAS_OFX_EXCLUDED")) {
+        if (ofxPolicyTokenMatches(token, aliases)) {
+            return {false, QStringLiteral("excluded by OFX policy (%1)").arg(token)};
+        }
+    }
+    for (const QString &token : ofxPolicyValues(QStringLiteral("plugins/ofxUnsafe"),
+                                                  "OPENVEGAS_OFX_UNSAFE")) {
+        if (ofxPolicyTokenMatches(token, aliases)) {
+            return {false, QStringLiteral("marked unsafe by OFX policy (%1)").arg(token)};
+        }
+    }
+    return {};
+}
+
+bool rejectByOfxPolicy(const QString &binaryPath, const QString &effectId, QString *errorOut)
+{
+    const OfxPolicyDecision decision = ofxPolicyFor(binaryPath, effectId);
+    if (decision.allowed) {
+        return false;
+    }
+    const QString message = QStringLiteral("OFX plug-in \"%1\" skipped: %2")
+                                .arg(QFileInfo(binaryPath).fileName(), decision.reason);
+    OPENVEGAS_OFX_TRACE(message);
+    if (errorOut) {
+        *errorOut = message;
+    }
+    return true;
 }
 
 QString tidyNameFromBundle(const QString &bundleName)
@@ -2388,6 +2497,9 @@ QHash<QString, int> OfxHost::effectIndexMap(const QString &binaryPath)
     if (binaryPath.isEmpty() || !QFileInfo::exists(binaryPath)) {
         return out;
     }
+    if (rejectByOfxPolicy(binaryPath, {}, nullptr)) {
+        return out;
+    }
     if (!checkArchLoadable(binaryPath, nullptr)) {
         return out;
     }
@@ -2409,7 +2521,10 @@ QHash<QString, int> OfxHost::effectIndexMap(const QString &binaryPath)
         for (int i = 0; i < n; ++i) {
             OfxPlugin *plug = getPlugin(i);
             if (plug && plug->pluginIdentifier) {
-                out.insert(QString::fromUtf8(plug->pluginIdentifier).toLower(), i);
+                const QString effectId = QString::fromUtf8(plug->pluginIdentifier);
+                if (!rejectByOfxPolicy(binaryPath, effectId, nullptr)) {
+                    out.insert(effectId.toLower(), i);
+                }
             }
         }
     } catch (...) {
@@ -2441,6 +2556,9 @@ QVector<OfxEffectSummary> OfxHost::enumerateEffects(const QString &binaryPath)
 {
     QVector<OfxEffectSummary> out;
     if (binaryPath.isEmpty() || !QFileInfo::exists(binaryPath)) {
+        return out;
+    }
+    if (rejectByOfxPolicy(binaryPath, {}, nullptr)) {
         return out;
     }
     if (!checkArchLoadable(binaryPath, nullptr)) {
@@ -2489,6 +2607,9 @@ QVector<OfxEffectSummary> OfxHost::enumerateEffects(const QString &binaryPath)
             OfxEffectSummary s;
             s.pluginIndex = i;
             s.effectId = QString::fromUtf8(plug->pluginIdentifier);
+            if (rejectByOfxPolicy(binaryPath, s.effectId, nullptr)) {
+                continue;
+            }
 
             // Describe is the only way to learn the label; a plug-in that refuses still
             // gets listed under its identifier rather than being dropped.
@@ -2587,6 +2708,9 @@ QVector<OfxContextReport> OfxHost::describeContexts(const QString &binaryPath, i
 {
     QVector<OfxContextReport> out;
     if (binaryPath.isEmpty() || !QFileInfo::exists(binaryPath)) {
+        return out;
+    }
+    if (rejectByOfxPolicy(binaryPath, {}, nullptr)) {
         return out;
     }
     if (!checkArchLoadable(binaryPath, nullptr)) {
@@ -2714,6 +2838,9 @@ struct OfxHost::Impl {
         ensureHostC();
         const QString path = desc.path;
         const int plugIdx = std::max(0, desc.pluginIndex);
+        if (rejectByOfxPolicy(path, desc.effectId, errorOut)) {
+            return {};
+        }
         // Key by effectId when the caller knows it: the same effect can be asked for
         // under a stale index, and keying by index would then load and kOfxActionLoad
         // the very same OfxPlugin twice.

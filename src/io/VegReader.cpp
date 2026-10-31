@@ -2072,10 +2072,19 @@ void VegReader::parseVideoTitlesText(const QByteArray &data, VegOpenResult *resu
      * its own (a class/preset-id reference) — findNameValue()'s window bound plus the
      * "has a decodable Text" filter below naturally skips it without an explicit rule.
      */
+    // Where one identifier's records end: at the next identifier. A fixed window of 2000
+    // bytes used to stand in for it, and was wrong both ways: too short for a long text's
+    // own records (ShadowBlur sits up to 2558 bytes in, and read as its default), and long
+    // enough from the media-pool copy of the identifier, which has no records of its own,
+    // to reach the instance's after it — so every title was read twice, which the import
+    // then took for VEGAS storing it twice and collapsed.
     constexpr int kWindow = 2000;
+    int instanceEnd = -1;
     auto findNameValue = [&](const QString &name, int from) -> QByteArray {
         const QByteArray nameBytes = toUtf16Le(name);
-        const int searchEnd = int(std::min<qsizetype>(data.size(), from + kWindow));
+        const int searchEnd = instanceEnd > from
+                                  ? int(std::min<qsizetype>(data.size(), instanceEnd))
+                                  : int(std::min<qsizetype>(data.size(), from + kWindow));
         const auto *base = reinterpret_cast<const uchar *>(data.constData());
         const qint32 expectedNameLen = qint32((name.size() + 1) * 2);
         // A short property name can occur as a literal substring of a longer one that
@@ -2153,10 +2162,11 @@ void VegReader::parseVideoTitlesText(const QByteArray &data, VegOpenResult *resu
     // headline + subtitle, each its own run) keep their full text even though the
     // per-line formatting difference is lost.
     auto parseRtf = [](const QString &rtf, QString *outText, QString *outFont, double *outSize,
-                       bool *outBold, int *outAlign) {
+                       bool *outBold, bool *outItalic, int *outAlign) {
         *outFont = QStringLiteral("Verdana");
         *outSize = 48.0;
         *outBold = false;
+        *outItalic = false;
         *outAlign = 0;
         outText->clear();
         if (rtf.isEmpty()) {
@@ -2173,9 +2183,15 @@ void VegReader::parseVideoTitlesText(const QByteArray &data, VegOpenResult *resu
         if (sizeMatch.hasMatch()) {
             *outSize = sizeMatch.captured(1).toDouble() / 2.0;
         }
-        if (rtf.contains(QLatin1String("\\b ")) || rtf.contains(QLatin1String("\\b\\"))) {
-            *outBold = true;
-        }
+        // RTF uses \\b / \\b1 and \\b0 for bold runs. Match only the enabled forms
+        // and a control-word boundary; this avoids treating \\b0 or \\bin as bold.
+        static const QRegularExpression boldOn(
+            QStringLiteral("\\\\b(?:1)?(?:\\s|\\\\|\\})"));
+        *outBold = boldOn.match(rtf).hasMatch();
+        // RTF uses \\i / \\i1 and \\i0 for italic runs. Match a control-word boundary.
+        static const QRegularExpression italicOn(
+            QStringLiteral("\\\\i(?:1)?(?:\\s|\\\\|\\})"));
+        *outItalic = italicOn.match(rtf).hasMatch();
         if (rtf.contains(QLatin1String("\\qc"))) {
             *outAlign = 1;
         } else if (rtf.contains(QLatin1String("\\qr"))) {
@@ -2201,29 +2217,43 @@ void VegReader::parseVideoTitlesText(const QByteArray &data, VegOpenResult *resu
             body.remove(tblStart, i - tblStart);
         }
 
+        // Line breaks in RTF source are not text — only \par is — so they go first; left
+        // in, every paragraph came out followed by an empty line. One right after a control
+        // word ends that word, as a space would.
+        static const QRegularExpression wordThenBreak(
+            QStringLiteral("(\\\\[a-zA-Z]+-?\\d*)\\r?\\n"));
+        body.replace(wordThenBreak, QStringLiteral("\\1 "));
+        body.remove(QLatin1Char('\r'));
+        body.remove(QLatin1Char('\n'));
         // Word-boundary-anchored: a plain "\par" substring replace would also match
-        // (and mangle) "\pard", which starts with the same four characters.
-        static const QRegularExpression parBreak(QStringLiteral("\\\\par\\b"));
+        // (and mangle) "\pard", which starts with the same four characters. A control
+        // word's delimiter is one space, and only a space: matching any whitespace took the
+        // line a "\par" had just become, whenever another control word stood before it
+        // ("WELL\fs48\par" read "WELL ORGANIZED").
+        static const QRegularExpression parBreak(QStringLiteral("\\\\par\\b ?"));
         body.replace(parBreak, QStringLiteral("\n"));
-        static const QRegularExpression ctrlWord(QStringLiteral("\\\\[a-zA-Z]+-?\\d*\\s?"));
+        static const QRegularExpression ctrlWord(QStringLiteral("\\\\[a-zA-Z]+-?\\d* ?"));
         body.remove(ctrlWord);
         body.remove(QLatin1Char('{'));
         body.remove(QLatin1Char('}'));
-        body.remove(QLatin1Char('\r'));
         *outText = body.trimmed();
     };
 
-    // Every marker occurrence with a decodable "Text" property nearby is a real
-    // instance; the plugin-id echo (see comment above) has none and is skipped.
+    // Every identifier with a "Text" record of its own — before the next identifier — is a
+    // real instance; the media-pool copy has none and is skipped.
     QVector<int> instanceOffsets;
+    QVector<int> instanceEnds;
     for (int pos = 0;;) {
         const int idx = data.indexOf(marker, pos);
         if (idx < 0) {
             break;
         }
         pos = idx + 1;
+        const int next = data.indexOf(marker, idx + marker.size());
+        instanceEnd = next > idx ? next : int(data.size());
         if (!findNameValue(QStringLiteral("Text"), idx).isEmpty()) {
             instanceOffsets.push_back(idx);
+            instanceEnds.push_back(instanceEnd);
         }
     }
     if (instanceOffsets.isEmpty()) {
@@ -2262,19 +2292,23 @@ void VegReader::parseVideoTitlesText(const QByteArray &data, VegOpenResult *resu
 
     QVector<VegTitleTextInfo> extracted;
     extracted.reserve(instanceOffsets.size());
-    for (int off : instanceOffsets) {
+    for (int k = 0; k < instanceOffsets.size(); ++k) {
+        const int off = instanceOffsets[k];
         VegTitleTextInfo t;
+        instanceEnd = instanceEnds[k];
 
         const QString rtf = readString(QStringLiteral("Text"), off, QString());
         QString font, plainText;
         double fontSize = 48.0;
         bool bold = false;
+        bool italic = false;
         int align = 0;
-        parseRtf(rtf, &plainText, &font, &fontSize, &bold, &align);
+        parseRtf(rtf, &plainText, &font, &fontSize, &bold, &italic, &align);
         t.text = plainText.isEmpty() ? QStringLiteral("Sample Text") : plainText;
         t.fontFamily = font;
         t.fontSize = fontSize;
         t.bold = bold;
+        t.italic = italic;
         t.alignment = align;
 
         t.textColor = readColor(QStringLiteral("TextColor"), off, t.textColor);
@@ -2300,28 +2334,14 @@ void VegReader::parseVideoTitlesText(const QByteArray &data, VegOpenResult *resu
         t.shadowOffsetX = readDouble(QStringLiteral("ShadowOffsetX"), off, t.shadowOffsetX);
         t.shadowOffsetY = readDouble(QStringLiteral("ShadowOffsetY"), off, t.shadowOffsetY);
         t.shadowBlur = readDouble(QStringLiteral("ShadowBlur"), off, t.shadowBlur);
+        t.anchor = std::clamp(readInt(QStringLiteral("Alignment"), off, t.anchor), 0, 8);
 
         extracted.push_back(t);
     }
 
-    // Vegas stores each real timeline instance's parameters TWICE, back-to-back (a
-    // cached/default copy alongside the live one, or similar internal bookkeeping) —
-    // verified against a real sample project: every adjacent pair had byte-identical
-    // AnimationName+Text, zero exceptions across 55 pairs, and treating all 110 as
-    // separate placeable instances invented a bogus second ~9-minute timeline pass (see
-    // ProjectModel::applyTitlesTextFromVeg). Collapse verified duplicates — only an
-    // exact adjacent AnimationName+Text match collapses, so a differently-structured
-    // file (no duplication, or duplicates that aren't byte-identical) keeps every
-    // instance rather than silently losing real content.
-    QVector<VegTitleTextInfo> deduped;
-    deduped.reserve(extracted.size());
-    for (const VegTitleTextInfo &t : extracted) {
-        if (!deduped.isEmpty() && deduped.last().animationName == t.animationName
-            && deduped.last().text == t.text) {
-            continue;
-        }
-        deduped.push_back(t);
-    }
+    // Each title once: the media-pool copy of the identifier carries no records and is
+    // not an instance (see instanceEnd above). Two identical titles in a row are two titles.
+    const QVector<VegTitleTextInfo> &deduped = extracted;
 
     // Pair instances with timing records by ascending order (verified against a real
     // sample project — not a structural guarantee). Any instance beyond the available

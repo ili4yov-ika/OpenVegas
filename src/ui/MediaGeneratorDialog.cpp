@@ -4,6 +4,8 @@
 #include "model/ProjectModel.h"
 #include "ui/ColorGradientPage.h"
 #include "ui/CreditRollPage.h"
+#include "ui/IconFactory.h"
+#include "ui/MediaPropertiesDialog.h"
 #include "ui/VegasColorPicker.h"
 #include "video/GeneratorParamSchema.h"
 #include "video/GeneratorPresetData.h"
@@ -70,6 +72,7 @@ public:
     {
         auto *grid = new QGridLayout(this);
         grid->setColumnStretch(1, 1);
+        grid->setColumnMinimumWidth(3, 28);
         grid->setHorizontalSpacing(10);
         grid->setVerticalSpacing(6);
         int row = 0;
@@ -118,16 +121,39 @@ public:
                         refresh();
                     }
                 });
+                // VEGAS's clock button: animate this parameter, a key at the cursor.
+                auto *key = new QToolButton(this);
+                key->setCheckable(true);
+                key->setAutoRaise(true);
+                key->setToolTip(tr("Animate"));
+                connect(key, &QToolButton::clicked, this, [=](bool on) {
+                    if (m_block) {
+                        return;
+                    }
+                    if (on) {
+                        m_curves.insert(d.name, QVariantList{m_time, number(d)});
+                    } else {
+                        m_params.insert(d.name, number(d)); // keep the value it shows
+                        m_curves.remove(d.name);
+                        emit paramsEdited(m_params);
+                    }
+                    refresh();
+                    emit curvesEdited(m_curves);
+                });
                 m_refreshers.push_back([=] {
                     const double v = number(d);
                     slider->setValue(int(std::lround((v - lo) / (hi - lo) * kSliderSteps)));
                     edit->setText(QString::number(v, 'f', 3));
+                    const bool animated = m_curves.contains(d.name);
+                    key->setChecked(animated);
+                    key->setText(animated ? QStringLiteral("\u25C6") : QStringLiteral("\u25C7+"));
                 });
                 grid->addWidget(label, row, 0);
                 grid->addWidget(slider, row, 1);
                 grid->addWidget(edit, row, 2);
-                rowWidgets << slider << edit;
-                m_enablers.insert(d.name, {label, slider, edit});
+                grid->addWidget(key, row, 3);
+                rowWidgets << slider << edit << key;
+                m_enablers.insert(d.name, {label, slider, edit, key});
             } else if (d.type == QLatin1String("Boolean")) {
                 auto *box = new QCheckBox(this);
                 connect(box, &QCheckBox::toggled, this, [=](bool on) {
@@ -199,17 +225,75 @@ public:
         m_params = params;
         refresh();
     }
+    void setAnimation(const QVariantMap &curves, double timeSec) override
+    {
+        m_curves = curves;
+        m_time = timeSec;
+        refresh();
+    }
 
 private:
+    /** A flat [t0, v0, t1, v1, …] curve at `t`: straight between keys, held at the ends. */
+    static double curveAt(const QVariantList &flat, double t)
+    {
+        const int pairs = int(flat.size() / 2);
+        if (pairs == 0) {
+            return 0.0;
+        }
+        if (t <= flat[0].toDouble()) {
+            return flat[1].toDouble();
+        }
+        for (int i = 1; i < pairs; ++i) {
+            const double t0 = flat[(i - 1) * 2].toDouble(), t1 = flat[i * 2].toDouble();
+            if (t <= t1) {
+                const double v0 = flat[(i - 1) * 2 + 1].toDouble(), v1 = flat[i * 2 + 1].toDouble();
+                return t1 > t0 ? v0 + (v1 - v0) * (t - t0) / (t1 - t0) : v1;
+            }
+        }
+        return flat[(pairs - 1) * 2 + 1].toDouble();
+    }
     double number(const GeneratorParamDef &d) const
     {
+        if (const auto c = m_curves.constFind(d.name); c != m_curves.constEnd()) {
+            return curveAt(c.value().toList(), m_time);
+        }
         const QVariant v = m_params.value(d.name);
         if (!v.isValid()) {
             return d.defaultValue.isEmpty() ? 0.0 : d.defaultValue.first().toDouble();
         }
         return v.typeId() == QMetaType::QVariantList ? v.toList().value(0).toDouble() : v.toDouble();
     }
-    void set(const QString &name, double v) { setValue(name, v); }
+    void set(const QString &name, double v)
+    {
+        if (!m_curves.contains(name)) {
+            setValue(name, v);
+            return;
+        }
+        // Animated: the edit is a key at the cursor — a new one, or the one already there.
+        QVariantList flat = m_curves.value(name).toList();
+        QVector<QPair<double, double>> keys;
+        for (int i = 0; i + 1 < flat.size(); i += 2) {
+            keys.push_back({flat[i].toDouble(), flat[i + 1].toDouble()});
+        }
+        bool replaced = false;
+        for (auto &k : keys) {
+            if (std::fabs(k.first - m_time) < 1e-3) {
+                k.second = v;
+                replaced = true;
+            }
+        }
+        if (!replaced) {
+            keys.push_back({m_time, v});
+            std::sort(keys.begin(), keys.end());
+        }
+        flat.clear();
+        for (const auto &k : keys) {
+            flat << k.first << k.second;
+        }
+        m_curves.insert(name, flat);
+        refresh();
+        emit curvesEdited(m_curves);
+    }
     void setValue(const QString &name, const QVariant &v)
     {
         m_params.insert(name, v);
@@ -242,6 +326,8 @@ private:
 
     QVector<GeneratorParamDef> m_schema;
     QVariantMap m_params;
+    QVariantMap m_curves;
+    double m_time = 0.0;
     QVector<std::function<void()>> m_refreshers;
     QHash<QString, QList<QWidget *>> m_members;
     QHash<QString, QList<QWidget *>> m_enablers;
@@ -256,17 +342,30 @@ MediaGeneratorDialog::MediaGeneratorDialog(QWidget *parent)
     setWindowFlags(Qt::Window | Qt::WindowTitleHint | Qt::WindowCloseButtonHint);
     setWindowModality(Qt::NonModal);
     setWindowTitle(tr("Video Media Generators"));
-    resize(520, 760);
+    setMinimumSize(620, 520);
+    resize(680, 820);
     buildUi();
 }
 
 void MediaGeneratorDialog::buildUi()
 {
     auto *root = new QVBoxLayout(this);
-    root->setSpacing(6);
+    root->setContentsMargins(8, 8, 8, 8);
+    root->setSpacing(8);
 
+    auto *nameBar = new QHBoxLayout();
     m_nameLabel = new QLabel(this);
-    root->addWidget(m_nameLabel);
+    nameBar->addWidget(m_nameLabel, 1);
+    auto *help = new QToolButton(this);
+    help->setText(QStringLiteral("?"));
+    help->setAutoRaise(true);
+    help->setToolTip(tr("About this media generator"));
+    connect(help, &QToolButton::clicked, this, [this] {
+        QMessageBox::information(this, tr("Video Media Generator"),
+                                 tr("Generated media is rendered at the project frame size."));
+    });
+    nameBar->addWidget(help);
+    root->addLayout(nameBar);
 
     auto *frame = new QHBoxLayout();
     frame->addWidget(new QLabel(tr("Frame Size:"), this));
@@ -287,6 +386,10 @@ void MediaGeneratorDialog::buildUi()
     connect(m_duration, &QLineEdit::editingFinished, this, &MediaGeneratorDialog::applyDuration);
     frame->addWidget(m_duration);
     frame->addStretch(1);
+    m_mediaProps = IconFactory::toolButton(this, tr("Media Properties…"),
+                                           IconFactory::svgMediaProps());
+    connect(m_mediaProps, &QToolButton::clicked, this, &MediaGeneratorDialog::openMediaProperties);
+    frame->addWidget(m_mediaProps);
     root->addLayout(frame);
 
     auto *presetRow = new QHBoxLayout();
@@ -361,13 +464,35 @@ void MediaGeneratorDialog::setEvent(TrackEvent *ev, int frameWidth, int frameHei
     }
     const StockGeneratorGroup *group = stockGeneratorGroup(m_id);
     const QString name = group ? group->name : m_gen.pluginName;
-    m_nameLabel->setText(tr("<b>Video Media Generator:</b> VEGAS %1").arg(name.toHtmlEscaped()));
-    m_pageTitle->setText(QStringLiteral("VEGAS ") + name);
+    m_nameLabel->setText(tr("<b>Video Media Generator:</b> %1").arg(name.toHtmlEscaped()));
+    m_pageTitle->setText(name);
     m_frameW->setText(QString::number(frameWidth));
     m_frameH->setText(QString::number(frameHeight));
     m_duration->setText(durationText());
     rebuildPage();
     fillPresets();
+}
+
+void MediaGeneratorDialog::openMediaProperties()
+{
+    if (!m_event || m_event->fxChain.isEmpty()) {
+        return;
+    }
+    MediaPropertiesDialog dlg(this);
+    dlg.setMedia(m_event->name, m_gen.media, m_event->lengthSec, m_frameRateFps, m_frameWidth,
+                 m_frameHeight);
+    if (dlg.exec() != QDialog::Accepted) {
+        return;
+    }
+    m_gen.media = dlg.mediaProps();
+    mediaGeneratorSaveToSlot(&m_event->fxChain.first(), m_gen);
+    const double newLength = dlg.lengthSec();
+    if (newLength > 0.05 && std::fabs(newLength - m_event->lengthSec) > 1e-6) {
+        m_event->lengthSec = newLength;
+        m_duration->setText(durationText());
+        emit durationChanged();
+    }
+    emit previewInvalidated();
 }
 
 void MediaGeneratorDialog::rebuildPage()
@@ -388,7 +513,9 @@ void MediaGeneratorDialog::rebuildPage()
         return;
     }
     m_page->setParams(m_gen.vegasParams);
+    m_page->setAnimation(m_gen.vegasCurves, eventTime());
     connect(m_page, &GeneratorPage::paramsEdited, this, &MediaGeneratorDialog::storeParams);
+    connect(m_page, &GeneratorPage::curvesEdited, this, &MediaGeneratorDialog::storeCurves);
     m_scroll->setWidget(m_page);
 }
 
@@ -425,8 +552,10 @@ void MediaGeneratorDialog::applyPreset(const QString &name)
         return;
     }
     m_gen.vegasPreset = name;
+    m_gen.vegasCurves.clear(); // a preset is a set of still values
     if (m_page) {
         m_page->setParams(params);
+        m_page->setAnimation({}, eventTime());
     }
     storeParams(params);
 }
@@ -470,10 +599,37 @@ void MediaGeneratorDialog::storeParams(const QVariantMap &params)
     if (!m_event || m_event->fxChain.isEmpty()) {
         return;
     }
+    const GeneratorMediaProps media = m_gen.media;
     m_gen = mediaGeneratorFromVegas(m_id, m_gen.vegasPreset, params, m_gen.vegasCurves,
                                     m_gen.pluginName);
+    m_gen.media = media;
     mediaGeneratorSaveToSlot(&m_event->fxChain.first(), m_gen);
     emit previewInvalidated();
+}
+
+void MediaGeneratorDialog::storeCurves(const QVariantMap &curves)
+{
+    if (!m_event || m_event->fxChain.isEmpty()) {
+        return;
+    }
+    m_gen.vegasCurves = curves;
+    mediaGeneratorSaveToSlot(&m_event->fxChain.first(), m_gen);
+    emit previewInvalidated();
+}
+
+double MediaGeneratorDialog::eventTime() const
+{
+    if (!m_event || !m_cursorSec) {
+        return 0.0;
+    }
+    return std::clamp(m_cursorSec() - m_event->startSec, 0.0, m_event->lengthSec);
+}
+
+void MediaGeneratorDialog::cursorMoved()
+{
+    if (m_page && m_event && isVisible()) {
+        m_page->setAnimation(m_gen.vegasCurves, eventTime());
+    }
 }
 
 QString MediaGeneratorDialog::durationText() const

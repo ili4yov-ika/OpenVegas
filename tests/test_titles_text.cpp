@@ -155,7 +155,8 @@ TEST_CASE("titlesTextBoundingBox anchors its top-left corner for TopLeft anchor"
     const QRectF box = titlesTextBoundingBox(p, size);
     REQUIRE_FALSE(box.isEmpty());
     CHECK(box.left() == Catch::Approx(size.width() * 0.2).margin(0.5));
-    CHECK(box.top() == Catch::Approx(size.height() * 0.3).margin(0.5));
+    // Location's Y counts up from the bottom, as VEGAS's does.
+    CHECK(box.top() == Catch::Approx(size.height() * (1.0 - 0.3)).margin(0.5));
 }
 
 TEST_CASE("titlesTextBoundingBox moves 1:1 with locationX/Y — the on-canvas drag formula",
@@ -173,7 +174,8 @@ TEST_CASE("titlesTextBoundingBox moves 1:1 with locationX/Y — the on-canvas dr
     p.locationY = 0.4;
     const QRectF box2 = titlesTextBoundingBox(p, size);
     CHECK(box2.left() - box1.left() == Catch::Approx(0.1 * size.width()).margin(0.5));
-    CHECK(box2.top() - box1.top() == Catch::Approx(-0.1 * size.height()).margin(0.5));
+    // A lower Y is lower in the frame: Y counts up from the bottom.
+    CHECK(box2.top() - box1.top() == Catch::Approx(0.1 * size.height()).margin(0.5));
 }
 
 TEST_CASE("titlesTextBoundingBox scales around a fixed anchor point", "[video][titles-text]")
@@ -404,4 +406,11 @@ TEST_CASE("titlesTextParamValue/SetParamValue cover every animatable parameter",
         titlesTextSetParamValue(&p, ap.key, probe);
         CHECK(titlesTextParamValue(p, ap.key) == Catch::Approx(probe));
     }
+}
+
+TEST_CASE("Titles & Text stock table preserves italic font modes", "[veg][titles-and-text]")
+{
+    CHECK(titlesTextPresetParams(QStringLiteral("Slide Down")).italic);
+    CHECK(titlesTextPresetParams(QStringLiteral("Slide Up")).italic);
+    CHECK_FALSE(titlesTextPresetParams(QStringLiteral("Title01")).italic);
 }

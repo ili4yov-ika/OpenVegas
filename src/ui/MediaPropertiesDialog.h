@@ -1,6 +1,6 @@
 #pragma once
 
-#include "video/TitlesTextApply.h"
+#include "video/GeneratorMediaProps.h"
 
 #include <QDialog>
 #include <QString>
